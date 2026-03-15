@@ -1,0 +1,48 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+dist-ssr
+*.tsbuildinfo
+home-assistant-hakit-dashboard@*
+
+# Environment and secrets (never commit)
+.env
+.env.*
+!.env.example
+
+# Local overrides (e.g. vite.config.local.ts)
+*.local
+
+# Regenerated locally with npm run sync (do not commit)
+supported-types.d.ts
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Test / coverage
+coverage
+*.lcov
+
+# Backup zips (raw code for moving)
+home-assistant-hakit-dashboard-backup-*.zip
+ha-dashboard-backup-*.zip
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.cursor
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

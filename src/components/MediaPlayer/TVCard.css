@@ -1,0 +1,643 @@
+/* TV Card */
+.tv-card {
+  background: rgba(18, 19, 22, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+/* TV Status Row */
+.tv-status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.tv-icon-container {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(40, 40, 60, 0.8);
+  border-radius: 0.5rem;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.tv-icon {
+  font-size: 1.5rem;
+  color: #3b82f6;
+}
+
+.tv-artwork {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0.5rem;
+}
+
+.tv-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.tv-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #e4e4e7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tv-source {
+  font-size: 0.75rem;
+  color: #a1a1aa;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Remote button */
+.tv-remote-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: 50%;
+  color: #a1a1aa;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.tv-remote-btn:hover {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
+}
+
+.tv-remote-btn:active {
+  transform: scale(0.95);
+}
+
+.tv-remote-btn svg {
+  font-size: 1.25rem;
+}
+
+.tv-play-pause-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.tv-play-pause-btn.playing {
+  color: white;
+  background: #3b82f6;
+}
+
+.tv-play-pause-btn.playing:hover {
+  background: #2563eb;
+}
+
+.tv-play-pause-btn.paused {
+  color: #71717a;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tv-play-pause-btn.paused:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.tv-play-pause-btn:active {
+  transform: scale(0.95);
+}
+
+.tv-play-pause-btn svg {
+  font-size: 1.25rem;
+}
+
+.tv-power-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: 50%;
+  color: #e4e4e7;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.tv-power-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.tv-power-btn.on {
+  background: #3b82f6;
+  color: white;
+}
+
+.tv-power-btn.on:hover {
+  background: #2563eb;
+}
+
+.tv-power-btn.off {
+  background: rgba(100, 100, 120, 0.4);
+  color: #a1a1aa;
+}
+
+.tv-power-btn svg {
+  font-size: 1.25rem;
+}
+
+/* Volume Row - Match Sonos styling */
+.tv-volume-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(24, 25, 28, 0.8);
+  border-radius: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.tv-btn-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #a1a1aa;
+  cursor: pointer;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+
+.tv-btn-icon:hover {
+  color: #e4e4e7;
+}
+
+.tv-btn-icon svg {
+  font-size: 1.25rem;
+}
+
+.slider-with-bubble {
+  flex: 1;
+  position: relative;
+}
+
+.tv-volume-slider {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  outline: none;
+  width: 100%;
+}
+
+.tv-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: #3b82f6;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.tv-volume-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: #3b82f6;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+}
+
+.slider-value-bubble {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  color: #e4e4e7;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 10;
+}
+
+.slider-with-bubble.show-bubble .slider-value-bubble {
+  opacity: 1;
+}
+
+.tv-volume-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+.tv-btn-sm {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  color: #e4e4e7;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tv-btn-sm:hover {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.tv-btn-sm svg {
+  font-size: 1.25rem;
+}
+
+.tv-volume-value {
+  font-size: 0.75rem;
+  color: #a1a1aa;
+  min-width: 32px;
+  text-align: center;
+}
+
+/* Source Toggle – match Sonos card (SonosPlayer.css .sonos-source-toggle) */
+.tv-source-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.5rem;
+  color: #e4e4e7;
+  font-size: 0.8rem;
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+  transition: all 0.15s;
+}
+
+.tv-source-toggle svg:first-child {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  color: #e4e4e7;
+}
+
+.tv-source-toggle:hover {
+  background: rgba(50, 50, 70, 0.6);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #e4e4e7;
+}
+
+/* Highlight when the source panel is expanded */
+.tv-source-toggle.open {
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #3b82f6;
+}
+
+.tv-source-toggle.open svg:first-child {
+  color: #3b82f6;
+}
+
+.tv-source-toggle.active svg:last-child {
+  color: #71717a;
+}
+
+.tv-source-toggle span,
+.tv-source-toggle .tv-source-toggle-label {
+  flex: 1;
+  text-align: left;
+}
+
+.tv-source-toggle svg:last-child {
+  font-size: 1rem;
+  color: #71717a;
+}
+
+/* Source Panel */
+.tv-source-panel {
+  background: rgba(18, 19, 22, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.source-section-label {
+  display: block;
+  font-size: 0.65rem;
+  color: #71717a;
+  text-transform: uppercase;
+  padding: 0.25rem 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.tv-source-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: none;
+  border-radius: 0.4rem;
+  color: #e4e4e7;
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+  margin-bottom: 0.25rem;
+}
+
+.tv-source-item:last-child {
+  margin-bottom: 0;
+}
+
+.tv-source-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e4e4e7;
+}
+
+.tv-source-item.active {
+  background: rgba(59, 130, 246, 0.25);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  border-radius: 0.4rem;
+}
+
+.tv-source-item svg:first-child {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  color: #e4e4e7;
+}
+
+.tv-source-item.active svg:first-child {
+  color: #3b82f6;
+}
+
+.tv-source-item.active span {
+  color: #3b82f6;
+}
+
+.tv-source-item .check {
+  margin-left: auto;
+  color: #22c55e;
+  flex-shrink: 0;
+}
+
+.tv-source-item span {
+  flex: 1;
+  text-align: left;
+}
+
+/* TV Lift Section */
+.tv-lift-section {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tv-lift-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tv-lift-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  color: #e4e4e7;
+  font-size: 0.85rem;
+}
+
+.tv-lift-title svg {
+  font-size: 1.1rem;
+  color: #a1a1aa;
+}
+
+.tv-lift-quick {
+  display: flex;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.tv-lift-quick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.65rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.4rem;
+  color: #e4e4e7;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 0.8rem;
+}
+
+.tv-lift-quick-btn:hover {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.tv-lift-quick-btn svg {
+  font-size: 1rem;
+  color: #a1a1aa;
+}
+
+.tv-lift-toggle {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.5rem;
+  color: #a1a1aa;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tv-lift-toggle:hover {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.28);
+}
+
+.tv-lift-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.tv-lift-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.tv-lift-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.75rem 0.5rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  color: #e4e4e7;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tv-lift-btn:hover {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.tv-lift-btn svg {
+  font-size: 1.3rem;
+  color: #a1a1aa;
+}
+
+.tv-lift-btn .primary {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.tv-lift-btn .secondary {
+  font-size: 0.7rem;
+  color: #a1a1aa;
+}
+
+/* Living Room: Position buttons */
+.tv-lift-position-buttons {
+  display: flex;
+  gap: 0.35rem;
+  margin-left: auto;
+  align-items: center;
+}
+
+/* Bedroom TV: Match blinds container gap */
+.tv-lift-position-buttons.bedroom-buttons {
+  gap: 0.5rem;
+}
+
+.tv-lift-position-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.65rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.4rem;
+  color: #e4e4e7;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 0.8rem;
+}
+
+/* Living Room TV buttons */
+.tv-lift-position-btn:hover {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.tv-lift-position-btn.active {
+  background: rgba(59, 130, 246, 0.25);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #3b82f6;
+}
+
+.tv-lift-position-btn svg {
+  font-size: 1rem;
+  color: #a1a1aa;
+}
+
+.tv-lift-position-btn.active svg {
+  color: #3b82f6;
+}
+
+/* Bedroom TV buttons - clean class without inheritance, matching .cover-quick-btn exactly */
+.tv-lift-btn-bedroom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.375rem;
+  color: #a1a1aa;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tv-lift-btn-bedroom:hover {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #3b82f6;
+}
+
+.tv-lift-btn-bedroom.active {
+  background: rgba(59, 130, 246, 0.25);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #3b82f6;
+}
+
+.tv-lift-btn-bedroom svg {
+  font-size: 1rem;
+  color: #a1a1aa;
+}
+
+.tv-lift-btn-bedroom:hover svg {
+  color: #3b82f6;
+}
+
+.tv-lift-btn-bedroom.active svg {
+  color: #3b82f6;
+}
+

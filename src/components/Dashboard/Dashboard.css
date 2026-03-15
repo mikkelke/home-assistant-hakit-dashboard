@@ -1,0 +1,99 @@
+/* Dashboard Layout */
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  height: 100%;
+  width: 100%;
+  overflow: hidden; /* single scroll is .rooms-container for HA companion app */
+  touch-action: pan-y;
+  background: #0d0f13;
+  color: #e4e4e7;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+}
+
+/* Wrapper for overview + room detail: centers content, row when detail open */
+.dashboard-main {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* When room detail is open (desktop): overview and detail side by side, centered */
+.dashboard.has-detail .dashboard-main {
+  flex-direction: row;
+  justify-content: center;
+  align-items: stretch;
+  gap: 0;
+}
+
+/* When no room selected, center the content; flex chain so .rooms-container can scroll */
+.dashboard-content {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-width: 1100px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-inline: 0.5rem;
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom)); /* Space for floating quick access bar */
+}
+
+/* When room detail is open: overview + detail sit next to each other (no auto margins) */
+.dashboard.has-detail .dashboard-content {
+  flex: 0 0 auto;
+  max-width: 700px;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* Overlay for mobile */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 99;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Responsive - Mobile */
+@media (max-width: 700px) {
+  .dashboard.has-detail .dashboard-content {
+    display: none;
+  }
+  
+  .dashboard-content {
+    max-width: 100%;
+    width: 100%;
+    padding-inline: 0.5rem;
+  }
+}
+
+/* Responsive - Tablet/Small desktop */
+@media (min-width: 701px) and (max-width: 1100px) {
+  .dashboard.has-detail .dashboard-content {
+    max-width: 520px;
+  }
+}
+

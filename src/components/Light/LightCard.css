@@ -1,0 +1,473 @@
+/* Light Card */
+.light-card {
+  background: rgba(18, 19, 22, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.light-card.expanded {
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+/* Header */
+.light-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background: transparent;
+  border: none;
+  color: #e4e4e7;
+  cursor: pointer;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.light-header:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.light-header-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  pointer-events: none;
+}
+
+.light-icon {
+  font-size: 1.5rem;
+  color: #71717a;
+  transition: color 0.2s;
+}
+
+.light-icon.on {
+  color: #fbbf24;
+  filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.5));
+}
+
+.light-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.light-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.light-count {
+  font-size: 0.75rem;
+  color: #a1a1aa;
+}
+
+.light-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.light-toggle-all {
+  padding: 0.35rem 0.75rem;
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.35rem;
+  color: #a1a1aa;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.light-toggle-all:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #e4e4e7;
+}
+
+.light-toggle-all.on {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #e4e4e7;
+}
+
+.light-header-right > svg:last-child {
+  font-size: 1.25rem;
+  color: #71717a;
+  pointer-events: none;
+}
+
+/* Content */
+.light-content {
+  padding: 0 1rem 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  background: rgba(18, 19, 22, 0.85);
+}
+
+/* Light Item */
+.light-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(40, 40, 60, 0.5);
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.2s ease-out, border-color 0.2s ease-out;
+}
+
+.light-item.on {
+  background: rgba(251, 191, 36, 0.08);
+  border-color: rgba(251, 191, 36, 0.2);
+}
+
+.light-item-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.light-item-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  color: #e4e4e7;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  flex: 1;
+  transition: transform 0.1s ease-out;
+}
+
+.light-item-toggle:active {
+  transform: scale(0.98);
+}
+
+.light-color-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.4rem;
+  color: #71717a;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.light-color-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #3b82f6;
+}
+
+.light-color-btn svg {
+  font-size: 1.1rem;
+}
+
+.light-item-icon {
+  font-size: 1.25rem;
+  color: #71717a;
+  transition: color 0.15s ease-out, transform 0.15s ease-out;
+}
+
+.light-item-icon.on {
+  color: #fbbf24;
+  transform: scale(1.1);
+}
+
+.light-item-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  flex: 1;
+}
+
+/* Brightness Slider */
+.light-brightness {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  position: relative;
+}
+
+.slider-with-bubble {
+  flex: 1;
+  position: relative;
+  touch-action: pan-x;
+  -webkit-user-select: none;
+  user-select: none;
+  /* Ensure slider container doesn't block touch events in HA app WebView */
+  pointer-events: auto;
+}
+
+.brightness-slider {
+  flex: 1;
+  height: 6px;
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  background: linear-gradient(to right, #3b3b5c, #fbbf24);
+  border-radius: 3px;
+  outline: none;
+  touch-action: pan-x;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  /* Ensure slider is interactive in HA app WebView */
+  pointer-events: auto;
+}
+
+.brightness-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #ffffff;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s;
+}
+
+.brightness-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.brightness-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: #ffffff;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.slider-value-bubble {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  color: #e4e4e7;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 10;
+}
+
+.slider-with-bubble.show-bubble .slider-value-bubble {
+  opacity: 1;
+}
+
+.brightness-value {
+  font-size: 0.75rem;
+  color: #a1a1aa;
+  min-width: 35px;
+  text-align: right;
+}
+
+/* Color Picker Modal */
+.color-picker-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.color-picker-modal {
+  background: rgba(18, 19, 22, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  max-width: 400px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.color-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.color-picker-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.color-picker-close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: 50%;
+  color: #a1a1aa;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.color-picker-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #e4e4e7;
+}
+
+.color-picker-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.5rem;
+  padding: 0.25rem;
+}
+
+.color-picker-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: none;
+  border-radius: 0.35rem;
+  color: #a1a1aa;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.color-picker-tab.active {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.color-picker-tab svg {
+  font-size: 1.1rem;
+}
+
+.color-picker-content {
+  min-height: 200px;
+}
+
+/* Color Palette */
+.color-palette {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.color-swatch {
+  aspect-ratio: 1;
+  border-radius: 0.5rem;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.color-swatch:hover {
+  transform: scale(1.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.color-swatch.selected {
+  border-color: #3b82f6;
+  border-width: 3px;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+.color-swatch svg {
+  font-size: 1.2rem;
+  color: white;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+/* Color Temperature Presets */
+.color-temp-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.color-temp-preset {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  color: #e4e4e7;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.color-temp-preset:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.color-temp-preset.selected {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+}
+
+.color-temp-indicator {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+.color-temp-preset span {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.color-temp-preset svg {
+  font-size: 1.2rem;
+  color: #3b82f6;
+}
+

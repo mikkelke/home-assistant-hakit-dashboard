@@ -1,0 +1,277 @@
+/* Intercom Card */
+.intercom-card {
+  background: rgba(18, 19, 22, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.intercom-card.no-inner-header .intercom-header {
+  display: none;
+}
+
+
+.intercom-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: transparent;
+  border: none;
+  color: #e4e4e7;
+  cursor: pointer;
+  padding: 0;
+}
+
+.intercom-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.intercom-header-left svg {
+  font-size: 1.25rem;
+  color: #60a5fa;
+}
+
+.intercom-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.intercom-sub {
+  font-size: 0.75rem;
+  color: #71717a;
+}
+
+.intercom-sub.on {
+  color: #22c55e;
+}
+
+.intercom-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  background: rgba(24, 25, 28, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.6rem;
+  padding: 0.6rem;
+}
+
+.intercom-card:not(.no-inner-header) .intercom-content {
+  margin-top: 0.75rem;
+}
+
+.intercom-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.5rem;
+  color: #e4e4e7;
+  cursor: pointer;
+}
+
+.intercom-toggle.on {
+  border-color: rgba(34, 197, 94, 0.4);
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.toggle-indicator {
+  margin-left: auto;
+  width: 38px;
+  height: 20px;
+  border-radius: 10px;
+  background: rgba(100, 100, 120, 0.4);
+  position: relative;
+  transition: all 0.2s;
+}
+
+.toggle-indicator::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #a1a1aa;
+  transition: all 0.2s;
+}
+
+.toggle-indicator.on {
+  background: rgba(34, 197, 94, 0.5);
+}
+
+.toggle-indicator.on::after {
+  left: 20px;
+  background: #22c55e;
+}
+
+.intercom-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.intercom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.65rem 0.5rem;
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.5rem;
+  color: #e4e4e7;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.intercom-btn:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.intercom-btn svg {
+  font-size: 1.1rem;
+  color: #60a5fa;
+}
+
+.intercom-apt {
+  margin-top: 0.25rem;
+  padding: 0.65rem;
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.5rem;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.apt-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1;
+}
+
+.apt-line {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: #d4d4d8;
+}
+
+.apt-line svg {
+  font-size: 1rem;
+  color: #60a5fa;
+}
+
+.apt-pill {
+  margin-left: auto;
+  padding: 0.1rem 0.5rem;
+  border-radius: 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.apt-pill.locked {
+  background: rgba(59, 130, 246, 0.18);
+  color: #60a5fa;
+}
+
+.apt-pill.unlocked {
+  background: rgba(239, 68, 68, 0.18);
+  color: #ef4444;
+}
+
+.apt-pill.open {
+  background: rgba(239, 68, 68, 0.18);
+  color: #ef4444;
+}
+
+.apt-pill.closed {
+  background: rgba(34, 197, 94, 0.18);
+  color: #22c55e;
+}
+
+.apt-lock-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.85rem;
+  background: rgba(24, 25, 28, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.5rem;
+  color: #e4e4e7;
+  cursor: pointer;
+}
+
+.apt-lock-btn.locked:hover {
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.apt-lock-btn.unlocked:hover {
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.apt-lock-btn svg {
+  font-size: 1rem;
+}
+
+.intercom-last-ring {
+  padding: 0.45rem 0.55rem;
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.last-ring-header {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: #d4d4d8;
+  flex-wrap: wrap;
+}
+
+.last-ring-header svg {
+  font-size: 0.85rem;
+  color: #60a5fa;
+}
+
+.last-ring-door {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: #a1a1aa;
+  font-weight: 500;
+}
+
+.last-ring-time {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.last-ring-relative {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.last-ring-exact {
+  font-size: 0.65rem;
+  color: #a1a1aa;
+}
+

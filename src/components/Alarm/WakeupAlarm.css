@@ -1,0 +1,258 @@
+/* Wakeup Alarm Card */
+.wakeup-alarm {
+  background: rgba(30, 30, 50, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  transition: all 0.2s;
+}
+
+.wakeup-alarm.enabled {
+  border-color: rgba(251, 191, 36, 0.3);
+  background: rgba(251, 191, 36, 0.05);
+}
+
+/* Main Row */
+.alarm-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.alarm-toggle {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(40, 40, 60, 0.6);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.alarm-toggle svg {
+  font-size: 1.5rem;
+  color: #71717a;
+  transition: all 0.2s;
+}
+
+.alarm-toggle.on {
+  background: rgba(251, 191, 36, 0.2);
+}
+
+.alarm-toggle.on svg {
+  color: #fbbf24;
+}
+
+.alarm-toggle:hover {
+  transform: scale(1.05);
+}
+
+/* Alarm Info */
+.alarm-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.alarm-label {
+  font-size: 0.7rem;
+  color: #71717a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.alarm-time {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.time-display {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #e4e4e7;
+  font-variant-numeric: tabular-nums;
+}
+
+.wakeup-alarm.enabled .time-display {
+  color: #fbbf24;
+}
+
+.wakeup-alarm.disabled .time-display {
+  opacity: 0.5;
+}
+
+.edit-icon {
+  font-size: 0.9rem;
+  color: #71717a;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.alarm-time:hover .edit-icon {
+  opacity: 1;
+}
+
+/* Toggle Switch */
+.alarm-switch {
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.switch-track {
+  width: 44px;
+  height: 24px;
+  background: rgba(100, 100, 120, 0.4);
+  border-radius: 12px;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.alarm-switch.on .switch-track {
+  background: rgba(251, 191, 36, 0.4);
+}
+
+.switch-thumb {
+  width: 20px;
+  height: 20px;
+  background: #71717a;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: all 0.2s;
+}
+
+.alarm-switch.on .switch-thumb {
+  left: 22px;
+  background: #fbbf24;
+}
+
+/* Time Editor */
+.alarm-editor {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.time-picker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.time-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.time-btn {
+  width: 40px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: 0.35rem;
+  color: #a1a1aa;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.time-btn:hover {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+}
+
+.time-btn svg {
+  font-size: 1.25rem;
+}
+
+.time-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #fbbf24;
+  font-variant-numeric: tabular-nums;
+  min-width: 56px;
+  text-align: center;
+}
+
+.time-separator {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #fbbf24;
+  margin: 0 0.25rem;
+}
+
+/* Presets */
+.alarm-presets {
+  display: flex;
+  justify-content: center;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.preset-btn {
+  padding: 0.35rem 0.6rem;
+  background: rgba(40, 40, 60, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.35rem;
+  color: #a1a1aa;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.preset-btn:hover {
+  background: rgba(251, 191, 36, 0.15);
+  border-color: rgba(251, 191, 36, 0.3);
+  color: #fbbf24;
+}
+
+.preset-btn.active {
+  background: rgba(251, 191, 36, 0.2);
+  border-color: rgba(251, 191, 36, 0.5);
+  color: #fbbf24;
+}
+
+/* Done Button */
+.done-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  background: rgba(251, 191, 36, 0.15);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 0.5rem;
+  color: #fbbf24;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.done-btn:hover {
+  background: rgba(251, 191, 36, 0.25);
+}
+
+.done-btn svg {
+  font-size: 1.1rem;
+}
+

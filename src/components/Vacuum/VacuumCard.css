@@ -1,0 +1,903 @@
+/* Vacuum Card */
+.vacuum-card {
+  background: rgba(20, 21, 24, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.vacuum-card.expanded {
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.vacuum-card.active {
+  border-color: rgba(16, 185, 129, 0.5);
+  background: rgba(16, 185, 129, 0.05);
+}
+
+/* Header */
+.vacuum-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background: transparent;
+  border: none;
+  color: #e4e4e7;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.vacuum-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.vacuum-header-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.vacuum-icon {
+  font-size: 1.75rem;
+  color: #71717a; /* Default: muted gray for idle */
+  transition: color 0.3s ease;
+}
+
+.vacuum-icon.idle {
+  color: #71717a; /* Muted gray - no glow when idle */
+  filter: none;
+}
+
+.vacuum-icon.working {
+  color: #10b981; /* Green when working */
+  filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.8));
+  animation: vacuum-move 1s ease-in-out infinite, vacuum-glow 2s ease-in-out infinite;
+}
+
+.vacuum-icon.error {
+  color: #ef4444; /* Red for error/offline */
+  filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.6));
+}
+
+@keyframes vacuum-move {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  25% { transform: translateX(3px) rotate(5deg); }
+  75% { transform: translateX(-3px) rotate(-5deg); }
+}
+
+@keyframes vacuum-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.8));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px rgba(16, 185, 129, 1));
+  }
+}
+
+.vacuum-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.vacuum-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.vacuum-state-text {
+  font-size: 0.75rem;
+  color: #a1a1aa;
+  text-transform: capitalize;
+}
+
+.vacuum-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.vacuum-power-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  color: #bfdbfe;
+}
+
+.vacuum-power-chip svg {
+  font-size: 1rem;
+  color: #93c5fd;
+}
+
+.vacuum-battery {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(100, 100, 120, 0.4);
+  border: 1px solid transparent;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  color: #a1a1aa;
+  cursor: pointer;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+  font-family: inherit;
+}
+
+.vacuum-battery:focus {
+  outline: none;
+}
+
+.vacuum-battery:hover {
+  background: rgba(100, 100, 120, 0.55);
+}
+
+.vacuum-battery.charging {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.35), inset 0 0 8px rgba(16, 185, 129, 0.08);
+  animation: vacuum-battery-charging-glow 2.5s ease-in-out infinite;
+}
+
+@keyframes vacuum-battery-charging-glow {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.35), inset 0 0 8px rgba(16, 185, 129, 0.08);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(16, 185, 129, 0.5), inset 0 0 10px rgba(16, 185, 129, 0.12);
+  }
+}
+
+.vacuum-battery svg {
+  font-size: 1rem;
+  color: #10b981;
+}
+
+.vacuum-header-right > svg:last-child {
+  font-size: 1.25rem;
+  color: #71717a;
+}
+
+/* Content */
+.vacuum-content {
+  padding: 0.5rem 1rem 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.vacuum-info-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem 0;
+}
+
+.vacuum-info-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #a1a1aa;
+  font-size: 0.85rem;
+}
+
+.vacuum-info-item svg {
+  font-size: 1.25rem;
+  color: #10b981;
+}
+
+.vacuum-info-item.error {
+  color: #ef4444;
+}
+
+.vacuum-info-item.error svg {
+  color: #ef4444;
+}
+
+.vacuum-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.vacuum-progress-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: #e4e4e7;
+}
+
+.vacuum-progress-header svg {
+  font-size: 1.25rem;
+  color: #71717a;
+}
+
+.vacuum-progress-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.vacuum-progress-header .value {
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.vacuum-live-button {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 0.5rem;
+  color: #10b981;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.vacuum-live-button:hover {
+  background: rgba(16, 185, 129, 0.25);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #34d399;
+}
+
+.vacuum-live-button:active {
+  transform: scale(0.98);
+}
+
+.vacuum-live-button svg {
+  font-size: 1rem;
+}
+
+.vacuum-progress-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1;
+}
+
+.vacuum-progress-text .room {
+  font-size: 1rem;
+  color: #e4e4e7;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.vacuum-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.vacuum-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #10b981);
+  width: 0%;
+  border-radius: 999px;
+  transition: width 0.2s ease;
+}
+
+.vacuum-maps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.vacuum-maps-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: #e4e4e7;
+}
+
+.vacuum-maps-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.vacuum-maps-text .label {
+  font-size: 0.9rem;
+}
+
+.vacuum-maps-text .sub {
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+.vacuum-maps-header .value {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: #e4e4e7;
+}
+
+.vacuum-maps-header .value.error {
+  color: #f97316;
+}
+
+.vacuum-maps-empty {
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+
+.vacuum-maps-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.vacuum-map-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.6rem 0.5rem;
+  background: rgba(18, 19, 22, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.5rem;
+  color: #e4e4e7;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.vacuum-map-button:hover {
+  background: rgba(36, 38, 43, 0.9);
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.vacuum-map-button svg:first-child {
+  font-size: 1.25rem;
+  color: #71717a;
+  flex-shrink: 0;
+}
+
+.vacuum-map-button svg:last-child {
+  display: none;
+}
+
+.vacuum-map-button-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  align-items: center;
+  width: 100%;
+}
+
+.vacuum-map-button-info .room {
+  font-size: 0.75rem;
+  color: #e4e4e7;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.vacuum-map-button-info .date {
+  font-size: 0.65rem;
+  color: #9ca3af;
+  text-align: center;
+}
+
+/* Map Modal */
+.vacuum-map-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 9998;
+  backdrop-filter: blur(4px);
+}
+
+.vacuum-map-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90vw;
+  max-width: 1200px;
+  max-height: 90vh;
+  background: rgba(18, 19, 22, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  touch-action: pan-y pinch-zoom;
+  -webkit-overflow-scrolling: touch;
+}
+
+.vacuum-map-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.vacuum-map-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.vacuum-map-modal-title svg {
+  font-size: 1.5rem;
+  color: #10b981;
+}
+
+.vacuum-map-modal-title > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.vacuum-map-modal-title .room {
+  font-size: 1rem;
+  color: #e4e4e7;
+  font-weight: 500;
+}
+
+.vacuum-map-modal-title .date {
+  font-size: 0.85rem;
+  color: #9ca3af;
+}
+
+.vacuum-map-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  color: #e4e4e7;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.vacuum-map-modal-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.vacuum-map-modal-close svg {
+  font-size: 1.25rem;
+}
+
+.vacuum-map-modal-content {
+  flex: 1;
+  overflow: auto;
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+.vacuum-map-modal-content img {
+  max-width: 100%;
+  max-height: calc(90vh - 120px);
+  object-fit: contain;
+  border-radius: 0.5rem;
+}
+
+/* Battery graph modal */
+.vacuum-battery-graph-modal {
+  max-width: 640px;
+}
+
+.vacuum-battery-graph-header {
+  gap: 0.75rem;
+}
+
+.vacuum-battery-graph-range {
+  display: flex;
+  gap: 0.2rem;
+  margin-left: auto;
+}
+
+.vacuum-battery-graph-range-btn {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.72rem;
+  font-family: inherit;
+  color: #71717a;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.3rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.vacuum-battery-graph-range-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e4e4e7;
+}
+
+.vacuum-battery-graph-range-btn.active {
+  background: rgba(52, 211, 153, 0.15);
+  border-color: rgba(52, 211, 153, 0.4);
+  color: #34d399;
+}
+
+.vacuum-battery-graph-content {
+  padding: 1.5rem;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vacuum-battery-graph-loading,
+.vacuum-battery-graph-error,
+.vacuum-battery-graph-empty {
+  color: #9ca3af;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.vacuum-battery-graph-single {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  color: #9ca3af;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.vacuum-battery-graph-single svg {
+  font-size: 2.5rem;
+  color: #34d399;
+}
+
+.vacuum-battery-graph-single strong {
+  color: #e4e4e7;
+}
+
+.vacuum-battery-graph-error {
+  color: #f87171;
+}
+
+.vacuum-battery-graph-wrap {
+  width: 100%;
+  max-width: 100%;
+}
+
+.vacuum-battery-graph-svg {
+  width: 100%;
+  height: auto;
+  max-height: 240px;
+}
+
+/* Brighter line so it's visible on dark background */
+.vacuum-battery-graph-line {
+  filter: drop-shadow(0 0 1px rgba(52, 211, 153, 0.8));
+}
+
+.vacuum-battery-graph-label {
+  fill: #9ca3af;
+  font-size: 11px;
+}
+
+.vacuum-battery-graph-axis {
+  font-size: 10px;
+}
+
+@media (max-width: 768px) {
+  .vacuum-map-modal {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    top: 0;
+    left: 0;
+    transform: none;
+    border-radius: 0;
+  }
+
+  .vacuum-map-modal-content {
+    padding: 1rem;
+  }
+
+  .vacuum-map-modal-content img {
+    max-height: calc(100vh - 100px);
+  }
+}
+
+
+/* Controls */
+.vacuum-controls {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.vacuum-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.6rem 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  color: #e4e4e7;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 60px;
+}
+
+.vacuum-btn:hover {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.vacuum-btn svg {
+  font-size: 1.25rem;
+}
+
+.vacuum-btn span {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+
+.vacuum-btn.start {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #10b981;
+}
+
+.vacuum-btn.start:hover {
+  background: rgba(16, 185, 129, 0.3);
+}
+
+.vacuum-btn.pause {
+  background: rgba(251, 191, 36, 0.2);
+  border-color: rgba(251, 191, 36, 0.4);
+  color: #fbbf24;
+}
+
+.vacuum-btn.stop {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.vacuum-btn.home {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #3b82f6;
+}
+
+/* Room Cleaning Toggle */
+.room-cleaning-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: rgba(18, 19, 22, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.75rem;
+  color: #a1a1aa;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 1rem;
+}
+
+.room-cleaning-toggle:hover {
+  background: rgba(36, 38, 43, 0.9);
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.room-cleaning-toggle.requested {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.45);
+  color: #e4e4e7;
+}
+
+.room-cleaning-toggle svg {
+  font-size: 1.5rem;
+  color: #71717a;
+  transition: color 0.2s;
+}
+
+.room-cleaning-toggle.requested svg {
+  color: #3b82f6;
+}
+
+.room-cleaning-toggle svg.cleaning {
+  animation: vacuum-move 1s ease-in-out infinite;
+  color: #10b981;
+}
+
+.room-cleaning-toggle.small {
+  padding: 0.65rem 0.85rem;
+  margin-bottom: 0;
+}
+
+.toggle-text {
+  flex: 1;
+  text-align: left;
+  font-size: 0.85rem;
+}
+
+.toggle-subtext {
+  display: block;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin-top: 0.2rem;
+}
+
+.toggle-indicator {
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: rgba(100, 100, 120, 0.5);
+  position: relative;
+  transition: background 0.2s;
+}
+
+.toggle-indicator::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #71717a;
+  transition: all 0.2s;
+}
+
+.toggle-indicator.on {
+  background: rgba(59, 130, 246, 0.5);
+}
+
+.toggle-indicator.on::after {
+  left: 20px;
+  background: #3b82f6;
+}
+
+.room-cleaning-toggle-group {
+  width: 100%;
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.toggle-group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: #e4e4e7;
+  font-size: 0.9rem;
+  padding: 0 0.2rem;
+}
+
+.toggle-group-header svg {
+  color: #3b82f6;
+  font-size: 1.2rem;
+}
+
+.toggle-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.toggle-header-sub {
+  color: #9ca3af;
+  font-size: 0.8rem;
+}
+
+.toggle-group-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .toggle-group-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Vacuum Setting Toggle (Clean while home) */
+.vacuum-setting-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(40, 40, 60, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.5rem;
+  color: #a1a1aa;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.vacuum-setting-toggle:hover {
+  background: rgba(50, 50, 70, 0.8);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.vacuum-setting-toggle.on {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #e4e4e7;
+}
+
+.vacuum-setting-toggle svg {
+  font-size: 1.25rem;
+  color: #71717a;
+}
+
+.vacuum-setting-toggle.on svg {
+  color: #10b981;
+}
+
+.vacuum-setting-toggle .toggle-label {
+  flex: 1;
+  text-align: left;
+  font-size: 0.85rem;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: rgba(100, 100, 120, 0.5);
+  position: relative;
+  transition: background 0.2s;
+}
+
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #71717a;
+  transition: all 0.2s;
+}
+
+.toggle-switch.on {
+  background: rgba(16, 185, 129, 0.5);
+}
+
+.toggle-switch.on::after {
+  left: 20px;
+  background: #10b981;
+}
+

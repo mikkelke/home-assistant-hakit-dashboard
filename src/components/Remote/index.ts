@@ -1,0 +1,1 @@
+export { AppleTVRemote } from './AppleTVRemote';

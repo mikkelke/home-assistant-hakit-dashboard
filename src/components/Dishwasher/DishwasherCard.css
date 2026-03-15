@@ -1,0 +1,322 @@
+/* Dishwasher Card - mirrors Washer card patterns */
+.dishwasher-card {
+  background: rgba(20, 21, 24, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.dishwasher-card.state-running {
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.dishwasher-card.state-unemptied {
+  border-color: rgba(234, 179, 8, 0.4);
+}
+
+/* Header */
+.dishwasher-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+}
+
+.dishwasher-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.dishwasher-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+}
+
+.dishwasher-icon-wrap.dancing {
+  animation: dishwasher-dance 1.2s ease-in-out infinite;
+}
+
+@keyframes dishwasher-dance {
+  0%, 100% { transform: translateX(0) translateY(0) rotate(-4deg); }
+  25% { transform: translateX(2px) translateY(-2px) rotate(4deg); }
+  50% { transform: translateX(-1px) translateY(0) rotate(-3deg); }
+  75% { transform: translateX(-2px) translateY(-2px) rotate(4deg); }
+}
+
+.dishwasher-icon {
+  font-size: 1.5rem;
+  color: #71717a;
+}
+
+.dishwasher-card.state-running .dishwasher-icon {
+  color: #3b82f6;
+  filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.5));
+}
+
+.dishwasher-card.state-running .dishwasher-icon-wrap.dancing .dishwasher-icon {
+  animation: dishwasher-glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes dishwasher-glow-pulse {
+  0%, 100% { opacity: 1; filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.5)); }
+  50% { opacity: 0.9; filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.7)); }
+}
+
+.dishwasher-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.dishwasher-state-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 0.25rem 0.5rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: #a1a1aa;
+}
+
+.dishwasher-card.state-running .dishwasher-state-badge {
+  background: rgba(59, 130, 246, 0.25);
+  color: #60a5fa;
+}
+
+.dishwasher-card.state-unemptied .dishwasher-state-badge {
+  background: rgba(234, 179, 8, 0.25);
+  color: #eab308;
+}
+
+.dishwasher-card.state-paused .dishwasher-state-badge {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+}
+
+/* Body */
+.dishwasher-body {
+  padding: 0 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dishwasher-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dishwasher-field-label {
+  font-size: 0.85rem;
+  color: #a1a1aa;
+}
+
+.dishwasher-programme-select {
+  flex: 1;
+  max-width: 100%;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.9rem;
+  background: rgba(24, 25, 28, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  color: #e4e4e7;
+  cursor: pointer;
+}
+
+.dishwasher-programme-select:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.dishwasher-programme-value {
+  font-size: 0.9rem;
+  color: #e4e4e7;
+}
+
+.dishwasher-programme-value.muted {
+  color: #71717a;
+}
+
+/* Progress */
+.dishwasher-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.dishwasher-progress-bar {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.dishwasher-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #10b981);
+  width: 0%;
+  border-radius: 999px;
+  transition: width 0.2s ease;
+}
+
+.dishwasher-progress-pct {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #a1a1aa;
+  min-width: 2.5rem;
+  text-align: right;
+}
+
+.dishwasher-countdown-line {
+  font-size: 0.8rem;
+  color: #71717a;
+}
+
+.dishwasher-running-placeholder {
+  font-style: italic;
+}
+
+/* Stats (Unemptied) */
+.dishwasher-stats {
+  font-size: 0.85rem;
+  color: #a1a1aa;
+}
+
+/* Banners */
+.dishwasher-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.dishwasher-banner svg {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.dishwasher-banner.paused {
+  background: rgba(251, 191, 36, 0.15);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  color: #fbbf24;
+}
+
+.dishwasher-banner.unemptied {
+  background: rgba(234, 179, 8, 0.15);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  color: #eab308;
+}
+
+/* Cycle history */
+.dishwasher-history-section {
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dishwasher-history-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #e4e4e7;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dishwasher-history-empty,
+.dishwasher-history-error,
+.dishwasher-history-configure {
+  font-size: 0.85rem;
+  color: #71717a;
+  padding: 0.5rem 0;
+}
+
+.dishwasher-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.dishwasher-cycle-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.8rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 0.4rem;
+  border: 1px solid transparent;
+}
+
+.dishwasher-cycle-row.unconfirmed {
+  background: rgba(234, 179, 8, 0.08);
+  border-color: rgba(234, 179, 8, 0.2);
+}
+
+.dishwasher-cycle-row .dishwasher-cycle-ts {
+  color: #a1a1aa;
+  white-space: nowrap;
+}
+
+.dishwasher-cycle-row .dishwasher-cycle-duration {
+  color: #e4e4e7;
+}
+
+.dishwasher-cycle-row .dishwasher-cycle-energy {
+  color: #a1a1aa;
+}
+
+.dishwasher-cycle-row .dishwasher-cycle-programme {
+  font-weight: 500;
+  color: #e4e4e7;
+}
+
+.dishwasher-cycle-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.dishwasher-cycle-actions select {
+  padding: 0.2rem 0.35rem;
+  font-size: 0.75rem;
+  background: rgba(24, 25, 28, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.35rem;
+  color: #e4e4e7;
+  cursor: pointer;
+  min-width: 5rem;
+}
+
+.dishwasher-cycle-actions button {
+  padding: 0.2rem 0.4rem;
+  font-size: 0.75rem;
+  background: rgba(59, 130, 246, 0.25);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  border-radius: 0.35rem;
+  color: #60a5fa;
+  cursor: pointer;
+}
+
+.dishwasher-cycle-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dishwasher-history-loading {
+  font-size: 0.85rem;
+  color: #71717a;
+  padding: 0.5rem 0;
+}

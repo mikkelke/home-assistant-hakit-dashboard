@@ -1,0 +1,340 @@
+.weather-card {
+  background: rgba(18, 19, 22, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.75rem;
+  padding: 0.85rem;
+}
+
+.weather-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.weather-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.weather-header-left svg {
+  font-size: 1.3rem;
+  color: #60a5fa;
+}
+
+.weather-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.weather-sub {
+  font-size: 0.75rem;
+  color: #71717a;
+}
+
+.weather-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+@media (min-width: 1200px) {
+  .weather-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .weather-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.weather-item {
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 0.5rem;
+  padding: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.weather-item-clickable {
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.weather-item-clickable:hover {
+  background: rgba(40, 42, 48, 0.9);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.weather-item-clickable:active {
+  background: rgba(50, 52, 58, 0.9);
+}
+
+@media (min-width: 1200px) {
+  .weather-item {
+    padding: 0.85rem;
+    gap: 0.35rem;
+  }
+  
+  .weather-item .value {
+    font-size: 1.1rem;
+  }
+  
+  .weather-item .label {
+    font-size: 0.75rem;
+  }
+  
+  .weather-item .label-row svg {
+    font-size: 1.15rem;
+  }
+}
+
+.weather-item .label-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #a1a1aa;
+}
+
+.weather-item .label-row svg {
+  font-size: 1rem;
+  color: #60a5fa; /* Blue accent */
+}
+
+.weather-item .label {
+  font-size: 0.7rem;
+  color: #71717a;
+}
+
+.weather-item .value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.weather-item .value.subtle {
+  font-size: 0.8rem;
+  color: #a1a1aa;
+}
+
+.metric-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.metric-fill {
+  height: 100%;
+  width: 0%;
+  transition: width 0.2s;
+}
+
+.metric-fill.temp {
+  background: linear-gradient(90deg, #60a5fa, #f97316);
+}
+
+.metric-fill.temp.freeze { background: #0ea5e9; }
+.metric-fill.temp.chilly { background: #38bdf8; }
+.metric-fill.temp.mild { background: #22c55e; }
+.metric-fill.temp.warm { background: #f59e0b; }
+.metric-fill.temp.hot { background: #ef4444; }
+
+.metric-fill.humidity {
+  background: linear-gradient(90deg, #0ea5e9, #22c55e);
+}
+
+.metric-fill.wind {
+  background: linear-gradient(90deg, #a855f7, #ec4899);
+}
+
+.metric-fill.wind.b0 { background: #a1a1aa; }
+.metric-fill.wind.b1 { background: #7dd3fc; }
+.metric-fill.wind.b2 { background: #38bdf8; }
+.metric-fill.wind.b3 { background: #22c55e; }
+.metric-fill.wind.b4 { background: #84cc16; }
+.metric-fill.wind.b5 { background: #f59e0b; }
+.metric-fill.wind.b6 { background: #f97316; }
+.metric-fill.wind.b7 { background: #ef4444; }
+.metric-fill.wind.b8 { background: #db2777; }
+.metric-fill.wind.b9 { background: #9333ea; }
+.metric-fill.wind.b10 { background: #7e22ce; }
+
+.metric-fill.rain {
+  background: #0ea5e9;
+}
+.metric-fill.rain.light { background: #22c55e; }
+.metric-fill.rain.significant { background: #f59e0b; }
+.metric-fill.rain.heavy { background: #ef4444; }
+.metric-fill.rain.cloudburst { background: #7e22ce; }
+
+.compass {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.compass-rose {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  background: rgba(18, 19, 22, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.compass-center {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #e4e4e7;
+  border-radius: 50%;
+  border: 2px solid #0f172a;
+}
+
+.compass-rose .c-label {
+  position: absolute;
+  font-size: 0.6rem;
+  color: #71717a;
+}
+
+.compass-rose .c-n { top: 2px; left: 50%; transform: translateX(-50%); }
+.compass-rose .c-s { bottom: 2px; left: 50%; transform: translateX(-50%); }
+.compass-rose .c-e { right: 2px; top: 50%; transform: translateY(-50%); }
+.compass-rose .c-w { left: 2px; top: 50%; transform: translateY(-50%); }
+
+.compass-arrow-wrapper {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.compass-arrow {
+  position: absolute;
+  bottom: 50%;
+  left: 50%;
+  transform: translate(-50%, 0);
+  width: 2px;
+  height: 18px;
+  background: #fbbf24;
+  border-radius: 2px;
+  transform-origin: center bottom;
+  box-shadow: 0 0 4px rgba(251, 191, 36, 0.6);
+}
+
+/* Compass row - direction letter and compass on same line */
+.compass-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.compass-direction {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #e4e4e7;
+  min-width: 1.5rem;
+}
+
+/* Smaller compass rose for inline display */
+.compass-rose-small {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  background: rgba(18, 19, 22, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.compass-rose-small .c-label {
+  position: absolute;
+  font-size: 0.5rem;
+  color: #71717a;
+}
+
+.compass-rose-small .c-n { top: 2px; left: 50%; transform: translateX(-50%); }
+.compass-rose-small .c-s { bottom: 2px; left: 50%; transform: translateX(-50%); }
+.compass-rose-small .c-e { right: 2px; top: 50%; transform: translateY(-50%); }
+.compass-rose-small .c-w { left: 2px; top: 50%; transform: translateY(-50%); }
+
+.compass-rose-small .compass-center {
+  width: 6px;
+  height: 6px;
+}
+
+.compass-rose-small .compass-arrow {
+  height: 14px;
+  width: 2px;
+}
+
+/* Inline compass - simplified direction indicator */
+.compass-inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.25rem;
+}
+
+.compass-arrow-inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transition: transform 0.3s ease;
+}
+
+.compass-arrow-inline svg {
+  font-size: 1.25rem;
+  color: #fbbf24;
+  filter: drop-shadow(0 0 3px rgba(251, 191, 36, 0.5));
+}
+
+.bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  width: 0%;
+  transition: width 0.2s;
+}
+
+.bar-fill.uv {
+  background: linear-gradient(90deg, #22c55e, #fbbf24, #ef4444);
+}
+
+.bar-fill.lux {
+  background: linear-gradient(90deg, #0ea5e9, #eab308);
+}
+
+.bar-fill.irr {
+  background: linear-gradient(90deg, #3b82f6, #f97316);
+}
+

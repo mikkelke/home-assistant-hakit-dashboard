@@ -1,0 +1,448 @@
+/* Apple TV Remote - Realistic Siri Remote 3rd Gen */
+/* Using single base unit D (button diameter) for all proportions */
+
+.apple-remote-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  /* iOS-specific fixes to ensure overlay covers everything */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  /* Ensure it's above everything on iOS */
+  isolation: isolate;
+}
+
+.apple-remote-container {
+  position: relative;
+}
+
+.apple-remote-close {
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.apple-remote-close:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.apple-remote-close svg {
+  font-size: 1.5625rem;
+}
+
+/* ===========================================
+   REMOTE BODY
+   All sizes derived from base unit D
+   D = P / 2.35 where P is D-pad diameter
+   =========================================== */
+.apple-remote-body {
+  --W: 125px;
+  --H: calc(var(--W) * 3.9);
+  --corner-radius: calc(var(--W) * 0.14);
+  
+  /* D-pad diameter P = 0.85W (matches real remote ratio) */
+  --P: calc(var(--W) * 0.85);
+  
+  /* Base unit D - keep button size constant (was 0.72W/2.35*1.06 ≈ 0.325W) */
+  --D: calc(var(--W) * 0.325);
+  
+  /* Gap G = 0.11D */
+  --G: calc(var(--D) * 0.11);
+  
+  /* Column positions */
+  --x-left: 28%;
+  --x-right: 72%;
+
+  position: relative;
+  width: var(--W);
+  height: var(--H);
+
+  /* Aluminum body */
+  background: 
+    linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.05) 0%,
+      transparent 8%,
+      transparent 92%,
+      rgba(0, 0, 0, 0.05) 100%
+    ),
+    linear-gradient(
+      180deg,
+      #bbbcc0 0%,
+      #aaabaf 40%,
+      #9a9b9f 100%
+    );
+  background-color: #a8a9ad;
+
+  border-radius: var(--corner-radius);
+  
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.35),
+    0 3px 6px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: calc(var(--W) * 0.10);
+}
+
+/* ===========================================
+   POWER BUTTON - top right
+   =========================================== */
+.power-btn {
+  position: absolute;
+  top: calc(var(--W) * 0.10);
+  right: calc(var(--W) * 0.08);
+  width: calc(var(--D) * 0.55);
+  height: calc(var(--D) * 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #3a3a3f 0%, #2a2a2f 100%);
+  border: none;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.power-btn:hover {
+  background: linear-gradient(180deg, #c62828 0%, #b71c1c 100%);
+}
+
+.power-btn:active {
+  transform: scale(0.95);
+}
+
+.power-btn svg {
+  font-size: calc(var(--D) * 0.28);
+}
+
+/* ===========================================
+   CLICKPAD / D-PAD
+   Diameter P = 2.35D
+   =========================================== */
+.clickpad {
+  position: relative;
+  width: var(--P);
+  height: var(--P);
+  /* Gap from power button bottom: 0.10W edge-to-edge */
+  margin-top: calc(var(--W) * 0.10 + var(--D) * 0.55);
+  border-radius: 50%;
+  
+  /* Match button material: same dark graphite color */
+  background: radial-gradient(
+    circle at 30% 30%,
+    #3a3b40 0%,
+    #2f3034 50%,
+    #2a2a2f 100%
+  );
+  
+  /* Same shadow style as buttons, scaled for larger size */
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 2px 4px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: background 0.12s;
+}
+
+.clickpad:hover {
+  /* Match button hover highlight */
+  background: radial-gradient(
+    circle at 30% 30%,
+    #4a4b50 0%,
+    #3a3b40 50%,
+    #35363a 100%
+  );
+}
+
+/* Subtle lighting overlay - matches button style */
+.clickpad::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 30% 30%,
+    rgba(255, 255, 255, 0.08) 0%,
+    transparent 50%,
+    rgba(0, 0, 0, 0.05) 100%
+  );
+  pointer-events: none;
+}
+
+/* Clickpad sectors */
+.clickpad-sector {
+  position: absolute;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.clickpad-sector:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.clickpad-sector:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.clickpad-sector.up {
+  top: 0;
+  left: 22%;
+  width: 56%;
+  height: 36%;
+  border-radius: 50% 50% 0 0;
+  clip-path: polygon(50% 100%, 0 0, 100% 0);
+}
+
+.clickpad-sector.down {
+  bottom: 0;
+  left: 22%;
+  width: 56%;
+  height: 36%;
+  border-radius: 0 0 50% 50%;
+  clip-path: polygon(0 100%, 50% 0, 100% 100%);
+}
+
+.clickpad-sector.left {
+  left: 0;
+  top: 22%;
+  width: 36%;
+  height: 56%;
+  border-radius: 50% 0 0 50%;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.clickpad-sector.right {
+  right: 0;
+  top: 22%;
+  width: 36%;
+  height: 56%;
+  border-radius: 0 50% 50% 0;
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+}
+
+/* Segment seams - increased visibility 18-25% */
+.clickpad-divider {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.20);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.clickpad-divider.horizontal {
+  top: 50%;
+  left: 18%;
+  right: 18%;
+  height: 1px;
+  transform: translateY(-0.5px);
+}
+
+.clickpad-divider.vertical {
+  left: 50%;
+  top: 18%;
+  bottom: 18%;
+  width: 1px;
+  transform: translateX(-0.5px);
+}
+
+/* Center button - matches button material */
+.clickpad-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 42%;
+  height: 42%;
+  background: radial-gradient(
+    circle at 30% 30%,
+    #3a3a3f 0%,
+    #2f3034 50%,
+    #2a2a2f 100%
+  );
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.12s;
+  z-index: 2;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.clickpad-center:hover {
+  /* Match button hover highlight */
+  background: radial-gradient(
+    circle at 30% 30%,
+    #4a4a4f 0%,
+    #3a3a3f 50%,
+    #35363a 100%
+  );
+}
+
+.clickpad-center:active {
+  background: radial-gradient(
+    circle at 30% 30%,
+    #4a4a4f 0%,
+    #3a3a3f 50%,
+    #2f3034 100%
+  );
+}
+
+/* ===========================================
+   BUTTON GRID
+   2-column layout at 28% and 72% of width
+   Gap G = 0.11D between all elements
+   =========================================== */
+.button-grid {
+  position: relative;
+  width: 100%;
+  height: calc(var(--D) * 3 + var(--G) * 2);
+  /* Gap from D-pad bottom: ~1.0G (within 0.9-1.1G range) */
+  margin-top: var(--G);
+}
+
+/* Round buttons - all exactly D diameter */
+.remote-btn {
+  position: absolute;
+  width: var(--D);
+  height: var(--D);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #3a3a3f 0%, #2a2a2f 100%);
+  border: none;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: all 0.12s;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  -webkit-tap-highlight-color: transparent;
+  /* Center on column */
+  transform: translateX(-50%);
+}
+
+.remote-btn:hover {
+  background: linear-gradient(180deg, #4a4a4f 0%, #3a3a3f 100%);
+}
+
+.remote-btn:active {
+  transform: translateX(-50%) scale(0.94);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+}
+
+.remote-btn svg {
+  font-size: calc(var(--D) * 0.48);
+}
+
+/* Button positions - left column (28%) */
+.button-grid .remote-btn:nth-child(1) { left: var(--x-left); top: 0; }                              /* Back */
+.button-grid .remote-btn:nth-child(2) { left: var(--x-left); top: calc(var(--D) + var(--G)); }     /* Play/Pause */
+.button-grid .remote-btn:nth-child(3) { left: var(--x-left); top: calc(var(--D) * 2 + var(--G) * 2); } /* Mute */
+
+/* Button positions - right column (72%) */
+.button-grid .remote-btn:nth-child(4) { left: var(--x-right); top: 0; }                            /* TV */
+
+/* ===========================================
+   VOLUME ROCKER
+   Width = D, Height = 2D + G
+   Top aligns with Play/Pause, Bottom with Mute
+   =========================================== */
+.volume-rocker {
+  position: absolute;
+  left: var(--x-right);
+  top: calc(var(--D) + var(--G));
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: var(--D);
+  height: calc(var(--D) * 2 + var(--G));
+  background: linear-gradient(180deg, #3a3a3f 0%, #2a2a2f 100%);
+  border-radius: calc(var(--D) / 2);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.volume-btn {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.volume-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.volume-btn:active {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.volume-btn svg {
+  font-size: calc(var(--D) * 0.42);
+}
+
+.volume-divider {
+  width: 45%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+
+/* ===========================================
+   RESPONSIVE SCALING (25% larger)
+   =========================================== */
+@media (min-width: 768px) {
+  .apple-remote-body {
+    --W: 144px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .apple-remote-body {
+    --W: 163px;
+  }
+}

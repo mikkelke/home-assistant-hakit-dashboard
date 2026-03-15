@@ -1,0 +1,475 @@
+/* Climate Card */
+.climate-card {
+  background: rgba(18, 19, 22, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.climate-card.expanded {
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+/* Header - Collapsed View */
+.climate-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background: transparent;
+  border: none;
+  color: #e4e4e7;
+  cursor: pointer;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.climate-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.climate-header:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Ensure child elements don't block clicks */
+.climate-header-info,
+.climate-header-right,
+.climate-temps,
+.climate-icon,
+.climate-arrow,
+.climate-current,
+.climate-target,
+.climate-mode {
+  pointer-events: none;
+}
+
+.climate-header-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.climate-icon {
+  font-size: 1.5rem;
+  color: #f97316;
+}
+
+.climate-temps {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.climate-current {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.climate-arrow {
+  font-size: 1rem;
+  color: #71717a;
+}
+
+.climate-target {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #f97316;
+}
+
+.climate-target.heating {
+  color: #f97316;
+}
+
+.climate-target.at-target {
+  color: #a1a1aa; /* neutral when at target */
+}
+
+.climate-target.cooling {
+  color: #a1a1aa; /* neutral/gray when target is below current (no AC) */
+}
+
+.climate-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.climate-mode {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  border-radius: 0.25rem;
+  background: rgba(100, 100, 120, 0.4);
+  color: #a1a1aa;
+}
+
+.climate-mode.heat {
+  background: rgba(249, 115, 22, 0.2);
+  color: #f97316;
+}
+
+.climate-mode.auto {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.climate-header-right svg:last-child {
+  font-size: 1.25rem;
+  color: #71717a;
+}
+
+/* Content - Expanded View */
+.climate-content {
+  padding: 0 1rem 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Temperature Display */
+.climate-display {
+  display: flex;
+  justify-content: space-around;
+  padding: 1rem 0;
+  gap: 0.5rem;
+}
+
+.climate-display-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.climate-display-item svg {
+  font-size: 1.5rem;
+  color: #71717a;
+}
+
+.climate-display-item.target svg {
+  color: #f97316;
+}
+
+.climate-display-item.target.at-target svg {
+  color: #a1a1aa;
+}
+
+.climate-display-item.target.cooling svg {
+  color: #a1a1aa;
+}
+
+.climate-display-item.floor svg {
+  color: #ef4444;
+}
+
+.display-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #e4e4e7;
+}
+
+.climate-display-item.target .display-value {
+  color: #f97316;
+}
+
+.climate-display-item.target.heating .display-value,
+.climate-display-item.target.heating svg {
+  color: #f97316;
+}
+
+.climate-display-item.target.at-target .display-value {
+  color: #a1a1aa;
+}
+
+.climate-display-item.target.cooling .display-value {
+  color: #a1a1aa;
+}
+
+.climate-display-item.floor .display-value {
+  color: #ef4444;
+}
+
+.display-label {
+  font-size: 0.7rem;
+  color: #71717a;
+  text-transform: uppercase;
+}
+
+/* Temperature Slider */
+.climate-slider-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(40, 40, 60, 0.6);
+  border-radius: 0.5rem;
+  margin-bottom: 0.75rem;
+  position: relative;
+  touch-action: pan-x;
+}
+
+.slider-min,
+.slider-max {
+  font-size: 0.75rem;
+  color: #71717a;
+  min-width: 30px;
+}
+
+.slider-max {
+  text-align: right;
+}
+
+.climate-slider {
+  flex: 1;
+  height: 8px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: linear-gradient(to right, #3b82f6, #f97316, #ef4444);
+  border-radius: 4px;
+  outline: none;
+  touch-action: pan-x;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  /* Ensure slider is interactive in HA app WebView */
+  pointer-events: auto;
+}
+
+.slider-value-bubble {
+  position: absolute;
+  top: -18px;
+  transform: translateX(-50%);
+  padding: 2px 6px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #e4e4e7;
+  font-size: 0.65rem;
+  border-radius: 0.35rem;
+  pointer-events: none;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.slider-value-bubble.show {
+  opacity: 1;
+}
+
+.climate-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  background: #ffffff;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s;
+}
+
+.climate-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.climate-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  background: #ffffff;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Quick Adjust */
+.climate-quick-adjust {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.adjust-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 50%;
+  color: #e4e4e7;
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.adjust-btn:hover {
+  background: rgba(249, 115, 22, 0.3);
+  color: #f97316;
+}
+
+.adjust-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #f97316;
+  min-width: 80px;
+  text-align: center;
+}
+
+/* HVAC Mode Selector */
+.climate-modes {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.6rem 1rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  color: #a1a1aa;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 65px;
+}
+
+.mode-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #e4e4e7;
+}
+
+.mode-btn.active {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #3b82f6;
+}
+
+.mode-btn.active[title="Auto"] {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #3b82f6;
+}
+
+.mode-btn.active[title="Heat"] {
+  background: rgba(249, 115, 22, 0.2);
+  border-color: rgba(249, 115, 22, 0.5);
+  color: #f97316;
+}
+
+.mode-btn.active[title="Off"] {
+  background: rgba(100, 100, 120, 0.3);
+  border-color: rgba(100, 100, 120, 0.5);
+  color: #71717a;
+}
+
+.mode-btn svg {
+  font-size: 1.25rem;
+}
+
+.mode-btn span {
+  font-size: 0.65rem;
+  text-transform: capitalize;
+}
+
+/* Preset selector */
+.climate-presets {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.preset-btn {
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  color: #a1a1aa;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.preset-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #e4e4e7;
+}
+
+.preset-btn.active {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #3b82f6;
+}
+
+.preset-icon-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.6rem 1rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  color: #a1a1aa;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 70px;
+}
+
+.preset-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #e4e4e7;
+}
+
+.preset-icon-btn.active {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #3b82f6;
+}
+
+.preset-icon-btn.pending {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+  opacity: 0.85;
+}
+
+.preset-icon-btn svg {
+  font-size: 1.1rem;
+}
+
+.preset-icon-btn span {
+  font-size: 0.7rem;
+  text-transform: none;
+}
+
+.preset-helper {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: #a1a1aa;
+  margin-top: 0.25rem;
+  text-align: left;
+}
+
+.preset-helper svg {
+  font-size: 1rem;
+  color: #71717a;
+}
+

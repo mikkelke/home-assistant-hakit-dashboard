@@ -1,0 +1,512 @@
+.quick-weather-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: #0f1117;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  /* Safe area for notched devices when card is in a bottom sheet or full-screen modal */
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+}
+
+.quick-weather-card__glow {
+  position: absolute;
+  inset: -30% auto auto 55%;
+  width: 180px;
+  height: 180px;
+  border-radius: 999px;
+  opacity: 0.2;
+  filter: blur(36px);
+  pointer-events: none;
+  background: rgba(59, 130, 246, 0.4);
+}
+
+.quick-weather-card--sun .quick-weather-card__glow {
+  background: rgba(251, 191, 36, 0.35);
+}
+
+.quick-weather-card--rain .quick-weather-card__glow {
+  background: rgba(59, 130, 246, 0.4);
+}
+
+.quick-weather-card--snow .quick-weather-card__glow {
+  background: rgba(191, 219, 254, 0.3);
+}
+
+.quick-weather-card--wind .quick-weather-card__glow {
+  background: rgba(139, 92, 246, 0.35);
+}
+
+.quick-weather-card--cloud .quick-weather-card__glow {
+  background: rgba(148, 163, 184, 0.25);
+}
+
+.quick-weather-card__hero,
+.quick-weather-card__summary-row,
+.quick-weather-card__metrics-grid,
+.quick-weather-card__forecast-shell {
+  position: relative;
+  z-index: 1;
+}
+
+.quick-weather-card__hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.quick-weather-card__identity {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.quick-weather-card__icon-wrap {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 1rem;
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.quick-weather-card__icon-wrap svg {
+  font-size: 1.85rem;
+  color: #e4e4e7;
+}
+
+.quick-weather-card__title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.quick-weather-card__eyebrow {
+  font-size: 0.72rem;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #a1a1aa;
+}
+
+.quick-weather-card__title {
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.1;
+  color: #e4e4e7;
+}
+
+.quick-weather-card__timestamp {
+  font-size: 0.82rem;
+  color: #a1a1aa;
+}
+
+.quick-weather-card__hero-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  text-align: right;
+}
+
+.quick-weather-card__temperature {
+  font-size: clamp(1.9rem, 4vw, 2.6rem);
+  line-height: 0.95;
+  font-weight: 700;
+  color: #e4e4e7;
+}
+
+.quick-weather-card__hero-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.78rem;
+  color: #a1a1aa;
+}
+
+.quick-weather-card__summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.quick-weather-card__wind-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.9rem;
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.quick-weather-card__wind-icon {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.quick-weather-card__wind-icon svg {
+  font-size: 1rem;
+  color: #eab308;
+}
+
+.quick-weather-card__wind-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.quick-weather-card__wind-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #a1a1aa;
+}
+
+.quick-weather-card__wind-warning {
+  display: inline-flex;
+  align-items: center;
+  color: #f59e0b;
+}
+
+.quick-weather-card__wind-warning svg {
+  font-size: 1rem;
+}
+
+.quick-weather-card__wind-value {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.quick-weather-card__badges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.quick-weather-card__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #e4e4e7;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.quick-weather-card__badge svg {
+  font-size: 0.95rem;
+}
+
+.quick-weather-card__metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.quick-weather-card__metric {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  min-width: 0;
+  padding: 0.85rem;
+  border-radius: 0.95rem;
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.quick-weather-card__metric-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.7rem;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.quick-weather-card__metric-icon svg {
+  font-size: 1rem;
+  color: #60a5fa;
+}
+
+.quick-weather-card__metric-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.quick-weather-card__metric-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #a1a1aa;
+}
+
+.quick-weather-card__metric-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.quick-weather-card__metric-subvalue {
+  font-size: 0.78rem;
+  color: #a1a1aa;
+}
+
+.quick-weather-card__forecast-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.quick-weather-card__forecast-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: #e4e4e7;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.quick-weather-card__forecast-subtitle {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #a1a1aa;
+}
+
+/* Hourly strip: horizontal scroll only, never wrap or break an hour box */
+.quick-weather-card__hourly {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.25rem;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 0;
+}
+
+.quick-weather-card__hourly .quick-weather-card__forecast-item {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.quick-weather-card__hourly::-webkit-scrollbar {
+  height: 4px;
+}
+
+.quick-weather-card__hourly::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+/* Daily row: equal-width cards (same size as each other, like hourly) */
+.quick-weather-card__daily {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.quick-weather-card__forecast-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.25rem;
+  min-width: 64px;
+  min-height: 5rem;
+  padding: 0.6rem 0.5rem;
+  border-radius: 0.75rem;
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  box-sizing: border-box;
+}
+
+/* Daily cards: equal flex so all same width; fixed min height for alignment */
+.quick-weather-card__forecast-item--daily {
+  flex: 1 1 0;
+  min-width: 72px;
+  min-height: 5.5rem;
+  box-sizing: border-box;
+}
+
+.quick-weather-card__forecast-time,
+.quick-weather-card__forecast-day {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #a1a1aa;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.quick-weather-card__forecast-icon {
+  display: grid;
+  place-items: center;
+}
+
+.quick-weather-card__forecast-icon svg {
+  font-size: 1.25rem;
+  color: #e4e4e7;
+}
+
+.quick-weather-card__forecast-temp {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #e4e4e7;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.quick-weather-card__forecast-pop {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  font-size: 0.65rem;
+  color: #60a5fa;
+  text-align: center;
+}
+
+.quick-weather-card__forecast-pop svg {
+  font-size: 0.75em;
+  flex-shrink: 0;
+}
+
+.quick-weather-card__forecast-empty {
+  margin: 0;
+  padding: 0.75rem;
+  font-size: 0.8rem;
+  color: #a1a1aa;
+  background: rgba(24, 25, 28, 0.6);
+  border-radius: 0.75rem;
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.quick-weather-card--empty {
+  padding: 0.9rem 1rem;
+}
+
+.quick-weather-card__empty {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: #a1a1aa;
+}
+
+.quick-weather-card__empty svg {
+  font-size: 1.1rem;
+}
+
+/* Tablet and below: stack hero (icon + title left, temp below or right depending on width) */
+@media (max-width: 720px) {
+  .quick-weather-card__hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .quick-weather-card__hero-side {
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+
+/* Phone: single-column metrics; daily cards stay equal-width in a row (wrap if needed) */
+@media (max-width: 640px) {
+  .quick-weather-card__metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-weather-card__forecast-item--daily {
+    min-width: 64px;
+    flex: 1 1 calc(50% - 0.25rem);
+  }
+}
+
+/* Small phone: tighter padding and gaps, readable minimum font sizes */
+@media (max-width: 480px) {
+  .quick-weather-card {
+    padding: 0.75rem;
+    gap: 0.85rem;
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .quick-weather-card__hero {
+    gap: 0.75rem;
+  }
+
+  .quick-weather-card__summary-row {
+    gap: 0.6rem;
+  }
+
+  .quick-weather-card__wind-pill,
+  .quick-weather-card__metric {
+    padding: 0.7rem 0.65rem;
+  }
+
+  .quick-weather-card__metric-label,
+  .quick-weather-card__wind-label,
+  .quick-weather-card__eyebrow {
+    font-size: max(0.7rem, 11px);
+  }
+
+  .quick-weather-card__temperature {
+    font-size: clamp(1.75rem, 8vw, 2.4rem);
+  }
+
+  /* Only daily items get smaller padding; hourly keep min-width so they never break in half */
+  .quick-weather-card__forecast-item--daily {
+    padding: 0.5rem 0.4rem;
+  }
+
+  .quick-weather-card__hourly .quick-weather-card__forecast-item {
+    min-width: 64px;
+    padding: 0.5rem 0.4rem;
+  }
+
+  .quick-weather-card__forecast-temp {
+    font-size: max(0.8rem, 12px);
+  }
+
+  .quick-weather-card__daily {
+    gap: 0.5rem;
+  }
+}
+
+/* Large desktop: cap card width when in a very wide modal so content doesn’t stretch too much */
+@media (min-width: 900px) {
+  .quick-weather-wrapper .quick-weather-card {
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
