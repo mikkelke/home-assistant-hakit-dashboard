@@ -8,7 +8,7 @@ import './StatusBar.css';
 
 export function PersonStatus({ entity, entities, hassUrl }: PersonStatusProps) {
   const person = entities?.[entity];
-  const name = typeof person?.attributes?.friendly_name === 'string' ? person.attributes.friendly_name : (entity.split('.')[1] || '');
+  const name = typeof person?.attributes?.friendly_name === 'string' ? person.attributes.friendly_name : entity.split('.')[1] || '';
   const state = String(person?.state ?? 'unknown');
   const picture = typeof person?.attributes?.entity_picture === 'string' ? person.attributes.entity_picture : undefined;
 

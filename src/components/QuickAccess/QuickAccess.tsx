@@ -3,7 +3,7 @@ import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { IntercomCard } from '../Intercom';
 import { SonosPlayer, TVCard } from '../MediaPlayer';
-import { QuickWeatherCard } from '../Weather';
+import { QuickWeatherCard, getWeatherConditionIcon } from '../Weather';
 import { TRANSIT_LAST_UPDATED_SENSOR, TRANSIT_REFRESH_BUTTON } from '../../config/entities';
 import { SONOS_SPEAKERS } from '../../config/speakers';
 import { useSwipeToClose } from '../../hooks';
@@ -363,6 +363,12 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
     return found || null;
   }, [entities]);
 
+  const weatherConditionIcon = useMemo(() => {
+    if (!weatherEntityId || !entities?.[weatherEntityId]) return 'mdi:weather-partly-cloudy';
+    const condition = entities[weatherEntityId]?.state;
+    return getWeatherConditionIcon(typeof condition === 'string' ? condition : undefined);
+  }, [weatherEntityId, entities]);
+
   const transitStationGroups = useMemo<TransitStationGroup[]>(() => {
     const lineData = TRANSIT_LINES.map(line => {
       const sensor = entities?.[line.sensorEntityId];
@@ -442,7 +448,7 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
           disabled={!weatherEntityId}
           title={weatherEntityId ? 'Open weather' : 'No weather entity found'}
         >
-          <Icon icon='mdi:weather-partly-cloudy' />
+          <Icon icon={weatherConditionIcon} />
         </button>
       </div>
 

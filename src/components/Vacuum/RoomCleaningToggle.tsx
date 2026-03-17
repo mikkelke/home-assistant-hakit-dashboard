@@ -1,5 +1,6 @@
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
+import { VACUUM_ENTITY, ROBOT_CLEAN_PREFIX, ROBOT_CLEAN_KITCHEN_1, ROBOT_CLEAN_KITCHEN_2 } from '../../config/entities';
 import './VacuumCard.css';
 
 interface RoomCleaningToggleProps {
@@ -11,8 +12,7 @@ interface RoomCleaningToggleProps {
 export function RoomCleaningToggle({ areaName, entities, callService }: RoomCleaningToggleProps) {
   const areaNameNormalized = areaName.toLowerCase().replace(/\s+/g, '_');
 
-  // Also check vacuum status
-  const vacuum = entities?.['vacuum.rober2'];
+  const vacuum = entities?.[VACUUM_ENTITY];
   const vacuumState = vacuum?.state;
   const isVacuumActive = vacuumState === 'cleaning' || vacuumState === 'returning';
 
@@ -28,8 +28,8 @@ export function RoomCleaningToggle({ areaName, entities, callService }: RoomClea
   };
 
   if (isKitchen) {
-    const cookId = 'input_boolean.rober2_clean_kitchen';
-    const diningId = 'input_boolean.rober2_clean_kitchen_2';
+    const cookId = ROBOT_CLEAN_KITCHEN_1;
+    const diningId = ROBOT_CLEAN_KITCHEN_2;
     const cookToggle = entities?.[cookId];
     const diningToggle = entities?.[diningId];
     const hasAny = !!cookToggle || !!diningToggle;
@@ -73,7 +73,7 @@ export function RoomCleaningToggle({ areaName, entities, callService }: RoomClea
   }
 
   // Default single toggle for non-kitchen rooms
-  const toggleId = `input_boolean.rober2_clean_${areaNameNormalized}`;
+  const toggleId = `${ROBOT_CLEAN_PREFIX}${areaNameNormalized}`;
   const toggle = entities?.[toggleId];
 
   if (!toggle) return null;

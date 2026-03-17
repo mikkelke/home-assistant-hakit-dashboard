@@ -30,7 +30,12 @@ export function useSwipeToClose(onClose: () => void) {
       'button, a, [role="button"], input[type="range"], .slider-with-bubble, .brightness-slider, .temperature-slider, [data-interactive="true"]'
     );
 
-    return isInput || isClickable !== null;
+    // Horizontally scrollable areas and day popup: don't treat as swipe-to-close
+    const isScrollableContent = target.closest(
+      '.quick-weather-card__hourly, .quick-weather-card__forecast-shell, .quick-weather-card__day-popup'
+    );
+
+    return isInput || isClickable !== null || isScrollableContent !== null;
   }, []);
 
   const handleTouchStart = useCallback(

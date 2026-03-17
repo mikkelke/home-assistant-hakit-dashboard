@@ -48,7 +48,8 @@ export function TVCard({
   const rawTvLiftOptions = tvLiftSelect?.attributes?.options;
   const allTvLiftOptions: string[] = Array.isArray(rawTvLiftOptions) ? (rawTvLiftOptions as string[]) : [];
   // Determine domain based on entity ID prefix
-  const tvLiftDomain = typeof tvLiftSelectEntityId === 'string' && tvLiftSelectEntityId.startsWith('input_select.') ? 'input_select' : 'select';
+  const tvLiftDomain =
+    typeof tvLiftSelectEntityId === 'string' && tvLiftSelectEntityId.startsWith('input_select.') ? 'input_select' : 'select';
   // Filter out "Temporary" and "unknown" (case-insensitive) for bedroom TV
   const isBedroomTv = entityId === 'media_player.bedroom_tv' || tvLiftSelectEntityId === 'input_select.bedroom_tv_lift_position';
   const isLivingRoomTv = entityId === 'media_player.living_room_tv' || tvLiftSelectEntityId === 'select.living_room_tv_lift_position';

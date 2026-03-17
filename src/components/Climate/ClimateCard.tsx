@@ -146,7 +146,9 @@ export function ClimateCard({ areaName, entities, callService }: ClimateCardProp
           <div className='climate-temps'>
             <span className='climate-current'>{Number.isFinite(currentTemp) ? currentTemp : '--'}°C</span>
             <Icon icon='mdi:arrow-right' className='climate-arrow' />
-            <span className={`climate-target ${targetStateClass}`}>{Number.isFinite(displayTarget as number) ? displayTarget : '--'}°C</span>
+            <span className={`climate-target ${targetStateClass}`}>
+              {Number.isFinite(displayTarget as number) ? displayTarget : '--'}°C
+            </span>
           </div>
         </div>
         <div className='climate-header-right'>

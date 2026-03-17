@@ -99,7 +99,10 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
       key =>
         key.includes('temperature') &&
         !key.includes('floor') &&
-        (String(entities[key]?.attributes?.friendly_name ?? '').toLowerCase().includes(areaName) || key.toLowerCase().includes(areaNameNormalized))
+        (String(entities[key]?.attributes?.friendly_name ?? '')
+          .toLowerCase()
+          .includes(areaName) ||
+          key.toLowerCase().includes(areaNameNormalized))
     );
   };
   const tempSensor = getTempSensor();
@@ -111,7 +114,10 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
         key =>
           key.includes('humidity') &&
           !key.includes('floor') &&
-          (String(entities[key]?.attributes?.friendly_name ?? '').toLowerCase().includes(areaName) || key.toLowerCase().includes(areaNameNormalized))
+          (String(entities[key]?.attributes?.friendly_name ?? '')
+            .toLowerCase()
+            .includes(areaName) ||
+            key.toLowerCase().includes(areaNameNormalized))
       );
 
   // Presence: PIR only

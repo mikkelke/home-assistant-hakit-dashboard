@@ -171,7 +171,11 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
       availableLights.forEach(lightId => {
         const entity = entities[lightId];
         const entityBrightness =
-          entity?.state === 'on' ? (attrNum(entity?.attributes?.brightness, 255) > 0 ? Math.round((attrNum(entity.attributes.brightness, 255) / 255) * 100) : 100) : 0;
+          entity?.state === 'on'
+            ? attrNum(entity?.attributes?.brightness, 255) > 0
+              ? Math.round((attrNum(entity.attributes.brightness, 255) / 255) * 100)
+              : 100
+            : 0;
 
         setSliderValues(prev => {
           // Initialize if not set
@@ -209,7 +213,11 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
       if (!showBubbles[lightId]) {
         const entity = entities[lightId];
         const entityBrightness =
-          entity?.state === 'on' ? (attrNum(entity?.attributes?.brightness, 255) > 0 ? Math.round((attrNum(entity.attributes.brightness, 255) / 255) * 100) : 100) : 0;
+          entity?.state === 'on'
+            ? attrNum(entity?.attributes?.brightness, 255) > 0
+              ? Math.round((attrNum(entity.attributes.brightness, 255) / 255) * 100)
+              : 100
+            : 0;
 
         const lastCommitted = lastCommittedRef.current[lightId];
         const timeSinceCommit = lastCommitted ? Date.now() - lastCommitted.timestamp : Infinity;
@@ -368,7 +376,8 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
           const rawRgb = lightEntity?.attributes?.rgb_color;
           const currentRgb: [number, number, number] | undefined =
             Array.isArray(rawRgb) && rawRgb.length === 3 ? (rawRgb as [number, number, number]) : undefined;
-          const currentColorTemp = lightEntity?.attributes?.color_temp_kelvin != null ? attrNum(lightEntity.attributes.color_temp_kelvin, 0) : undefined;
+          const currentColorTemp =
+            lightEntity?.attributes?.color_temp_kelvin != null ? attrNum(lightEntity.attributes.color_temp_kelvin, 0) : undefined;
 
           return (
             <ColorPickerModal

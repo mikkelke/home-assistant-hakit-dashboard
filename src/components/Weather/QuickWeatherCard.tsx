@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useWeather } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import type { HassEntities } from '../../types';
@@ -43,9 +43,9 @@ const SENSOR_IDS = {
   windDirection: 'sensor.gw2000a_wind_direction',
   rainRate: 'sensor.gw2000a_rain_rate_piezo',
   rainDaily: 'sensor.gw2000a_daily_rain_piezo',
-  pressureRelative: 'sensor.gw2000a_relative_pressure',
-  pressureAbsolute: 'sensor.gw2000a_absolute_pressure',
   uv: 'sensor.gw2000a_uv_index',
+  solarRadiation: 'sensor.gw2000a_solar_radiation',
+  solarLux: 'sensor.gw2000a_solar_lux',
 } as const;
 
 const CONDITION_ICONS: Record<string, string> = {
@@ -65,6 +65,11 @@ const CONDITION_ICONS: Record<string, string> = {
   windy: 'mdi:weather-windy',
   'windy-variant': 'mdi:weather-windy-variant',
 };
+
+/** Icon for a weather condition (e.g. from weather entity state). Used by Quick Access button and card. */
+export function getWeatherConditionIcon(condition: string | undefined): string {
+  return (condition && CONDITION_ICONS[condition]) ?? 'mdi:weather-partly-cloudy';
+}
 
 function MetricPill({ icon, label, value, subvalue }: { icon: string; label: string; value: string; subvalue?: string }) {
   return (
@@ -93,10 +98,12 @@ const getNumber = (value: unknown) => {
 
 const formatCondition = (value?: string) => {
   if (!value) return 'Weather';
-  return value
+  const withSpaces = value
+    .replace(/partlycloudy/i, 'partly-cloudy')
     .split('-')
     .join(' ')
     .replace(/\b\w/g, char => char.toUpperCase());
+  return withSpaces;
 };
 
 const getConditionTone = (condition?: string) => {
@@ -180,18 +187,16 @@ function splitForecast(forecast: WeatherForecastEntry[]) {
   hourly.sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
   const hourlyRestOfDay = hourly.slice(0, 24);
 
-  // Build daily list: one entry per day; skip today only if we already show it in hourly
+  // Build daily list: one entry per day (include today so user can click for hourly)
   const sortedDays = Array.from(dailyByDay.keys()).sort();
   const daily: WeatherForecastEntry[] = [];
-  const skipTodayInDaily = hourlyRestOfDay.length > 0;
   for (const day of sortedDays) {
-    if (skipTodayInDaily && day === todayStart.toISOString().slice(0, 10)) continue;
     const entries = dailyByDay.get(day)!;
     const best = entries.length === 1 ? entries[0] : entries[Math.min(12, Math.floor(entries.length / 2))];
     daily.push(best);
   }
 
-  return { hourly: hourlyRestOfDay, daily: daily.slice(0, 5) };
+  return { hourly: hourlyRestOfDay, daily: daily.slice(0, 6) };
 }
 
 function formatHour(datetime: string) {
@@ -233,19 +238,31 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   const weatherDaily = useWeather(entityId as Parameters<typeof useWeather>[0], { type: 'daily' });
   const weatherHourly = useWeather(entityId as Parameters<typeof useWeather>[0], { type: 'hourly' });
 
-  const { hourly, daily } = useMemo(() => {
+  const { hourlyAll, daily } = useMemo(() => {
     const fromAttr = getForecastList(weatherEntity?.attributes ?? {});
     const fromAttrSplit = splitForecast(fromAttr);
     const dailyList = weatherDaily?.forecast?.forecast ?? [];
     const hourlyList = weatherHourly?.forecast?.forecast ?? [];
-    const dailyMapped = (dailyList.length > 0 ? dailyList : fromAttrSplit.daily).map(toForecastEntry).slice(0, 5);
+    const dailyMapped = (dailyList.length > 0 ? dailyList : fromAttrSplit.daily).map(toForecastEntry).slice(0, 6);
     const now = new Date();
-    const hourlyRest = (hourlyList.length > 0 ? hourlyList : fromAttrSplit.hourly)
+    const futureHourly = (hourlyList.length > 0 ? hourlyList : fromAttrSplit.hourly)
       .map(toForecastEntry)
-      .filter(e => new Date(e.datetime).getTime() >= now.getTime())
-      .slice(0, 24);
-    return { hourly: hourlyRest, daily: dailyMapped };
+      .filter(e => new Date(e.datetime).getTime() >= now.getTime());
+    const hourlyAllSlots = futureHourly.slice(0, 7 * 24); /* for day-detail popup when a day is clicked */
+    return { hourlyAll: hourlyAllSlots, daily: dailyMapped };
   }, [weatherEntity?.attributes, weatherDaily?.forecast, weatherHourly?.forecast]);
+
+  const [selectedDayDatetime, setSelectedDayDatetime] = useState<string | null>(null);
+  const toggleDay = useCallback((datetime: string) => {
+    setSelectedDayDatetime(prev => (prev === datetime ? null : datetime));
+  }, []);
+
+  const selectedDayHourly = useMemo(() => {
+    if (!selectedDayDatetime) return [];
+    const selectedDate = new Date(selectedDayDatetime);
+    const selectedDateStr = selectedDate.toISOString().slice(0, 10);
+    return hourlyAll.filter(e => new Date(e.datetime).toISOString().slice(0, 10) === selectedDateStr);
+  }, [selectedDayDatetime, hourlyAll]);
 
   if (!weatherEntity) {
     return (
@@ -267,11 +284,8 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   const currentTempUnit = typeof attributes.temperature_unit === 'string' ? attributes.temperature_unit : '°C';
   const feelsLike = getNumber(getState(entities, SENSOR_IDS.feelsLike));
   const humidity = getNumber(attributes.humidity) ?? getNumber(getState(entities, SENSOR_IDS.humidity));
-  const dewpoint = getNumber(getState(entities, SENSOR_IDS.dewpoint));
-  const pressure =
-    getNumber(attributes.pressure) ??
-    getNumber(getState(entities, SENSOR_IDS.pressureRelative)) ??
-    getNumber(getState(entities, SENSOR_IDS.pressureAbsolute));
+  const solarRadiation = getNumber(getState(entities, SENSOR_IDS.solarRadiation));
+  const solarLux = getNumber(getState(entities, SENSOR_IDS.solarLux));
 
   const windDirection = getNumber(getState(entities, SENSOR_IDS.windDirection));
   const windDirectionLabel = getDirectionLabel(windDirection);
@@ -318,26 +332,6 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
       </div>
 
       <div className='quick-weather-card__summary-row'>
-        <div className='quick-weather-card__wind-pill'>
-          <div className='quick-weather-card__wind-icon'>
-            <Icon icon='mdi:navigation-variant' style={{ transform: `rotate(${windDirection ?? 0}deg)` }} />
-          </div>
-          <div className='quick-weather-card__wind-copy'>
-            <span className='quick-weather-card__wind-label'>
-              Wind
-              {isHeavyWind(windSpeedMs, gustMs) && (
-                <span className='quick-weather-card__wind-warning' title='Heavy wind'>
-                  <Icon icon='mdi:weather-hurricane' aria-hidden />
-                </span>
-              )}
-            </span>
-            <span className='quick-weather-card__wind-value'>
-              {windSpeedMs !== undefined ? `${windSpeedMs.toFixed(1)} m/s` : '—'}
-              {windDirectionLabel !== '—' ? ` · ${windDirectionLabel}` : ''}
-            </span>
-          </div>
-        </div>
-
         <div className='quick-weather-card__badges'>
           <span className='quick-weather-card__badge'>
             <Icon icon='mdi:weather-pouring' />
@@ -356,42 +350,66 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
 
       <div className='quick-weather-card__metrics-grid'>
         <MetricPill
-          icon='mdi:water-percent'
-          label='Humidity'
-          value={humidity !== undefined ? `${humidity.toFixed(0)}%` : '—'}
-          subvalue={dewpoint !== undefined ? `Dew point ${dewpoint.toFixed(1)}°C` : undefined}
-        />
-        <MetricPill
           icon='mdi:weather-windy'
-          label='Wind / gust'
+          label={isHeavyWind(windSpeedMs, gustMs) ? 'Wind (heavy)' : 'Wind'}
           value={windSpeedMs !== undefined ? `${windSpeedMs.toFixed(1)} m/s` : '—'}
-          subvalue={gustMs !== undefined ? `Gusts ${gustMs.toFixed(1)} m/s` : windDirectionLabel !== '—' ? windDirectionLabel : undefined}
+          subvalue={
+            gustMs !== undefined
+              ? `Gusts ${gustMs.toFixed(1)} m/s${windDirectionLabel !== '—' ? ` · ${windDirectionLabel}` : ''}`
+              : windDirectionLabel !== '—'
+                ? windDirectionLabel
+                : undefined
+          }
         />
-        <MetricPill icon='mdi:gauge' label='Pressure' value={pressure !== undefined ? `${pressure.toFixed(0)} hPa` : '—'} />
         <MetricPill
-          icon='mdi:thermometer-lines'
-          label='Temperature'
-          value={currentTemp !== undefined ? `${currentTemp.toFixed(0)}${currentTempUnit}` : '—'}
-          subvalue={feelsLike !== undefined ? `Feels like ${feelsLike.toFixed(0)}°C` : undefined}
+          icon='mdi:weather-sunny'
+          label='Sun'
+          value={
+            solarRadiation !== undefined
+              ? `${solarRadiation.toFixed(0)} W/m²`
+              : solarLux !== undefined
+                ? `${solarLux.toFixed(0)} lux`
+                : uvIndex !== undefined
+                  ? `UV ${uvIndex.toFixed(0)}`
+                  : '—'
+          }
+          subvalue={
+            solarRadiation !== undefined && solarLux !== undefined
+              ? `${solarLux.toFixed(0)} lux`
+              : solarLux !== undefined && uvIndex !== undefined
+                ? `UV ${uvIndex.toFixed(0)}`
+                : undefined
+          }
         />
       </div>
 
       <div className='quick-weather-card__forecast-shell'>
-        {hourly.length > 0 && (
+        <div className='quick-weather-card__forecast-header'>
+          <span>Forecast</span>
+          <span className='quick-weather-card__forecast-subtitle'>{daily.length > 0 ? 'Next few days' : 'No forecast data'}</span>
+        </div>
+        {daily.length > 0 ? (
           <>
-            <div className='quick-weather-card__forecast-header'>
-              <span>Rest of today</span>
-              <span className='quick-weather-card__forecast-subtitle'>By hour</span>
-            </div>
-            <div className='quick-weather-card__hourly'>
-              {hourly.map((entry, i) => (
-                <div key={`h-${i}-${entry.datetime}`} className='quick-weather-card__forecast-item'>
-                  <span className='quick-weather-card__forecast-time'>{formatHour(entry.datetime)}</span>
+            <div className='quick-weather-card__daily'>
+              {daily.map((entry, i) => (
+                <button
+                  type='button'
+                  key={`d-${i}-${entry.datetime}`}
+                  className={`quick-weather-card__forecast-item quick-weather-card__forecast-item--daily ${selectedDayDatetime === entry.datetime ? 'quick-weather-card__forecast-item--selected' : ''}`}
+                  onClick={() => toggleDay(entry.datetime)}
+                  aria-pressed={selectedDayDatetime === entry.datetime}
+                  aria-label={`${formatDay(entry.datetime)} forecast, click for hourly`}
+                >
+                  <span className='quick-weather-card__forecast-day'>{formatDay(entry.datetime)}</span>
                   <div className='quick-weather-card__forecast-icon'>
                     <Icon icon={CONDITION_ICONS[entry.condition ?? ''] ?? 'mdi:weather-partly-cloudy'} />
                   </div>
                   <span className='quick-weather-card__forecast-temp'>
-                    {entry.temperature != null ? `${Math.round(entry.temperature)}${tempUnit}` : '—'}
+                    {entry.templow != null && entry.temperature != null
+                      ? `${Math.round(entry.templow)}–${Math.round(entry.temperature)}${tempUnit}`
+                      : entry.temperature != null
+                        ? `${Math.round(entry.temperature)}${tempUnit}`
+                        : '—'}
                   </span>
                   {entry.precipitation_probability != null && entry.precipitation_probability > 0 && (
                     <span className='quick-weather-card__forecast-pop'>
@@ -399,40 +417,55 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
                       {entry.precipitation_probability}%
                     </span>
                   )}
-                </div>
+                </button>
               ))}
             </div>
-          </>
-        )}
-
-        <div className='quick-weather-card__forecast-header'>
-          <span>Forecast</span>
-          <span className='quick-weather-card__forecast-subtitle'>{daily.length > 0 ? 'Next few days' : 'No forecast data'}</span>
-        </div>
-        {daily.length > 0 ? (
-          <div className='quick-weather-card__daily'>
-            {daily.map((entry, i) => (
-              <div key={`d-${i}-${entry.datetime}`} className='quick-weather-card__forecast-item quick-weather-card__forecast-item--daily'>
-                <span className='quick-weather-card__forecast-day'>{formatDay(entry.datetime)}</span>
-                <div className='quick-weather-card__forecast-icon'>
-                  <Icon icon={CONDITION_ICONS[entry.condition ?? ''] ?? 'mdi:weather-partly-cloudy'} />
+            {selectedDayDatetime != null && (
+              <div className='quick-weather-card__day-popup' role='dialog' aria-modal aria-labelledby='day-popup-title'>
+                <div className='quick-weather-card__day-popup-backdrop' onClick={() => setSelectedDayDatetime(null)} aria-hidden />
+                <div className='quick-weather-card__day-popup-panel'>
+                  <div className='quick-weather-card__day-popup-header'>
+                    <h3 id='day-popup-title' className='quick-weather-card__day-popup-title'>
+                      {formatDay(selectedDayDatetime)} — by hour
+                    </h3>
+                    <button
+                      type='button'
+                      className='quick-weather-card__day-popup-close'
+                      onClick={() => setSelectedDayDatetime(null)}
+                      aria-label='Close'
+                    >
+                      <Icon icon='mdi:close' />
+                    </button>
+                  </div>
+                  <div className='quick-weather-card__day-popup-body'>
+                    {selectedDayHourly.length > 0 ? (
+                      <ul className='quick-weather-card__hour-list'>
+                        {selectedDayHourly.map((entry, i) => (
+                          <li key={`sd-${i}-${entry.datetime}`} className='quick-weather-card__hour-row'>
+                            <span className='quick-weather-card__hour-time'>{formatHour(entry.datetime)}</span>
+                            <div className='quick-weather-card__hour-icon'>
+                              <Icon icon={CONDITION_ICONS[entry.condition ?? ''] ?? 'mdi:weather-partly-cloudy'} />
+                            </div>
+                            <span className='quick-weather-card__hour-temp'>
+                              {entry.temperature != null ? `${Math.round(entry.temperature)}${tempUnit}` : '—'}
+                            </span>
+                            {entry.precipitation_probability != null && entry.precipitation_probability > 0 && (
+                              <span className='quick-weather-card__hour-pop'>
+                                <Icon icon='mdi:weather-rainy' aria-hidden />
+                                {entry.precipitation_probability}%
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className='quick-weather-card__forecast-empty'>No hourly data for this day.</p>
+                    )}
+                  </div>
                 </div>
-                <span className='quick-weather-card__forecast-temp'>
-                  {entry.templow != null && entry.temperature != null
-                    ? `${Math.round(entry.templow)}–${Math.round(entry.temperature)}${tempUnit}`
-                    : entry.temperature != null
-                      ? `${Math.round(entry.temperature)}${tempUnit}`
-                      : '—'}
-                </span>
-                {entry.precipitation_probability != null && entry.precipitation_probability > 0 && (
-                  <span className='quick-weather-card__forecast-pop'>
-                    <Icon icon='mdi:weather-rainy' aria-hidden />
-                    {entry.precipitation_probability}%
-                  </span>
-                )}
               </div>
-            ))}
-          </div>
+            )}
+          </>
         ) : (
           <p className='quick-weather-card__forecast-empty'>
             Hourly and daily forecast appear here when your weather integration provides them.
