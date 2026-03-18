@@ -515,10 +515,9 @@ export function Dashboard() {
           <StatusBar
             entities={displayEntities}
             hassUrl={hassUrl}
-            callService={callService}
             onMenuToggle={() => setIsMenuOpen(!isMenuOpen)}
           />
-          <HomePulse areas={areaList} entities={displayEntities} onRoomSelect={handlePulseRoomSelect} />
+          <HomePulse areas={areaList} entities={displayEntities} hassUrl={hassUrl} onRoomSelect={handlePulseRoomSelect} />
           <RoomGrid
             areas={areaList}
             entities={displayEntities}

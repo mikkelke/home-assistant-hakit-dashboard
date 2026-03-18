@@ -1,4 +1,5 @@
 import { TRACKED_WINDOWS } from '../config/dashboard';
+import { ROBOT_PAUSED_BOOLEAN_ENTITY, ROBOT_PAUSE_REASON_ENTITY, VACUUM_CURRENT_ROOM_INPUT, VACUUM_CURRENT_ROOM_SENSOR } from '../config/entities';
 import type { Area, HassEntities, HassEntity, HomePulseSummary, PulseChip, PulseNarrative } from '../types';
 import { deriveBatteryItems } from './batteryAlerts';
 
@@ -175,6 +176,29 @@ function getDirectionLabel(deg: number | null): string | null {
   return labels[Math.round(normalized / 45) % 8];
 }
 
+function trimTrailingPunctuation(value: string): string {
+  return value.trim().replace(/[.!?]+$/u, '');
+}
+
+function formatRobotLocation(value: string | undefined): string | null {
+  if (!value || typeof value !== 'string') return null;
+
+  const cleaned = value
+    .trim()
+    .toLowerCase()
+    .replace(/^stuck_trying_to_leave_the_/, '')
+    .replace(/^stuck_in_the_/, '')
+    .replace(/^trying_to_leave_the_/, '')
+    .replace(/^the_/, '')
+    .replace(/_/g, ' ');
+
+  if (!cleaned || ['unknown', 'unavailable', 'none', 'docked', 'charging'].includes(cleaned)) {
+    return null;
+  }
+
+  return formatAreaName(cleaned);
+}
+
 function buildRainInsight(areas: Area[], entities: HassEntities): InsightCandidate | null {
   const rainRate = toNumber(entities?.[RAIN_RATE_ENTITY]?.state);
   if (rainRate === null || rainRate < LIVE_RAIN_THRESHOLD_MM_H) return null;
@@ -258,6 +282,31 @@ function buildBatteryInsight(entities: HassEntities): InsightCandidate | null {
   };
 }
 
+function buildRobotAttentionInsight(entities: HassEntities): InsightCandidate | null {
+  if (entities?.[ROBOT_PAUSED_BOOLEAN_ENTITY]?.state !== 'on') return null;
+
+  const reason = trimTrailingPunctuation(String(entities?.[ROBOT_PAUSE_REASON_ENTITY]?.state ?? ''));
+  const location =
+    formatRobotLocation(entities?.[VACUUM_CURRENT_ROOM_SENSOR]?.state) ?? formatRobotLocation(entities?.[VACUUM_CURRENT_ROOM_INPUT]?.state);
+
+  const hasCustomReason = reason.length > 0 && reason.toLowerCase() !== 'automation paused';
+  const text = location && hasCustomReason
+    ? `Rober2 needs attention in ${location}: ${reason}.`
+    : hasCustomReason
+      ? `Rober2 needs attention: ${reason}.`
+      : location
+        ? `Rober2 needs attention in ${location}.`
+        : 'Rober2 needs attention and cannot continue.';
+
+  return {
+    priority: 115,
+    narrative: {
+      text,
+      tone: 'attention',
+    },
+  };
+}
+
 function buildLockInsight(entities: HassEntities, homePeopleCount: number): InsightCandidate | null {
   if (homePeopleCount > 0) return null;
 
@@ -284,7 +333,7 @@ function buildRobotInsight(entities: HassEntities, homePeopleCount: number): Ins
   return {
     priority: 60,
     narrative: {
-      text: 'Robot will start cleaning when the apartment is empty.',
+      text: 'Rober2 will start cleaning when the apartment is empty.',
       tone: 'calm',
     },
   };
@@ -293,6 +342,7 @@ function buildRobotInsight(entities: HassEntities, homePeopleCount: number): Ins
 function buildInsight(areas: Area[], entities: HassEntities, homePeopleCount: number): PulseNarrative | null {
   const candidates = [
     buildRainInsight(areas, entities),
+    buildRobotAttentionInsight(entities),
     buildLockInsight(entities, homePeopleCount),
     buildBatteryInsight(entities),
     buildRobotInsight(entities, homePeopleCount),

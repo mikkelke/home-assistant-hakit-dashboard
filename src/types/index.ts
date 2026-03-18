@@ -60,6 +60,7 @@ export interface RoomDetailProps {
 export interface HomePulseProps {
   areas: Area[];
   entities: HassEntities;
+  hassUrl: string | null;
   onRoomSelect?: (areaId: string) => void;
 }
 
