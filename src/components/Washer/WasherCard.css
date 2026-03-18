@@ -268,3 +268,109 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: #a1a1aa;
 }
+
+/* Cycle history */
+.washer-history-section {
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.washer-history-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #e4e4e7;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.washer-history-empty,
+.washer-history-error,
+.washer-history-configure {
+  font-size: 0.85rem;
+  color: #71717a;
+  padding: 0.5rem 0;
+}
+
+.washer-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.washer-cycle-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.8rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 0.4rem;
+  border: 1px solid transparent;
+}
+
+.washer-cycle-row.unconfirmed {
+  background: rgba(234, 179, 8, 0.08);
+  border-color: rgba(234, 179, 8, 0.2);
+}
+
+.washer-cycle-row .washer-cycle-ts {
+  color: #a1a1aa;
+  white-space: nowrap;
+}
+
+.washer-cycle-row .washer-cycle-duration {
+  color: #e4e4e7;
+}
+
+.washer-cycle-row .washer-cycle-energy {
+  color: #a1a1aa;
+}
+
+.washer-cycle-row .washer-cycle-programme {
+  font-weight: 500;
+  color: #e4e4e7;
+}
+
+.washer-cycle-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.washer-cycle-actions select {
+  padding: 0.2rem 0.35rem;
+  font-size: 0.75rem;
+  background: rgba(24, 25, 28, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.35rem;
+  color: #e4e4e7;
+  cursor: pointer;
+  min-width: 5rem;
+}
+
+.washer-cycle-actions button {
+  padding: 0.2rem 0.4rem;
+  font-size: 0.75rem;
+  background: rgba(59, 130, 246, 0.25);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  border-radius: 0.35rem;
+  color: #60a5fa;
+  cursor: pointer;
+}
+
+.washer-cycle-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.washer-history-loading {
+  font-size: 0.85rem;
+  color: #71717a;
+  padding: 0.5rem 0;
+}

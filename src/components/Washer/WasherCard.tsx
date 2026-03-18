@@ -1,3 +1,4 @@
+import { useState, useEffect, useCallback } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import './WasherCard.css';
@@ -11,7 +12,40 @@ const TEMPERATURE_SELECT_ID = 'input_select.washer_temperature';
 const SPIN_OPTIONS_ORDER = ['—', '1400 rpm', '1200 rpm', '900 rpm', '700 rpm', 'No spin'];
 const TEMPERATURE_OPTIONS_ORDER = ['—', '20°C', '30°C', '40°C', '60°C', '90°C'];
 
+/** Programme keys in JSON; display labels for cycle history. Extend to match your washer programmes. */
+// eslint-disable-next-line react-refresh/only-export-components -- shared constant for cycle history
+export const PROGRAMME_KEY_TO_LABEL: Record<string, string> = {
+  bomuld: 'Bomuld',
+  bomuld_40: 'Bomuld 40°C',
+  bomuld_60: 'Bomuld 60°C',
+  finvask: 'Finvask',
+  ekspres: 'Ekspres',
+  uld: 'Uld',
+  håndvask: 'Håndvask',
+  unknown: 'Unknown',
+};
+
+const PROGRAMME_KEYS = Object.keys(PROGRAMME_KEY_TO_LABEL) as string[];
+
 type WasherState = 'Off' | 'Running' | 'Paused' | 'Unemptied' | 'Emptied';
+
+export interface WasherCycle {
+  ts: string;
+  duration_min: number;
+  energy_kwh: number;
+  predicted: string;
+  confirmed: string;
+  programme_confirmed_by_human: boolean;
+  max_power_w?: number;
+  duration_source?: string;
+  end_reason?: string;
+  idle_min?: number;
+}
+
+export interface WasherFeedbackJson {
+  version: number;
+  cycles: WasherCycle[];
+}
 
 interface WasherCardProps {
   entities: HassEntities;
@@ -42,12 +76,108 @@ function formatDuration(minutes: number | undefined): string {
   return min > 0 ? `${h}h ${min}m` : `${h}h`;
 }
 
+function formatCycleTs(ts: string): string {
+  try {
+    const d = new Date(ts);
+    if (Number.isNaN(d.getTime())) return ts.slice(0, 16);
+    return d.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return ts.slice(0, 16);
+  }
+}
+
+function getFeedbackUrl(): string | null {
+  const url = (import.meta.env.VITE_WASHER_FEEDBACK_URL as string)?.trim();
+  return url && url.length > 0 ? url : null;
+}
+
 export function WasherCard({ entities, callService }: WasherCardProps) {
   const washer = entities?.[WASHER_STATE_ID];
   const programmeSelect = entities?.[PROGRAMME_SELECT_ID];
   const announceToggle = entities?.[ANNOUNCE_TOGGLE_ID];
   const spinSelect = entities?.[SPIN_SELECT_ID];
   const temperatureSelect = entities?.[TEMPERATURE_SELECT_ID];
+
+  const [feedbackData, setFeedbackData] = useState<WasherFeedbackJson | null>(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [savingCycleIndex, setSavingCycleIndex] = useState<number | null>(null);
+  const [cycleSelection, setCycleSelection] = useState<Record<number, string>>({});
+
+  const feedbackUrl = getFeedbackUrl();
+
+  const fetchFeedback = useCallback(async () => {
+    if (!feedbackUrl) return;
+    setFeedbackLoading(true);
+    setFeedbackError(null);
+    try {
+      const res = await fetch(feedbackUrl, { cache: 'no-cache' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: WasherFeedbackJson = await res.json();
+      if (!data || !Array.isArray(data.cycles)) {
+        setFeedbackData({ version: data?.version ?? 2, cycles: [] });
+      } else {
+        setFeedbackData(data);
+      }
+    } catch (e) {
+      setFeedbackError(e instanceof Error ? e.message : 'Failed to load');
+      setFeedbackData(null);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  }, [feedbackUrl]);
+
+  useEffect(() => {
+    if (feedbackUrl) fetchFeedback();
+  }, [feedbackUrl, fetchFeedback]);
+
+  const persistFeedback = useCallback(
+    async (payload: WasherFeedbackJson) => {
+      if (!feedbackUrl) return;
+      try {
+        const res = await fetch(feedbackUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        setFeedbackData(payload);
+        setFeedbackError(null);
+      } catch (e) {
+        setFeedbackError(e instanceof Error ? e.message : 'Failed to save');
+      }
+    },
+    [feedbackUrl]
+  );
+
+  const handleConfirmCycle = useCallback(
+    async (cycleIndex: number) => {
+      if (!feedbackData || feedbackUrl == null) return;
+      const cycles = [...feedbackData.cycles];
+      const idx = cycles.length - 1 - cycleIndex;
+      if (idx < 0 || idx >= cycles.length) return;
+      const programmeKey = cycleSelection[cycleIndex] ?? cycles[idx].predicted;
+      setSavingCycleIndex(cycleIndex);
+      cycles[idx] = {
+        ...cycles[idx],
+        confirmed: programmeKey,
+        programme_confirmed_by_human: true,
+      };
+      await persistFeedback({ ...feedbackData, cycles });
+      setSavingCycleIndex(null);
+      setCycleSelection(prev => {
+        const next = { ...prev };
+        delete next[cycleIndex];
+        return next;
+      });
+    },
+    [feedbackData, feedbackUrl, persistFeedback, cycleSelection]
+  );
 
   // No local cache: entities come from parent (useHass); re-render when sensor.washer_state updates
   if (!washer) return null;
@@ -105,11 +235,14 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
     ((cycleStartTime && String(cycleStartTime).trim() !== '') || (startedAtDisplay && String(startedAtDisplay).trim() !== ''));
   const countdownLabel = remainingMin == null ? null : remainingMin <= 0 ? 'Almost done' : `${formatDuration(remainingMin)} left`;
 
-  // "Started HH:MM": prefer started_at_display (backend local "HH:MM"); else format from cycle_start_time_local or cycle_start_time
-  const startedDisplay =
-    startedAtDisplay && String(startedAtDisplay).trim() !== ''
-      ? String(startedAtDisplay).trim().slice(0, 5)
-      : formatTimeOnly(cycleStartTimeLocal || cycleStartTime);
+  // "Started HH:MM": prefer started_at_display if it's time-only (HH:MM); if it's ISO datetime, format to time; else use cycle_start_time
+  const startedDisplay = (() => {
+    const s = startedAtDisplay && String(startedAtDisplay).trim();
+    if (!s) return formatTimeOnly(cycleStartTimeLocal || cycleStartTime);
+    if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)) return s.slice(0, 5);
+    if (/^\d{4}-\d{2}/.test(s) || s.includes('T')) return formatTimeOnly(s);
+    return formatTimeOnly(cycleStartTimeLocal || cycleStartTime);
+  })();
 
   const isInteractive = state === 'Running' || state === 'Unemptied';
   const announceOn = announceToggle?.state === 'on';
@@ -157,8 +290,8 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
     });
   };
 
-  // Temperature only applies to Bomuld (cotton); hide or show dropdown accordingly
-  const isBomuldProgramme = (programmeSelect?.state ?? programmeLabel ?? '').toLowerCase().includes('bomuld');
+  const cyclesNewestFirst = feedbackData?.cycles ? [...feedbackData.cycles].reverse() : [];
+  const programmeKeysForHistory = options.length > 0 ? options : PROGRAMME_KEYS;
 
   const spinLabel = spinRpm !== undefined ? (spinRpm === 0 ? 'No spin' : `${spinRpm} rpm`) : null;
   const programmeAndSpinLabel =
@@ -201,8 +334,8 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
           )}
         </div>
 
-        {/* Temperature: only for Bomuld (cotton); backend uses it at cycle end to derive e.g. Bomuld 40 */}
-        {(state === 'Running' || state === 'Unemptied') && temperatureSelect && isBomuldProgramme && (
+        {/* Temperature: show when entity exists (e.g. for ECO, Bomuld, or other programmes that use it) */}
+        {(state === 'Running' || state === 'Unemptied') && temperatureSelect && (
           <div className='washer-row temperature-row'>
             <span className='washer-field-label'>Temperature:</span>
             <select
@@ -303,6 +436,74 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
               <span>Please empty the washer</span>
             </div>
           </>
+        )}
+
+        {/* Cycle history - only when feedback URL is set */}
+        {feedbackUrl && (
+          <div className='washer-history-section'>
+            <div className='washer-history-title'>
+              <Icon icon='mdi:history' />
+              Cycle history
+            </div>
+            {feedbackLoading && !feedbackData ? (
+              <p className='washer-history-loading'>Loading…</p>
+            ) : feedbackError ? (
+              <p className='washer-history-error'>
+                {feedbackError}
+                <button type='button' onClick={fetchFeedback} style={{ marginLeft: '0.5rem', textDecoration: 'underline' }}>
+                  Retry
+                </button>
+              </p>
+            ) : cyclesNewestFirst.length === 0 ? (
+              <p className='washer-history-empty'>No cycles recorded yet.</p>
+            ) : (
+              <div className='washer-history-list'>
+                {cyclesNewestFirst.map((cycle, index) => {
+                  const predictedLabel = PROGRAMME_KEY_TO_LABEL[cycle.predicted] ?? cycle.predicted;
+                  const confirmedLabel = PROGRAMME_KEY_TO_LABEL[cycle.confirmed] ?? cycle.confirmed;
+                  const isUnconfirmed = !cycle.programme_confirmed_by_human;
+                  const isSaving = savingCycleIndex === index;
+                  return (
+                    <div key={`${cycle.ts}-${index}`} className={`washer-cycle-row ${isUnconfirmed ? 'unconfirmed' : ''}`}>
+                      <span className='washer-cycle-ts'>{formatCycleTs(cycle.ts)}</span>
+                      <span className='washer-cycle-duration'>{formatDuration(cycle.duration_min)}</span>
+                      <span className='washer-cycle-energy'>{cycle.energy_kwh.toFixed(2)} kWh</span>
+                      <span className='washer-cycle-programme' title={isUnconfirmed ? 'Predicted (unconfirmed)' : 'Confirmed'}>
+                        {isUnconfirmed ? predictedLabel : confirmedLabel}
+                        {isUnconfirmed && ' (?)'}
+                      </span>
+                      <div className='washer-cycle-actions'>
+                        {isUnconfirmed && (
+                          <>
+                            <select
+                              aria-label='Correct programme'
+                              value={cycleSelection[index] ?? cycle.predicted}
+                              onChange={e => setCycleSelection(prev => ({ ...prev, [index]: e.target.value }))}
+                              disabled={isSaving}
+                            >
+                              {programmeKeysForHistory.map(k => (
+                                <option key={k} value={k}>
+                                  {PROGRAMME_KEY_TO_LABEL[k] ?? k}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type='button'
+                              onClick={() => handleConfirmCycle(index)}
+                              disabled={isSaving}
+                              aria-label='Confirm programme'
+                            >
+                              Confirm
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

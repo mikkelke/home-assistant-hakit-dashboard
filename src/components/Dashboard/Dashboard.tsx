@@ -4,6 +4,7 @@ import { useIsMobile } from '../../hooks/useMediaQuery';
 import { EXCLUDED_AREAS } from '../../config/dashboard';
 import type { Area, HassEntities } from '../../types';
 import { StatusBar } from '../StatusBar';
+import { HomePulse } from '../HomePulse';
 import { QuickAccess } from '../QuickAccess/QuickAccess';
 import { RoomGrid } from '../RoomGrid';
 import { RoomDetail } from '../RoomDetail';
@@ -146,24 +147,49 @@ function getDryerDemoEntities(mode: string | null): HassEntities {
   const ends = new Date(now.getTime() + 68 * 60 * 1000);
   const programmeOptions = [
     'Auto (unconfirmed)',
+    'Bomuld eco',
     'Bomuld',
-    'Bomuld Skabstørt',
-    'Bomuld Skabstørt inkl. Skåne +',
-    'Bomuld Strygetørt',
-    'Strygelet Skabstørt',
-    'Finvask Skabstørt',
+    'Strygelet',
+    'Finvask',
     'Finish uld',
-    'Skjorter Skabstørt',
-    'Ekspres Skabstørt',
-    'Denim Skabstørt',
-    'Imprægnering Skabstørt',
-    'Unknown',
+    'Skjorter',
+    'Ekspres',
+    'Denim',
+    'Sengetøj',
+    'Imprægnering',
+    'Udglatning',
+    'Varm luft',
   ];
   const base: HassEntities = {
+    'input_select.dryer_programme': {
+      entity_id: 'input_select.dryer_programme',
+      state: 'Ekspres',
+      attributes: { options: programmeOptions },
+    },
     'input_select.dryer_confirmed_programme': {
       entity_id: 'input_select.dryer_confirmed_programme',
       state: 'Ekspres Skabstørt',
-      attributes: { options: programmeOptions },
+      attributes: { options: ['Auto (unconfirmed)', 'Bomuld', 'Bomuld Skabstørt', 'Ekspres Skabstørt', 'Unknown'] },
+    },
+    'input_select.dryer_dryness': {
+      entity_id: 'input_select.dryer_dryness',
+      state: 'Skabstørt',
+      attributes: { options: ['Skabstørt', 'Strygetørt'] },
+    },
+    'input_boolean.dryer_skane_plus': {
+      entity_id: 'input_boolean.dryer_skane_plus',
+      state: 'off',
+      attributes: {},
+    },
+    'input_select.dryer_time_minutes': {
+      entity_id: 'input_select.dryer_time_minutes',
+      state: '60',
+      attributes: { options: ['20', '30', '60', '90', '120'] },
+    },
+    'input_boolean.dryer_announce': {
+      entity_id: 'input_boolean.dryer_announce',
+      state: 'off',
+      attributes: {},
     },
   };
   const sensorState = (state: string, attributes: Record<string, unknown>) => ({
@@ -433,24 +459,40 @@ export function Dashboard() {
   }, [selectedRoom, updateHash]);
 
   const handleRoomClick = (area: Area) => {
-    const isOpening = selectedRoomRef.current?.area_id !== area.area_id;
-    const newRoom = isOpening ? area : null;
+    if (selectedRoomRef.current?.area_id === area.area_id) {
+      handleCloseRoom();
+      return;
+    }
 
-    // Update state immediately (optimistic update)
-    setSelectedRoom(newRoom);
+    setSelectedRoom(area);
+    updateHash(area.area_id);
 
-    // Update URL hash to reflect the change
-    updateHash(newRoom ? area.area_id : null);
-
-    // Push state when opening a room (so back button closes it)
-    if (newRoom) {
-      try {
-        window.history.pushState({ room: newRoom.area_id }, '', window.location.href);
-      } catch {
-        // Silently fail if history API is not supported
-      }
+    try {
+      window.history.pushState({ room: area.area_id }, '', window.location.href);
+    } catch {
+      // Silently fail if history API is not supported
     }
   };
+
+  const handlePulseRoomSelect = useCallback(
+    (areaId: string) => {
+      const room = findRoomById(areaId);
+      if (!room) return;
+
+      const alreadySelected = selectedRoomRef.current?.area_id === room.area_id;
+      setSelectedRoom(room);
+      updateHash(room.area_id);
+
+      if (!alreadySelected) {
+        try {
+          window.history.pushState({ room: room.area_id }, '', window.location.href);
+        } catch {
+          // Silently fail if history API is not supported
+        }
+      }
+    },
+    [findRoomById, updateHash]
+  );
 
   const handleCloseRoom = () => {
     setSelectedRoom(null);
@@ -476,6 +518,7 @@ export function Dashboard() {
             callService={callService}
             onMenuToggle={() => setIsMenuOpen(!isMenuOpen)}
           />
+          <HomePulse areas={areaList} entities={displayEntities} onRoomSelect={handlePulseRoomSelect} />
           <RoomGrid
             areas={areaList}
             entities={displayEntities}

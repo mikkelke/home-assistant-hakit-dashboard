@@ -57,6 +57,32 @@ export interface RoomDetailProps {
   isMobile: boolean;
 }
 
+export interface HomePulseProps {
+  areas: Area[];
+  entities: HassEntities;
+  onRoomSelect?: (areaId: string) => void;
+}
+
+export interface PulseNarrative {
+  text: string;
+  tone: 'active' | 'attention' | 'calm' | 'neutral';
+}
+
+export interface PulseChip {
+  id: string;
+  icon: string;
+  label: string;
+  tone: 'active' | 'attention' | 'calm' | 'neutral';
+  areaId?: string;
+  pulse?: boolean;
+}
+
+export interface HomePulseSummary {
+  insight: PulseNarrative | null;
+  chips: PulseChip[];
+  tone: 'active' | 'attention' | 'calm' | 'neutral';
+}
+
 export interface SonosPlayerProps {
   entityId: string;
   entities: HassEntities;

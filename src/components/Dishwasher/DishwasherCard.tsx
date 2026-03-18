@@ -223,10 +223,14 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
     ((cycleStartTime && String(cycleStartTime).trim() !== '') || (startedAtDisplay && String(startedAtDisplay).trim() !== ''));
   const countdownLabel = remainingMin == null ? null : remainingMin <= 0 ? 'Almost done' : `${formatDuration(remainingMin)} left`;
 
-  const startedDisplay =
-    startedAtDisplay && String(startedAtDisplay).trim() !== ''
-      ? String(startedAtDisplay).trim().slice(0, 5)
-      : formatTimeOnly(cycleStartTimeLocal || cycleStartTime);
+  // "Started HH:MM": prefer started_at_display if time-only (HH:MM); if ISO datetime, format to time; else use cycle_start_time
+  const startedDisplay = (() => {
+    const s = startedAtDisplay && String(startedAtDisplay).trim();
+    if (!s) return formatTimeOnly(cycleStartTimeLocal || cycleStartTime);
+    if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)) return s.slice(0, 5);
+    if (/^\d{4}-\d{2}/.test(s) || s.includes('T')) return formatTimeOnly(s);
+    return formatTimeOnly(cycleStartTimeLocal || cycleStartTime);
+  })();
 
   const isInteractive = state === 'Running' || state === 'Unemptied';
 
@@ -354,72 +358,72 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
         )}
 
         {/* Cycle history - only when feedback URL is set */}
-        <div className='dishwasher-history-section'>
-          <div className='dishwasher-history-title'>
-            <Icon icon='mdi:history' />
-            Cycle history
-          </div>
-          {!feedbackUrl ? (
-            <p className='dishwasher-history-configure'>Configure VITE_DISHWASHER_FEEDBACK_URL to see and confirm cycles.</p>
-          ) : feedbackLoading && !feedbackData ? (
-            <p className='dishwasher-history-loading'>Loading…</p>
-          ) : feedbackError ? (
-            <p className='dishwasher-history-error'>
-              {feedbackError}
-              <button type='button' onClick={fetchFeedback} style={{ marginLeft: '0.5rem', textDecoration: 'underline' }}>
-                Retry
-              </button>
-            </p>
-          ) : cyclesNewestFirst.length === 0 ? (
-            <p className='dishwasher-history-empty'>No cycles recorded yet.</p>
-          ) : (
-            <div className='dishwasher-history-list'>
-              {cyclesNewestFirst.map((cycle, index) => {
-                const predictedLabel = PROGRAMME_KEY_TO_LABEL[cycle.predicted] ?? cycle.predicted;
-                const confirmedLabel = PROGRAMME_KEY_TO_LABEL[cycle.confirmed] ?? cycle.confirmed;
-                const isUnconfirmed = !cycle.programme_confirmed_by_human;
-                const isSaving = savingCycleIndex === index;
-                return (
-                  <div key={`${cycle.ts}-${index}`} className={`dishwasher-cycle-row ${isUnconfirmed ? 'unconfirmed' : ''}`}>
-                    <span className='dishwasher-cycle-ts'>{formatCycleTs(cycle.ts)}</span>
-                    <span className='dishwasher-cycle-duration'>{formatDuration(cycle.duration_min)}</span>
-                    <span className='dishwasher-cycle-energy'>{cycle.energy_kwh.toFixed(2)} kWh</span>
-                    <span className='dishwasher-cycle-programme' title={isUnconfirmed ? 'Predicted (unconfirmed)' : 'Confirmed'}>
-                      {isUnconfirmed ? predictedLabel : confirmedLabel}
-                      {isUnconfirmed && ' (?)'}
-                    </span>
-                    <div className='dishwasher-cycle-actions'>
-                      {isUnconfirmed && (
-                        <>
-                          <select
-                            aria-label='Correct programme'
-                            value={cycleSelection[index] ?? cycle.predicted}
-                            onChange={e => setCycleSelection(prev => ({ ...prev, [index]: e.target.value }))}
-                            disabled={isSaving}
-                          >
-                            {PROGRAMME_KEYS.map(k => (
-                              <option key={k} value={k}>
-                                {PROGRAMME_KEY_TO_LABEL[k]}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            type='button'
-                            onClick={() => handleConfirmCycle(index)}
-                            disabled={isSaving}
-                            aria-label='Confirm programme'
-                          >
-                            Confirm
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+        {feedbackUrl && (
+          <div className='dishwasher-history-section'>
+            <div className='dishwasher-history-title'>
+              <Icon icon='mdi:history' />
+              Cycle history
             </div>
-          )}
-        </div>
+            {feedbackLoading && !feedbackData ? (
+              <p className='dishwasher-history-loading'>Loading…</p>
+            ) : feedbackError ? (
+              <p className='dishwasher-history-error'>
+                {feedbackError}
+                <button type='button' onClick={fetchFeedback} style={{ marginLeft: '0.5rem', textDecoration: 'underline' }}>
+                  Retry
+                </button>
+              </p>
+            ) : cyclesNewestFirst.length === 0 ? (
+              <p className='dishwasher-history-empty'>No cycles recorded yet.</p>
+            ) : (
+              <div className='dishwasher-history-list'>
+                {cyclesNewestFirst.map((cycle, index) => {
+                  const predictedLabel = PROGRAMME_KEY_TO_LABEL[cycle.predicted] ?? cycle.predicted;
+                  const confirmedLabel = PROGRAMME_KEY_TO_LABEL[cycle.confirmed] ?? cycle.confirmed;
+                  const isUnconfirmed = !cycle.programme_confirmed_by_human;
+                  const isSaving = savingCycleIndex === index;
+                  return (
+                    <div key={`${cycle.ts}-${index}`} className={`dishwasher-cycle-row ${isUnconfirmed ? 'unconfirmed' : ''}`}>
+                      <span className='dishwasher-cycle-ts'>{formatCycleTs(cycle.ts)}</span>
+                      <span className='dishwasher-cycle-duration'>{formatDuration(cycle.duration_min)}</span>
+                      <span className='dishwasher-cycle-energy'>{cycle.energy_kwh.toFixed(2)} kWh</span>
+                      <span className='dishwasher-cycle-programme' title={isUnconfirmed ? 'Predicted (unconfirmed)' : 'Confirmed'}>
+                        {isUnconfirmed ? predictedLabel : confirmedLabel}
+                        {isUnconfirmed && ' (?)'}
+                      </span>
+                      <div className='dishwasher-cycle-actions'>
+                        {isUnconfirmed && (
+                          <>
+                            <select
+                              aria-label='Correct programme'
+                              value={cycleSelection[index] ?? cycle.predicted}
+                              onChange={e => setCycleSelection(prev => ({ ...prev, [index]: e.target.value }))}
+                              disabled={isSaving}
+                            >
+                              {PROGRAMME_KEYS.map(k => (
+                                <option key={k} value={k}>
+                                  {PROGRAMME_KEY_TO_LABEL[k]}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type='button'
+                              onClick={() => handleConfirmCycle(index)}
+                              disabled={isSaving}
+                              aria-label='Confirm programme'
+                            >
+                              Confirm
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

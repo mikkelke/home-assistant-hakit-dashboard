@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import type { CallServiceFunction, HassEntities } from '../../types';
 import { ROBOT_PAUSED_BOOLEAN_ENTITY, ROBOT_PAUSE_REASON_ENTITY, VACUUM_ENTITY, ROBOT_MAPS_PATH } from '../../config/entities';
+import { deriveBatteryItems, type BatteryAlertItem } from '../../utils/batteryAlerts';
 import { PersonStatus } from './PersonStatus';
 import '../Vacuum/VacuumCard.css';
 import './StatusBar.css';
@@ -12,16 +13,6 @@ interface StatusBarProps {
   onMenuToggle: () => void;
   callService?: CallServiceFunction;
 }
-
-interface BatteryItem {
-  entityId: string;
-  name: string;
-  value: number;
-  isLow: boolean;
-}
-
-const ALERT_BATTERY_THRESHOLD = 12;
-const MOBILE_BATTERY_EXCLUDE_KEYWORDS = ['iphone', 'ipad', 'oppopad', 'ofx9p', 'phone', 'tablet'];
 
 const STUCK_MAP_ROOMS = ['stuck_in_the_office', 'stuck_trying_to_leave_the_office'];
 
@@ -151,38 +142,7 @@ export function StatusBar({ entities, hassUrl, onMenuToggle, callService }: Stat
     };
   }, [robotPaused, haBase, sameOrigin, isDev]);
 
-  const batteryItems = useMemo<BatteryItem[]>(() => {
-    const grouped = new Map<string, { entityId: string; name: string; value: number; isBt: boolean }>();
-
-    for (const [entityId, entity] of Object.entries(entities || {})) {
-      if (!entityId.startsWith('sensor.')) continue;
-      if (entity.attributes?.device_class !== 'battery') continue;
-      if (entity.attributes?.unit_of_measurement !== '%') continue;
-
-      const value = Number(entity.state);
-      if (!Number.isFinite(value) || value < 0) continue;
-
-      const isBt = /_bt$/i.test(entityId);
-      const groupKey = entityId.replace(/_bt$/i, '');
-      const existing = grouped.get(groupKey);
-
-      if (!existing || (isBt && !existing.isBt)) {
-        const rawName = String(entity.attributes?.friendly_name ?? entityId);
-        const searchText = `${entityId} ${rawName}`.toLowerCase();
-        if (MOBILE_BATTERY_EXCLUDE_KEYWORDS.some(keyword => searchText.includes(keyword))) continue;
-
-        const name = rawName.replace(/\s+battery(\s+bt)?$/i, '').trim();
-        grouped.set(groupKey, { entityId, name, value, isBt });
-      }
-    }
-
-    return [...grouped.values()]
-      .map(item => ({ ...item, isLow: item.value <= ALERT_BATTERY_THRESHOLD }))
-      .sort((a, b) => {
-        if (a.isLow !== b.isLow) return a.isLow ? -1 : 1;
-        return a.value - b.value;
-      });
-  }, [entities]);
+  const batteryItems = useMemo<BatteryAlertItem[]>(() => deriveBatteryItems(entities), [entities]);
 
   const lowBatteryCount = batteryItems.filter(b => b.isLow).length;
   const redCount = lowBatteryCount + (robotPaused ? 1 : 0);

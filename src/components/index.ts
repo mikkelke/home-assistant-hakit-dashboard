@@ -1,5 +1,6 @@
 // Export all components
 export * from './Dashboard';
+export * from './HomePulse';
 export * from './StatusBar';
 export * from './RoomGrid';
 export * from './RoomDetail';
@@ -7,7 +8,8 @@ export * from './MediaPlayer';
 export * from './Climate';
 export * from './Cover';
 export * from './Vacuum';
-export * from './Washer';
+export { WasherCard } from './Washer';
+export type { WasherCycle, WasherFeedbackJson } from './Washer';
 export { DishwasherCard } from './Dishwasher';
 export type { DishwasherCycle, DishwasherFeedbackJson } from './Dishwasher';
 export { DryerCard } from './Dryer';

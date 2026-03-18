@@ -142,6 +142,58 @@
   color: #71717a;
 }
 
+/* Skåne + and Announce toggles */
+.dryer-skane-toggle,
+.dryer-announce-toggle {
+  margin-left: auto;
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: rgba(100, 100, 120, 0.5);
+  border: none;
+  cursor: pointer;
+  position: relative;
+  padding: 0;
+  transition: background 0.2s;
+}
+
+.dryer-skane-toggle:hover,
+.dryer-announce-toggle:hover {
+  background: rgba(120, 120, 140, 0.6);
+}
+
+.dryer-skane-toggle.on,
+.dryer-announce-toggle.on {
+  background: rgba(59, 130, 246, 0.45);
+}
+
+.dryer-skane-switch,
+.dryer-announce-switch {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #71717a;
+  transition: all 0.2s;
+}
+
+.dryer-skane-toggle.on .dryer-skane-switch,
+.dryer-announce-toggle.on .dryer-announce-switch {
+  left: 20px;
+  background: #3b82f6;
+}
+
+.dryer-row.announce-row {
+  padding: 0.25rem 0;
+}
+
+.dryer-row.announce-row svg {
+  font-size: 1.1rem;
+  color: #71717a;
+}
+
 /* Progress */
 .dryer-progress {
   display: flex;
