@@ -28,7 +28,7 @@ export const RADIO_STATIONS: RadioStation[] = [
   {
     id: 'dr-p3',
     name: 'DR P3',
-    mediaId: 'https://drliveradio.akamaized.net/hls/live/2022411/p3/playlist-320000.m3u8',
+    mediaId: 'https://drliveradio2.akamaized.net/hls/live/2118698/p3/playlist-320000.m3u8',
     mediaType: 'music',
     logo: DRP3Logo,
     color: '#6ee866', // P3 green
@@ -36,7 +36,7 @@ export const RADIO_STATIONS: RadioStation[] = [
   {
     id: 'dr-p4',
     name: 'DR P4',
-    mediaId: 'https://drliveradio.akamaized.net/hls/live/2022411/p4kobenhavn/playlist-320000.m3u8',
+    mediaId: 'https://drliveradio2.akamaized.net/hls/live/2118698/p4kobenhavn/playlist-320000.m3u8',
     mediaType: 'music',
     logo: DRP4Logo,
     color: '#ff7f00', // P4 orange
