@@ -251,7 +251,7 @@ export function deriveHomePulseSummary(areas: Area[], entities: HassEntities): H
   ]
     .filter((chip): chip is ChipCandidate => chip !== null)
     .sort((a, b) => b.priority - a.priority)
-    .map(({ priority, ...chip }) => chip);
+    .map(({ ...chip }) => chip);
 
   const tone = chips[0]?.tone ?? 'neutral';
 

@@ -3,6 +3,7 @@ import { useHass } from '@hakit/core';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { EXCLUDED_AREAS } from '../../config/dashboard';
 import type { Area, HassEntities } from '../../types';
+import { buildHistoryUrlWithHash, getAccessibleHistoryWindow, getRoomIdFromHistoryHash } from '../../utils/navigation';
 import { StatusBar } from '../StatusBar';
 import { HomePulse } from '../HomePulse';
 import { QuickAccess } from '../QuickAccess/QuickAccess';
@@ -250,6 +251,7 @@ export function Dashboard() {
   const isMobile = useIsMobile();
   // Flag to prevent hash change handler from running during programmatic updates
   const isUpdatingHashRef = useRef(false);
+  const hashUpdateTimeoutRef = useRef<number | null>(null);
   // Ref to track current selected room without causing dependency issues
   const selectedRoomRef = useRef<Area | null>(null);
 
@@ -275,31 +277,25 @@ export function Dashboard() {
     selectedRoomRef.current = selectedRoom;
   }, [selectedRoom]);
 
-  // Helper to get room from URL hash (check both current window and parent if in iframe)
-  const getRoomFromHash = (): string | null => {
-    if (typeof window === 'undefined') return null;
-
-    // Try current window first
-    let hash = window.location.hash;
-    if (hash.startsWith('#room=')) {
-      return hash.slice(6); // Remove '#room='
-    }
-
-    // If in iframe, try parent window (for dashboard-rooftop scenarios)
-    try {
-      if (window.parent !== window && window.parent.location.hash) {
-        hash = window.parent.location.hash;
-        if (hash.startsWith('#room=')) {
-          return hash.slice(6);
-        }
+  useEffect(() => {
+    return () => {
+      if (hashUpdateTimeoutRef.current !== null) {
+        window.clearTimeout(hashUpdateTimeoutRef.current);
       }
-    } catch {
-      // Cross-origin restriction - can't access parent
-      // This is expected in some Home Assistant dashboard contexts
-    }
+    };
+  }, []);
 
-    return null;
-  };
+  const markHashUpdating = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    isUpdatingHashRef.current = true;
+    if (hashUpdateTimeoutRef.current !== null) {
+      window.clearTimeout(hashUpdateTimeoutRef.current);
+    }
+    hashUpdateTimeoutRef.current = window.setTimeout(() => {
+      isUpdatingHashRef.current = false;
+      hashUpdateTimeoutRef.current = null;
+    }, 120);
+  }, []);
 
   // Helper to find room by ID (supports area_id, normalized name, or lowercase name)
   const findRoomById = useCallback(
@@ -312,59 +308,44 @@ export function Dashboard() {
     [areaList]
   );
 
-  // Helper to update URL hash
-  const updateHash = useCallback((roomId: string | null) => {
-    if (typeof window === 'undefined') return;
+  const replaceRoomHistory = useCallback(
+    (roomId: string | null) => {
+      const targetWindow = getAccessibleHistoryWindow();
+      if (!targetWindow) return;
 
-    try {
-      isUpdatingHashRef.current = true;
-
-      // Try to update current window
       try {
-        if (roomId) {
-          const newUrl = window.location.pathname + window.location.search + `#room=${roomId}`;
-          window.history.replaceState(null, '', newUrl);
-        } else {
-          // Remove hash when closing
-          if (window.location.hash.startsWith('#room=')) {
-            window.history.replaceState(null, '', window.location.pathname + window.location.search);
-          }
-        }
-      } catch {
-        // If that fails, try parent window (for iframe contexts)
-        try {
-          if (window.parent !== window) {
-            if (roomId) {
-              const newUrl = window.parent.location.pathname + window.parent.location.search + `#room=${roomId}`;
-              window.parent.history.replaceState(null, '', newUrl);
-            } else {
-              if (window.parent.location.hash.startsWith('#room=')) {
-                window.parent.history.replaceState(null, '', window.parent.location.pathname + window.parent.location.search);
-              }
-            }
-          }
-        } catch (e2) {
-          // Can't update parent (cross-origin)
-          console.debug('Cannot update hash in parent window:', e2);
-        }
-      }
-
-      // Reset flag after a short delay
-      setTimeout(() => {
+        markHashUpdating();
+        targetWindow.history.replaceState({ room: roomId }, '', buildHistoryUrlWithHash(targetWindow, roomId ? `#room=${roomId}` : null));
+      } catch (err) {
+        console.debug('Failed to replace room history:', err);
         isUpdatingHashRef.current = false;
-      }, 100);
-    } catch (err) {
-      console.debug('Failed to update hash:', err);
-      isUpdatingHashRef.current = false;
-    }
-  }, []);
+      }
+    },
+    [markHashUpdating]
+  );
+
+  const pushRoomHistory = useCallback(
+    (roomId: string) => {
+      const targetWindow = getAccessibleHistoryWindow();
+      if (!targetWindow) return;
+
+      try {
+        markHashUpdating();
+        targetWindow.history.pushState({ room: roomId }, '', buildHistoryUrlWithHash(targetWindow, `#room=${roomId}`));
+      } catch (err) {
+        console.debug('Failed to push room history:', err);
+        isUpdatingHashRef.current = false;
+      }
+    },
+    [markHashUpdating]
+  );
 
   // Sync state from URL hash (single source of truth)
   const syncStateFromHash = useCallback(() => {
     if (areaList.length === 0) return;
     if (isUpdatingHashRef.current) return; // Skip if we're updating hash programmatically
 
-    const roomIdFromHash = getRoomFromHash();
+    const roomIdFromHash = getRoomIdFromHistoryHash();
 
     if (!roomIdFromHash) {
       // No hash - close room if open
@@ -377,11 +358,16 @@ export function Dashboard() {
     // Find room from hash
     const room = findRoomById(roomIdFromHash);
 
-    if (room) {
-      // Only update if different (avoid unnecessary re-renders)
-      if (selectedRoomRef.current?.area_id !== room.area_id) {
-        setSelectedRoom(room);
+    if (!room) {
+      if (selectedRoomRef.current) {
+        setSelectedRoom(null);
       }
+      return;
+    }
+
+    // Only update if different (avoid unnecessary re-renders)
+    if (selectedRoomRef.current?.area_id !== room.area_id) {
+      setSelectedRoom(room);
     }
   }, [areaList, findRoomById]);
 
@@ -395,6 +381,9 @@ export function Dashboard() {
 
   // Listen for hash changes (browser back/forward, manual URL changes)
   useEffect(() => {
+    const targetWindow = getAccessibleHistoryWindow();
+    if (!targetWindow) return;
+
     const handleHashChange = () => {
       // Small delay to ensure hash is updated
       setTimeout(() => {
@@ -402,19 +391,22 @@ export function Dashboard() {
       }, 50);
     };
 
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    targetWindow.addEventListener('hashchange', handleHashChange);
+    return () => targetWindow.removeEventListener('hashchange', handleHashChange);
   }, [syncStateFromHash]);
 
   // Poll hash periodically for iframe contexts where hashchange might not fire
   // This is necessary for dashboard-rooftop scenarios
   useEffect(() => {
-    let lastHash = window.location.hash;
+    const targetWindow = getAccessibleHistoryWindow();
+    if (!targetWindow) return;
+
+    let lastHash = targetWindow.location.hash;
 
     const checkHash = () => {
       if (isUpdatingHashRef.current) return; // Skip if we're updating
 
-      const currentHash = window.location.hash;
+      const currentHash = targetWindow.location.hash;
       if (currentHash !== lastHash) {
         lastHash = currentHash;
         syncStateFromHash();
@@ -434,6 +426,9 @@ export function Dashboard() {
 
   // Handle browser back button (works in browsers and HA app WebView)
   useEffect(() => {
+    const targetWindow = getAccessibleHistoryWindow();
+    if (!targetWindow) return;
+
     const handlePopState = (event: PopStateEvent) => {
       // First, dispatch a custom event to let modals handle back button
       const modalBackEvent = new CustomEvent('modalBackButton', { cancelable: true });
@@ -445,25 +440,14 @@ export function Dashboard() {
         return;
       }
 
-      // Otherwise, close the room if one is open
-      if (selectedRoomRef.current) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        setSelectedRoom(null);
-        // Update hash to reflect room closure
-        updateHash(null);
-        // Replace current state so back button works correctly
-        try {
-          window.history.replaceState({ room: null }, '', window.location.pathname);
-        } catch {
-          // Silently fail if history API is not supported
-        }
-      }
+      setTimeout(() => {
+        syncStateFromHash();
+      }, 0);
     };
 
-    window.addEventListener('popstate', handlePopState, { capture: true });
-    return () => window.removeEventListener('popstate', handlePopState, { capture: true });
-  }, [selectedRoom, updateHash]);
+    targetWindow.addEventListener('popstate', handlePopState, { capture: true });
+    return () => targetWindow.removeEventListener('popstate', handlePopState, { capture: true });
+  }, [syncStateFromHash]);
 
   const handleRoomClick = (area: Area) => {
     if (selectedRoomRef.current?.area_id === area.area_id) {
@@ -472,46 +456,25 @@ export function Dashboard() {
     }
 
     setSelectedRoom(area);
-    updateHash(area.area_id);
+    pushRoomHistory(area.area_id);
+  };
 
-    try {
-      window.history.pushState({ room: area.area_id }, '', window.location.href);
-    } catch {
-      // Silently fail if history API is not supported
+  const handlePulseRoomSelect = (areaId: string) => {
+    const room = findRoomById(areaId);
+    if (!room) return;
+
+    const alreadySelected = selectedRoomRef.current?.area_id === room.area_id;
+    setSelectedRoom(room);
+    if (!alreadySelected) {
+      pushRoomHistory(room.area_id);
+    } else {
+      replaceRoomHistory(room.area_id);
     }
   };
 
-  const handlePulseRoomSelect = useCallback(
-    (areaId: string) => {
-      const room = findRoomById(areaId);
-      if (!room) return;
-
-      const alreadySelected = selectedRoomRef.current?.area_id === room.area_id;
-      setSelectedRoom(room);
-      updateHash(room.area_id);
-
-      if (!alreadySelected) {
-        try {
-          window.history.pushState({ room: room.area_id }, '', window.location.href);
-        } catch {
-          // Silently fail if history API is not supported
-        }
-      }
-    },
-    [findRoomById, updateHash]
-  );
-
   const handleCloseRoom = () => {
     setSelectedRoom(null);
-    // Update URL hash to remove room
-    updateHash(null);
-    // Replace state when closing (so back button works)
-    try {
-      window.history.replaceState({ room: null }, '', window.location.pathname);
-    } catch {
-      // Silently fail if history API is not supported
-      console.debug('History API not fully supported in this environment');
-    }
+    replaceRoomHistory(null);
   };
 
   return (

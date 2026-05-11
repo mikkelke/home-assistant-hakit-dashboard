@@ -1,9 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
+import { getAccessibleHistoryWindow, getHistoryUrl } from '../../utils/navigation';
 import { Timeline } from '../Timeline';
 import type { HassEntities } from '../../types';
 import './MultiEntitySelector.css';
+
+function modalHistoryUrl(): string {
+  return getHistoryUrl();
+}
+
+function withHistoryWindow(action: (targetWindow: Window) => void) {
+  const targetWindow = getAccessibleHistoryWindow();
+  if (!targetWindow) return;
+  action(targetWindow);
+}
 
 interface MultiEntitySelectorProps {
   entityIds: string[];
@@ -47,12 +58,17 @@ export function MultiEntitySelector({
   useEffect(() => {
     if (!showSelection) return;
 
+    const targetWindow = getAccessibleHistoryWindow();
+    if (!targetWindow) return;
+
     const handlePopState = (event: PopStateEvent) => {
       if (showSelectionRef.current) {
         event.stopImmediatePropagation();
         setShowSelection(false);
         try {
-          window.history.replaceState({ selection: null }, '', window.location.pathname);
+          withHistoryWindow(targetWindow => {
+            targetWindow.history.replaceState({ selection: null }, '', modalHistoryUrl());
+          });
         } catch {
           // Silently fail if history API is not supported
         }
@@ -60,18 +76,23 @@ export function MultiEntitySelector({
     };
 
     try {
-      window.history.pushState({ selection: entityType }, '', window.location.pathname);
+      withHistoryWindow(targetWindow => {
+        targetWindow.history.pushState({ selection: entityType }, '', modalHistoryUrl());
+      });
     } catch {
       // Silently fail if history API is not supported
     }
 
-    window.addEventListener('popstate', handlePopState, { capture: true });
-    return () => window.removeEventListener('popstate', handlePopState, { capture: true });
+    targetWindow.addEventListener('popstate', handlePopState, { capture: true });
+    return () => targetWindow.removeEventListener('popstate', handlePopState, { capture: true });
   }, [showSelection, entityType]);
 
   // Handle browser back button for timeline modal
   useEffect(() => {
     if (!showTimeline || !selectedEntityId) return;
+
+    const targetWindow = getAccessibleHistoryWindow();
+    if (!targetWindow) return;
 
     const handlePopState = (event: PopStateEvent) => {
       if (showTimelineRef.current) {
@@ -82,7 +103,9 @@ export function MultiEntitySelector({
           setSelectedEntityId(null);
         }
         try {
-          window.history.replaceState({ timeline: null }, '', window.location.pathname);
+          withHistoryWindow(targetWindow => {
+            targetWindow.history.replaceState({ timeline: null }, '', modalHistoryUrl());
+          });
         } catch {
           // Silently fail if history API is not supported
         }
@@ -90,13 +113,15 @@ export function MultiEntitySelector({
     };
 
     try {
-      window.history.pushState({ timeline: selectedEntityId }, '', window.location.pathname);
+      withHistoryWindow(targetWindow => {
+        targetWindow.history.pushState({ timeline: selectedEntityId }, '', modalHistoryUrl());
+      });
     } catch {
       // Silently fail if history API is not supported
     }
 
-    window.addEventListener('popstate', handlePopState, { capture: true });
-    return () => window.removeEventListener('popstate', handlePopState, { capture: true });
+    targetWindow.addEventListener('popstate', handlePopState, { capture: true });
+    return () => targetWindow.removeEventListener('popstate', handlePopState, { capture: true });
   }, [showTimeline, selectedEntityId, entityIds.length]);
 
   // Add/remove body class for modals

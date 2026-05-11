@@ -3,6 +3,7 @@ import { useWeather } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import type { HassEntities } from '../../types';
 import { useModalBackButton } from '../../hooks';
+import { getWeatherConditionIcon } from './weatherIcons';
 import './QuickWeatherCard.css';
 
 interface QuickWeatherCardProps {
@@ -48,29 +49,6 @@ const SENSOR_IDS = {
   solarRadiation: 'sensor.gw2000a_solar_radiation',
   solarLux: 'sensor.gw2000a_solar_lux',
 } as const;
-
-const CONDITION_ICONS: Record<string, string> = {
-  'clear-night': 'mdi:weather-night',
-  cloudy: 'mdi:weather-cloudy',
-  exceptional: 'mdi:alert-circle-outline',
-  fog: 'mdi:weather-fog',
-  hail: 'mdi:weather-hail',
-  lightning: 'mdi:weather-lightning',
-  'lightning-rainy': 'mdi:weather-lightning-rainy',
-  partlycloudy: 'mdi:weather-partly-cloudy',
-  pouring: 'mdi:weather-pouring',
-  rainy: 'mdi:weather-rainy',
-  snowy: 'mdi:weather-snowy',
-  'snowy-rainy': 'mdi:weather-snowy-rainy',
-  sunny: 'mdi:weather-sunny',
-  windy: 'mdi:weather-windy',
-  'windy-variant': 'mdi:weather-windy-variant',
-};
-
-/** Icon for a weather condition (e.g. from weather entity state). Used by Quick Access button and card. */
-export function getWeatherConditionIcon(condition: string | undefined): string {
-  return (condition && CONDITION_ICONS[condition]) ?? 'mdi:weather-partly-cloudy';
-}
 
 function MetricPill({ icon, label, value, subvalue }: { icon: string; label: string; value: string; subvalue?: string }) {
   return (
@@ -287,7 +265,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   const attributes = weatherEntity.attributes ?? {};
   const condition = weatherEntity.state;
   const tone = getConditionTone(condition);
-  const conditionIcon = CONDITION_ICONS[condition ?? ''] ?? 'mdi:weather-partly-cloudy';
+  const conditionIcon = getWeatherConditionIcon(condition);
 
   const currentTemp = getNumber(attributes.temperature) ?? getNumber(getState(entities, SENSOR_IDS.outdoorTemp));
   const currentTempUnit = typeof attributes.temperature_unit === 'string' ? attributes.temperature_unit : '°C';
@@ -411,7 +389,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
                 >
                   <span className='quick-weather-card__forecast-day'>{formatDay(entry.datetime)}</span>
                   <div className='quick-weather-card__forecast-icon'>
-                    <Icon icon={CONDITION_ICONS[entry.condition ?? ''] ?? 'mdi:weather-partly-cloudy'} />
+                    <Icon icon={getWeatherConditionIcon(entry.condition)} />
                   </div>
                   <span className='quick-weather-card__forecast-temp'>
                     {entry.templow != null && entry.temperature != null
@@ -448,7 +426,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
                           <li key={`sd-${i}-${entry.datetime}`} className='quick-weather-card__hour-row'>
                             <span className='quick-weather-card__hour-time'>{formatHour(entry.datetime)}</span>
                             <div className='quick-weather-card__hour-icon'>
-                              <Icon icon={CONDITION_ICONS[entry.condition ?? ''] ?? 'mdi:weather-partly-cloudy'} />
+                              <Icon icon={getWeatherConditionIcon(entry.condition)} />
                             </div>
                             <span className='quick-weather-card__hour-temp'>
                               {entry.temperature != null ? `${Math.round(entry.temperature)}${tempUnit}` : '—'}

@@ -1,8 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
+import { getAccessibleHistoryWindow, getHistoryUrl } from '../../utils/navigation';
 import { Timeline } from '../Timeline';
 import type { HassEntities } from '../../types';
+
+function timelineHistoryUrl(): string {
+  return getHistoryUrl();
+}
+
+function withHistoryWindow(action: (targetWindow: Window) => void) {
+  const targetWindow = getAccessibleHistoryWindow();
+  if (!targetWindow) return;
+  action(targetWindow);
+}
 
 interface IndicatorWithTimelineProps {
   entityId: string;
@@ -40,6 +51,9 @@ export function IndicatorWithTimeline({
   // Handle browser back button and body class
   useEffect(() => {
     if (showTimeline) {
+      const targetWindow = getAccessibleHistoryWindow();
+      if (!targetWindow) return;
+
       // Add class to body to disable room card clicks
       document.body.classList.add('modal-open');
 
@@ -49,7 +63,9 @@ export function IndicatorWithTimeline({
           setShowTimeline(false);
           // Replace current state so back button works correctly
           try {
-            window.history.replaceState({ timeline: null }, '', window.location.pathname);
+            withHistoryWindow(targetWindow => {
+              targetWindow.history.replaceState({ timeline: null }, '', timelineHistoryUrl());
+            });
           } catch {
             // Silently fail if history API is not supported
           }
@@ -58,14 +74,16 @@ export function IndicatorWithTimeline({
 
       // Push state when opening modal
       try {
-        window.history.pushState({ timeline: entityId }, '', window.location.pathname);
+        withHistoryWindow(targetWindow => {
+          targetWindow.history.pushState({ timeline: entityId }, '', timelineHistoryUrl());
+        });
       } catch {
         // Silently fail if history API is not supported
       }
 
-      window.addEventListener('popstate', handlePopState, { capture: true });
+      targetWindow.addEventListener('popstate', handlePopState, { capture: true });
       return () => {
-        window.removeEventListener('popstate', handlePopState, { capture: true });
+        targetWindow.removeEventListener('popstate', handlePopState, { capture: true });
         // Remove class when modal closes
         document.body.classList.remove('modal-open');
       };

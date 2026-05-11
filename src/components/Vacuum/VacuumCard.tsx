@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { useHass } from '@hakit/core';
 import type { HassEntities, CallServiceFunction } from '../../types';
+import { getAccessibleHistoryWindow, getHistoryUrl } from '../../utils/navigation';
 import {
   VACUUM_ENTITY,
   VACUUM_BATTERY_SENSOR,
@@ -133,7 +134,13 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     return path.startsWith('http') ? path : `${haBase}${path}`;
   };
 
-  const modalHistoryUrl = () => window.location.pathname + window.location.search + window.location.hash;
+  const modalHistoryUrl = () => getHistoryUrl();
+
+  const withHistoryWindow = (action: (targetWindow: Window) => void) => {
+    const targetWindow = getAccessibleHistoryWindow();
+    if (!targetWindow) return;
+    action(targetWindow);
+  };
 
   // Group maps by room and get the latest one for each room, sorted alphabetically
   const getLatestMapsByRoom = (entries: MapEntry[]): MapEntry[] => {
@@ -216,7 +223,9 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   const handleOpenMap = (map: MapEntry) => {
     setSelectedMap(map);
     try {
-      window.history.pushState({ map: map.filename }, '', modalHistoryUrl());
+      withHistoryWindow(targetWindow => {
+        targetWindow.history.pushState({ map: map.filename }, '', modalHistoryUrl());
+      });
     } catch {
       // Silently fail if history API not supported
     }
@@ -225,7 +234,9 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   const handleCloseMap = () => {
     setSelectedMap(null);
     try {
-      window.history.replaceState({ map: null }, '', modalHistoryUrl());
+      withHistoryWindow(targetWindow => {
+        targetWindow.history.replaceState({ map: null }, '', modalHistoryUrl());
+      });
     } catch {
       // Silently fail if history API not supported
     }
@@ -234,7 +245,9 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   const handleOpenLiveMap = () => {
     setShowLiveMap(true);
     try {
-      window.history.pushState({ liveMap: true }, '', modalHistoryUrl());
+      withHistoryWindow(targetWindow => {
+        targetWindow.history.pushState({ liveMap: true }, '', modalHistoryUrl());
+      });
     } catch {
       // Silently fail if history API not supported
     }
@@ -243,7 +256,9 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   const handleCloseLiveMap = () => {
     setShowLiveMap(false);
     try {
-      window.history.replaceState({ liveMap: null }, '', modalHistoryUrl());
+      withHistoryWindow(targetWindow => {
+        targetWindow.history.replaceState({ liveMap: null }, '', modalHistoryUrl());
+      });
     } catch {
       // Silently fail if history API not supported
     }
@@ -254,7 +269,9 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     e.stopPropagation();
     setBatteryGraphOpen(true);
     try {
-      window.history.pushState({ batteryGraph: true }, '', modalHistoryUrl());
+      withHistoryWindow(targetWindow => {
+        targetWindow.history.pushState({ batteryGraph: true }, '', modalHistoryUrl());
+      });
     } catch {
       /* ignore */
     }
@@ -262,7 +279,9 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   const handleCloseBatteryGraph = () => {
     setBatteryGraphOpen(false);
     try {
-      window.history.replaceState({ batteryGraph: null }, '', modalHistoryUrl());
+      withHistoryWindow(targetWindow => {
+        targetWindow.history.replaceState({ batteryGraph: null }, '', modalHistoryUrl());
+      });
     } catch {
       /* ignore */
     }
@@ -286,7 +305,9 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
         event.preventDefault();
         setSelectedMap(null);
         try {
-          window.history.replaceState({ map: null }, '', modalHistoryUrl());
+          withHistoryWindow(targetWindow => {
+            targetWindow.history.replaceState({ map: null }, '', modalHistoryUrl());
+          });
         } catch {
           /* ignore */
         }
@@ -297,7 +318,9 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
         event.preventDefault();
         setShowLiveMap(false);
         try {
-          window.history.replaceState({ liveMap: null }, '', modalHistoryUrl());
+          withHistoryWindow(targetWindow => {
+            targetWindow.history.replaceState({ liveMap: null }, '', modalHistoryUrl());
+          });
         } catch {
           /* ignore */
         }
@@ -308,7 +331,9 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
         event.preventDefault();
         setBatteryGraphOpen(false);
         try {
-          window.history.replaceState({ batteryGraph: null }, '', modalHistoryUrl());
+          withHistoryWindow(targetWindow => {
+            targetWindow.history.replaceState({ batteryGraph: null }, '', modalHistoryUrl());
+          });
         } catch {
           /* ignore */
         }
@@ -321,13 +346,18 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
 
   // Browser back button support (capture to avoid closing the whole room)
   useEffect(() => {
+    const targetWindow = getAccessibleHistoryWindow();
+    if (!targetWindow) return;
+
     const handlePopState = (event: PopStateEvent) => {
       // If a map modal is open, close it and stop further handling
       if (selectedMap) {
         event.stopImmediatePropagation();
         setSelectedMap(null);
         try {
-          window.history.replaceState({ map: null }, '', modalHistoryUrl());
+          withHistoryWindow(targetWindow => {
+            targetWindow.history.replaceState({ map: null }, '', modalHistoryUrl());
+          });
         } catch {
           /* ignore */
         }
@@ -338,7 +368,9 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
         event.stopImmediatePropagation();
         setShowLiveMap(false);
         try {
-          window.history.replaceState({ liveMap: null }, '', modalHistoryUrl());
+          withHistoryWindow(targetWindow => {
+            targetWindow.history.replaceState({ liveMap: null }, '', modalHistoryUrl());
+          });
         } catch {
           /* ignore */
         }
@@ -348,14 +380,16 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
         event.stopImmediatePropagation();
         setBatteryGraphOpen(false);
         try {
-          window.history.replaceState({ batteryGraph: null }, '', modalHistoryUrl());
+          withHistoryWindow(targetWindow => {
+            targetWindow.history.replaceState({ batteryGraph: null }, '', modalHistoryUrl());
+          });
         } catch {
           /* ignore */
         }
       }
     };
-    window.addEventListener('popstate', handlePopState, { capture: true });
-    return () => window.removeEventListener('popstate', handlePopState, { capture: true });
+    targetWindow.addEventListener('popstate', handlePopState, { capture: true });
+    return () => targetWindow.removeEventListener('popstate', handlePopState, { capture: true });
   }, [selectedMap, showLiveMap, batteryGraphOpen]);
 
   // Use standardized swipe-to-close hook for map modal

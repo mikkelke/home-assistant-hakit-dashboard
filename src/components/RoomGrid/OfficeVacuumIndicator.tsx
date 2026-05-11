@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import type { HassEntities } from '../../types';
+import { getAccessibleHistoryWindow, getHistoryUrl } from '../../utils/navigation';
 import {
   VACUUM_ENTITY,
   ROBOT_CLEANING_NARRATIVE_ENTITY,
@@ -15,6 +16,16 @@ import { RobotCleaningNarrativeTimeline } from './RobotCleaningNarrativeTimeline
 import './OfficeVacuumIndicator.css';
 
 type OfficeVacuumTab = 'robot' | 'cleaning';
+
+function modalHistoryUrl(): string {
+  return getHistoryUrl();
+}
+
+function withHistoryWindow(action: (targetWindow: Window) => void) {
+  const targetWindow = getAccessibleHistoryWindow();
+  if (!targetWindow) return;
+  action(targetWindow);
+}
 
 function vacuumStateLabel(state: string | undefined): string {
   if (!state) return 'Unknown';
@@ -117,12 +128,17 @@ export function OfficeVacuumIndicator({
   useEffect(() => {
     if (!open) return;
 
+    const targetWindow = getAccessibleHistoryWindow();
+    if (!targetWindow) return;
+
     const handlePopState = (event: PopStateEvent) => {
       if (openRef.current) {
         event.stopImmediatePropagation();
         setOpen(false);
         try {
-          window.history.replaceState({ officeVacuumModal: null }, '', window.location.pathname);
+          withHistoryWindow(targetWindow => {
+            targetWindow.history.replaceState({ officeVacuumModal: null }, '', modalHistoryUrl());
+          });
         } catch {
           /* ignore */
         }
@@ -130,15 +146,17 @@ export function OfficeVacuumIndicator({
     };
 
     try {
-      window.history.pushState({ officeVacuumModal: true }, '', window.location.pathname);
+      withHistoryWindow(targetWindow => {
+        targetWindow.history.pushState({ officeVacuumModal: true }, '', modalHistoryUrl());
+      });
     } catch {
       /* ignore */
     }
 
     document.body.classList.add('modal-open');
-    window.addEventListener('popstate', handlePopState, { capture: true });
+    targetWindow.addEventListener('popstate', handlePopState, { capture: true });
     return () => {
-      window.removeEventListener('popstate', handlePopState, { capture: true });
+      targetWindow.removeEventListener('popstate', handlePopState, { capture: true });
       document.body.classList.remove('modal-open');
     };
   }, [open]);

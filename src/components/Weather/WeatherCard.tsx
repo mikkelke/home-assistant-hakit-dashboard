@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import type { HassEntities, HassEntity, CallServiceFunction } from '../../types';
+import { getAccessibleHistoryWindow, getHistoryUrl } from '../../utils/navigation';
 import { useTouchScrollSlopGuard } from '../../hooks';
 import { Timeline } from '../Timeline';
 import './WeatherCard.css';
@@ -25,7 +26,13 @@ interface WeatherItemWithTimelineProps {
 }
 
 function timelineHistoryUrl(): string {
-  return window.location.pathname + window.location.search + window.location.hash;
+  return getHistoryUrl();
+}
+
+function withHistoryWindow(action: (targetWindow: Window) => void) {
+  const targetWindow = getAccessibleHistoryWindow();
+  if (!targetWindow) return;
+  action(targetWindow);
 }
 
 // Safe getter helpers
@@ -144,7 +151,9 @@ function WeatherItemWithTimeline({
       showTimelineRef.current = false;
       setShowTimeline(false);
       try {
-        window.history.replaceState({ timeline: null }, '', timelineHistoryUrl());
+        withHistoryWindow(targetWindow => {
+          targetWindow.history.replaceState({ timeline: null }, '', timelineHistoryUrl());
+        });
       } catch {
         /* ignore */
       }
@@ -160,7 +169,9 @@ function WeatherItemWithTimeline({
     showTimelineRef.current = true;
     setShowTimeline(true);
     try {
-      window.history.pushState({ timeline: entityId }, '', timelineHistoryUrl());
+      withHistoryWindow(targetWindow => {
+        targetWindow.history.pushState({ timeline: entityId }, '', timelineHistoryUrl());
+      });
     } catch {
       /* ignore */
     }
@@ -191,7 +202,9 @@ function WeatherItemWithTimeline({
     showTimelineRef.current = false;
     setShowTimeline(false);
     try {
-      window.history.replaceState({ timeline: null }, '', timelineHistoryUrl());
+      withHistoryWindow(targetWindow => {
+        targetWindow.history.replaceState({ timeline: null }, '', timelineHistoryUrl());
+      });
     } catch {
       /* ignore */
     }

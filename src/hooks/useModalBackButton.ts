@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { getAccessibleHistoryWindow, getHistoryUrl } from '../utils/navigation';
 
 interface UseModalBackButtonOptions {
   isOpen: boolean;
@@ -48,9 +49,9 @@ function unlockModalBody() {
 
 export function useModalBackButton({ isOpen, onRequestClose, historyKey }: UseModalBackButtonOptions) {
   const onRequestCloseRef = useRef(onRequestClose);
-  const instanceIdRef = useRef<string>('');
+  const instanceIdRef = useRef<string | null>(null);
 
-  if (!instanceIdRef.current) {
+  if (instanceIdRef.current == null) {
     instanceIdRef.current = getNextModalInstanceId();
   }
 
@@ -61,12 +62,15 @@ export function useModalBackButton({ isOpen, onRequestClose, historyKey }: UseMo
   useEffect(() => {
     if (!isOpen || typeof window === 'undefined') return;
 
+    const targetWindow = getAccessibleHistoryWindow();
+    if (!targetWindow) return;
+
     const stackId = `${historyKey}:${instanceIdRef.current}`;
     pushModalToStack(stackId);
     lockModalBody();
 
     try {
-      window.history.pushState({ modal: historyKey }, '', window.location.href);
+      targetWindow.history.pushState({ modal: historyKey }, '', getHistoryUrl(targetWindow));
     } catch {
       // Ignore history API failures in limited WebView contexts.
     }
@@ -89,9 +93,10 @@ export function useModalBackButton({ isOpen, onRequestClose, historyKey }: UseMo
   const requestClose = useCallback(() => {
     if (!isOpen) return;
 
-    if (typeof window !== 'undefined') {
+    const targetWindow = getAccessibleHistoryWindow();
+    if (targetWindow) {
       try {
-        window.history.back();
+        targetWindow.history.back();
         return;
       } catch {
         // Fall back to local state close below.

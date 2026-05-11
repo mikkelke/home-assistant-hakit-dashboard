@@ -2,9 +2,20 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import type { PersonStatusProps } from '../../types';
+import { getAccessibleHistoryWindow, getHistoryUrl } from '../../utils/navigation';
 import { Timeline } from '../Timeline';
 import { useSwipeToClose } from '../../hooks';
 import './StatusBar.css';
+
+function timelineHistoryUrl(): string {
+  return getHistoryUrl();
+}
+
+function withHistoryWindow(action: (targetWindow: Window) => void) {
+  const targetWindow = getAccessibleHistoryWindow();
+  if (!targetWindow) return;
+  action(targetWindow);
+}
 
 export function PersonStatus({ entity, entities, hassUrl }: PersonStatusProps) {
   const person = entities?.[entity];
@@ -23,6 +34,9 @@ export function PersonStatus({ entity, entities, hassUrl }: PersonStatusProps) {
   // Handle browser back button and body class
   useEffect(() => {
     if (showInfo) {
+      const targetWindow = getAccessibleHistoryWindow();
+      if (!targetWindow) return;
+
       // Add class to body to disable room card clicks
       document.body.classList.add('modal-open');
 
@@ -32,7 +46,9 @@ export function PersonStatus({ entity, entities, hassUrl }: PersonStatusProps) {
           setShowInfo(false);
           // Replace current state so back button works correctly
           try {
-            window.history.replaceState({ timeline: null }, '', window.location.pathname);
+            withHistoryWindow(targetWindow => {
+              targetWindow.history.replaceState({ timeline: null }, '', timelineHistoryUrl());
+            });
           } catch {
             // Silently fail if history API is not supported
           }
@@ -41,14 +57,16 @@ export function PersonStatus({ entity, entities, hassUrl }: PersonStatusProps) {
 
       // Push state when opening modal
       try {
-        window.history.pushState({ timeline: entity }, '', window.location.pathname);
+        withHistoryWindow(targetWindow => {
+          targetWindow.history.pushState({ timeline: entity }, '', timelineHistoryUrl());
+        });
       } catch {
         // Silently fail if history API is not supported
       }
 
-      window.addEventListener('popstate', handlePopState, { capture: true });
+      targetWindow.addEventListener('popstate', handlePopState, { capture: true });
       return () => {
-        window.removeEventListener('popstate', handlePopState, { capture: true });
+        targetWindow.removeEventListener('popstate', handlePopState, { capture: true });
         // Remove class when modal closes
         document.body.classList.remove('modal-open');
       };

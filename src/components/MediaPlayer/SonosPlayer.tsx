@@ -5,7 +5,8 @@ import { SONOS_SPEAKERS } from '../../config/speakers';
 import { RADIO_STATIONS } from '../../config/radio';
 import { PODCAST_FEEDS } from '../../config/podcasts';
 import { isMediaPlayerOutOfSync } from '../../utils/mediaPlayer';
-import { useSwipeToClose } from '../../hooks';
+import { getAccessibleHistoryWindow, getHistoryUrl } from '../../utils/navigation';
+import { useModalBackButton, useSwipeToClose } from '../../hooks';
 import './SonosPlayer.css';
 
 type SonosAttributes = {
@@ -62,7 +63,13 @@ const getMasterFromEntity = (entity: { attributes?: { group_members?: unknown[] 
 
 /** pushState/replaceState must keep #room=… or Dashboard hash sync closes the room (iframe / rooftop). */
 function podcastHistoryUrl(): string {
-  return window.location.pathname + window.location.search + window.location.hash;
+  return getHistoryUrl();
+}
+
+function withHistoryWindow(action: (targetWindow: Window) => void) {
+  const targetWindow = getAccessibleHistoryWindow();
+  if (!targetWindow) return;
+  action(targetWindow);
 }
 
 export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosPlayerProps) {
@@ -404,26 +411,18 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
     setShowGroupModal(false);
   };
 
+  const { requestClose: requestCloseGroupModal } = useModalBackButton({
+    isOpen: showGroupModal,
+    onRequestClose: closeGroupModal,
+    historyKey: 'sonos-group-modal',
+  });
+
   // Use standardized swipe-to-close hook for group modal
   const {
     handleTouchStart: handleModalTouchStart,
     handleTouchMove: handleModalTouchMove,
     handleTouchEnd: handleModalTouchEnd,
-  } = useSwipeToClose(closeGroupModal);
-
-  // Handle back button for group modal
-  useEffect(() => {
-    if (!showGroupModal) return;
-
-    const handleModalBack = (e: Event) => {
-      // Prevent Dashboard from closing the room detail
-      e.preventDefault();
-      closeGroupModal();
-    };
-
-    window.addEventListener('modalBackButton', handleModalBack);
-    return () => window.removeEventListener('modalBackButton', handleModalBack);
-  }, [showGroupModal]);
+  } = useSwipeToClose(requestCloseGroupModal);
 
   useEffect(() => {
     showPodcastModalRef.current = showPodcastModal;
@@ -451,7 +450,9 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
       if (viewingEpisodesRef.current) {
         setViewingEpisodes(false);
         try {
-          window.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
+          withHistoryWindow(targetWindow => {
+            targetWindow.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
+          });
         } catch {
           /* ignore */
         }
@@ -460,7 +461,9 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
         setViewingEpisodes(false);
         setSelectedPodcastId(null);
         try {
-          window.history.replaceState({ podcastModal: null }, '', podcastHistoryUrl());
+          withHistoryWindow(targetWindow => {
+            targetWindow.history.replaceState({ podcastModal: null }, '', podcastHistoryUrl());
+          });
         } catch {
           /* ignore */
         }
@@ -749,6 +752,9 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
 
   // Browser back button support (capture to avoid closing the whole room)
   useEffect(() => {
+    const targetWindow = getAccessibleHistoryWindow();
+    if (!targetWindow) return;
+
     const handlePopState = (event: PopStateEvent) => {
       if (showPodcastModal) {
         event.stopImmediatePropagation();
@@ -756,7 +762,9 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
           // Go back to podcast list
           setViewingEpisodes(false);
           try {
-            window.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
+            withHistoryWindow(targetWindow => {
+              targetWindow.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
+            });
           } catch {
             /* ignore */
           }
@@ -765,15 +773,17 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
           setViewingEpisodes(false);
           setSelectedPodcastId(null);
           try {
-            window.history.replaceState({ podcastModal: null }, '', podcastHistoryUrl());
+            withHistoryWindow(targetWindow => {
+              targetWindow.history.replaceState({ podcastModal: null }, '', podcastHistoryUrl());
+            });
           } catch {
             /* ignore */
           }
         }
       }
     };
-    window.addEventListener('popstate', handlePopState, { capture: true });
-    return () => window.removeEventListener('popstate', handlePopState, { capture: true });
+    targetWindow.addEventListener('popstate', handlePopState, { capture: true });
+    return () => targetWindow.removeEventListener('popstate', handlePopState, { capture: true });
   }, [showPodcastModal, viewingEpisodes]);
 
   // Custom swipe handler for podcast modal (needs special logic for back navigation)
@@ -781,7 +791,9 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
     if (viewingEpisodes) {
       setViewingEpisodes(false);
       try {
-        window.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
+        withHistoryWindow(targetWindow => {
+          targetWindow.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
+        });
       } catch {
         /* ignore */
       }
@@ -806,7 +818,9 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
     setViewingEpisodes(false);
     setSelectedPodcastId(null);
     try {
-      window.history.replaceState({ podcastModal: null }, '', podcastHistoryUrl());
+      withHistoryWindow(targetWindow => {
+        targetWindow.history.replaceState({ podcastModal: null }, '', podcastHistoryUrl());
+      });
     } catch {
       /* ignore */
     }
@@ -815,12 +829,10 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
   const handleSelectPodcast = (feedId: string) => {
     setSelectedPodcastId(feedId);
     setViewingEpisodes(true);
-    const feed = PODCAST_FEEDS.find(f => f.id === feedId);
-    if (feed && !podcastEpisodes[feed.id]) {
-      fetchPodcast(feed.id, feed.url);
-    }
     try {
-      window.history.pushState({ podcastModal: true, viewingEpisodes: true, feedId }, '', podcastHistoryUrl());
+      withHistoryWindow(targetWindow => {
+        targetWindow.history.pushState({ podcastModal: true, viewingEpisodes: true, feedId }, '', podcastHistoryUrl());
+      });
     } catch {
       /* ignore */
     }
@@ -829,7 +841,9 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
   const handleBackToPodcasts = () => {
     setViewingEpisodes(false);
     try {
-      window.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
+      withHistoryWindow(targetWindow => {
+        targetWindow.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
+      });
     } catch {
       /* ignore */
     }
@@ -1027,7 +1041,7 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
     });
     // Close modal if removing the current speaker
     if (speakerId === entityId) {
-      closeGroupModal();
+      requestCloseGroupModal();
     }
   };
 
@@ -1267,7 +1281,9 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
                   setViewingEpisodes(false);
                   setSelectedPodcastId(null);
                   try {
-                    window.history.pushState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
+                    withHistoryWindow(targetWindow => {
+                      targetWindow.history.pushState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
+                    });
                   } catch {
                     /* ignore */
                   }
@@ -1329,7 +1345,7 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
       {showGroupModal && (
         <div
           className='sonos-modal-overlay'
-          onClick={closeGroupModal}
+          onClick={requestCloseGroupModal}
           onTouchStart={handleModalTouchStart}
           onTouchMove={handleModalTouchMove}
           onTouchEnd={handleModalTouchEnd}
@@ -1337,7 +1353,7 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
           <div className='sonos-modal' onClick={e => e.stopPropagation()}>
             <div className='sonos-modal-header'>
               <h3>Group Speakers</h3>
-              <button className='modal-close modal-close-button' onClick={closeGroupModal}>
+              <button className='modal-close modal-close-button' onClick={requestCloseGroupModal}>
                 <Icon icon='mdi:close' />
               </button>
             </div>
