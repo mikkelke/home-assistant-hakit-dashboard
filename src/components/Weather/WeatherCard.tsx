@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import type { HassEntities, HassEntity, CallServiceFunction } from '../../types';
+import { useTouchScrollSlopGuard } from '../../hooks';
 import { Timeline } from '../Timeline';
 import './WeatherCard.css';
 
@@ -21,6 +22,10 @@ interface WeatherItemWithTimelineProps {
   valueClass?: string;
   childrenFirst?: boolean; // Render children before value (for items like UV, Lux)
   children?: React.ReactNode;
+}
+
+function timelineHistoryUrl(): string {
+  return window.location.pathname + window.location.search + window.location.hash;
 }
 
 // Safe getter helpers
@@ -102,7 +107,20 @@ function WeatherItemWithTimeline({
 }: WeatherItemWithTimelineProps) {
   const [showTimeline, setShowTimeline] = useState(false);
   const timelineOpenedAt = useRef<number>(0);
+  const showTimelineRef = useRef(false);
   const entity = entities[entityId];
+  const {
+    onTouchStart: slopTouchStart,
+    onTouchMove: slopTouchMove,
+    onTouchEnd: slopTouchEnd,
+    onTouchCancel: slopTouchCancel,
+    consumeBlockClick,
+    exceededSlop,
+  } = useTouchScrollSlopGuard();
+
+  useEffect(() => {
+    showTimelineRef.current = showTimeline;
+  }, [showTimeline]);
 
   useEffect(() => {
     if (showTimeline) {
@@ -113,15 +131,56 @@ function WeatherItemWithTimeline({
     }
   }, [showTimeline]);
 
+  useEffect(() => {
+    const handleModalBack = (e: Event) => {
+      if (!showTimelineRef.current) return;
+
+      e.preventDefault();
+
+      if (Date.now() - timelineOpenedAt.current < 500) {
+        return;
+      }
+
+      showTimelineRef.current = false;
+      setShowTimeline(false);
+      try {
+        window.history.replaceState({ timeline: null }, '', timelineHistoryUrl());
+      } catch {
+        /* ignore */
+      }
+    };
+
+    window.addEventListener('modalBackButton', handleModalBack);
+    return () => window.removeEventListener('modalBackButton', handleModalBack);
+  }, []);
+
   const openPanel = () => {
+    if (showTimelineRef.current) return;
     timelineOpenedAt.current = Date.now();
+    showTimelineRef.current = true;
     setShowTimeline(true);
+    try {
+      window.history.pushState({ timeline: entityId }, '', timelineHistoryUrl());
+    } catch {
+      /* ignore */
+    }
   };
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    if (consumeBlockClick()) return;
     openPanel();
+  };
+
+  const handleRowTouchEnd = (e: React.TouchEvent) => {
+    if (exceededSlop()) {
+      slopTouchEnd();
+      return;
+    }
+    e.preventDefault();
+    openPanel();
+    slopTouchEnd();
   };
 
   const handleClose = (e?: React.MouseEvent) => {
@@ -129,7 +188,13 @@ function WeatherItemWithTimeline({
       e.stopPropagation();
       e.preventDefault();
     }
+    showTimelineRef.current = false;
     setShowTimeline(false);
+    try {
+      window.history.replaceState({ timeline: null }, '', timelineHistoryUrl());
+    } catch {
+      /* ignore */
+    }
   };
 
   const handleOverlayClick = (e: React.MouseEvent) => {
@@ -182,10 +247,10 @@ function WeatherItemWithTimeline({
         role='button'
         tabIndex={0}
         onClick={handleClick}
-        onTouchEnd={e => {
-          e.preventDefault();
-          openPanel();
-        }}
+        onTouchStart={slopTouchStart}
+        onTouchMove={slopTouchMove}
+        onTouchEnd={handleRowTouchEnd}
+        onTouchCancel={slopTouchCancel}
         onKeyDown={e => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();

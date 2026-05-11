@@ -1,12 +1,15 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { IntercomCard } from '../Intercom';
 import { SonosPlayer, TVCard } from '../MediaPlayer';
 import { QuickWeatherCard, getWeatherConditionIcon } from '../Weather';
 import { TRANSIT_LAST_UPDATED_SENSOR, TRANSIT_REFRESH_BUTTON } from '../../config/entities';
+import { QUICK_ACCESS_OPEN_EVENT, TRANSIT_LINES, getTransitSeverity, isTransitAlert, type TransitStatus } from '../../config/transit';
+import { getTransitLineDisplayStatus, minsFromNow, TRANSIT_UPCOMING_MIN_MINS } from '../../utils/transitDisplay';
+import { isMediaPlayerOutOfSync, resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { SONOS_SPEAKERS } from '../../config/speakers';
-import { useSwipeToClose } from '../../hooks';
+import { useModalBackButton, useSwipeToClose } from '../../hooks';
 import './QuickAccess.css';
 
 interface QuickAccessProps {
@@ -16,10 +19,6 @@ interface QuickAccessProps {
 }
 
 type ModalType = 'intercom' | 'media' | 'weather' | 'transit' | null;
-
-// ── Transit types & config ────────────────────────────────────────────────────
-
-type TransitStatus = 'OK' | 'Delayed' | 'Disrupted' | 'Unavailable' | string;
 
 interface TransitLine {
   name: string;
@@ -43,16 +42,15 @@ interface Departure {
 interface TransitStationGroup {
   station: string;
   maxSeverity: number;
-  lines: Array<TransitLine & { status: TransitStatus; departures: Departure[]; lastChecked: string; enabled: boolean }>;
-}
-
-function minsFromNow(hhmm: string, now: Date): number {
-  const [h, min] = hhmm.split(':').map(Number);
-  const depMins = h * 60 + min;
-  const nowMins = now.getHours() * 60 + now.getMinutes();
-  let diff = depMins - nowMins;
-  if (diff < -60) diff += 24 * 60; // midnight wrap
-  return diff;
+  lines: Array<
+    TransitLine & {
+      status: TransitStatus;
+      displayStatus: TransitStatus;
+      departures: Departure[];
+      lastChecked: string;
+      enabled: boolean;
+    }
+  >;
 }
 
 /** Parse data_as_of (ISO or "HH:MM") and return minutes ago from now. */
@@ -76,60 +74,6 @@ function formatMinsAgo(mins: number): string {
   if (mins <= 0) return 'just now';
   if (mins === 1) return '1 min ago';
   return `${mins} min ago`;
-}
-
-const TRANSIT_SEVERITY: Record<string, number> = {
-  Disrupted: 3,
-  Delayed: 2,
-  OK: 1,
-  Unavailable: 0,
-};
-
-// Must match AppDaemon TransitAlarm sensor_id and helpers: input_select.transit_<sensor_id>_status,
-// sensor.transit_<sensor_id> (attributes: departures, data_as_of), input_boolean.transit_<sensor_id>_enabled.
-const TRANSIT_LINES: TransitLine[] = [
-  {
-    name: 'IC/Re',
-    icon: 'mdi:train',
-    station: 'København H',
-    destination: 'Odense',
-    statusEntityId: 'input_select.transit_kbh_ic_odense_status',
-    sensorEntityId: 'sensor.transit_kbh_ic_odense',
-    enabledEntityId: 'input_boolean.transit_kbh_ic_odense_enabled',
-  },
-  {
-    name: 'S-tog',
-    icon: 'mdi:train',
-    station: 'Carlsberg',
-    destination: 'KBH H (København H)',
-    statusEntityId: 'input_select.transit_carlsberg_stog_kbh_status',
-    sensorEntityId: 'sensor.transit_carlsberg_stog_kbh',
-    enabledEntityId: 'input_boolean.transit_carlsberg_stog_kbh_enabled',
-  },
-  {
-    name: 'S-tog',
-    icon: 'mdi:train',
-    station: 'Carlsberg',
-    destination: 'Malmparken',
-    statusEntityId: 'input_select.transit_carlsberg_stog_malmparken_status',
-    sensorEntityId: 'sensor.transit_carlsberg_stog_malmparken',
-    enabledEntityId: 'input_boolean.transit_carlsberg_stog_malmparken_enabled',
-  },
-  {
-    name: 'Metro M3',
-    icon: 'mdi:subway-variant',
-    station: 'Enghave Plads',
-    destination: 'København H',
-    statusEntityId: 'input_select.transit_enghave_metro_kbh_status',
-    sensorEntityId: 'sensor.transit_enghave_metro_kbh',
-    enabledEntityId: 'input_boolean.transit_enghave_metro_kbh_enabled',
-  },
-];
-
-const TRANSIT_ALERT_STATUSES = new Set(['Delayed', 'Disrupted']);
-
-function isTransitAlert(status: TransitStatus): boolean {
-  return TRANSIT_ALERT_STATUSES.has(status);
 }
 
 function getTransitStatusColor(status: TransitStatus): string {
@@ -186,9 +130,48 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000);
+    const ms = openModal === 'transit' ? 15_000 : 60_000;
+    setNow(new Date());
+    const id = setInterval(() => setNow(new Date()), ms);
     return () => clearInterval(id);
+  }, [openModal]);
+
+  const resetModalState = useCallback(() => {
+    setSelectedSpeakerForQuickStart(null);
+    setShowSpeakerSelector(false);
+    setExpandedLine(null);
   }, []);
+
+  const openQuickAccess = useCallback(
+    (type: Exclude<ModalType, null>) => {
+      resetModalState();
+      setOpenModal(type);
+    },
+    [resetModalState]
+  );
+
+  const handleClose = useCallback(() => {
+    setOpenModal(null);
+    resetModalState();
+  }, [resetModalState]);
+
+  const { requestClose: requestCloseQuickAccess } = useModalBackButton({
+    isOpen: openModal !== null,
+    onRequestClose: handleClose,
+    historyKey: openModal ? `quick-access-${openModal}` : 'quick-access',
+  });
+
+  useEffect(() => {
+    const handleOpenQuickAccess = (event: Event) => {
+      const modal = (event as CustomEvent<{ modal?: ModalType }>).detail?.modal;
+      if (modal === 'intercom' || modal === 'media' || modal === 'weather' || modal === 'transit') {
+        openQuickAccess(modal);
+      }
+    };
+
+    window.addEventListener(QUICK_ACCESS_OPEN_EVENT, handleOpenQuickAccess as EventListener);
+    return () => window.removeEventListener(QUICK_ACCESS_OPEN_EVENT, handleOpenQuickAccess as EventListener);
+  }, [openQuickAccess]);
 
   const toggleLineExpand = (statusEntityId: string) => setExpandedLine(prev => (prev === statusEntityId ? null : statusEntityId));
 
@@ -220,19 +203,12 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
 
     // Find all playing speakers - only add coordinators (masters) of groups
     SONOS_SPEAKERS.forEach(speaker => {
-      // Prefer Music Assistant entity over Sonos integration entity (_2 suffix) when both exist
-      const sonosEntityId = `${speaker.id}_2`;
-      const maEntity = entities?.[speaker.id];
-      const sonosEntity = entities?.[sonosEntityId];
-      const entity = maEntity || sonosEntity; // Prefer MA if it exists, fallback to Sonos
+      const { entityId: actualEntityId, entity } = resolvePreferredMediaPlayer(entities, speaker.id);
       if (!entity) return;
 
       // Check if playing - Sonos can be 'playing', 'paused', 'idle', etc.
       const isPlaying = entity.state === 'playing';
       if (!isPlaying) return;
-
-      // Use the actual entity ID we found (MA or Sonos)
-      const actualEntityId = maEntity ? speaker.id : sonosEntityId;
 
       // Hide living room Sonos when TV is using it
       const isLivingRoomSonos = speaker.id === 'media_player.living_room';
@@ -318,14 +294,11 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
   // Get all speakers with their states, sorted alphabetically
   const allSpeakers = useMemo<SpeakerInfo[]>(() => {
     const speakers = SONOS_SPEAKERS.map(speaker => {
-      const sonosEntityId = `${speaker.id}_2`;
-      const maEntity = entities?.[speaker.id];
-      const sonosEntity = entities?.[sonosEntityId];
-      const entity = maEntity || sonosEntity;
+      const { entityId: actualEntityId, entity } = resolvePreferredMediaPlayer(entities, speaker.id);
 
       if (!entity) {
         return {
-          entityId: maEntity ? speaker.id : sonosEntityId,
+          entityId: actualEntityId,
           name: speaker.name,
           state: 'unavailable',
           isPlaying: false,
@@ -333,7 +306,6 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
         };
       }
 
-      const actualEntityId = maEntity ? speaker.id : sonosEntityId;
       const rawGroupAll = entity.attributes?.group_members;
       const groupMembers: string[] = Array.isArray(rawGroupAll) ? (rawGroupAll as string[]) : [actualEntityId];
       const actualGroupMembers = groupMembers.length > 0 ? groupMembers : [actualEntityId];
@@ -358,6 +330,14 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
     return speakers.sort((a, b) => a.name.localeCompare(b.name));
   }, [entities]);
 
+  const outOfSyncSpeakerNames = useMemo(
+    () =>
+      SONOS_SPEAKERS.filter(speaker => isMediaPlayerOutOfSync(entities, speaker.id))
+        .map(speaker => speaker.name)
+        .sort((a, b) => a.localeCompare(b)),
+    [entities]
+  );
+
   const weatherEntityId = useMemo(() => {
     const found = Object.keys(entities || {}).find(k => k.startsWith('weather.'));
     return found || null;
@@ -372,10 +352,13 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
   const transitStationGroups = useMemo<TransitStationGroup[]>(() => {
     const lineData = TRANSIT_LINES.map(line => {
       const sensor = entities?.[line.sensorEntityId];
+      const departures = (sensor?.attributes?.departures ?? []) as Departure[];
+      const status = (entities?.[line.statusEntityId]?.state ?? 'Unavailable') as TransitStatus;
       return {
         ...line,
-        status: (entities?.[line.statusEntityId]?.state ?? 'Unavailable') as TransitStatus,
-        departures: (sensor?.attributes?.departures ?? []) as Departure[],
+        status,
+        displayStatus: getTransitLineDisplayStatus(line, entities, now),
+        departures,
         lastChecked: (sensor?.attributes?.data_as_of ?? sensor?.attributes?.last_checked ?? '') as string,
         enabled: entities?.[line.enabledEntityId]?.state !== 'off',
       };
@@ -392,11 +375,11 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
     for (const [station, lines] of groupMap) {
       const sorted = [...lines].sort((a, b) => {
         if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
-        const bySeverity = (TRANSIT_SEVERITY[b.status] ?? 0) - (TRANSIT_SEVERITY[a.status] ?? 0);
+        const bySeverity = getTransitSeverity(b.displayStatus) - getTransitSeverity(a.displayStatus);
         if (bySeverity !== 0) return bySeverity;
         return a.destination.localeCompare(b.destination, undefined, { sensitivity: 'base' });
       });
-      const maxSeverity = lines.filter(l => l.enabled).reduce((max, l) => Math.max(max, TRANSIT_SEVERITY[l.status] ?? 0), 0);
+      const maxSeverity = lines.filter(l => l.enabled).reduce((max, l) => Math.max(max, getTransitSeverity(l.displayStatus)), 0);
       groups.push({ station, maxSeverity, lines: sorted });
     }
 
@@ -406,45 +389,34 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
       return a.station.localeCompare(b.station, undefined, { sensitivity: 'base' });
     });
     return groups;
-  }, [entities]);
+  }, [entities, now]);
 
-  const hasTransitAlert = transitStationGroups.flatMap(g => g.lines).some(l => l.enabled && isTransitAlert(l.status));
+  const hasTransitAlert = transitStationGroups.flatMap(g => g.lines).some(l => l.enabled && isTransitAlert(l.displayStatus));
 
   const hasPlayingSpeakers = playingSpeakers.length > 0;
   const hasPlayingTVs = playingTVs.length > 0;
   const hasPlayingMedia = hasPlayingSpeakers || hasPlayingTVs;
 
-  const handleOpen = (type: ModalType) => {
-    setOpenModal(type);
-    setSelectedSpeakerForQuickStart(null);
-    setShowSpeakerSelector(false);
-  };
-  const handleClose = () => {
-    setOpenModal(null);
-    setSelectedSpeakerForQuickStart(null);
-    setShowSpeakerSelector(false);
-  };
-
   // Use standardized swipe-to-close hook
-  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(handleClose);
+  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestCloseQuickAccess);
 
   return (
     <>
       <div className='quick-access'>
-        <button className='qa-button' onClick={() => handleOpen('intercom')} title='Access'>
+        <button className='qa-button' onClick={() => openQuickAccess('intercom')} title='Access'>
           <Icon icon='mdi:door' />
         </button>
-        <button className='qa-button' onClick={() => handleOpen('media')} title='Media controls'>
+        <button className='qa-button' onClick={() => openQuickAccess('media')} title='Media controls'>
           <Icon icon='mdi:cast-audio' />
           {hasPlayingMedia && <span className='qa-badge'>{playingSpeakers.length + playingTVs.length}</span>}
         </button>
-        <button className='qa-button' onClick={() => handleOpen('transit')} title='Transit'>
+        <button className='qa-button' onClick={() => openQuickAccess('transit')} title='Transit'>
           <Icon icon='mdi:train' />
           {hasTransitAlert && <span className='qa-badge qa-badge--alert' />}
         </button>
         <button
           className='qa-button'
-          onClick={() => handleOpen('weather')}
+          onClick={() => openQuickAccess('weather')}
           disabled={!weatherEntityId}
           title={weatherEntityId ? 'Open weather' : 'No weather entity found'}
         >
@@ -457,11 +429,13 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
           className='qa-overlay'
           onClick={e => {
             e.stopPropagation();
-            handleClose();
+            requestCloseQuickAccess();
           }}
         >
           <div
             className={`qa-modal ${openModal}`}
+            role='dialog'
+            aria-modal='true'
             onClick={e => e.stopPropagation()}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
@@ -486,13 +460,22 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
                     <Icon icon='mdi:refresh' />
                   </button>
                 )}
+                {openModal === 'media' && outOfSyncSpeakerNames.length > 0 && (
+                  <div
+                    className='qa-media-sync-indicator'
+                    title={`Music Assistant and Sonos disagree for: ${outOfSyncSpeakerNames.join(', ')}`}
+                    aria-label='Music Assistant and Sonos are out of sync'
+                  >
+                    <Icon icon='mdi:information-outline' />
+                  </div>
+                )}
                 {openModal === 'media' && !selectedSpeakerForQuickStart && !showSpeakerSelector && (
                   <button className='qa-add-speaker-icon-btn' onClick={() => setShowSpeakerSelector(true)} title='Start music on a speaker'>
                     <Icon icon='mdi:cast-audio' />
                     <Icon icon='mdi:plus' className='qa-plus-icon-small' />
                   </button>
                 )}
-                <button className='qa-close modal-close-button' onClick={handleClose}>
+                <button className='qa-close modal-close-button' onClick={requestCloseQuickAccess}>
                   <Icon icon='mdi:close' />
                 </button>
               </div>
@@ -630,7 +613,7 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
                             return (
                               <div
                                 key={line.statusEntityId}
-                                className={`info-transit-row ${!line.enabled ? 'disabled' : isTransitAlert(line.status) ? 'disrupted' : ''}`}
+                                className={`info-transit-row ${!line.enabled ? 'disabled' : isTransitAlert(line.displayStatus) ? 'disrupted' : ''}`}
                               >
                                 <button
                                   className='info-transit-header info-transit-row-btn'
@@ -646,9 +629,9 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
                                     </span>
                                   </div>
                                   {line.enabled && (
-                                    <span className='info-transit-status' style={{ color: getTransitStatusColor(line.status) }}>
-                                      <Icon icon={getTransitStatusIcon(line.status)} />
-                                      {line.status}
+                                    <span className='info-transit-status' style={{ color: getTransitStatusColor(line.displayStatus) }}>
+                                      <Icon icon={getTransitStatusIcon(line.displayStatus)} />
+                                      {line.displayStatus}
                                     </span>
                                   )}
                                   <Icon icon='mdi:chevron-right' className={`info-transit-chevron ${isExpanded ? 'expanded' : ''}`} />
@@ -671,11 +654,11 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
                                   (() => {
                                     const deps = line.departures
                                       .map(d => ({ ...d, mins: minsFromNow(d.time, now) }))
-                                      .filter(d => d.mins >= -1)
+                                      .filter(d => d.mins >= TRANSIT_UPCOMING_MIN_MINS)
                                       .slice(0, 4);
                                     const allDepartedOver2Min =
                                       line.departures.length > 0 && line.departures.every(d => minsFromNow(d.time, now) < -2);
-                                    const noIssues = !isTransitAlert(line.status);
+                                    const noIssues = !isTransitAlert(line.displayStatus);
                                     const emptyMessage = allDepartedOver2Min && noIssues ? 'Please refresh data' : 'No data';
                                     return (
                                       <div className='info-transit-departures'>

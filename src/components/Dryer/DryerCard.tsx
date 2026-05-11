@@ -1,14 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
+import { ApplianceCycleTiming } from '../ApplianceCycleTiming';
+import {
+  DRYER_ANNOUNCE_BOOLEAN,
+  DRYER_DRYNESS_SELECT,
+  DRYER_PROGRAMME_SELECT,
+  DRYER_SKANE_PLUS_BOOLEAN,
+  DRYER_STATE_ENTITY,
+  DRYER_TIME_MINUTES_SELECT,
+} from '../../config/entities';
 import './DryerCard.css';
 
-const DRYER_STATE_ID = 'sensor.dryer_state';
-const PROGRAMME_SELECT_ID = 'input_select.dryer_programme';
-const DRYNESS_SELECT_ID = 'input_select.dryer_dryness';
-const SKANE_PLUS_TOGGLE_ID = 'input_boolean.dryer_skane_plus';
-const TIME_SELECT_ID = 'input_select.dryer_time_minutes';
-const ANNOUNCE_TOGGLE_ID = 'input_boolean.dryer_announce';
+const DRYER_STATE_ID = DRYER_STATE_ENTITY;
+const PROGRAMME_SELECT_ID = DRYER_PROGRAMME_SELECT;
+const DRYNESS_SELECT_ID = DRYER_DRYNESS_SELECT;
+const SKANE_PLUS_TOGGLE_ID = DRYER_SKANE_PLUS_BOOLEAN;
+const TIME_SELECT_ID = DRYER_TIME_MINUTES_SELECT;
+const ANNOUNCE_TOGGLE_ID = DRYER_ANNOUNCE_BOOLEAN;
 
 /** Programmes that show the Dryness dropdown */
 const PROGRAMMES_WITH_DRYNESS = ['Bomuld', 'Strygelet', 'Finvask', 'Skjorter', 'Ekspres', 'Denim', 'Sengetøj', 'Udglatning'];
@@ -245,9 +254,6 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
       : totalMin != null && totalMin > 0
         ? Math.min(100, (elapsedMin / totalMin) * 100)
         : 0;
-  const hasCountdownLine =
-    state === 'Running' &&
-    ((cycleStartTime && String(cycleStartTime).trim() !== '') || (startedAtDisplay && String(startedAtDisplay).trim() !== ''));
   const countdownLabel = remainingMin == null ? null : remainingMin <= 0 ? 'Almost done' : `${formatDuration(remainingMin)} left`;
 
   // "Started HH:MM": prefer started_at_display if time-only (HH:MM); if ISO datetime, format to time; else use cycle_start_time
@@ -258,6 +264,13 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
     if (/^\d{4}-\d{2}/.test(s) || s.includes('T')) return formatTimeOnly(s);
     return formatTimeOnly(cycleStartTime);
   })();
+
+  const showApplianceTimingDetail =
+    state === 'Running' &&
+    ((cycleStartTime && String(cycleStartTime).trim() !== '') ||
+      (startedAtDisplay && String(startedAtDisplay).trim() !== '') ||
+      countdownLabel != null ||
+      (estimatedEndTime != null && String(estimatedEndTime).trim() !== ''));
 
   const isInteractive = state === 'Running' || state === 'Unemptied';
 
@@ -440,16 +453,13 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
               </div>
             )}
             <div className='dryer-countdown-line'>
-              {hasCountdownLine ? (
-                <>
-                  {(cycleStartTime || startedAtDisplay) && <>Started {startedDisplay}</>}
-                  {(cycleStartTime || startedAtDisplay) && estimatedEndTime && ' · '}
-                  {estimatedEndTime && <>Done ~{formatTimeOnly(estimatedEndTime)}</>}
-                  {countdownLabel && <> · {countdownLabel}</>}
-                </>
-              ) : (
-                <span className='dryer-running-placeholder'>Running…</span>
-              )}
+              <ApplianceCycleTiming
+                hasDetail={showApplianceTimingDetail}
+                startedDisplay={startedDisplay}
+                estimatedEndTime={estimatedEndTime}
+                countdownLabel={countdownLabel}
+                formatTimeOnly={formatTimeOnly}
+              />
             </div>
           </>
         )}

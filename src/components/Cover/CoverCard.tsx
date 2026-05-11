@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTouchScrollSlopGuard } from '../../hooks';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { attrNum } from '../../types';
@@ -12,6 +13,7 @@ interface CoverCardProps {
 
 export function CoverCard({ areaName, entities, callService }: CoverCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const coverHeaderSlop = useTouchScrollSlopGuard();
   const areaNameNormalized = areaName.toLowerCase().replace(/\s+/g, '_');
 
   // Entity ID
@@ -108,7 +110,14 @@ export function CoverCard({ areaName, entities, callService }: CoverCardProps) {
       {/* Header - Collapsed View */}
       <div
         className='cover-header'
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={() => {
+          if (coverHeaderSlop.consumeBlockClick()) return;
+          setIsExpanded(!isExpanded);
+        }}
+        onTouchStart={coverHeaderSlop.onTouchStart}
+        onTouchMove={coverHeaderSlop.onTouchMove}
+        onTouchEnd={coverHeaderSlop.onTouchEnd}
+        onTouchCancel={coverHeaderSlop.onTouchCancel}
         onKeyDown={e => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();

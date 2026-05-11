@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import type { HassEntity } from '../../types';
+import { APARTMENT_DOOR_OPEN_ENTITY, BEDROOM_BED_OCCUPANCY_SENSORS } from '../../config/entities';
 import './Timeline.css';
 
 interface TimelineEvent {
@@ -12,6 +13,9 @@ interface TimelineEvent {
   transitionType?: 'started' | 'ended' | 'completed'; // For power devices or cleaning: indicates transition type
   eventType?: 'primary' | 'secondary'; // Track which entity this event came from
   operatorInfo?: string; // Who operated the lock (for Yale lock/door entities)
+  /** Yale access session: lock time + method paired with this opening (door-contact timeline). */
+  yaleLockedAt?: string;
+  yaleLockMethodRaw?: string;
 }
 
 interface TimelineProps {
@@ -21,6 +25,217 @@ interface TimelineProps {
   hours?: number;
   limit?: number;
   secondaryEntityId?: string; // Optional secondary entity for combined timeline
+}
+
+/** Unlock icon + time, lock icon + time (same muted style as other timeline meta). */
+function YaleAccessTimeWindow({
+  openedAt,
+  lockedAt,
+  formatAbs,
+}: {
+  openedAt: string;
+  lockedAt?: string;
+  formatAbs: (ts: string) => string;
+}) {
+  const open = new Date(openedAt);
+  const timeOpts: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
+
+  if (!lockedAt) {
+    return (
+      <span className='timeline-yale-window'>
+        <span className='timeline-yale-window-part'>
+          <Icon icon='mdi:lock-open-variant' className='timeline-yale-window-icon' aria-hidden />
+          <span>{formatAbs(openedAt)}</span>
+        </span>
+      </span>
+    );
+  }
+
+  const close = new Date(lockedAt);
+  const tOpen = open.toLocaleTimeString([], timeOpts);
+  const tClose = close.toLocaleTimeString([], timeOpts);
+  const now = new Date();
+
+  if (open.toDateString() === close.toDateString()) {
+    const dateOpts: Intl.DateTimeFormatOptions = {
+      month: 'short',
+      day: 'numeric',
+      ...(open.getFullYear() !== now.getFullYear() ? { year: 'numeric' as const } : {}),
+    };
+    const datePart = open.toLocaleDateString([], dateOpts);
+    return (
+      <span className='timeline-yale-window'>
+        <span className='timeline-yale-window-date'>{datePart}</span>
+        <span className='timeline-yale-window-pair'>
+          <span className='timeline-yale-window-part'>
+            <Icon icon='mdi:lock-open-variant' className='timeline-yale-window-icon' aria-hidden />
+            <span>{tOpen}</span>
+          </span>
+          <span className='timeline-yale-window-sep' aria-hidden>
+            ·
+          </span>
+          <span className='timeline-yale-window-part'>
+            <Icon icon='mdi:lock' className='timeline-yale-window-icon' aria-hidden />
+            <span>{tClose}</span>
+          </span>
+        </span>
+      </span>
+    );
+  }
+
+  return (
+    <span className='timeline-yale-window timeline-yale-window--split-days'>
+      <span className='timeline-yale-window-part'>
+        <Icon icon='mdi:lock-open-variant' className='timeline-yale-window-icon' aria-hidden />
+        <span>{formatAbs(openedAt)}</span>
+      </span>
+      <span className='timeline-yale-window-sep' aria-hidden>
+        ·
+      </span>
+      <span className='timeline-yale-window-part'>
+        <Icon icon='mdi:lock' className='timeline-yale-window-icon' aria-hidden />
+        <span>{formatAbs(lockedAt)}</span>
+      </span>
+    </span>
+  );
+}
+
+/**
+ * Yale access timeline: operator history + visit merge + one-line time window.
+ * Includes door contacts and Yale locks so opening from the lock chip matches the door chip (no separate “Auto Lock” rows).
+ */
+const YALE_ACCESS_TIMELINE_IDS = new Set([
+  APARTMENT_DOOR_OPEN_ENTITY,
+  'binary_sensor.yale_door',
+  'binary_sensor.yale_door_bt',
+  'lock.yale',
+  'lock.yale_bt',
+]);
+const BED_OCCUPANCY_ENTITY_IDS = new Set<string>(BEDROOM_BED_OCCUPANCY_SENSORS.map(sensor => sensor.entityId));
+
+function formatAccessMethodLabel(text: string): string {
+  return text
+    .split(/[\s_]+/)
+    .filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function getYaleAccessPresentation(accessState: string): { label: string; icon: string; color: string } {
+  const s = accessState.toLowerCase();
+  let icon = 'mdi:account-key';
+  let color = '#3b82f6';
+  if (s.includes('manual unlock')) {
+    return { label: 'Inside unlock', icon: 'mdi:exit-run', color: '#f97316' };
+  }
+  if (s.includes('auto lock')) {
+    icon = 'mdi:lock';
+    color = '#22c55e';
+  } else if (s.includes('one-touch lock') || s.includes('one touch lock') || s.includes('onetouch lock')) {
+    icon = 'mdi:lock';
+    color = '#22c55e';
+  } else if (s.includes('cleaning') || s.includes('liga')) {
+    icon = 'mdi:broom';
+    color = '#a78bfa';
+  }
+  return { label: formatAccessMethodLabel(accessState), icon, color };
+}
+
+/** Operator states that close a visit — merged into the previous opening row, not their own timeline row. */
+function isYaleOperatorLockCloserState(state: string): boolean {
+  const s = state.toLowerCase();
+  return (
+    s.includes('auto lock') ||
+    s.includes('auto-lock') ||
+    s.includes('one-touch lock') ||
+    s.includes('one touch lock') ||
+    s.includes('onetouch lock')
+  );
+}
+
+/**
+ * Merge window: quick re-open (e.g. thought it was locked) + ~3 min auto lock — one visit, one row.
+ */
+const YALE_MERGE_OPENINGS_MS = 12 * 60 * 1000;
+
+/** Higher = better title when merging multiple openings (prefer person/code over inside unlock). */
+function yaleOpeningLabelPriority(state: string): number {
+  const s = state.toLowerCase();
+  if (isYaleOperatorLockCloserState(state)) return -1;
+  if (s.includes('manual unlock')) return 1;
+  if (s.includes('cleaning') || s.includes('liga')) return 5;
+  return 10;
+}
+
+function preferredYaleOpeningState(chronologicalOpenings: string[]): string {
+  let best = chronologicalOpenings[0];
+  let bestScore = yaleOpeningLabelPriority(best);
+  for (const st of chronologicalOpenings) {
+    const sc = yaleOpeningLabelPriority(st);
+    if (sc > bestScore) {
+      best = st;
+      bestScore = sc;
+    }
+  }
+  return best;
+}
+
+type YaleSessionAcc = {
+  openingStates: string[];
+  openedAt: string;
+  lastOpeningAt: string;
+  last_updated: string;
+  yaleLockedAt?: string;
+  yaleLockMethodRaw?: string;
+};
+
+/** Build visit rows: merge closers into opens, merge rapid successive opens into one visit. */
+function buildYaleAccessSessions(chronological: TimelineEvent[]): TimelineEvent[] {
+  const sessions: YaleSessionAcc[] = [];
+
+  for (const ev of chronological) {
+    if (isYaleOperatorLockCloserState(ev.state)) {
+      const last = sessions[sessions.length - 1];
+      if (last) {
+        last.yaleLockedAt = ev.last_changed;
+        last.yaleLockMethodRaw = ev.state;
+      }
+      continue;
+    }
+
+    const last = sessions[sessions.length - 1];
+    const t = new Date(ev.last_changed).getTime();
+
+    if (last && !last.yaleLockedAt) {
+      const lastSt = last.openingStates[last.openingStates.length - 1];
+      if (lastSt === ev.state) {
+        continue;
+      }
+      const gap = t - new Date(last.lastOpeningAt).getTime();
+      if (gap <= YALE_MERGE_OPENINGS_MS) {
+        last.openingStates.push(ev.state);
+        last.lastOpeningAt = ev.last_changed;
+        continue;
+      }
+    }
+
+    sessions.push({
+      openingStates: [ev.state],
+      openedAt: ev.last_changed,
+      lastOpeningAt: ev.last_changed,
+      last_updated: ev.last_updated,
+    });
+  }
+
+  return sessions.map(s => ({
+    entity_id: 'sensor.yale_operator',
+    state: preferredYaleOpeningState(s.openingStates),
+    last_changed: s.openedAt,
+    last_updated: s.last_updated,
+    eventType: 'primary' as const,
+    yaleLockedAt: s.yaleLockedAt,
+    yaleLockMethodRaw: s.yaleLockMethodRaw,
+  }));
 }
 
 interface ConnectionWithAuth {
@@ -120,6 +335,21 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
         const accessToken = getAccessToken();
         console.log('Timeline: Fetching with auth:', accessToken ? 'Bearer token present' : 'No token (using cookies)');
 
+        // Yale door contact: show access log (who / how), not physical open/close
+        if (YALE_ACCESS_TIMELINE_IDS.has(entityId)) {
+          let accessEvents = await fetchEntityHistory('sensor.yale_operator', 'primary');
+          accessEvents = accessEvents.filter(e => {
+            const sl = e.state.toLowerCase();
+            return sl !== 'unknown' && sl !== 'unavailable';
+          });
+          accessEvents.sort((a, b) => new Date(a.last_changed).getTime() - new Date(b.last_changed).getTime());
+          const sessionEvents = buildYaleAccessSessions(accessEvents);
+          sessionEvents.sort((a, b) => new Date(b.last_changed).getTime() - new Date(a.last_changed).getTime());
+          setEvents(sessionEvents.slice(0, limit));
+          setLoading(false);
+          return;
+        }
+
         // Fetch primary entity history
         let allEvents = await fetchEntityHistory(entityId, 'primary');
         console.log('Timeline: Fetched', allEvents.length, 'events for primary entity', entityId);
@@ -137,7 +367,11 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
         }
 
         // For Yale lock/door, fetch operator info and match by timestamp
-        const isYaleLockOrDoor = entityId === 'lock.yale' || entityId.includes('yale_door');
+        const isYaleLockOrDoor =
+          entityId === 'lock.yale' ||
+          entityId === 'lock.yale_bt' ||
+          entityId === APARTMENT_DOOR_OPEN_ENTITY ||
+          entityId.includes('yale_door');
         let operatorEvents: TimelineEvent[] = [];
         if (isYaleLockOrDoor) {
           try {
@@ -176,6 +410,7 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
 
         // Filter out "unknown" and "unavailable" states
         const entityDomain = entityId.split('.')[0];
+        const isPerson = entityDomain === 'person';
         const isSensor = entityDomain === 'sensor';
         const isHotplate = entityId.includes('hotplate');
         const isOven = entityId.includes('oven');
@@ -223,7 +458,7 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
         // Consolidate consecutive duplicate states (only for same entity type)
         // Don't consolidate primary events for cleaning with completion - we filtered out "off"
         // so all remaining "on" events would be consolidated, but each is a unique request
-        // Door/window/presence/appliances: only show state changes, not repeated same state
+        // Door/window/presence/person/appliances: only show state changes, not repeated same state
         const shouldConsolidate =
           (isSensor && isPowerDevice) ||
           isMediaPlayer ||
@@ -233,7 +468,8 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
           isDoorSensor ||
           isWindowSensor ||
           isPresenceSensor ||
-          isAppliance;
+          isAppliance ||
+          isPerson;
         let consolidatedEvents = filteredEvents;
 
         if (shouldConsolidate || isCleaningWithCompletion) {
@@ -246,8 +482,10 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
           if (shouldConsolidate) {
             consolidatedPrimary = [];
             let lastState: string | null = null;
+            const personPresenceKey = (state: string) => (state.toLowerCase() === 'home' ? 'home' : 'away');
             for (const event of primaryEvents) {
-              if (event.state !== lastState) {
+              const key = isPerson ? personPresenceKey(event.state) : event.state;
+              if (key !== lastState) {
                 const transitionType: 'started' | 'ended' | undefined =
                   isSensor && isPowerDevice
                     ? event.state === 'Running'
@@ -257,7 +495,7 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
                         : undefined
                     : undefined;
                 consolidatedPrimary.push({ ...event, transitionType });
-                lastState = event.state;
+                lastState = key;
               }
             }
           }
@@ -402,6 +640,7 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
   const isHotplate = entityId.includes('hotplate');
   const isOven = entityId.includes('oven');
   const isMicrowave = entityId.includes('microwave');
+  const isBedOccupancySensor = BED_OCCUPANCY_ENTITY_IDS.has(entityId);
   const isAppliance = isDishwasher || isWasher || isDryer;
   const isPowerDevice = isHotplate || isOven || isMicrowave;
   const isCleaningRequest = isInputBoolean && entityId.includes('rober2_clean');
@@ -460,6 +699,9 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
 
     // Binary sensor (on/off)
     if (isBinarySensor) {
+      if (isBedOccupancySensor) {
+        return stateLower === 'on' ? 'In bed' : stateLower === 'off' ? 'Out of bed' : state;
+      }
       if (isDoorSensor || isWindowSensor) {
         return stateLower === 'on' ? 'Open' : stateLower === 'off' ? 'Closed' : state;
       }
@@ -631,6 +873,9 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
 
     // Generic binary sensor
     if (isBinarySensor) {
+      if (isBedOccupancySensor) {
+        return stateLower === 'on' ? 'mdi:sleep' : 'mdi:bed-empty';
+      }
       return stateLower === 'on' ? 'mdi:check-circle' : 'mdi:circle-outline';
     }
 
@@ -717,6 +962,10 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
     // Presence sensor - detected is blue, clear is gray
     if (isPresenceSensor) {
       return stateLower === 'on' ? '#3b82f6' : '#71717a';
+    }
+
+    if (isBedOccupancySensor) {
+      return stateLower === 'on' ? '#60a5fa' : '#71717a';
     }
 
     // Appliance sensors - color based on state
@@ -855,6 +1104,9 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
     );
   }
 
+  const isYaleAccessLog = YALE_ACCESS_TIMELINE_IDS.has(entityId);
+  const isYaleLockEntity = entityId === 'lock.yale' || entityId === 'lock.yale_bt';
+
   return (
     <div className='timeline-container'>
       <div className='timeline-events'>
@@ -880,6 +1132,18 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
             stateColor = '#3b82f6'; // Blue for completed
             stateIcon = 'mdi:check-circle';
           }
+
+          // Yale: headline = access method (code / profile / manual exit / auto lock), not open/close or redundant unlock+subtitle
+          const useYaleAccessHeadline =
+            isYaleAccessLog || (isYaleLockEntity && event.eventType === 'primary' && !!event.operatorInfo?.trim());
+          if (useYaleAccessHeadline) {
+            const raw = isYaleAccessLog ? event.state : event.operatorInfo!.trim();
+            const p = getYaleAccessPresentation(raw);
+            stateLabel = p.label;
+            stateIcon = p.icon;
+            stateColor = p.color;
+          }
+
           const isLast = index === events.length - 1;
 
           return (
@@ -897,9 +1161,15 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
                   </span>
                   <span className='timeline-time'>{formatTimeAgo(event.last_changed)}</span>
                 </div>
-                <div className='timeline-details'>
-                  <span className='timeline-absolute-time'>{formatAbsoluteTime(event.last_changed)}</span>
-                  {event.operatorInfo && (
+                <div className={`timeline-details${isYaleAccessLog ? ' timeline-details-yale-window' : ''}`}>
+                  <span className='timeline-absolute-time'>
+                    {isYaleAccessLog ? (
+                      <YaleAccessTimeWindow openedAt={event.last_changed} lockedAt={event.yaleLockedAt} formatAbs={formatAbsoluteTime} />
+                    ) : (
+                      formatAbsoluteTime(event.last_changed)
+                    )}
+                  </span>
+                  {event.operatorInfo && !useYaleAccessHeadline && (
                     <span className='timeline-operator'>
                       <Icon icon='mdi:account' />
                       {event.operatorInfo}

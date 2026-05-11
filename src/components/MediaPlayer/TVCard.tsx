@@ -19,6 +19,11 @@ interface TVCardProps {
   wirelessUsbCEntityId?: string; // For Wireless USB-C, e.g., "media_player.bedroom_sony_tv"
 }
 
+const getFiniteNumber = (value: unknown): number | undefined => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+};
+
 export function TVCard({
   entityId,
   entities,
@@ -36,6 +41,8 @@ export function TVCard({
   const [showTvLiftControls, setShowTvLiftControls] = useState(false);
   const [showAppleRemote, setShowAppleRemote] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [seekerPreview, setSeekerPreview] = useState<{ entityId: string; position: number } | null>(null);
+  const [liveClockMs, setLiveClockMs] = useState(0);
   // Track last committed volume to prevent UI flicker
   const lastCommittedVolumeRef = useRef<{ value: number; timestamp: number } | null>(null);
 
@@ -111,15 +118,73 @@ export function TVCard({
     if (activeChild !== chromecastEntityId && activeChild !== wirelessUsbCEntityId) currentSource = 'Apple TV';
   }
 
+  const currentSourceEntityId =
+    currentSource === 'Apple TV'
+      ? appleMediaPlayerEntityId || null
+      : currentSource === 'Chromecast'
+        ? chromecastEntityId || null
+        : currentSource === 'Wireless USB-C'
+          ? wirelessUsbCEntityId || null
+          : null;
+  const currentSourceEntity = currentSourceEntityId ? entities?.[currentSourceEntityId] : null;
+
   const useAppleTvForDisplay =
     appleTvEntity && appleTvActive && (currentSource === 'Apple TV' || mainTvHasNoMeaningfulMedia || isBedroomTv);
   const displayTv = useAppleTvForDisplay ? appleTvEntity : tv;
+  const displayEntityId = useAppleTvForDisplay && appleMediaPlayerEntityId ? appleMediaPlayerEntityId : entityId;
   const displayAttrs = displayTv?.attributes ?? {};
   const displayMediaTitle = attrStr(displayAttrs.media_title);
   const displayMediaArtist = attrStr(displayAttrs.media_artist);
   const displayMediaPicture = displayAttrs.entity_picture;
   const displayMediaPictureLocal = displayAttrs.entity_picture_local;
   const displayState = displayTv?.state ?? state;
+  const seekCandidates = [
+    currentSourceEntityId && currentSourceEntity ? { entityId: currentSourceEntityId, entity: currentSourceEntity } : null,
+    { entityId: displayEntityId, entity: displayTv },
+    displayEntityId !== entityId ? { entityId, entity: tv } : null,
+  ].filter((candidate): candidate is { entityId: string; entity: typeof tv } => {
+    return Boolean(candidate?.entityId && candidate.entity);
+  });
+  const seekTarget = seekCandidates.find(candidate => {
+    const attrs = candidate.entity?.attributes ?? {};
+    const duration = getFiniteNumber(attrs.media_duration);
+    const position = getFiniteNumber(attrs.media_position);
+    return duration != null && duration > 0 && position != null && position >= 0;
+  });
+  const seekAttrs = seekTarget?.entity?.attributes ?? {};
+  const mediaDuration = getFiniteNumber(seekAttrs.media_duration) ?? 0;
+  const mediaPosition = getFiniteNumber(seekAttrs.media_position);
+  const mediaPositionUpdatedAt = attrStr(seekAttrs.media_position_updated_at) || undefined;
+  const seekState = seekTarget?.entity?.state ?? displayState;
+  const showSeeker = mediaDuration > 0 && mediaPosition != null && mediaPosition >= 0;
+  const seekerPreviewPosition = seekTarget?.entityId && seekerPreview?.entityId === seekTarget.entityId ? seekerPreview.position : null;
+
+  const getCurrentPosition = () => {
+    if (seekerPreviewPosition != null) return seekerPreviewPosition;
+    if (mediaPosition == null) return 0;
+    if (seekState === 'playing' && mediaPositionUpdatedAt) {
+      try {
+        const updatedAt = new Date(mediaPositionUpdatedAt).getTime() / 1000;
+        const now = liveClockMs / 1000;
+        const elapsed = Math.max(0, now - updatedAt);
+        return Math.min(mediaPosition + elapsed, mediaDuration);
+      } catch {
+        return mediaPosition;
+      }
+    }
+    return mediaPosition;
+  };
+
+  const currentPosition = showSeeker ? getCurrentPosition() : 0;
+
+  const formatTime = (seconds: number): string => {
+    if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
 
   const pickImage = () => {
     const candidate = displayMediaPictureLocal || displayMediaPicture;
@@ -174,6 +239,12 @@ export function TVCard({
       if (id) clearTimeout(id);
     };
   }, [volume]);
+
+  useEffect(() => {
+    if (!showSeeker || seekState !== 'playing') return;
+    const id = setInterval(() => setLiveClockMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [showSeeker, seekState]);
 
   if (!tv) return null;
 
@@ -260,6 +331,18 @@ export function TVCard({
     const next = clampVolume(volumeUi + delta);
     setVolumeUi(next);
     handleVolumeChange(next);
+  };
+
+  const handleSeek = (positionSeconds: number) => {
+    if (!callService || !seekTarget?.entityId || mediaDuration <= 0) return;
+    const clamped = Math.max(0, Math.min(mediaDuration, positionSeconds));
+    callService({
+      domain: 'media_player',
+      service: 'media_seek',
+      target: { entity_id: seekTarget.entityId },
+      serviceData: { seek_position: clamped },
+    });
+    setSeekerPreview(null);
   };
 
   const handleSelectSource = (sourceName: string) => {
@@ -354,6 +437,36 @@ export function TVCard({
           <Icon icon={isOn ? 'mdi:power' : 'mdi:power-off'} />
         </button>
       </div>
+
+      {showSeeker && mediaDuration > 0 && (
+        <div className='tv-seeker'>
+          <span className='tv-seeker-time' aria-hidden='true'>
+            {formatTime(currentPosition)}
+          </span>
+          <input
+            type='range'
+            className='tv-seeker-input'
+            min={0}
+            max={mediaDuration}
+            step={1}
+            value={seekerPreviewPosition ?? currentPosition}
+            onChange={e => {
+              if (!seekTarget?.entityId) return;
+              setSeekerPreview({ entityId: seekTarget.entityId, position: Number(e.target.value) });
+            }}
+            onMouseUp={() => handleSeek(seekerPreviewPosition ?? currentPosition)}
+            onTouchEnd={() => handleSeek(seekerPreviewPosition ?? currentPosition)}
+            onBlur={() => {
+              if (seekerPreviewPosition != null) handleSeek(seekerPreviewPosition);
+            }}
+            disabled={!callService || !seekTarget?.entityId}
+            aria-label='Seek position'
+          />
+          <span className='tv-seeker-time' aria-hidden='true'>
+            {formatTime(mediaDuration)}
+          </span>
+        </div>
+      )}
 
       {/* Volume Row - Show when playing/paused */}
       {(displayState === 'playing' || displayState === 'paused') && (

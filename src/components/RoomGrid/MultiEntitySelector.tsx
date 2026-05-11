@@ -14,9 +14,20 @@ interface MultiEntitySelectorProps {
   icon: string;
   label?: string;
   entityType: string; // e.g., "window", "light", "door"
+  selectionTitle?: string;
 }
 
-export function MultiEntitySelector({ entityIds, entities, hassUrl, className, title, icon, label, entityType }: MultiEntitySelectorProps) {
+export function MultiEntitySelector({
+  entityIds,
+  entities,
+  hassUrl,
+  className,
+  title,
+  icon,
+  label,
+  entityType,
+  selectionTitle,
+}: MultiEntitySelectorProps) {
   const [showSelection, setShowSelection] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
@@ -203,6 +214,9 @@ export function MultiEntitySelector({ entityIds, entities, hassUrl, className, t
     if (entityType === 'door') {
       return stateLower === 'on' ? 'mdi:door-open' : 'mdi:door-closed';
     }
+    if (entityType === 'bed') {
+      return stateLower === 'on' ? 'mdi:sleep' : 'mdi:bed-empty';
+    }
     return 'mdi:circle';
   };
 
@@ -215,7 +229,18 @@ export function MultiEntitySelector({ entityIds, entities, hassUrl, className, t
     if (entityType === 'light') {
       return stateLower === 'on' ? '#fbbf24' : '#71717a';
     }
+    if (entityType === 'bed') {
+      return stateLower === 'on' ? '#60a5fa' : '#a1a1aa';
+    }
     return '#a1a1aa';
+  };
+
+  const getEntityStateLabel = (state: string): string => {
+    const stateLower = state.toLowerCase();
+    if (entityType === 'bed') {
+      return stateLower === 'on' ? 'In bed' : 'Up';
+    }
+    return state.charAt(0).toUpperCase() + state.slice(1);
   };
 
   const selectionModal = showSelection ? (
@@ -223,12 +248,12 @@ export function MultiEntitySelector({ entityIds, entities, hassUrl, className, t
       <div
         className='person-info-modal entity-selection-modal'
         role='dialog'
-        aria-label={`Select ${entityType}`}
+        aria-label={selectionTitle || `Select ${entityType}`}
         onClick={handleSelectionModalClick}
         onMouseDown={e => e.stopPropagation()}
       >
         <div className='modal-header'>
-          <span className='modal-title'>Select {entityType.charAt(0).toUpperCase() + entityType.slice(1)}</span>
+          <span className='modal-title'>{selectionTitle || `Select ${entityType.charAt(0).toUpperCase() + entityType.slice(1)}`}</span>
           <button className='modal-close' onClick={handleCloseSelection} onMouseDown={e => e.stopPropagation()}>
             <Icon icon='mdi:close' />
           </button>
@@ -259,7 +284,7 @@ export function MultiEntitySelector({ entityIds, entities, hassUrl, className, t
                 <div className='entity-selection-info'>
                   <span className='entity-selection-name'>{entityName}</span>
                   <span className='entity-selection-state' style={{ color: stateColor }}>
-                    {state.charAt(0).toUpperCase() + state.slice(1)}
+                    {getEntityStateLabel(state)}
                   </span>
                 </div>
                 <Icon icon='mdi:chevron-right' className='entity-selection-arrow' />

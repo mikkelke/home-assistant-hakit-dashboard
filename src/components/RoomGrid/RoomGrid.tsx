@@ -1,9 +1,9 @@
-import type { Area, HassEntities } from '../../types';
+import type { Area, CallServiceFunction, HassEntities } from '../../types';
 import { ROOM_ORDER } from '../../config/dashboard';
 import { ROOM_LIGHTS } from '../../config/lights';
 import {
-  FRONT_DOOR_LOCK_ENTITY,
-  FRONT_DOOR_SENSOR_ENTITY,
+  BEDROOM_BED_OCCUPANCY_SENSORS,
+  resolveHallwayDoorSensorId,
   VACUUM_ENTITY,
   ROBOT_CLEAN_PREFIX,
   ROBOT_CLEAN_KITCHEN_1,
@@ -18,6 +18,7 @@ interface RoomGridProps {
   selectedAreaId: string | null;
   onRoomClick: (area: Area) => void;
   hassUrl: string | null;
+  callService?: CallServiceFunction | undefined;
 }
 
 type IndicatorKey =
@@ -40,7 +41,8 @@ type IndicatorKey =
   | 'media'
   | 'lights'
   | 'presence'
-  | 'alarm';
+  | 'alarm'
+  | 'bed';
 
 type IndicatorCounts = Record<IndicatorKey, number>;
 
@@ -65,6 +67,7 @@ const indicatorKeys: IndicatorKey[] = [
   'lights',
   'presence',
   'alarm',
+  'bed',
 ];
 
 function getIndicatorCounts(areas: Area[], entities: HassEntities): IndicatorCounts {
@@ -80,6 +83,7 @@ function getIndicatorCounts(areas: Area[], entities: HassEntities): IndicatorCou
     const isKitchen = areaNameNormalized === 'kitchen';
     const isGuestBathroom = areaNameNormalized === 'guest_bathroom';
     const isDiningRoom = area.area_id === 'dining_room';
+    const isBedroom = areaNameNormalized === 'bedroom';
 
     // Presence
     const presenceEntity = entities?.[`binary_sensor.${areaNameNormalized}_pir_presence`];
@@ -90,7 +94,8 @@ function getIndicatorCounts(areas: Area[], entities: HassEntities): IndicatorCou
     if (climateEntity) counts.heating++;
 
     // Doors
-    const frontDoor = entities?.[FRONT_DOOR_SENSOR_ENTITY];
+    const hallwayDoorId = isHallway ? resolveHallwayDoorSensorId(entities) : null;
+    const frontDoor = hallwayDoorId ? entities?.[hallwayDoorId] : undefined;
     const doorContact = isHallway ? frontDoor : entities?.[`binary_sensor.${areaNameNormalized}_door_contact`];
     const hasHallwayDoor = isHallway && !!frontDoor;
     const hasRooftopDoors = isRooftop; // always count rooftop as having doors (we show the indicator regardless of entity list)
@@ -106,10 +111,6 @@ function getIndicatorCounts(areas: Area[], entities: HassEntities): IndicatorCou
     const hasRoomWindow = !!windowContact || hasDiningWindows;
     if (hasRoomWindow) counts.window++;
 
-    // Lock
-    const frontLock = entities?.[FRONT_DOOR_LOCK_ENTITY];
-    if (isHallway && frontLock) counts.lock++;
-
     // Shower
     const bathPresenceId = 'binary_sensor.bathroom_bath_presence_presence';
     if (areaNameNormalized === 'bathroom' && entities?.[bathPresenceId]) counts.shower++;
@@ -119,7 +120,7 @@ function getIndicatorCounts(areas: Area[], entities: HassEntities): IndicatorCou
     if (isKitchen) {
       if (entities?.[ROBOT_CLEAN_KITCHEN_1]) counts.cleaning_cook++;
       if (entities?.[ROBOT_CLEAN_KITCHEN_2]) counts.cleaning_dining++;
-    } else if (entities?.[cleaningToggleId]) {
+    } else if (areaNameNormalized !== 'office' && entities?.[cleaningToggleId]) {
       counts.cleaning++;
     }
 
@@ -129,6 +130,9 @@ function getIndicatorCounts(areas: Area[], entities: HassEntities): IndicatorCou
 
     // Guest
     if (isOffice && entities?.['input_boolean.overnight_guest']) counts.guest++;
+
+    // Bed occupancy
+    if (isBedroom && BEDROOM_BED_OCCUPANCY_SENSORS.some(sensor => entities?.[sensor.entityId])) counts.bed++;
 
     // Dishwasher
     const dishwasherState = isKitchen ? entities?.['sensor.dishwasher_state']?.state : null;

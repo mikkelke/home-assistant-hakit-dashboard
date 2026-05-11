@@ -27,8 +27,12 @@ export const ROOM_GRID = {
   },
 };
 
-// Exterior doors to track in status bar (on = open, off = closed). Replace with your entity_ids.
-export const TRACKED_DOORS = ['binary_sensor.front_door', 'binary_sensor.door_2_contact', 'binary_sensor.door_3_contact'];
+// Exterior / entry doors for status bar (on = open, off = closed). Synced to HA entity registry.
+export const TRACKED_DOORS = [
+  'binary_sensor.apartment_door_open',
+  'binary_sensor.rooftop_door_1_contact',
+  'binary_sensor.rooftop_door_2_contact',
+];
 
 // Windows to track in status bar (exterior/important ones only). Replace with your entity_ids.
 export const TRACKED_WINDOWS = [

@@ -1,5 +1,6 @@
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
+import { APARTMENT_DOOR_OPEN_ENTITY, resolveHallwayDoorSensorId } from '../../config/entities';
 import './IntercomCard.css';
 
 interface IntercomCardProps {
@@ -13,7 +14,7 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
   const frontLockId = 'lock.intercomproxy_front_door';
   const backLockId = 'lock.intercomproxy_back_door';
   const aptLockId = 'lock.yale_bt';
-  const aptDoorSensorId = 'binary_sensor.yale_door';
+  const aptDoorSensorId = resolveHallwayDoorSensorId(entities) ?? APARTMENT_DOOR_OPEN_ENTITY;
 
   const autoOpen = entities?.[autoOpenId];
   const autoOpenEnabled = autoOpen?.state === 'on';

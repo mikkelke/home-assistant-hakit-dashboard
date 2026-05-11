@@ -4,6 +4,7 @@ import type { SonosPlayerProps } from '../../types';
 import { SONOS_SPEAKERS } from '../../config/speakers';
 import { RADIO_STATIONS } from '../../config/radio';
 import { PODCAST_FEEDS } from '../../config/podcasts';
+import { isMediaPlayerOutOfSync } from '../../utils/mediaPlayer';
 import { useSwipeToClose } from '../../hooks';
 import './SonosPlayer.css';
 
@@ -59,6 +60,11 @@ const getMasterFromEntity = (entity: { attributes?: { group_members?: unknown[] 
   return validMembers.length > 0 ? validMembers[0] : fallbackEntityId;
 };
 
+/** pushState/replaceState must keep #room=… or Dashboard hash sync closes the room (iframe / rooftop). */
+function podcastHistoryUrl(): string {
+  return window.location.pathname + window.location.search + window.location.hash;
+}
+
 export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosPlayerProps) {
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [showVolumeMixer, setShowVolumeMixer] = useState(false);
@@ -71,6 +77,10 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
   const [podcastError, setPodcastError] = useState<string | null>(null);
   const [showPodcastModal, setShowPodcastModal] = useState(false);
   const podcastModalOpenedAt = useRef<number>(0);
+  /** Set synchronously on open so modalBackButton beats React re-render (embed/spurious popstate). */
+  const podcastPendingOpenRef = useRef(false);
+  const showPodcastModalRef = useRef(false);
+  const viewingEpisodesRef = useRef(false);
   const [selectedPodcastId, setSelectedPodcastId] = useState<string | null>(null);
   const [viewingEpisodes, setViewingEpisodes] = useState(false);
   const [seekerPreview, setSeekerPreview] = useState<number | null>(null); // position in seconds while dragging
@@ -350,37 +360,7 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
   const isPlaying = state === 'playing';
   const hasGroup = groupMembers.length > 1;
 
-  // Check if MA and Sonos entities are out of sync
-  // Only check if current entity is a MA entity (doesn't end with _2)
-  const isMAEntity = !entityId.endsWith('_2');
-  const sonosEntityId = isMAEntity ? `${entityId}_2` : null;
-  const sonosEntity = sonosEntityId ? entities?.[sonosEntityId] : null;
-
-  // Compare states - they're out of sync if:
-  // 1. Both entities exist
-  // 2. Their states differ in a meaningful way (playing vs paused/idle, or vice versa)
-  // We consider them synced if both are idle/off/unavailable (not playing)
-  const isOutOfSync =
-    isMAEntity &&
-    sonosEntity &&
-    (() => {
-      const maState = state;
-      const sonosState = sonosEntity.state;
-
-      // If states are the same, they're in sync
-      if (maState === sonosState) return false;
-
-      // If one is playing and the other is not, they're out of sync
-      if (maState === 'playing' && sonosState !== 'playing') return true;
-      if (sonosState === 'playing' && maState !== 'playing') return true;
-
-      // If one is paused and the other is playing, they're out of sync
-      if (maState === 'paused' && sonosState === 'playing') return true;
-      if (sonosState === 'paused' && maState === 'playing') return true;
-
-      // Otherwise, consider them in sync (both idle/off/unavailable)
-      return false;
-    })();
+  const isOutOfSync = isMediaPlayerOutOfSync(entities, entityId);
 
   const groupedSpeakers = useMemo(() => {
     const speakers = groupMembers.map((id, index) => {
@@ -444,6 +424,52 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
     window.addEventListener('modalBackButton', handleModalBack);
     return () => window.removeEventListener('modalBackButton', handleModalBack);
   }, [showGroupModal]);
+
+  useEffect(() => {
+    showPodcastModalRef.current = showPodcastModal;
+    if (showPodcastModal) podcastPendingOpenRef.current = false;
+  }, [showPodcastModal]);
+
+  useEffect(() => {
+    viewingEpisodesRef.current = viewingEpisodes;
+  }, [viewingEpisodes]);
+
+  // Same pattern as group modal + WeatherCard: Dashboard popstate runs first; without preventDefault
+  // the room unmounts (feels like the podcast pop-up “closes”). Refs cover the frame before showPodcastModal commits.
+  useEffect(() => {
+    const handleModalBack = (e: Event) => {
+      const podcastOpen = showPodcastModalRef.current || podcastPendingOpenRef.current;
+      if (!podcastOpen) return;
+
+      e.preventDefault();
+
+      const msSinceOpen = Date.now() - podcastModalOpenedAt.current;
+      if (podcastPendingOpenRef.current || msSinceOpen < 500) {
+        return;
+      }
+
+      if (viewingEpisodesRef.current) {
+        setViewingEpisodes(false);
+        try {
+          window.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
+        } catch {
+          /* ignore */
+        }
+      } else {
+        setShowPodcastModal(false);
+        setViewingEpisodes(false);
+        setSelectedPodcastId(null);
+        try {
+          window.history.replaceState({ podcastModal: null }, '', podcastHistoryUrl());
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+
+    window.addEventListener('modalBackButton', handleModalBack);
+    return () => window.removeEventListener('modalBackButton', handleModalBack);
+  }, []);
 
   // Helper to check if source is line-in and get display name
   const isLineIn = (source: string) => {
@@ -730,7 +756,7 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
           // Go back to podcast list
           setViewingEpisodes(false);
           try {
-            window.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', window.location.pathname);
+            window.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
           } catch {
             /* ignore */
           }
@@ -739,7 +765,7 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
           setViewingEpisodes(false);
           setSelectedPodcastId(null);
           try {
-            window.history.replaceState({ podcastModal: null }, '', window.location.pathname);
+            window.history.replaceState({ podcastModal: null }, '', podcastHistoryUrl());
           } catch {
             /* ignore */
           }
@@ -755,7 +781,7 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
     if (viewingEpisodes) {
       setViewingEpisodes(false);
       try {
-        window.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', window.location.pathname);
+        window.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
       } catch {
         /* ignore */
       }
@@ -772,14 +798,15 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
   } = useSwipeToClose(handlePodcastSwipe);
 
   const handleClosePodcastModal = () => {
-    // Ignore overlay click that fires right after open (synthetic click from same tap on touch devices)
+    // Ignore overlay click right after open (WeatherCard uses 500ms; touch ghost clicks)
     const now = Date.now();
-    if (now - podcastModalOpenedAt.current < 400) return;
+    if (now - podcastModalOpenedAt.current < 500) return;
+    podcastPendingOpenRef.current = false;
     setShowPodcastModal(false);
     setViewingEpisodes(false);
     setSelectedPodcastId(null);
     try {
-      window.history.replaceState({ podcastModal: null }, '', window.location.pathname);
+      window.history.replaceState({ podcastModal: null }, '', podcastHistoryUrl());
     } catch {
       /* ignore */
     }
@@ -793,7 +820,7 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
       fetchPodcast(feed.id, feed.url);
     }
     try {
-      window.history.pushState({ podcastModal: true, viewingEpisodes: true, feedId }, '', window.location.pathname);
+      window.history.pushState({ podcastModal: true, viewingEpisodes: true, feedId }, '', podcastHistoryUrl());
     } catch {
       /* ignore */
     }
@@ -802,7 +829,7 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
   const handleBackToPodcasts = () => {
     setViewingEpisodes(false);
     try {
-      window.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', window.location.pathname);
+      window.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
     } catch {
       /* ignore */
     }
@@ -1235,11 +1262,12 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
                 className='sonos-source-item'
                 onClick={() => {
                   podcastModalOpenedAt.current = Date.now();
+                  podcastPendingOpenRef.current = true;
                   setShowPodcastModal(true);
                   setViewingEpisodes(false);
                   setSelectedPodcastId(null);
                   try {
-                    window.history.pushState({ podcastModal: true, viewingEpisodes: false }, '', window.location.pathname);
+                    window.history.pushState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
                   } catch {
                     /* ignore */
                   }
@@ -1409,11 +1437,12 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
         <div
           className='sonos-modal-overlay'
           onClick={handleClosePodcastModal}
+          onMouseDown={e => e.stopPropagation()}
           onTouchStart={handlePodcastTouchStart}
           onTouchMove={handlePodcastTouchMove}
           onTouchEnd={handlePodcastTouchEnd}
         >
-          <div className='sonos-modal large' onClick={e => e.stopPropagation()}>
+          <div className='sonos-modal large' onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>
             <div className='sonos-modal-header'>
               {viewingEpisodes ? (
                 <>

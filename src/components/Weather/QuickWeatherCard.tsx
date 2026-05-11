@@ -2,6 +2,7 @@ import { useMemo, useState, useCallback } from 'react';
 import { useWeather } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import type { HassEntities } from '../../types';
+import { useModalBackButton } from '../../hooks';
 import './QuickWeatherCard.css';
 
 interface QuickWeatherCardProps {
@@ -256,6 +257,14 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   const toggleDay = useCallback((datetime: string) => {
     setSelectedDayDatetime(prev => (prev === datetime ? null : datetime));
   }, []);
+  const closeDayPopup = useCallback(() => {
+    setSelectedDayDatetime(null);
+  }, []);
+  const { requestClose: requestCloseDayPopup } = useModalBackButton({
+    isOpen: selectedDayDatetime !== null,
+    onRequestClose: closeDayPopup,
+    historyKey: 'quick-weather-day-popup',
+  });
 
   const selectedDayHourly = useMemo(() => {
     if (!selectedDayDatetime) return [];
@@ -422,18 +431,13 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
             </div>
             {selectedDayDatetime != null && (
               <div className='quick-weather-card__day-popup' role='dialog' aria-modal aria-labelledby='day-popup-title'>
-                <div className='quick-weather-card__day-popup-backdrop' onClick={() => setSelectedDayDatetime(null)} aria-hidden />
+                <div className='quick-weather-card__day-popup-backdrop' onClick={requestCloseDayPopup} aria-hidden />
                 <div className='quick-weather-card__day-popup-panel'>
                   <div className='quick-weather-card__day-popup-header'>
                     <h3 id='day-popup-title' className='quick-weather-card__day-popup-title'>
                       {formatDay(selectedDayDatetime)} — by hour
                     </h3>
-                    <button
-                      type='button'
-                      className='quick-weather-card__day-popup-close'
-                      onClick={() => setSelectedDayDatetime(null)}
-                      aria-label='Close'
-                    >
+                    <button type='button' className='quick-weather-card__day-popup-close' onClick={requestCloseDayPopup} aria-label='Close'>
                       <Icon icon='mdi:close' />
                     </button>
                   </div>

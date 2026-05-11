@@ -12,6 +12,8 @@ interface IndicatorWithTimelineProps {
   title: string;
   icon: string;
   label?: string;
+  /** When set, used for timeline modal title instead of HA friendly_name */
+  modalTitle?: string;
   secondaryEntityId?: string; // Optional secondary entity for combined timeline (e.g., completion tracking)
 }
 
@@ -23,6 +25,7 @@ export function IndicatorWithTimeline({
   title,
   icon,
   label,
+  modalTitle,
   secondaryEntityId,
 }: IndicatorWithTimelineProps) {
   const [showTimeline, setShowTimeline] = useState(false);
@@ -104,18 +107,19 @@ export function IndicatorWithTimeline({
   const rawName = entity.attributes?.friendly_name;
   const baseName = typeof rawName === 'string' ? rawName : entityId.split('.')[1].replace(/_/g, ' ');
   const entityName = baseName.charAt(0).toUpperCase() + baseName.slice(1);
+  const timelineHeading = modalTitle?.trim() || entityName;
 
   const modalContent = showTimeline ? (
     <div className='person-info-overlay' role='presentation' onClick={handleOverlayClick} onMouseDown={e => e.stopPropagation()}>
       <div
         className='person-info-modal person-timeline-modal'
         role='dialog'
-        aria-label={`${entityName} timeline`}
+        aria-label={`${timelineHeading} timeline`}
         onClick={handleModalClick}
         onMouseDown={e => e.stopPropagation()}
       >
         <div className='modal-header'>
-          <span className='modal-title'>{entityName}</span>
+          <span className='modal-title'>{timelineHeading}</span>
           <button className='modal-close' onClick={handleClose} onMouseDown={e => e.stopPropagation()}>
             <Icon icon='mdi:close' />
           </button>

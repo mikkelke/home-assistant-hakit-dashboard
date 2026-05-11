@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import type { HomePulseProps, PulseChip } from '../../types';
+import { useModalBackButton } from '../../hooks';
 import { ROBOT_MAPS_PATH, ROBOT_PAUSED_BOOLEAN_ENTITY, ROBOT_PAUSE_REASON_ENTITY } from '../../config/entities';
+import { QUICK_ACCESS_OPEN_EVENT } from '../../config/transit';
 import { deriveHomePulseSummary } from '../../utils/homePulse';
 import '../Vacuum/VacuumCard.css';
 import './HomePulse.css';
@@ -16,6 +18,18 @@ function PulseChipButton({ chip, onRoomSelect }: { chip: PulseChip; onRoomSelect
       {chip.areaId && onRoomSelect && <Icon icon='mdi:chevron-right' className='home-pulse-chip-arrow' aria-hidden='true' />}
     </>
   );
+
+  if (chip.action) {
+    return (
+      <button
+        type='button'
+        className={`home-pulse-chip tone-${chip.tone} ${chip.pulse ? 'is-pulsing' : ''}`}
+        onClick={() => window.dispatchEvent(new CustomEvent(QUICK_ACCESS_OPEN_EVENT, { detail: { modal: chip.action } }))}
+      >
+        {content}
+      </button>
+    );
+  }
 
   if (chip.areaId && onRoomSelect) {
     return (
@@ -49,6 +63,14 @@ export function HomePulse({ areas, entities, hassUrl, onRoomSelect }: HomePulseP
   const [stuckMapUrl, setStuckMapUrl] = useState<string | null>(null);
   const [stuckMapLoading, setStuckMapLoading] = useState(false);
   const [stuckMapViewerOpen, setStuckMapViewerOpen] = useState(false);
+  const handleCloseStuckMapViewer = useCallback(() => {
+    setStuckMapViewerOpen(false);
+  }, []);
+  const { requestClose: requestCloseStuckMapViewer } = useModalBackButton({
+    isOpen: stuckMapViewerOpen && !!stuckMapUrl,
+    onRequestClose: handleCloseStuckMapViewer,
+    historyKey: 'home-pulse-rober2-map',
+  });
 
   const haBase = useMemo(() => {
     const base =
@@ -118,16 +140,10 @@ export function HomePulse({ areas, entities, hassUrl, onRoomSelect }: HomePulseP
     <>
       <section className='home-pulse' aria-label='Home Pulse'>
         <div className={`home-pulse-card tone-${summary.tone} ${summary.insight ? 'has-insight' : 'chips-only'}`}>
-          {summary.insight && <p className='home-pulse-narrative'>{summary.insight.text}</p>}
-
           {(summary.chips.length > 0 || robotNeedsAttention) && (
             <div className='home-pulse-chips'>
               {robotNeedsAttention && stuckMapUrl && (
-                <button
-                  type='button'
-                  className='home-pulse-chip tone-attention is-pulsing'
-                  onClick={() => setStuckMapViewerOpen(true)}
-                >
+                <button type='button' className='home-pulse-chip tone-attention is-pulsing' onClick={() => setStuckMapViewerOpen(true)}>
                   <span className='home-pulse-chip-icon' aria-hidden='true'>
                     <Icon icon='mdi:map-outline' />
                   </span>
@@ -154,8 +170,8 @@ export function HomePulse({ areas, entities, hassUrl, onRoomSelect }: HomePulseP
 
       {stuckMapViewerOpen && stuckMapUrl && (
         <>
-          <div className='vacuum-map-overlay' onClick={() => setStuckMapViewerOpen(false)} />
-          <div className='vacuum-map-modal'>
+          <div className='vacuum-map-overlay' onClick={requestCloseStuckMapViewer} />
+          <div className='vacuum-map-modal' role='dialog' aria-modal='true' aria-label='Rober2 map'>
             <div className='vacuum-map-modal-header'>
               <div className='vacuum-map-modal-title'>
                 <Icon icon='mdi:map' />
@@ -167,7 +183,7 @@ export function HomePulse({ areas, entities, hassUrl, onRoomSelect }: HomePulseP
               <button
                 type='button'
                 className='vacuum-map-modal-close modal-close-button'
-                onClick={() => setStuckMapViewerOpen(false)}
+                onClick={requestCloseStuckMapViewer}
                 aria-label='Close'
               >
                 <Icon icon='mdi:close' />

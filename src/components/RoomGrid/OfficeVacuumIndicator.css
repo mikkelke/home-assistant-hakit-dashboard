@@ -1,0 +1,105 @@
+.office-vacuum-modal__header {
+  flex-shrink: 0;
+}
+
+.office-vacuum-modal__tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.office-vacuum-modal__tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #a1a1aa;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.office-vacuum-modal__tab svg {
+  font-size: 16px;
+}
+
+.office-vacuum-modal__tab:hover {
+  color: #e4e4e7;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.office-vacuum-modal__tab.active {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.12);
+}
+
+.office-vacuum-modal__panel--robot {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: min(68vh, 540px);
+  padding: 10px 12px 14px;
+}
+
+.office-vacuum-modal__current {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  flex-shrink: 0;
+}
+
+.office-vacuum-modal__current-icon {
+  font-size: 22px;
+  color: #34d399;
+  flex-shrink: 0;
+}
+
+.office-vacuum-modal__current-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.office-vacuum-modal__current-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #f4f4f5;
+}
+
+.office-vacuum-modal__current-meta {
+  font-size: 0.75rem;
+  color: #a1a1aa;
+}
+
+.office-vacuum-modal__history-caption {
+  margin: 0 0 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #71717a;
+  flex-shrink: 0;
+}
+
+.office-vacuum-modal__timeline-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.office-vacuum-modal__panel--cleaning {
+  max-height: min(62vh, 480px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}

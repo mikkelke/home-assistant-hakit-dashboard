@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { attrNum, attrStringArray, attrStr } from '../../types';
-import { useSwipeToClose } from '../../hooks';
+import { useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
 import './LightCard.css';
 import { ROOM_LIGHTS } from '../../config/lights';
 
@@ -21,6 +21,7 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
   const [optimisticStates, setOptimisticStates] = useState<Record<string, 'on' | 'off' | null>>({});
   // Track last committed values and timestamps to prevent UI flicker
   const lastCommittedRef = useRef<Record<string, { value: number; timestamp: number }>>({});
+  const lightHeaderSlop = useTouchScrollSlopGuard();
 
   const areaNameNormalized = areaName.toLowerCase().replace(/\s+/g, '_');
   const roomLights = ROOM_LIGHTS[areaNameNormalized] || [];
@@ -256,7 +257,14 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
       {/* Header (use div to avoid nested buttons) */}
       <div
         className='light-header'
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={() => {
+          if (lightHeaderSlop.consumeBlockClick()) return;
+          setIsExpanded(!isExpanded);
+        }}
+        onTouchStart={lightHeaderSlop.onTouchStart}
+        onTouchMove={lightHeaderSlop.onTouchMove}
+        onTouchEnd={lightHeaderSlop.onTouchEnd}
+        onTouchCancel={lightHeaderSlop.onTouchCancel}
         role='button'
         tabIndex={0}
         onKeyDown={e => {
@@ -421,9 +429,14 @@ function ColorPickerModal({
   onClose,
 }: ColorPickerModalProps) {
   const [selectedTab, setSelectedTab] = useState<'colors' | 'temp'>(supportsColorTemp ? 'temp' : 'colors');
+  const { requestClose } = useModalBackButton({
+    isOpen: true,
+    onRequestClose: onClose,
+    historyKey: 'light-color-picker',
+  });
 
   // Use standardized swipe-to-close hook
-  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(onClose);
+  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestClose);
 
   // Predefined color palette
   const colorPalette: Array<{ name: string; rgb: [number, number, number] }> = [
@@ -451,9 +464,11 @@ function ColorPickerModal({
   ];
 
   return (
-    <div className='color-picker-overlay' onClick={onClose}>
+    <div className='color-picker-overlay' onClick={requestClose}>
       <div
         className='color-picker-modal'
+        role='dialog'
+        aria-modal='true'
         onClick={e => e.stopPropagation()}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -461,7 +476,7 @@ function ColorPickerModal({
       >
         <div className='color-picker-header'>
           <h3>{lightName}</h3>
-          <button className='color-picker-close modal-close-button' onClick={onClose}>
+          <button className='color-picker-close modal-close-button' onClick={requestClose}>
             <Icon icon='mdi:close' />
           </button>
         </div>

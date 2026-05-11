@@ -104,8 +104,16 @@ function getDishwasherDemoEntities(mode: string | null): HassEntities {
     state,
     attributes,
   });
+  const inputDishwasherState = (state: string) => {
+    base['input_select.dishwasher_state'] = {
+      entity_id: 'input_select.dishwasher_state',
+      state,
+      attributes: { options: ['Off', 'Running', 'Paused', 'Unemptied', 'Emptied'] },
+    };
+  };
   switch (mode.toLowerCase()) {
     case 'running':
+      inputDishwasherState('Running');
       base['sensor.dishwasher_state'] = sensorState('Running', {
         programme_label: 'ECO',
         detected_programme: 'eco',
@@ -117,6 +125,7 @@ function getDishwasherDemoEntities(mode: string | null): HassEntities {
       });
       break;
     case 'unemptied':
+      inputDishwasherState('Unemptied');
       base['sensor.dishwasher_state'] = sensorState('Unemptied', {
         programme_label: 'ECO',
         detected_programme: 'eco',
@@ -125,12 +134,15 @@ function getDishwasherDemoEntities(mode: string | null): HassEntities {
       });
       break;
     case 'paused':
+      inputDishwasherState('Paused');
       base['sensor.dishwasher_state'] = sensorState('Paused', { programme_label: 'ECO' });
       break;
     case 'emptied':
+      inputDishwasherState('Emptied');
       base['sensor.dishwasher_state'] = sensorState('Emptied', { programme_label: 'ECO' });
       break;
     case 'off':
+      inputDishwasherState('Off');
       base['sensor.dishwasher_state'] = sensorState('Off', {});
       break;
     default:
@@ -165,11 +177,6 @@ function getDryerDemoEntities(mode: string | null): HassEntities {
       entity_id: 'input_select.dryer_programme',
       state: 'Ekspres',
       attributes: { options: programmeOptions },
-    },
-    'input_select.dryer_confirmed_programme': {
-      entity_id: 'input_select.dryer_confirmed_programme',
-      state: 'Ekspres Skabstørt',
-      attributes: { options: ['Auto (unconfirmed)', 'Bomuld', 'Bomuld Skabstørt', 'Ekspres Skabstørt', 'Unknown'] },
     },
     'input_select.dryer_dryness': {
       entity_id: 'input_select.dryer_dryness',
@@ -512,11 +519,7 @@ export function Dashboard() {
       <Menu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} entities={displayEntities} callService={callService} />
       <div className='dashboard-main'>
         <div className='dashboard-content'>
-          <StatusBar
-            entities={displayEntities}
-            hassUrl={hassUrl}
-            onMenuToggle={() => setIsMenuOpen(!isMenuOpen)}
-          />
+          <StatusBar entities={displayEntities} hassUrl={hassUrl} onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
           <HomePulse areas={areaList} entities={displayEntities} hassUrl={hassUrl} onRoomSelect={handlePulseRoomSelect} />
           <RoomGrid
             areas={areaList}

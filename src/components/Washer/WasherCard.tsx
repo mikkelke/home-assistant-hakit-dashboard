@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
+import { ApplianceCycleTiming } from '../ApplianceCycleTiming';
 import './WasherCard.css';
 
 const WASHER_STATE_ID = 'sensor.washer_state';
@@ -10,7 +11,8 @@ const SPIN_SELECT_ID = 'input_select.washer_spin_speed';
 const TEMPERATURE_SELECT_ID = 'input_select.washer_temperature';
 
 const SPIN_OPTIONS_ORDER = ['—', '1400 rpm', '1200 rpm', '900 rpm', '700 rpm', 'No spin'];
-const TEMPERATURE_OPTIONS_ORDER = ['—', '20°C', '30°C', '40°C', '60°C', '90°C'];
+/** Matches `input_select.washer_temperature` (same order as HA; stable — no flash from delayed `options`). */
+const WASHER_TEMPERATURE_OPTIONS = ['-', 'Cold', '20°C', '30°C', '40°C', '60°C', '90°C'] as const;
 
 /** Programme keys in JSON; display labels for cycle history. Extend to match your washer programmes. */
 // eslint-disable-next-line react-refresh/only-export-components -- shared constant for cycle history
@@ -213,6 +215,17 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
   const energyUsed = attrs.energy_used != null ? Number(attrs.energy_used) : undefined;
   const spinRpm = attrs.spin_rpm !== undefined && attrs.spin_rpm !== null ? Number(attrs.spin_rpm) : undefined;
 
+  const predictedProgrammeLabel = (attrs.predicted_programme_label as string | undefined)?.trim();
+  const predictedProgramme = (attrs.predicted_programme as string | undefined)?.trim();
+  const predictedTemperature = (attrs.predicted_temperature as string | undefined)?.trim();
+  const predictionDisplay = predictedProgrammeLabel || [predictedProgramme, predictedTemperature].filter(Boolean).join(' · ') || '';
+  const confirmSelectState = programmeSelect?.state ?? '';
+  const looksLikeAutoUnconfirmed = /auto/i.test(confirmSelectState) && /unconfirmed/i.test(confirmSelectState);
+  const showPredictedProgramme =
+    (state === 'Running' || state === 'Paused') &&
+    predictionDisplay.length > 0 &&
+    (attrs.programme_confirmed_by_user === false || (attrs.programme_confirmed_by_user !== true && looksLikeAutoUnconfirmed));
+
   // Progress: only when Running; backend clears progress attrs when Off/Unemptied/Emptied
   const progressWhenRunning =
     state === 'Running' && ((totalMin != null && totalMin > 0) || (attrs.progress_pct != null && attrs.progress_pct !== ''));
@@ -230,10 +243,13 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
       : totalMin != null && totalMin > 0
         ? Math.min(100, (elapsedMin / totalMin) * 100)
         : 0;
-  const hasCountdownLine =
-    state === 'Running' &&
-    ((cycleStartTime && String(cycleStartTime).trim() !== '') || (startedAtDisplay && String(startedAtDisplay).trim() !== ''));
   const countdownLabel = remainingMin == null ? null : remainingMin <= 0 ? 'Almost done' : `${formatDuration(remainingMin)} left`;
+  const showApplianceTimingDetail =
+    state === 'Running' &&
+    ((cycleStartTime && String(cycleStartTime).trim() !== '') ||
+      (startedAtDisplay && String(startedAtDisplay).trim() !== '') ||
+      countdownLabel != null ||
+      (estimatedEndTime != null && String(estimatedEndTime).trim() !== ''));
 
   // "Started HH:MM": prefer started_at_display if it's time-only (HH:MM); if it's ISO datetime, format to time; else use cycle_start_time
   const startedDisplay = (() => {
@@ -278,8 +294,7 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
     });
   };
 
-  const tempOpts = temperatureSelect?.attributes?.options;
-  const temperatureOptions: string[] = Array.isArray(tempOpts) && tempOpts.length > 0 ? (tempOpts as string[]) : TEMPERATURE_OPTIONS_ORDER;
+  const temperatureOptions: readonly string[] = WASHER_TEMPERATURE_OPTIONS;
   const handleTemperatureChange = (option: string) => {
     if (!callService) return;
     callService({
@@ -334,13 +349,23 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
           )}
         </div>
 
-        {/* Temperature: show when entity exists (e.g. for ECO, Bomuld, or other programmes that use it) */}
+        {/* When user left Auto / not committed: show classifier prediction */}
+        {showPredictedProgramme && (
+          <div className='washer-prediction-hint' role='status'>
+            <Icon icon='mdi:lightbulb-outline' />
+            <span>
+              We think: <strong>{predictionDisplay}</strong>
+            </span>
+          </div>
+        )}
+
+        {/* Temperature: show for all programmes (user can set wash temp regardless of programme) */}
         {(state === 'Running' || state === 'Unemptied') && temperatureSelect && (
           <div className='washer-row temperature-row'>
             <span className='washer-field-label'>Temperature:</span>
             <select
               className='washer-programme-select washer-temperature-select'
-              value={temperatureSelect.state ?? '—'}
+              value={temperatureSelect.state ?? '-'}
               onChange={e => handleTemperatureChange(e.target.value)}
               aria-label='Wash temperature'
             >
@@ -384,16 +409,13 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
               </div>
             )}
             <div className='washer-countdown-line'>
-              {hasCountdownLine ? (
-                <>
-                  {(cycleStartTime || startedAtDisplay) && <>Started {startedDisplay}</>}
-                  {(cycleStartTime || startedAtDisplay) && estimatedEndTime && ' · '}
-                  {estimatedEndTime && <>Done ~{formatTimeOnly(estimatedEndTime)}</>}
-                  {countdownLabel && <> · {countdownLabel}</>}
-                </>
-              ) : (
-                <span className='washer-running-placeholder'>Running…</span>
-              )}
+              <ApplianceCycleTiming
+                hasDetail={showApplianceTimingDetail}
+                startedDisplay={startedDisplay}
+                estimatedEndTime={estimatedEndTime}
+                countdownLabel={countdownLabel}
+                formatTimeOnly={formatTimeOnly}
+              />
             </div>
             {announceToggle && (
               <div className='washer-row announce-row'>

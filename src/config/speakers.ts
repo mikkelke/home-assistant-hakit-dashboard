@@ -10,4 +10,5 @@ export const SONOS_SPEAKERS: Speaker[] = [
   { id: 'media_player.guest_bathroom', name: 'Guest bathroom' },
   { id: 'media_player.office', name: 'Office' },
   { id: 'media_player.kristines_room', name: 'Kristines room' },
+  { id: 'media_player.rooftop', name: 'Rooftop' },
 ];

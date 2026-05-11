@@ -171,6 +171,65 @@
   font-size: 1.25rem;
 }
 
+/* Media seeker */
+.tv-seeker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.tv-seeker-time {
+  font-size: 0.7rem;
+  color: #71717a;
+  min-width: 2.5rem;
+  flex-shrink: 0;
+}
+
+.tv-seeker-time:first-child {
+  text-align: right;
+}
+
+.tv-seeker-input {
+  flex: 1;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  outline: none;
+}
+
+.tv-seeker-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.tv-seeker-input::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+.tv-seeker-input::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: none;
+  background: #3b82f6;
+  cursor: pointer;
+}
+
+.tv-seeker-input::-moz-range-track {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
 /* Volume Row - Match Sonos styling */
 .tv-volume-row {
   display: flex;
@@ -303,6 +362,7 @@
   width: 100%;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 0.5rem;
   padding: 0.6rem 0.75rem;
   background: rgba(24, 25, 28, 0.8);
@@ -374,6 +434,7 @@
   width: 100%;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
   background: rgba(255, 255, 255, 0.05);
@@ -640,4 +701,3 @@
 .tv-lift-btn-bedroom.active svg {
   color: #3b82f6;
 }
-

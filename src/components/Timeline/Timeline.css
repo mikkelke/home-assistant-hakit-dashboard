@@ -198,9 +198,55 @@
   gap: 0.5rem;
 }
 
+.timeline-details-yale-window {
+  align-items: flex-start;
+}
+
 .timeline-absolute-time {
   font-size: 0.75rem;
   color: #71717a;
+}
+
+.timeline-yale-window {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+  line-height: 1.35;
+}
+
+.timeline-yale-window-date {
+  color: #71717a;
+  flex: 0 0 auto;
+}
+
+.timeline-yale-window-pair {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.timeline-yale-window-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.timeline-yale-window-icon {
+  font-size: 0.8rem;
+  flex-shrink: 0;
+  opacity: 0.88;
+  color: #71717a;
+}
+
+.timeline-yale-window-sep {
+  color: #52525b;
+  user-select: none;
+}
+
+.timeline-yale-window--split-days .timeline-yale-window-part {
+  max-width: 100%;
 }
 
 .timeline-operator {

@@ -13,6 +13,7 @@ import { WasherCard } from '../Washer';
 import { DishwasherCard } from '../Dishwasher';
 import { DryerCard } from '../Dryer';
 import { ROBOT_CLEAN_PREFIX, VACUUM_ENTITY } from '../../config/entities';
+import { resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { useSwipeToClose } from '../../hooks';
 import './RoomDetail.css';
 
@@ -30,11 +31,7 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
   const humiditySensor = `sensor.${areaName}_humidity`;
   const climateSensor = `climate.${areaName}_thermostat`;
 
-  // Prefer Music Assistant entity over Sonos integration entity (_2 suffix) when both exist
-  const mediaSensorMA = `media_player.${areaName}`;
-  const mediaSensorSonos = `media_player.${areaName}_2`;
-  const maEntity = entities?.[mediaSensorMA];
-  const mediaSensor = maEntity ? mediaSensorMA : mediaSensorSonos; // Prefer MA if it exists, fallback to Sonos
+  const { entityId: mediaSensor } = resolvePreferredMediaPlayer(entities, `media_player.${areaName}`);
   const coverId = `cover.${areaName}_blind`;
   const cleaningToggleId = `${ROBOT_CLEAN_PREFIX}${areaName}`;
 

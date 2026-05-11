@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
+import { resolveDishwasherSemanticState } from '../../utils/dishwasherSemanticState';
+import { ApplianceCycleTiming } from '../ApplianceCycleTiming';
 import './DishwasherCard.css';
 
 const DISHWASHER_STATE_ID = 'sensor.dishwasher_state';
+const DISHWASHER_INPUT_STATE_ID = 'input_select.dishwasher_state';
 const PROGRAMME_SELECT_ID = 'input_select.dishwasher_confirmed_programme';
 const SHORT_SELECT_ID = 'input_select.dishwasher_short';
 
@@ -92,6 +95,7 @@ function getFeedbackUrl(): string | null {
 
 export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
   const dishwasher = entities?.[DISHWASHER_STATE_ID];
+  const dishwasherInputState = entities?.[DISHWASHER_INPUT_STATE_ID];
   const programmeSelect = entities?.[PROGRAMME_SELECT_ID];
   const shortSelect = entities?.[SHORT_SELECT_ID];
 
@@ -174,20 +178,8 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
 
   if (!dishwasher) return null;
 
-  const rawState = (dishwasher.state?.trim() || 'Off').toLowerCase();
   const attrs = dishwasher.attributes || {};
-  let state: DishwasherState = (dishwasher.state?.trim() || 'Off') as DishwasherState;
-  if (rawState === 'on') {
-    const hasRunningAttrs =
-      attrs.estimated_remaining_min != null ||
-      attrs.programme_duration_min != null ||
-      (attrs.progress_pct != null && attrs.progress_pct !== '');
-    const hasUnemptiedAttrs = attrs.run_time_minutes != null || attrs.energy_used != null;
-    if (hasUnemptiedAttrs) state = 'Unemptied';
-    else if (hasRunningAttrs || attrs.programme_label || attrs.detected_programme) state = 'Running';
-  } else if (rawState === 'off') {
-    state = 'Off';
-  }
+  const state: DishwasherState = resolveDishwasherSemanticState(dishwasher, dishwasherInputState);
 
   if (state === 'Off' || state === 'Emptied') return null;
 
@@ -218,9 +210,6 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
       : totalMin != null && totalMin > 0
         ? Math.min(100, (elapsedMin / totalMin) * 100)
         : 0;
-  const hasCountdownLine =
-    state === 'Running' &&
-    ((cycleStartTime && String(cycleStartTime).trim() !== '') || (startedAtDisplay && String(startedAtDisplay).trim() !== ''));
   const countdownLabel = remainingMin == null ? null : remainingMin <= 0 ? 'Almost done' : `${formatDuration(remainingMin)} left`;
 
   // "Started HH:MM": prefer started_at_display if time-only (HH:MM); if ISO datetime, format to time; else use cycle_start_time
@@ -231,6 +220,13 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
     if (/^\d{4}-\d{2}/.test(s) || s.includes('T')) return formatTimeOnly(s);
     return formatTimeOnly(cycleStartTimeLocal || cycleStartTime);
   })();
+
+  const showApplianceTimingDetail =
+    state === 'Running' &&
+    ((cycleStartTime && String(cycleStartTime).trim() !== '') ||
+      (startedAtDisplay && String(startedAtDisplay).trim() !== '') ||
+      countdownLabel != null ||
+      (estimatedEndTime != null && String(estimatedEndTime).trim() !== ''));
 
   const isInteractive = state === 'Running' || state === 'Unemptied';
 
@@ -262,7 +258,7 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
     <div className={`dishwasher-card state-${state.toLowerCase()}`}>
       <div className='dishwasher-header'>
         <div className='dishwasher-title-row'>
-          <span className={`dishwasher-icon-wrap ${state === 'Running' ? 'dancing' : ''}`}>
+          <span className={`dishwasher-icon-wrap ${state === 'Running' ? 'dancing' : ''} ${state === 'Paused' ? 'paused-pulse' : ''}`}>
             <Icon icon={headerIcon} className='dishwasher-icon' />
           </span>
           <span className='dishwasher-label'>Dishwasher</span>
@@ -320,16 +316,13 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
               </div>
             )}
             <div className='dishwasher-countdown-line'>
-              {hasCountdownLine ? (
-                <>
-                  {(cycleStartTime || startedAtDisplay) && <>Started {startedDisplay}</>}
-                  {(cycleStartTime || startedAtDisplay) && estimatedEndTime && ' · '}
-                  {estimatedEndTime && <>Done ~{formatTimeOnly(estimatedEndTime)}</>}
-                  {countdownLabel && <> · {countdownLabel}</>}
-                </>
-              ) : (
-                <span className='dishwasher-running-placeholder'>Running…</span>
-              )}
+              <ApplianceCycleTiming
+                hasDetail={showApplianceTimingDetail}
+                startedDisplay={startedDisplay}
+                estimatedEndTime={estimatedEndTime}
+                countdownLabel={countdownLabel}
+                formatTimeOnly={formatTimeOnly}
+              />
             </div>
           </>
         )}

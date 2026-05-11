@@ -1,6 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import type { CallServiceFunction } from '../../types';
+import { useModalBackButton } from '../../hooks';
 import './AppleTVRemote.css';
 
 interface AppleTVRemoteProps {
@@ -15,6 +16,11 @@ const LONG_PRESS_DURATION = 500;
 export function AppleTVRemote({ remoteEntityId, mediaPlayerEntityId, callService, onClose }: AppleTVRemoteProps) {
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggeredRef = useRef(false);
+  const { requestClose } = useModalBackButton({
+    isOpen: true,
+    onRequestClose: onClose,
+    historyKey: 'apple-tv-remote',
+  });
 
   const sendCommand = useCallback(
     (command: string) => {
@@ -91,9 +97,15 @@ export function AppleTVRemote({ remoteEntityId, mediaPlayerEntityId, callService
   }, []);
 
   return (
-    <div className='apple-remote-overlay' onClick={onClose}>
-      <div className='apple-remote-container' onClick={e => e.stopPropagation()}>
-        <button className='apple-remote-close' onClick={onClose}>
+    <div className='apple-remote-overlay' onClick={requestClose}>
+      <div
+        className='apple-remote-container'
+        role='dialog'
+        aria-modal='true'
+        aria-label='Apple TV remote'
+        onClick={e => e.stopPropagation()}
+      >
+        <button className='apple-remote-close' onClick={requestClose}>
           <Icon icon='mdi:close' />
         </button>
 

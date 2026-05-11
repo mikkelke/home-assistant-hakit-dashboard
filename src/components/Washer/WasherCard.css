@@ -179,8 +179,29 @@
   color: #71717a;
 }
 
-.washer-running-placeholder {
-  font-style: italic;
+.washer-prediction-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.8rem;
+  color: #a1a1aa;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 0.5rem;
+  line-height: 1.35;
+}
+
+.washer-prediction-hint svg {
+  font-size: 1rem;
+  color: #60a5fa;
+  flex-shrink: 0;
+  margin-top: 0.05rem;
+}
+
+.washer-prediction-hint strong {
+  color: #e4e4e7;
+  font-weight: 600;
 }
 
 /* Announce toggle */

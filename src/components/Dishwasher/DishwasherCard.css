@@ -40,6 +40,25 @@
   animation: dishwasher-dance 1.2s ease-in-out infinite;
 }
 
+.dishwasher-card.state-paused .dishwasher-icon {
+  color: #3b82f6;
+}
+
+.dishwasher-card.state-paused .dishwasher-icon-wrap.paused-pulse .dishwasher-icon {
+  animation: dishwasher-paused-icon-pulse 2s ease-in-out infinite;
+}
+
+@keyframes dishwasher-paused-icon-pulse {
+  0%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.5));
+  }
+  50% {
+    opacity: 0.72;
+    filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.65));
+  }
+}
+
 @keyframes dishwasher-dance {
   0%, 100% { transform: translateX(0) translateY(0) rotate(-4deg); }
   25% { transform: translateX(2px) translateY(-2px) rotate(4deg); }
@@ -176,10 +195,6 @@
 .dishwasher-countdown-line {
   font-size: 0.8rem;
   color: #71717a;
-}
-
-.dishwasher-running-placeholder {
-  font-style: italic;
 }
 
 /* Stats (Unemptied) */

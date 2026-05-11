@@ -97,6 +97,9 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   const [batteryHistoryLoading, setBatteryHistoryLoading] = useState(false);
   const [batteryHistoryError, setBatteryHistoryError] = useState<string | null>(null);
   const connection = useHass((s: { connection?: unknown }) => s.connection);
+  const selectedMapRef = useRef<MapEntry | null>(null);
+  const showLiveMapRef = useRef(false);
+  const batteryGraphOpenRef = useRef(false);
   const getAccessToken = useCallback((): string | null => {
     try {
       if (!connection) return null;
@@ -129,6 +132,8 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     if (!path) return '';
     return path.startsWith('http') ? path : `${haBase}${path}`;
   };
+
+  const modalHistoryUrl = () => window.location.pathname + window.location.search + window.location.hash;
 
   // Group maps by room and get the latest one for each room, sorted alphabetically
   const getLatestMapsByRoom = (entries: MapEntry[]): MapEntry[] => {
@@ -211,7 +216,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   const handleOpenMap = (map: MapEntry) => {
     setSelectedMap(map);
     try {
-      window.history.pushState({ map: map.filename }, '', window.location.pathname);
+      window.history.pushState({ map: map.filename }, '', modalHistoryUrl());
     } catch {
       // Silently fail if history API not supported
     }
@@ -220,7 +225,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   const handleCloseMap = () => {
     setSelectedMap(null);
     try {
-      window.history.replaceState({ map: null }, '', window.location.pathname);
+      window.history.replaceState({ map: null }, '', modalHistoryUrl());
     } catch {
       // Silently fail if history API not supported
     }
@@ -229,7 +234,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   const handleOpenLiveMap = () => {
     setShowLiveMap(true);
     try {
-      window.history.pushState({ liveMap: true }, '', window.location.pathname);
+      window.history.pushState({ liveMap: true }, '', modalHistoryUrl());
     } catch {
       // Silently fail if history API not supported
     }
@@ -238,7 +243,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   const handleCloseLiveMap = () => {
     setShowLiveMap(false);
     try {
-      window.history.replaceState({ liveMap: null }, '', window.location.pathname);
+      window.history.replaceState({ liveMap: null }, '', modalHistoryUrl());
     } catch {
       // Silently fail if history API not supported
     }
@@ -249,7 +254,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     e.stopPropagation();
     setBatteryGraphOpen(true);
     try {
-      window.history.pushState({ batteryGraph: true }, '', window.location.pathname);
+      window.history.pushState({ batteryGraph: true }, '', modalHistoryUrl());
     } catch {
       /* ignore */
     }
@@ -257,11 +262,62 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   const handleCloseBatteryGraph = () => {
     setBatteryGraphOpen(false);
     try {
-      window.history.replaceState({ batteryGraph: null }, '', window.location.pathname);
+      window.history.replaceState({ batteryGraph: null }, '', modalHistoryUrl());
     } catch {
       /* ignore */
     }
   };
+
+  useEffect(() => {
+    selectedMapRef.current = selectedMap;
+  }, [selectedMap]);
+
+  useEffect(() => {
+    showLiveMapRef.current = showLiveMap;
+  }, [showLiveMap]);
+
+  useEffect(() => {
+    batteryGraphOpenRef.current = batteryGraphOpen;
+  }, [batteryGraphOpen]);
+
+  useEffect(() => {
+    const handleModalBack = (event: Event) => {
+      if (selectedMapRef.current) {
+        event.preventDefault();
+        setSelectedMap(null);
+        try {
+          window.history.replaceState({ map: null }, '', modalHistoryUrl());
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+
+      if (showLiveMapRef.current) {
+        event.preventDefault();
+        setShowLiveMap(false);
+        try {
+          window.history.replaceState({ liveMap: null }, '', modalHistoryUrl());
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+
+      if (batteryGraphOpenRef.current) {
+        event.preventDefault();
+        setBatteryGraphOpen(false);
+        try {
+          window.history.replaceState({ batteryGraph: null }, '', modalHistoryUrl());
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+
+    window.addEventListener('modalBackButton', handleModalBack);
+    return () => window.removeEventListener('modalBackButton', handleModalBack);
+  }, []);
 
   // Browser back button support (capture to avoid closing the whole room)
   useEffect(() => {
@@ -271,7 +327,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
         event.stopImmediatePropagation();
         setSelectedMap(null);
         try {
-          window.history.replaceState({ map: null }, '', window.location.pathname);
+          window.history.replaceState({ map: null }, '', modalHistoryUrl());
         } catch {
           /* ignore */
         }
@@ -282,7 +338,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
         event.stopImmediatePropagation();
         setShowLiveMap(false);
         try {
-          window.history.replaceState({ liveMap: null }, '', window.location.pathname);
+          window.history.replaceState({ liveMap: null }, '', modalHistoryUrl());
         } catch {
           /* ignore */
         }
@@ -292,7 +348,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
         event.stopImmediatePropagation();
         setBatteryGraphOpen(false);
         try {
-          window.history.replaceState({ batteryGraph: null }, '', window.location.pathname);
+          window.history.replaceState({ batteryGraph: null }, '', modalHistoryUrl());
         } catch {
           /* ignore */
         }
@@ -553,60 +609,55 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   return (
     <div className={`vacuum-card ${isExpanded ? 'expanded' : ''} ${isActive ? 'active' : ''}`}>
       {/* Header */}
-      <button className='vacuum-header' onClick={() => setIsExpanded(!isExpanded)}>
-        <div className='vacuum-header-info'>
-          <Icon
-            icon={getStateIcon()}
-            className={`vacuum-icon ${isActive ? 'working' : isError || isOffline ? 'error' : isIdle ? 'idle' : ''}`}
-          />
-          <div className='vacuum-status'>
-            <span className='vacuum-name'>Robot</span>
-            <span className='vacuum-state-text'>{stateLabel}</span>
+      <div className='vacuum-header'>
+        <button type='button' className='vacuum-header-toggle' onClick={() => setIsExpanded(!isExpanded)} aria-expanded={isExpanded}>
+          <div className='vacuum-header-info'>
+            <Icon
+              icon={getStateIcon()}
+              className={`vacuum-icon ${isActive ? 'working' : isError || isOffline ? 'error' : isIdle ? 'idle' : ''}`}
+            />
+            <div className='vacuum-status'>
+              <span className='vacuum-name'>Robot</span>
+              <span className='vacuum-state-text'>{stateLabel}</span>
+            </div>
           </div>
-        </div>
-        <div className='vacuum-header-right'>
-          <div className='vacuum-power-chip' title='Power mode'>
-            <Icon icon='mdi:fan' />
-            <span>{fanSpeedLabel}</span>
+          <div className='vacuum-header-right'>
+            <div className='vacuum-power-chip' title='Power mode'>
+              <Icon icon='mdi:fan' />
+              <span>{fanSpeedLabel}</span>
+            </div>
+            <Icon icon={isExpanded ? 'mdi:chevron-up' : 'mdi:chevron-down'} />
           </div>
-          <div
-            role='button'
-            tabIndex={0}
-            className={`vacuum-battery ${state === 'docked' && battery !== undefined && battery < 100 ? 'charging' : ''}`}
-            onClick={handleOpenBatteryGraph}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleOpenBatteryGraph(e as unknown as React.MouseEvent);
-              }
-            }}
-            title='Battery level – tap for history'
-          >
-            {battery !== undefined ? (
-              <>
-                <Icon
-                  icon={
-                    state === 'docked' && battery < 100
-                      ? 'mdi:battery-charging'
-                      : battery > 80
-                        ? 'mdi:battery'
-                        : battery > 40
-                          ? 'mdi:battery-50'
-                          : 'mdi:battery-20'
-                  }
-                />
-                <span>{Math.round(battery)}%</span>
-              </>
-            ) : (
-              <>
-                <Icon icon='mdi:battery-unknown' />
-                <span>—</span>
-              </>
-            )}
-          </div>
-          <Icon icon={isExpanded ? 'mdi:chevron-up' : 'mdi:chevron-down'} />
-        </div>
-      </button>
+        </button>
+        <button
+          type='button'
+          className={`vacuum-battery ${state === 'docked' && battery !== undefined && battery < 100 ? 'charging' : ''}`}
+          onClick={handleOpenBatteryGraph}
+          title='Battery level – tap for history'
+        >
+          {battery !== undefined ? (
+            <>
+              <Icon
+                icon={
+                  state === 'docked' && battery < 100
+                    ? 'mdi:battery-charging'
+                    : battery > 80
+                      ? 'mdi:battery'
+                      : battery > 40
+                        ? 'mdi:battery-50'
+                        : 'mdi:battery-20'
+                }
+              />
+              <span>{Math.round(battery)}%</span>
+            </>
+          ) : (
+            <>
+              <Icon icon='mdi:battery-unknown' />
+              <span>—</span>
+            </>
+          )}
+        </button>
+      </div>
 
       {/* Expanded content */}
       {isExpanded && (

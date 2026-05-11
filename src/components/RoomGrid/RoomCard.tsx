@@ -2,16 +2,19 @@ import { Fragment } from 'react';
 import { Icon } from '@iconify/react';
 import type { RoomCardProps } from '../../types';
 import {
-  FRONT_DOOR_LOCK_ENTITY,
-  FRONT_DOOR_SENSOR_ENTITY,
+  BEDROOM_BED_OCCUPANCY_SENSORS,
+  resolveHallwayDoorSensorId,
   VACUUM_ENTITY,
   ROBOT_CLEAN_PREFIX,
   ROBOT_CLEAN_KITCHEN_1,
   ROBOT_CLEAN_KITCHEN_2,
 } from '../../config/entities';
 import { ROOM_LIGHTS } from '../../config/lights';
+import { resolveDishwasherSemanticState } from '../../utils/dishwasherSemanticState';
+import { resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { IndicatorWithTimeline } from './IndicatorWithTimeline';
 import { MultiEntitySelector } from './MultiEntitySelector';
+import { OfficeVacuumIndicator } from './OfficeVacuumIndicator';
 import './RoomGrid.css';
 
 type IndicatorKey =
@@ -34,7 +37,8 @@ type IndicatorKey =
   | 'media'
   | 'lights'
   | 'presence'
-  | 'alarm';
+  | 'alarm'
+  | 'bed';
 
 export interface RoomCardWithCountsProps extends RoomCardProps {
   indicatorCounts: Record<IndicatorKey, number>;
@@ -162,14 +166,12 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
         }).length;
   const hasLightsOn = lightsOn > 0;
 
-  // Hallway specific: front door lock and sensor (configure in config/entities.ts)
+  // Hallway: door access only (lock control stays in room detail / Intercom)
   const isHallway = areaNameNormalized === 'hallway';
-  const frontLock = entities?.[FRONT_DOOR_LOCK_ENTITY];
-  const frontDoor = entities?.[FRONT_DOOR_SENSOR_ENTITY];
-  const isUnlocked = isHallway && frontLock?.state === 'unlocked';
+  const hallwayDoorId = isHallway ? resolveHallwayDoorSensorId(entities) : null;
+  const frontDoor = hallwayDoorId ? entities?.[hallwayDoorId] : undefined;
   const isDoorOpen = isHallway && frontDoor?.state === 'on';
   const hasHallwayDoor = isHallway && !!frontDoor;
-  const hasHallwayLock = isHallway && !!frontLock;
 
   // Vacuum - lives in Office (entity from config/entities.ts)
   const isOffice = areaNameNormalized === 'office';
@@ -186,22 +188,40 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
   // Common "ready" states: complete, finished, done, ready, end, completed, end of cycle, unemptied
   const readyStates = ['complete', 'finished', 'done', 'ready', 'end', 'completed', 'end of cycle', 'unemptied'];
 
-  // Kitchen - Dishwasher state
+  // Kitchen - Dishwasher: prefer input_select.dishwasher_state (HA), else infer from sensor
   const isKitchen = areaNameNormalized === 'kitchen';
-  const dishwasherState = isKitchen ? entities?.['sensor.dishwasher_state']?.state : null;
+  const dishwasherEntity = isKitchen ? entities?.['sensor.dishwasher_state'] : undefined;
+  const dishwasherInputState = isKitchen ? entities?.['input_select.dishwasher_state'] : undefined;
+  const dishwasherState = dishwasherEntity?.state ?? null;
+  const dishwasherSemantic = resolveDishwasherSemanticState(dishwasherEntity, dishwasherInputState);
   const dishwasherStateLower = dishwasherState?.toLowerCase()?.trim() || '';
-  // Check for ready states - match if state contains any ready keyword
-  const isDishwasherReady = readyStates.some(state => dishwasherStateLower.includes(state));
-  const isDishwasherOffOrIdle = ['off', 'idle'].includes(dishwasherStateLower);
-  const isDishwasherRunning =
-    dishwasherState && !isDishwasherReady && !isDishwasherOffOrIdle && !['unknown', 'unavailable'].includes(dishwasherStateLower);
-  // Debug: log unexpected states
-  if (isKitchen && dishwasherState && !isDishwasherReady && !isDishwasherOffOrIdle && !isDishwasherRunning) {
-    console.warn('[Dishwasher] Unexpected state:', dishwasherState, '| lowercase:', dishwasherStateLower);
+  const isDishwasherReady = dishwasherSemantic === 'Unemptied' || readyStates.some(state => dishwasherStateLower.includes(state));
+  const isDishwasherOffOrIdle = dishwasherSemantic === 'Off' || ['off', 'idle', 'unknown', 'unavailable'].includes(dishwasherStateLower);
+  const isDishwasherRunning = dishwasherSemantic === 'Running';
+  const isDishwasherPaused = dishwasherSemantic === 'Paused';
+  // Debug: unexpected raw sensor when semantic is still ambiguous
+  if (
+    isKitchen &&
+    dishwasherState &&
+    !isDishwasherReady &&
+    !isDishwasherOffOrIdle &&
+    !isDishwasherRunning &&
+    !isDishwasherPaused &&
+    dishwasherSemantic !== 'Emptied'
+  ) {
+    console.warn('[Dishwasher] Unexpected state:', dishwasherState, '| semantic:', dishwasherSemantic);
   }
-  const dishwasherStateClass = isDishwasherRunning ? 'active' : isDishwasherReady ? 'ready' : isDishwasherOffOrIdle ? 'inactive' : 'info';
-  // Rank: 4=ready (jobs to do), 3=running, 2=media, 1=other active, 0=inactive
-  const dishwasherStateRank = isDishwasherReady ? 4 : isDishwasherRunning ? 3 : isDishwasherOffOrIdle ? 0 : 1;
+  const dishwasherStateClass = isDishwasherRunning
+    ? 'active'
+    : isDishwasherPaused
+      ? 'paused'
+      : isDishwasherReady
+        ? 'ready'
+        : isDishwasherOffOrIdle
+          ? 'inactive'
+          : 'info';
+  // Rank: 4=ready (jobs to do), 3=running/paused, 2=media, 1=other active, 0=inactive
+  const dishwasherStateRank = isDishwasherReady ? 4 : isDishwasherRunning || isDishwasherPaused ? 3 : isDishwasherOffOrIdle ? 0 : 1;
   // Kitchen - Hotplate power
   const hotplatePowerRaw = isKitchen ? entities?.['sensor.hotplate_power_monitor_total_active_power']?.state : null;
   const hotplatePower = hotplatePowerRaw ? Number(hotplatePowerRaw) : 0;
@@ -299,14 +319,12 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
   const alarmEnabled = isBedroom ? entities?.['input_boolean.wakeup_bedroom']?.state === 'on' : false;
   const alarmTime = isBedroom ? entities?.['input_datetime.wakeup_bedroom']?.state : null;
   const hasAlarm = !!(isBedroom && entities?.['input_boolean.wakeup_bedroom']);
+  const bedOccupancyIds = isBedroom ? BEDROOM_BED_OCCUPANCY_SENSORS.map(sensor => sensor.entityId).filter(id => entities?.[id]) : [];
+  const bedOccupancyActiveCount = bedOccupancyIds.filter(id => entities?.[id]?.state === 'on').length;
+  const hasBedOccupancy = bedOccupancyIds.length > 0;
 
-  // Media player - check if playing and muted state
-  // Prefer Music Assistant entity over Sonos integration entity (_2 suffix) when both exist
-  const mediaPlayerIdMA = `media_player.${areaNameNormalized}`;
-  const mediaPlayerIdSonos = `media_player.${areaNameNormalized}_2`;
-  const maEntity = entities?.[mediaPlayerIdMA];
-  const mediaPlayerId = maEntity ? mediaPlayerIdMA : mediaPlayerIdSonos; // Prefer MA if it exists, fallback to Sonos
-  const mediaPlayer = entities?.[mediaPlayerId];
+  // Media player - prefer the entity that currently has the live playback state.
+  const { entityId: mediaPlayerId, entity: mediaPlayer } = resolvePreferredMediaPlayer(entities, `media_player.${areaNameNormalized}`);
   const isMediaPlaying = mediaPlayer?.state === 'playing';
   const isMediaMuted = mediaPlayer?.attributes?.is_volume_muted === true;
   const hasMediaPlayer = !!mediaPlayer;
@@ -343,38 +361,23 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
             indicators.push({ key: finalKey, weight: indicatorCounts[key] ?? 0, stateRank, node });
           };
 
-          // Hallway front door
+          // Hallway apartment door
           make(
             'door',
-            hasHallwayDoor && (
+            hasHallwayDoor && hallwayDoorId && (
               <IndicatorWithTimeline
-                entityId={FRONT_DOOR_SENSOR_ENTITY}
+                entityId={hallwayDoorId}
                 entities={entities}
                 hassUrl={hassUrl}
                 className={`indicator door ${isDoorOpen ? 'active' : 'inactive'}`}
-                title={isDoorOpen ? 'Front door open - click for timeline' : 'Front door closed - click for timeline'}
+                title={isDoorOpen ? 'Apartment door open - click for timeline' : 'Apartment door closed - click for timeline'}
                 icon={isDoorOpen ? 'mdi:door-open' : 'mdi:door-closed'}
+                modalTitle='Apartment door'
               />
             ),
             !!hasHallwayDoor,
             isDoorOpen ? 1 : 0, // Other active state
             'door_hallway'
-          );
-
-          make(
-            'lock',
-            hasHallwayLock && (
-              <IndicatorWithTimeline
-                entityId={FRONT_DOOR_LOCK_ENTITY}
-                entities={entities}
-                hassUrl={hassUrl}
-                className={`indicator lock ${isUnlocked ? 'active' : 'inactive'}`}
-                title={isUnlocked ? 'Lock unlocked - click for timeline' : 'Lock locked - click for timeline'}
-                icon={isUnlocked ? 'mdi:lock-open' : 'mdi:lock'}
-              />
-            ),
-            !!hasHallwayLock,
-            isUnlocked ? 1 : 0 // Other active state
           );
 
           make(
@@ -496,7 +499,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
 
           make(
             'cleaning',
-            !isKitchen && cleaningToggleId && entities?.[cleaningToggleId] && (
+            !isKitchen && !isOffice && cleaningToggleId && entities?.[cleaningToggleId] && (
               <IndicatorWithTimeline
                 entityId={cleaningToggleId}
                 entities={entities}
@@ -507,7 +510,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                 secondaryEntityId={lastCleanId || undefined}
               />
             ),
-            !!(!isKitchen && cleaningToggleId && entities?.[cleaningToggleId]),
+            !!(!isKitchen && !isOffice && cleaningToggleId && entities?.[cleaningToggleId]),
             cleaningRequested ? 1 : 0 // Other active state
           );
 
@@ -547,20 +550,21 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
 
           make(
             'vacuum',
-            isOffice && vacuum && (
-              <IndicatorWithTimeline
-                entityId={VACUUM_ENTITY}
+            isOffice && vacuum && cleaningToggleId ? (
+              <OfficeVacuumIndicator
                 entities={entities}
                 hassUrl={hassUrl}
+                cleaningToggleId={cleaningToggleId}
+                lastCleanId={lastCleanId}
+                cleaningRequested={cleaningRequested}
                 className={`indicator vacuum ${
                   isVacuumActive ? 'working' : isVacuumError || isVacuumOffline ? 'error' : isVacuumIdle ? 'idle' : 'inactive'
                 }`}
-                title={`Vacuum: ${vacuumState || 'unknown'}`}
-                icon='mdi:robot-vacuum'
+                title={`Robot: ${vacuumState || 'unknown'} — state log & office clean`}
               />
-            ),
-            isOffice && !!vacuum && !isVacuumIdle, // Only show when not idle (working, error, or offline)
-            isVacuumActive ? 3 : isVacuumError || isVacuumOffline ? 1 : 0 // Running = 3
+            ) : null,
+            isOffice && !!vacuum,
+            isVacuumActive ? 3 : isVacuumError || isVacuumOffline ? 1 : cleaningRequested ? 1 : 0
           );
 
           make(
@@ -581,8 +585,8 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                 entityId='sensor.dishwasher_state'
                 entities={entities}
                 hassUrl={hassUrl}
-                className={`indicator appliance ${dishwasherStateClass}`}
-                title={`Dishwasher: ${dishwasherState} - click for timeline`}
+                className={`indicator appliance dishwasher ${dishwasherStateClass}`}
+                title={`Dishwasher: ${dishwasherSemantic} - click for timeline`}
                 icon='mdi:dishwasher'
               />
             ),
@@ -645,7 +649,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                 entityId='sensor.washer_state'
                 entities={entities}
                 hassUrl={hassUrl}
-                className={`indicator appliance ${washerStateClass}`}
+                className={`indicator appliance washer ${washerStateClass}`}
                 title={`Washer: ${washerState} - click for timeline`}
                 icon='mdi:washing-machine'
               />
@@ -661,7 +665,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                 entityId='sensor.dryer_state'
                 entities={entities}
                 hassUrl={hassUrl}
-                className={`indicator appliance ${dryerStateClass}`}
+                className={`indicator appliance dryer ${dryerStateClass}`}
                 title={`Dryer: ${dryerState} - click for timeline`}
                 icon='mdi:tumble-dryer'
               />
@@ -717,6 +721,30 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
             ),
             hasPresence,
             isOccupied ? 1 : 0 // Other active state
+          );
+
+          make(
+            'bed',
+            hasBedOccupancy && (
+              <MultiEntitySelector
+                entityIds={bedOccupancyIds}
+                entities={entities}
+                hassUrl={hassUrl}
+                className={`indicator guest ${bedOccupancyActiveCount > 0 ? 'active' : 'inactive'}`}
+                title={
+                  bedOccupancyActiveCount === 0
+                    ? 'Bed empty - click to select side'
+                    : bedOccupancyActiveCount === bedOccupancyIds.length && bedOccupancyIds.length > 1
+                      ? 'Both in bed - click to select side'
+                      : `${bedOccupancyActiveCount} in bed - click to select side`
+                }
+                icon='mdi:bed'
+                entityType='bed'
+                selectionTitle='Bed occupancy'
+              />
+            ),
+            hasBedOccupancy,
+            bedOccupancyActiveCount > 0 ? 1 : 0
           );
 
           make(
@@ -795,35 +823,20 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
             // (keeping the same logic from the top indicators)
             make(
               'door',
-              hasHallwayDoor && (
+              hasHallwayDoor && hallwayDoorId && (
                 <IndicatorWithTimeline
-                  entityId={FRONT_DOOR_SENSOR_ENTITY}
+                  entityId={hallwayDoorId}
                   entities={entities}
                   hassUrl={hassUrl}
                   className={`indicator door ${isDoorOpen ? 'active' : 'inactive'}`}
-                  title={isDoorOpen ? 'Front door open - click for timeline' : 'Front door closed - click for timeline'}
+                  title={isDoorOpen ? 'Apartment door open - click for timeline' : 'Apartment door closed - click for timeline'}
                   icon={isDoorOpen ? 'mdi:door-open' : 'mdi:door-closed'}
+                  modalTitle='Apartment door'
                 />
               ),
               !!hasHallwayDoor,
               isDoorOpen ? 1 : 0,
               'door_hallway'
-            );
-
-            make(
-              'lock',
-              hasHallwayLock && (
-                <IndicatorWithTimeline
-                  entityId={FRONT_DOOR_LOCK_ENTITY}
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator lock ${isUnlocked ? 'active' : 'inactive'}`}
-                  title={isUnlocked ? 'Lock unlocked - click for timeline' : 'Lock locked - click for timeline'}
-                  icon={isUnlocked ? 'mdi:lock-open' : 'mdi:lock'}
-                />
-              ),
-              !!hasHallwayLock,
-              isUnlocked ? 1 : 0
             );
 
             make(
@@ -944,7 +957,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
 
             make(
               'cleaning',
-              !isKitchen && cleaningToggleId && entities?.[cleaningToggleId] && (
+              !isKitchen && !isOffice && cleaningToggleId && entities?.[cleaningToggleId] && (
                 <IndicatorWithTimeline
                   entityId={cleaningToggleId}
                   entities={entities}
@@ -955,7 +968,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                   secondaryEntityId={lastCleanId || undefined}
                 />
               ),
-              !!(!isKitchen && cleaningToggleId && entities?.[cleaningToggleId]),
+              !!(!isKitchen && !isOffice && cleaningToggleId && entities?.[cleaningToggleId]),
               cleaningRequested ? 1 : 0
             );
 
@@ -995,20 +1008,21 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
 
             make(
               'vacuum',
-              isOffice && vacuum && (
-                <IndicatorWithTimeline
-                  entityId={VACUUM_ENTITY}
+              isOffice && vacuum && cleaningToggleId ? (
+                <OfficeVacuumIndicator
                   entities={entities}
                   hassUrl={hassUrl}
+                  cleaningToggleId={cleaningToggleId}
+                  lastCleanId={lastCleanId}
+                  cleaningRequested={cleaningRequested}
                   className={`indicator vacuum ${
                     isVacuumActive ? 'working' : isVacuumError || isVacuumOffline ? 'error' : isVacuumIdle ? 'idle' : 'inactive'
                   }`}
-                  title={`Vacuum: ${vacuumState || 'unknown'}`}
-                  icon='mdi:robot-vacuum'
+                  title={`Robot: ${vacuumState || 'unknown'} — state log & office clean`}
                 />
-              ),
-              isOffice && !!vacuum && !isVacuumIdle,
-              isVacuumActive ? 3 : isVacuumError || isVacuumOffline ? 1 : 0 // Running = 3
+              ) : null,
+              isOffice && !!vacuum,
+              isVacuumActive ? 3 : isVacuumError || isVacuumOffline ? 1 : cleaningRequested ? 1 : 0
             );
 
             make(
@@ -1029,8 +1043,8 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                   entityId='sensor.dishwasher_state'
                   entities={entities}
                   hassUrl={hassUrl}
-                  className={`indicator appliance ${dishwasherStateClass}`}
-                  title={`Dishwasher: ${dishwasherState} - click for timeline`}
+                  className={`indicator appliance dishwasher ${dishwasherStateClass}`}
+                  title={`Dishwasher: ${dishwasherSemantic} - click for timeline`}
                   icon='mdi:dishwasher'
                 />
               ),
@@ -1093,7 +1107,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                   entityId='sensor.washer_state'
                   entities={entities}
                   hassUrl={hassUrl}
-                  className={`indicator appliance ${washerStateClass}`}
+                  className={`indicator appliance washer ${washerStateClass}`}
                   title={`Washer: ${washerState} - click for timeline`}
                   icon='mdi:washing-machine'
                 />
@@ -1109,7 +1123,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                   entityId='sensor.dryer_state'
                   entities={entities}
                   hassUrl={hassUrl}
-                  className={`indicator appliance ${dryerStateClass}`}
+                  className={`indicator appliance dryer ${dryerStateClass}`}
                   title={`Dryer: ${dryerState} - click for timeline`}
                   icon='mdi:tumble-dryer'
                 />
@@ -1165,6 +1179,30 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
               ),
               hasPresence,
               isOccupied ? 1 : 0
+            );
+
+            make(
+              'bed',
+              hasBedOccupancy && (
+                <MultiEntitySelector
+                  entityIds={bedOccupancyIds}
+                  entities={entities}
+                  hassUrl={hassUrl}
+                  className={`indicator guest ${bedOccupancyActiveCount > 0 ? 'active' : 'inactive'}`}
+                  title={
+                    bedOccupancyActiveCount === 0
+                      ? 'Bed empty - click to select side'
+                      : bedOccupancyActiveCount === bedOccupancyIds.length && bedOccupancyIds.length > 1
+                        ? 'Both in bed - click to select side'
+                        : `${bedOccupancyActiveCount} in bed - click to select side`
+                  }
+                  icon='mdi:bed'
+                  entityType='bed'
+                  selectionTitle='Bed occupancy'
+                />
+              ),
+              hasBedOccupancy,
+              bedOccupancyActiveCount > 0 ? 1 : 0
             );
 
             make(

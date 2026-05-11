@@ -1,8 +1,8 @@
 /*
  * STATUS INDICATOR COLOR STANDARD
  * ================================
- * Active/Running (green #22c55e): Robot working, washer/dryer/dishwasher running, music playing, cleaning
- * Needs Attention (amber #f59e0b): Appliance ready to empty, door/window open
+ * Active/Running: Dishwasher/washer water-blue, dryer warm-orange, robot green, music green, cleaning green
+ * Needs Attention: Door/window open, general amber attention states
  * Lights On (yellow #fbbf24): Lights active
  * Heat (orange #f97316): Heating/radiators active  
  * Water (cyan #06b6d4): Shower/water running
@@ -102,14 +102,28 @@
   filter: drop-shadow(0 0 3px currentColor);
 }
 .indicator.appliance.active { 
-  color: #22c55e; 
   animation: appliance-moving 1.2s ease-in-out infinite;
 }
 .indicator.appliance.active svg {
   filter: drop-shadow(0 0 3px currentColor);
 }
-.indicator.appliance.ready {
+.indicator.appliance.dishwasher.active,
+.indicator.appliance.washer.active {
+  color: #38bdf8;
+}
+/* Paused: same blue as running, opacity pulse only (no wobble) */
+.indicator.appliance.dishwasher.paused {
+  color: #38bdf8;
+  animation: dishwasher-indicator-paused 2s ease-in-out infinite;
+}
+.indicator.appliance.dishwasher.paused svg {
+  filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.55));
+}
+.indicator.appliance.dryer.active {
   color: #f59e0b;
+}
+.indicator.appliance.ready {
+  color: #22c55e;
   animation: attention-pulse 1.5s ease-in-out infinite;
 }
 .indicator.appliance.ready svg {
@@ -181,6 +195,15 @@
   }
   75% { 
     transform: translateX(-1px) rotate(2deg);
+  }
+}
+
+@keyframes dishwasher-indicator-paused {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
   }
 }
 
@@ -978,5 +1001,4 @@
     gap: 0.75rem;
   }
 }
-
 

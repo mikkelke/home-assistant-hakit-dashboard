@@ -76,6 +76,7 @@ export interface PulseChip {
   tone: 'active' | 'attention' | 'calm' | 'neutral';
   areaId?: string;
   pulse?: boolean;
+  action?: 'transit' | 'weather';
 }
 
 export interface HomePulseSummary {

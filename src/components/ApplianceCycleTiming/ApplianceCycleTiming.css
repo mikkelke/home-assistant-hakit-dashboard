@@ -1,0 +1,49 @@
+/* Single-line running timing (washer / dryer / dishwasher) */
+
+.appliance-cycle-timing {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  color: #d4d4d8;
+  font-variant-numeric: tabular-nums;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.appliance-cycle-timing__placeholder {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: #71717a;
+}
+
+.appliance-cycle-timing__emph {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #f4f4f5;
+}
+
+.appliance-cycle-timing__suffix {
+  font-weight: 500;
+  color: #a1a1aa;
+}
+
+.appliance-cycle-timing__time {
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.appliance-cycle-timing__muted {
+  color: #71717a;
+  font-size: 0.82rem;
+}
+
+.appliance-cycle-timing__sep {
+  color: #52525b;
+  user-select: none;
+  flex-shrink: 0;
+}
