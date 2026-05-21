@@ -83,16 +83,14 @@ export const TRANSIT_REFRESH_BUTTON = 'input_button.transit_refresh';
 /** Transit last updated sensor. */
 export const TRANSIT_LAST_UPDATED_SENSOR = 'sensor.transit_last_updated';
 
-/** Bedroom in-bed sensors with display metadata for overview + timeline UI. */
+/** Bedroom bedside occupancy sensors with display metadata for overview + timeline UI. */
 export const BEDROOM_BED_OCCUPANCY_SENSORS = [
   {
-    entityId: 'binary_sensor.mikkels_withings_in_bed',
-    person: 'Mikkel',
+    entityId: 'binary_sensor.left_bedside',
     side: 'Left side',
   },
   {
-    entityId: 'binary_sensor.saschas_withings_in_bed',
-    person: 'Sascha',
+    entityId: 'binary_sensor.right_bedside',
     side: 'Right side',
   },
 ] as const;

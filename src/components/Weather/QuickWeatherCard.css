@@ -167,7 +167,7 @@
 
 .quick-weather-card__metrics-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem;
 }
 
@@ -519,7 +519,7 @@
 /* Phone: single-column metrics; daily cards stay equal-width in a row (wrap if needed) */
 @media (max-width: 640px) {
   .quick-weather-card__metrics-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .quick-weather-card__forecast-item--daily {
@@ -530,6 +530,10 @@
 
 /* Small phone: tighter padding and gaps, readable minimum font sizes */
 @media (max-width: 480px) {
+  .quick-weather-card__metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
   .quick-weather-card {
     padding: 0.75rem;
     gap: 0.85rem;

@@ -1,7 +1,8 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useWeather } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import type { HassEntities } from '../../types';
+import { useHass } from '@hakit/core';
 import { useModalBackButton } from '../../hooks';
 import { getWeatherConditionIcon } from './weatherIcons';
 import './QuickWeatherCard.css';
@@ -28,7 +29,13 @@ type WeatherForecastEntry = {
   precipitation?: number;
   wind_speed?: number;
   wind_bearing?: number;
+  bucketHours?: number;
 };
+
+interface ConnectionWithAuth {
+  options?: { auth?: { accessToken?: string }; accessToken?: string };
+  auth?: { accessToken?: string };
+}
 
 /**
  * Data sources for QuickWeatherCard:
@@ -37,6 +44,7 @@ type WeatherForecastEntry = {
  */
 const SENSOR_IDS = {
   outdoorTemp: 'sensor.gw2000a_outdoor_temperature',
+  seaTemperature: 'sensor.seatemperatures_copenhagen_today',
   feelsLike: 'sensor.gw2000a_feels_like_temperature',
   humidity: 'sensor.gw2000a_humidity',
   dewpoint: 'sensor.gw2000a_dewpoint',
@@ -95,6 +103,16 @@ const getConditionTone = (condition?: string) => {
   return 'neutral';
 };
 
+const getSeaTemperatureFeel = (temperature?: number) => {
+  if (temperature === undefined) return undefined;
+  if (temperature < 8) return 'Very cold';
+  if (temperature < 13) return 'Cold';
+  if (temperature < 18) return 'Fresh';
+  if (temperature < 22) return 'Pleasant';
+  if (temperature < 26) return 'Warm';
+  return 'Very warm';
+};
+
 /** Wind speed (m/s) above which we show a heavy-wind warning. ~10.8 m/s ≈ 39 km/h (strong wind). */
 const HEAVY_WIND_MS = 10.8;
 /** Gust speed (m/s) above which we show a wind warning. ~13.9 m/s ≈ 50 km/h. */
@@ -130,7 +148,7 @@ const getRelativeTimeLabel = (dateValue?: string) => {
   if (minutes < 60) return `Updated ${minutes}m ago`;
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `Updated ${hours}h ago`;
-  return `Updated ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  return `Updated ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}`;
 };
 
 /** Parse forecast array from weather entity attributes. */
@@ -143,18 +161,27 @@ function getForecastList(attributes: Record<string, unknown>): WeatherForecastEn
   ) as WeatherForecastEntry[];
 }
 
+function getLocalDayKey(value: string | Date) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 /** Split forecast into hourly (rest of today) and daily (next days). */
 function splitForecast(forecast: WeatherForecastEntry[]) {
   const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayKey = getLocalDayKey(now);
   const hourly: WeatherForecastEntry[] = [];
   const dailyByDay = new Map<string, WeatherForecastEntry[]>();
 
   for (const entry of forecast) {
     const dt = new Date(entry.datetime);
     if (Number.isNaN(dt.getTime())) continue;
-    const entryDay = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).toISOString().slice(0, 10);
-    const isToday = entryDay === todayStart.toISOString().slice(0, 10);
+    const entryDay = getLocalDayKey(dt);
+    const isToday = entryDay === todayKey;
     if (isToday && dt >= now) {
       hourly.push(entry);
     }
@@ -180,7 +207,7 @@ function splitForecast(forecast: WeatherForecastEntry[]) {
 
 function formatHour(datetime: string) {
   const d = new Date(datetime);
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 function formatDay(datetime: string) {
@@ -212,10 +239,132 @@ function toForecastEntry(e: {
   };
 }
 
+function formatBucketLabel(entry: WeatherForecastEntry) {
+  if (entry.bucketHours && entry.bucketHours > 1) {
+    return `${formatHour(entry.datetime)} · ${entry.bucketHours}h`;
+  }
+  return formatHour(entry.datetime);
+}
+
 export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) {
   const weatherEntity = getEntity(entities, entityId);
   const weatherDaily = useWeather(entityId as Parameters<typeof useWeather>[0], { type: 'daily' });
   const weatherHourly = useWeather(entityId as Parameters<typeof useWeather>[0], { type: 'hourly' });
+  const connection = useHass((state: unknown) => (state as { connection?: ConnectionWithAuth | null }).connection ?? undefined);
+  const [extendedForecast, setExtendedForecast] = useState<WeatherForecastEntry[]>([]);
+
+  const getAccessToken = useCallback((): string | null => {
+    try {
+      if (!connection) return null;
+      const conn = connection as ConnectionWithAuth;
+      if (conn.options?.auth?.accessToken) return conn.options.auth.accessToken;
+      if (conn.options?.accessToken) return conn.options.accessToken;
+      if (conn.auth?.accessToken) return conn.auth.accessToken;
+      return null;
+    } catch {
+      return null;
+    }
+  }, [connection]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchExtendedForecast = async () => {
+      const accessToken = getAccessToken();
+      if (!accessToken) {
+        if (!cancelled) setExtendedForecast([]);
+        return;
+      }
+
+      try {
+        const url = new URL('/api/config', window.location.origin);
+        const response = await fetch(url.toString(), {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${accessToken}` },
+          credentials: 'include',
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const config = (await response.json()) as { latitude?: number; longitude?: number; elevation?: number };
+        const lat = config.latitude;
+        const lon = config.longitude;
+        const alt = config.elevation ?? 0;
+
+        if (lat === undefined || lon === undefined) {
+          if (!cancelled) setExtendedForecast([]);
+          return;
+        }
+
+        const metUrl = new URL('https://aa015h6buqvih86i1.api.met.no/weatherapi/locationforecast/2.0/complete');
+        metUrl.searchParams.set('lat', String(lat));
+        metUrl.searchParams.set('lon', String(lon));
+        metUrl.searchParams.set('altitude', String(Math.round(alt)));
+
+        const metResponse = await fetch(metUrl.toString(), {
+          headers: { 'User-Agent': 'home-assistant-hakit-dashboard/1.0 (weather popup)' },
+        });
+        if (!metResponse.ok) throw new Error(`Met.no HTTP ${metResponse.status}`);
+
+        const metData = (await metResponse.json()) as {
+          properties?: {
+            timeseries?: Array<{
+              time?: string;
+              data?: {
+                instant?: { details?: Record<string, unknown> };
+                next_1_hours?: { details?: Record<string, unknown>; summary?: { symbol_code?: string } };
+                next_6_hours?: { details?: Record<string, unknown>; summary?: { symbol_code?: string } };
+                next_12_hours?: { details?: Record<string, unknown>; summary?: { symbol_code?: string } };
+              };
+            }>;
+          };
+        };
+
+        const timeseries = metData.properties?.timeseries ?? [];
+        const now = Date.now();
+        const laterBuckets: WeatherForecastEntry[] = timeseries.flatMap(item => {
+          const datetime = item.time;
+          if (!datetime) return [];
+          const ts = new Date(datetime).getTime();
+          if (!Number.isFinite(ts) || ts < now) return [];
+
+          const nextHours = item.data?.next_6_hours ?? item.data?.next_12_hours;
+          const bucketHours = item.data?.next_6_hours ? 6 : item.data?.next_12_hours ? 12 : undefined;
+          if (!nextHours || !bucketHours) return [];
+
+          return [
+            {
+              datetime,
+              bucketHours,
+              condition: nextHours.summary?.symbol_code
+                ?.replace(/_day$|_night$/i, '')
+                .replace(/fair/i, 'partlycloudy')
+                .replace(/clearsky/i, 'sunny')
+                .replace(/heavyrain|lightrain|rainshowers|rain/i, 'rainy')
+                .replace(/lightsleet|heavysleet|sleet/i, 'snowy-rainy')
+                .replace(/lightsnow|heavysnow|snowshowers|snow/i, 'snowy'),
+              temperature: getNumber(item.data?.instant?.details?.air_temperature),
+              precipitation: getNumber(nextHours.details?.precipitation_amount),
+              precipitation_probability: getNumber(nextHours.details?.probability_of_precipitation),
+              wind_speed: getNumber(item.data?.instant?.details?.wind_speed),
+              wind_bearing: getNumber(item.data?.instant?.details?.wind_from_direction),
+            } satisfies WeatherForecastEntry,
+          ];
+        });
+
+        if (!cancelled) {
+          setExtendedForecast(laterBuckets);
+        }
+      } catch {
+        if (!cancelled) setExtendedForecast([]);
+      }
+    };
+
+    void fetchExtendedForecast();
+    return () => {
+      cancelled = true;
+    };
+  }, [getAccessToken]);
 
   const { hourlyAll, daily } = useMemo(() => {
     const fromAttr = getForecastList(weatherEntity?.attributes ?? {});
@@ -227,9 +376,11 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
     const futureHourly = (hourlyList.length > 0 ? hourlyList : fromAttrSplit.hourly)
       .map(toForecastEntry)
       .filter(e => new Date(e.datetime).getTime() >= now.getTime());
-    const hourlyAllSlots = futureHourly.slice(0, 7 * 24); /* for day-detail popup when a day is clicked */
+    const lastHourlyTs = futureHourly.length > 0 ? new Date(futureHourly[futureHourly.length - 1].datetime).getTime() : 0;
+    const extraFutureBuckets = extendedForecast.filter(entry => new Date(entry.datetime).getTime() > lastHourlyTs);
+    const hourlyAllSlots = [...futureHourly, ...extraFutureBuckets].slice(0, 7 * 24); /* for day-detail popup when a day is clicked */
     return { hourlyAll: hourlyAllSlots, daily: dailyMapped };
-  }, [weatherEntity?.attributes, weatherDaily?.forecast, weatherHourly?.forecast]);
+  }, [weatherEntity?.attributes, weatherDaily?.forecast, weatherHourly?.forecast, extendedForecast]);
 
   const [selectedDayDatetime, setSelectedDayDatetime] = useState<string | null>(null);
   const toggleDay = useCallback((datetime: string) => {
@@ -246,10 +397,11 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
 
   const selectedDayHourly = useMemo(() => {
     if (!selectedDayDatetime) return [];
-    const selectedDate = new Date(selectedDayDatetime);
-    const selectedDateStr = selectedDate.toISOString().slice(0, 10);
-    return hourlyAll.filter(e => new Date(e.datetime).toISOString().slice(0, 10) === selectedDateStr);
+    const selectedDateKey = getLocalDayKey(selectedDayDatetime);
+    return hourlyAll.filter(e => getLocalDayKey(e.datetime) === selectedDateKey);
   }, [selectedDayDatetime, hourlyAll]);
+
+  const selectedDayHasCoarseBuckets = selectedDayHourly.some(entry => (entry.bucketHours ?? 1) > 1);
 
   if (!weatherEntity) {
     return (
@@ -269,6 +421,11 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
 
   const currentTemp = getNumber(attributes.temperature) ?? getNumber(getState(entities, SENSOR_IDS.outdoorTemp));
   const currentTempUnit = typeof attributes.temperature_unit === 'string' ? attributes.temperature_unit : '°C';
+  const seaTemperatureEntity = getEntity(entities, SENSOR_IDS.seaTemperature);
+  const seaTemperature = getNumber(seaTemperatureEntity?.state);
+  const seaTemperatureUnit =
+    typeof seaTemperatureEntity?.attributes?.unit_of_measurement === 'string' ? seaTemperatureEntity.attributes.unit_of_measurement : '°C';
+  const seaTemperatureFeel = getSeaTemperatureFeel(seaTemperature);
   const feelsLike = getNumber(getState(entities, SENSOR_IDS.feelsLike));
   const humidity = getNumber(attributes.humidity) ?? getNumber(getState(entities, SENSOR_IDS.humidity));
   const solarRadiation = getNumber(getState(entities, SENSOR_IDS.solarRadiation));
@@ -368,6 +525,14 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
                 : undefined
           }
         />
+        {seaTemperature !== undefined && (
+          <MetricPill
+            icon='mdi:waves'
+            label='Sea Temp'
+            value={`${seaTemperature.toFixed(0)}${seaTemperatureUnit}`}
+            subvalue={seaTemperatureFeel}
+          />
+        )}
       </div>
 
       <div className='quick-weather-card__forecast-shell'>
@@ -413,7 +578,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
                 <div className='quick-weather-card__day-popup-panel'>
                   <div className='quick-weather-card__day-popup-header'>
                     <h3 id='day-popup-title' className='quick-weather-card__day-popup-title'>
-                      {formatDay(selectedDayDatetime)} — by hour
+                      {formatDay(selectedDayDatetime)} — {selectedDayHasCoarseBuckets ? 'detailed forecast' : 'by hour'}
                     </h3>
                     <button type='button' className='quick-weather-card__day-popup-close' onClick={requestCloseDayPopup} aria-label='Close'>
                       <Icon icon='mdi:close' />
@@ -424,7 +589,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
                       <ul className='quick-weather-card__hour-list'>
                         {selectedDayHourly.map((entry, i) => (
                           <li key={`sd-${i}-${entry.datetime}`} className='quick-weather-card__hour-row'>
-                            <span className='quick-weather-card__hour-time'>{formatHour(entry.datetime)}</span>
+                            <span className='quick-weather-card__hour-time'>{formatBucketLabel(entry)}</span>
                             <div className='quick-weather-card__hour-icon'>
                               <Icon icon={getWeatherConditionIcon(entry.condition)} />
                             </div>
