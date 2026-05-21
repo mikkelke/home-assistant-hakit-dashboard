@@ -19,6 +19,7 @@ interface MenuProps {
 }
 
 const KIOSK_TOGGLE_ENTITY = 'input_boolean.kiosk_mode';
+const BUILD_VERSION = __APP_BUILD_VERSION__;
 
 function getBatteryIcon(value: number): string {
   if (value <= 10) return 'mdi:battery-alert-variant-outline';
@@ -174,6 +175,11 @@ export function Menu({ isOpen, onClose, entities, callService }: MenuProps) {
             <span>{isKioskActive ? 'Disable Kiosk Mode' : 'Enable Kiosk Mode'}</span>
           </button>
         </nav>
+        <div className='menu-footer'>
+          <span className='menu-version' title={`Build ${BUILD_VERSION}`}>
+            {BUILD_VERSION}
+          </span>
+        </div>
       </aside>
       {typeof document !== 'undefined' && batteryOverviewContent ? createPortal(batteryOverviewContent, document.body) : null}
     </>

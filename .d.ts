@@ -6,6 +6,7 @@ interface CustomEnv {
   VITE_SSH_PASSWORD: string;
   VITE_SSH_HOSTNAME: string;
   VITE_HA_TOKEN: string;
+  VITE_BUILD_VERSION?: string;
   [key: string]: unknown;
 }
 
@@ -21,3 +22,5 @@ declare global {
     interface ProcessEnv extends CustomEnv {}
   }
 }
+
+declare const __APP_BUILD_VERSION__: string;
