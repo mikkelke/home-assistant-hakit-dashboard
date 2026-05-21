@@ -113,6 +113,11 @@ interface PlayingTV {
   name: string;
 }
 
+function hasVisibleTvState(entity: HassEntities[string] | undefined): boolean {
+  if (!entity) return false;
+  return entity.state === 'on' || entity.state === 'playing' || entity.state === 'paused' || entity.state === 'idle';
+}
+
 interface SpeakerInfo {
   entityId: string;
   name: string;
@@ -277,10 +282,9 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
       const entity = entities?.[tv.entityId];
       if (!entity) return;
 
-      // Check if TV is on/playing - same logic as TVCard
-      const state = entity.state;
-      const isOn = state === 'on' || state === 'playing' || state === 'paused' || state === 'idle';
-      if (isOn) {
+      const isActive = hasVisibleTvState(entity);
+
+      if (isActive) {
         tvs.push({
           entityId: tv.entityId,
           name: tv.name,
@@ -522,6 +526,15 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
                       <div className='qa-media-list'>
                         {playingSpeakers.map(speaker => (
                           <div key={speaker.entityId} className='qa-media-item'>
+                            <div className='qa-media-identity'>
+                              <div className='qa-media-label'>
+                                <Icon icon='mdi:speaker' />
+                                <span className='qa-media-label-text'>{speaker.name}</span>
+                              </div>
+                              {speaker.groupSize > 1 && (
+                                <span className='qa-media-badge qa-media-badge--group'>{speaker.groupSize} speakers</span>
+                              )}
+                            </div>
                             <SonosPlayer entityId={speaker.entityId} entities={entities} hassUrl={hassUrl} callService={callService} />
                           </div>
                         ))}
@@ -531,6 +544,12 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
                           const isLivingRoom = tv.entityId === 'media_player.living_room_tv';
                           return (
                             <div key={tv.entityId} className='qa-media-item'>
+                              <div className='qa-media-identity'>
+                                <div className='qa-media-label'>
+                                  <Icon icon='mdi:television' />
+                                  <span className='qa-media-label-text'>{tv.name}</span>
+                                </div>
+                              </div>
                               {isBedroom && (
                                 <TVCard
                                   entityId={tv.entityId}

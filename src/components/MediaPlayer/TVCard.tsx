@@ -24,6 +24,27 @@ const getFiniteNumber = (value: unknown): number | undefined => {
   return Number.isFinite(n) ? n : undefined;
 };
 
+const hasMeaningfulMediaContext = (entity: HassEntities[string] | null | undefined): boolean => {
+  if (!entity) return false;
+
+  const state = entity.state;
+  if (state === 'playing' || state === 'paused') return true;
+  if (state !== 'on' && state !== 'idle') return false;
+
+  const attrs = entity.attributes ?? {};
+  const mediaTitle = attrStr(attrs.media_title).trim().toLowerCase();
+  const appName = attrStr(attrs.app_name).trim();
+  const source = attrStr(attrs.source).trim();
+  const genericTitles = new Set(['', 'tv on', 'tv off', 'hdmi 1', 'hdmi 2', 'hdmi 3', 'hdmi 4', 'hdmi', 'tv']);
+
+  return Boolean((mediaTitle && !genericTitles.has(mediaTitle)) || appName || source);
+};
+
+const hasAvailableSourceState = (entity: HassEntities[string] | null | undefined): boolean => {
+  if (!entity) return false;
+  return entity.state !== 'off' && entity.state !== 'unavailable' && entity.state !== 'unknown' && entity.state !== 'standby';
+};
+
 export function TVCard({
   entityId,
   entities,
@@ -104,16 +125,20 @@ export function TVCard({
   if (wirelessUsbCEntityId) highLevelSources.push({ name: 'Wireless USB-C', entityId: wirelessUsbCEntityId });
 
   const appleTvEntity = appleMediaPlayerEntityId ? entities?.[appleMediaPlayerEntityId] : null;
-  const appleTvActive =
-    appleTvEntity && appleTvEntity.state !== 'off' && appleTvEntity.state !== 'unavailable' && appleTvEntity.state !== 'unknown';
+  const appleTvActive = Boolean(appleTvEntity && hasMeaningfulMediaContext(appleTvEntity));
+  const appleTvAvailable = Boolean(appleTvEntity && hasAvailableSourceState(appleTvEntity));
+  const chromecastEntity = chromecastEntityId ? entities?.[chromecastEntityId] : null;
+  const chromecastAvailable = Boolean(chromecastEntity && hasAvailableSourceState(chromecastEntity));
+  const wirelessUsbCEntity = wirelessUsbCEntityId ? entities?.[wirelessUsbCEntityId] : null;
+  const wirelessUsbCAvailable = Boolean(wirelessUsbCEntity && hasAvailableSourceState(wirelessUsbCEntity));
 
   const genericTvTitles = ['tv on', 'tv off', 'hdmi 1', 'hdmi 2', 'hdmi 3', 'hdmi 4', 'hdmi', 'tv', ''];
   const mainTvHasNoMeaningfulMedia = !tvMediaTitle || genericTvTitles.includes(tvMediaTitle.toLowerCase().trim());
 
   let currentSource = '';
-  if (activeChild === appleMediaPlayerEntityId) currentSource = 'Apple TV';
-  else if (activeChild === chromecastEntityId) currentSource = 'Chromecast';
-  else if (activeChild === wirelessUsbCEntityId) currentSource = 'Wireless USB-C';
+  if (activeChild === appleMediaPlayerEntityId && appleTvAvailable) currentSource = 'Apple TV';
+  else if (activeChild === chromecastEntityId && chromecastAvailable) currentSource = 'Chromecast';
+  else if (activeChild === wirelessUsbCEntityId && wirelessUsbCAvailable) currentSource = 'Wireless USB-C';
   else if (appleMediaPlayerEntityId && appleTvActive) {
     if (activeChild !== chromecastEntityId && activeChild !== wirelessUsbCEntityId) currentSource = 'Apple TV';
   }
@@ -128,8 +153,7 @@ export function TVCard({
           : null;
   const currentSourceEntity = currentSourceEntityId ? entities?.[currentSourceEntityId] : null;
 
-  const useAppleTvForDisplay =
-    appleTvEntity && appleTvActive && (currentSource === 'Apple TV' || mainTvHasNoMeaningfulMedia || isBedroomTv);
+  const useAppleTvForDisplay = appleTvEntity && appleTvActive && (currentSource === 'Apple TV' || mainTvHasNoMeaningfulMedia);
   const displayTv = useAppleTvForDisplay ? appleTvEntity : tv;
   const displayEntityId = useAppleTvForDisplay && appleMediaPlayerEntityId ? appleMediaPlayerEntityId : entityId;
   const displayAttrs = displayTv?.attributes ?? {};
@@ -493,7 +517,9 @@ export function TVCard({
             className={`tv-source-toggle ${showSourcePicker ? 'open' : ''} ${currentSource ? 'active' : ''}`}
             onClick={() => setShowSourcePicker(!showSourcePicker)}
           >
-            <Icon icon={currentSource ? getSourceIcon(currentSource) : 'mdi:input-hdmi'} />
+            <span className='tv-source-toggle-media' aria-hidden='true'>
+              <Icon icon={currentSource ? getSourceIcon(currentSource) : 'mdi:source-branch'} />
+            </span>
             <span className='tv-source-toggle-label'>{currentSource || 'Select source'}</span>
             <Icon icon={showSourcePicker ? 'mdi:chevron-up' : 'mdi:chevron-down'} />
           </button>

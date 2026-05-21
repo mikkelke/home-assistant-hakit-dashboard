@@ -468,7 +468,8 @@
 /* Source Toggle */
 .sonos-source-toggle {
   width: 100%;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1.1rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.5rem;
   padding: 0.6rem 0.75rem;
@@ -495,6 +496,19 @@
   color: #3b82f6;
 }
 
+.sonos-source-toggle-media {
+  width: 1.1rem;
+  min-width: 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sonos-source-toggle-media svg,
+.sonos-source-toggle-media img {
+  flex-shrink: 0;
+}
+
 .sonos-source-toggle svg:first-child {
   font-size: 1.1rem;
   color: #e4e4e7;
@@ -519,14 +533,16 @@
   border-radius: 3px;
 }
 
-.sonos-source-toggle span {
-  flex: 1;
+.sonos-source-toggle-label {
+  min-width: 0;
   text-align: left;
+  justify-self: stretch;
 }
 
 .sonos-source-toggle svg:last-child {
   font-size: 1rem;
   color: #71717a;
+  justify-self: end;
 }
 
 /* Source Panel */

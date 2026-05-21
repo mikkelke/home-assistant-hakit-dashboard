@@ -1221,20 +1221,22 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
         className={`sonos-source-toggle ${showSourcePicker ? 'active' : ''} ${isSpotify ? 'is-spotify' : ''} ${isAirPlay ? 'is-airplay' : ''} ${isLineIn(currentSource) ? 'is-audiocast' : ''} ${isTVSource ? 'is-tv' : ''}`}
         onClick={() => setShowSourcePicker(!showSourcePicker)}
       >
-        {isSpotify ? (
-          <Icon icon='mdi:spotify' className='spotify-icon' />
-        ) : isTVSource ? (
-          <Icon icon='mdi:television' />
-        ) : isAirPlay ? (
-          <Icon icon='mdi:airplay' className='airplay-icon' />
-        ) : isLineIn(currentSource) ? (
-          <Icon icon='mdi:cast' className='cast-icon' />
-        ) : currentRadio?.logo ? (
-          <img src={currentRadio.logo} alt='' className='source-logo' />
-        ) : (
-          <Icon icon='mdi:radio' />
-        )}
-        <span>{displaySource}</span>
+        <span className='sonos-source-toggle-media' aria-hidden='true'>
+          {isSpotify ? (
+            <Icon icon='mdi:spotify' className='spotify-icon' />
+          ) : isTVSource ? (
+            <Icon icon='mdi:television' />
+          ) : isAirPlay ? (
+            <Icon icon='mdi:airplay' className='airplay-icon' />
+          ) : isLineIn(currentSource) ? (
+            <Icon icon='mdi:cast' className='cast-icon' />
+          ) : currentRadio?.logo ? (
+            <img src={currentRadio.logo} alt='' className='source-logo' />
+          ) : (
+            <Icon icon='mdi:radio' />
+          )}
+        </span>
+        <span className='sonos-source-toggle-label'>{displaySource}</span>
         <Icon icon={showSourcePicker ? 'mdi:chevron-up' : 'mdi:chevron-down'} />
       </button>
 
