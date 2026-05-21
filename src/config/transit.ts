@@ -65,15 +65,6 @@ export const TRANSIT_LINES: TransitLineConfig[] = [
     enabledEntityId: 'input_boolean.transit_carlsberg_stog_kbh_enabled',
   },
   {
-    name: 'S-tog',
-    icon: 'mdi:train',
-    station: 'Carlsberg',
-    destination: 'Malmparken',
-    statusEntityId: 'input_select.transit_carlsberg_stog_malmparken_status',
-    sensorEntityId: 'sensor.transit_carlsberg_stog_malmparken',
-    enabledEntityId: 'input_boolean.transit_carlsberg_stog_malmparken_enabled',
-  },
-  {
     name: 'Metro M3',
     icon: 'mdi:subway-variant',
     station: 'Enghave Plads',
