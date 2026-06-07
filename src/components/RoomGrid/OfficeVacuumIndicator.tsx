@@ -101,8 +101,8 @@ function vacuumStateIcon(state: string | undefined): string {
 interface OfficeVacuumIndicatorProps {
   entities: HassEntities;
   hassUrl: string | null;
-  cleaningToggleId: string;
-  lastCleanId: string | null;
+  cleaningToggleId?: string;
+  lastCleanId?: string | null;
   cleaningRequested: boolean;
   className: string;
   title: string;
@@ -162,7 +162,7 @@ export function OfficeVacuumIndicator({
   }, [open]);
 
   const vacuum = entities[VACUUM_ENTITY];
-  const cleaningEntity = entities[cleaningToggleId];
+  const cleaningEntity = cleaningToggleId ? entities[cleaningToggleId] : undefined;
   const hasCleaningTab = !!cleaningEntity;
 
   const handleOpen = (e: React.MouseEvent) => {
@@ -218,7 +218,7 @@ export function OfficeVacuumIndicator({
       <div
         className='person-info-modal person-timeline-modal office-vacuum-modal'
         role='dialog'
-        aria-label='Office robot vacuum'
+        aria-label='Robot vacuum'
         onClick={handleModalClick}
         onMouseDown={e => e.stopPropagation()}
       >
@@ -254,7 +254,7 @@ export function OfficeVacuumIndicator({
         {tab === 'cleaning' && cleaningEntity && (
           <div className='modal-timeline-content office-vacuum-modal__panel office-vacuum-modal__panel--cleaning' role='tabpanel'>
             <Timeline
-              entityId={cleaningToggleId}
+              entityId={cleaningToggleId!}
               entity={cleaningEntity}
               hassUrl={hassUrl}
               hours={168}
@@ -270,7 +270,7 @@ export function OfficeVacuumIndicator({
       <div
         className='person-info-modal person-timeline-modal office-vacuum-modal'
         role='dialog'
-        aria-label='Office robot vacuum'
+        aria-label='Robot vacuum'
         onClick={handleModalClick}
         onMouseDown={e => e.stopPropagation()}
       >

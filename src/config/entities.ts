@@ -62,6 +62,9 @@ export function resolveHallwayLockEntityId(entities: HassEntities | undefined): 
 /** Input boolean: robot automation paused. */
 export const ROBOT_PAUSED_BOOLEAN_ENTITY = 'input_boolean.rober2_automation_paused';
 
+/** Input boolean: robot enabled/disabled. */
+export const ROBOT_ENABLED_BOOLEAN_ENTITY = 'input_boolean.rober2_enabled';
+
 /** Input text: robot pause reason. */
 export const ROBOT_PAUSE_REASON_ENTITY = 'input_text.rober2_pause_reason';
 

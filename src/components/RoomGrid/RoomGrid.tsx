@@ -79,7 +79,6 @@ function getIndicatorCounts(areas: Area[], entities: HassEntities): IndicatorCou
     const entityKeys = Object.keys(entities || {});
     const isRooftop = area.area_id === 'rooftop' || areaNameNormalized === 'rooftop';
     const isHallway = areaNameNormalized === 'hallway';
-    const isOffice = areaNameNormalized === 'office';
     const isKitchen = areaNameNormalized === 'kitchen';
     const isGuestBathroom = areaNameNormalized === 'guest_bathroom';
     const isDiningRoom = area.area_id === 'dining_room';
@@ -126,10 +125,7 @@ function getIndicatorCounts(areas: Area[], entities: HassEntities): IndicatorCou
 
     // Vacuum
     const vacuum = entities?.[VACUUM_ENTITY];
-    if (isOffice && vacuum) counts.vacuum++;
-
-    // Guest
-    if (isOffice && entities?.['input_boolean.overnight_guest']) counts.guest++;
+    if (isKitchen && vacuum) counts.vacuum++;
 
     // Bed occupancy
     if (isBedroom && BEDROOM_BED_OCCUPANCY_SENSORS.some(sensor => entities?.[sensor.entityId])) counts.bed++;

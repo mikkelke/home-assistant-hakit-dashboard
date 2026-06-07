@@ -5,6 +5,7 @@ import {
   BEDROOM_BED_OCCUPANCY_SENSORS,
   resolveHallwayDoorSensorId,
   VACUUM_ENTITY,
+  ROBOT_ENABLED_BOOLEAN_ENTITY,
   ROBOT_CLEAN_PREFIX,
   ROBOT_CLEAN_KITCHEN_1,
   ROBOT_CLEAN_KITCHEN_2,
@@ -168,28 +169,26 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
 
   // Hallway: door access only (lock control stays in room detail / Intercom)
   const isHallway = areaNameNormalized === 'hallway';
+  const isOffice = areaNameNormalized === 'office';
   const hallwayDoorId = isHallway ? resolveHallwayDoorSensorId(entities) : null;
   const frontDoor = hallwayDoorId ? entities?.[hallwayDoorId] : undefined;
   const isDoorOpen = isHallway && frontDoor?.state === 'on';
   const hasHallwayDoor = isHallway && !!frontDoor;
 
-  // Vacuum - lives in Office (entity from config/entities.ts)
-  const isOffice = areaNameNormalized === 'office';
+  // Vacuum - lives in Kitchen (entity from config/entities.ts)
+  const isKitchen = areaNameNormalized === 'kitchen';
   const vacuum = entities?.[VACUUM_ENTITY];
   const vacuumState = vacuum?.state;
   const isVacuumActive = vacuumState === 'cleaning' || vacuumState === 'returning';
   const isVacuumError = vacuumState === 'error';
   const isVacuumOffline = vacuumState === 'unavailable' || !vacuumState;
   const isVacuumIdle = vacuumState === 'docked' || vacuumState === 'paused' || vacuumState === 'idle';
-
-  // Office as guest bedroom - overnight guest mode
-  const hasOvernightGuest = isOffice && entities?.['input_boolean.overnight_guest']?.state === 'on';
+  const isRobotEnabled = entities?.[ROBOT_ENABLED_BOOLEAN_ENTITY]?.state === 'on';
 
   // Common "ready" states: complete, finished, done, ready, end, completed, end of cycle, unemptied
   const readyStates = ['complete', 'finished', 'done', 'ready', 'end', 'completed', 'end of cycle', 'unemptied'];
 
   // Kitchen - Dishwasher: prefer input_select.dishwasher_state (HA), else infer from sensor
-  const isKitchen = areaNameNormalized === 'kitchen';
   const dishwasherEntity = isKitchen ? entities?.['sensor.dishwasher_state'] : undefined;
   const dishwasherInputState = isKitchen ? entities?.['input_select.dishwasher_state'] : undefined;
   const dishwasherState = dishwasherEntity?.state ?? null;
@@ -522,7 +521,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                 entities={entities}
                 hassUrl={hassUrl}
                 className={`indicator cleaning ${kitchenCleanCookRequested ? 'active' : 'inactive'}`}
-                title='Clean kitchen (cook side)'
+                title='Kitchen clean (cook side)'
                 icon='mdi:countertop-outline'
                 secondaryEntityId={kitchenLastCleanCookId || undefined}
               />
@@ -539,7 +538,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                 entities={entities}
                 hassUrl={hassUrl}
                 className={`indicator cleaning ${kitchenCleanDiningRequested ? 'active' : 'inactive'}`}
-                title='Clean kitchen (dining side)'
+                title='Kitchen clean (dining side)'
                 icon='mdi:table-chair'
                 secondaryEntityId={kitchenLastCleanDiningId || undefined}
               />
@@ -550,32 +549,19 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
 
           make(
             'vacuum',
-            isOffice && vacuum && cleaningToggleId ? (
+            isKitchen && vacuum ? (
               <OfficeVacuumIndicator
                 entities={entities}
                 hassUrl={hassUrl}
-                cleaningToggleId={cleaningToggleId}
-                lastCleanId={lastCleanId}
-                cleaningRequested={cleaningRequested}
+                cleaningRequested={kitchenCleanCookRequested || kitchenCleanDiningRequested}
                 className={`indicator vacuum ${
                   isVacuumActive ? 'working' : isVacuumError || isVacuumOffline ? 'error' : isVacuumIdle ? 'idle' : 'inactive'
                 }`}
-                title={`Robot: ${vacuumState || 'unknown'} — state log & office clean`}
+                title={`Robot: ${vacuumState || 'unknown'}${isRobotEnabled ? '' : ' - disabled'}`}
               />
             ) : null,
-            isOffice && !!vacuum,
-            isVacuumActive ? 3 : isVacuumError || isVacuumOffline ? 1 : cleaningRequested ? 1 : 0
-          );
-
-          make(
-            'guest',
-            isOffice && entities?.['input_boolean.overnight_guest'] && (
-              <div className={`indicator guest ${hasOvernightGuest ? 'active' : 'inactive'}`} title='Overnight guest'>
-                <Icon icon='mdi:bed' />
-              </div>
-            ),
-            isOffice && !!entities?.['input_boolean.overnight_guest'],
-            hasOvernightGuest ? 1 : 0 // Other active state
+            isKitchen && !!vacuum,
+            isVacuumActive ? 3 : isVacuumError || isVacuumOffline ? 1 : kitchenCleanCookRequested || kitchenCleanDiningRequested ? 1 : 0
           );
 
           make(
@@ -980,7 +966,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                   entities={entities}
                   hassUrl={hassUrl}
                   className={`indicator cleaning ${kitchenCleanCookRequested ? 'active' : 'inactive'}`}
-                  title='Clean kitchen (cook side)'
+                  title='Kitchen clean (cook side)'
                   icon='mdi:countertop-outline'
                   secondaryEntityId={kitchenLastCleanCookId || undefined}
                 />
@@ -997,7 +983,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                   entities={entities}
                   hassUrl={hassUrl}
                   className={`indicator cleaning ${kitchenCleanDiningRequested ? 'active' : 'inactive'}`}
-                  title='Clean kitchen (dining side)'
+                  title='Kitchen clean (dining side)'
                   icon='mdi:table-chair'
                   secondaryEntityId={kitchenLastCleanDiningId || undefined}
                 />
@@ -1008,32 +994,19 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
 
             make(
               'vacuum',
-              isOffice && vacuum && cleaningToggleId ? (
+              isKitchen && vacuum ? (
                 <OfficeVacuumIndicator
                   entities={entities}
                   hassUrl={hassUrl}
-                  cleaningToggleId={cleaningToggleId}
-                  lastCleanId={lastCleanId}
-                  cleaningRequested={cleaningRequested}
+                  cleaningRequested={kitchenCleanCookRequested || kitchenCleanDiningRequested}
                   className={`indicator vacuum ${
                     isVacuumActive ? 'working' : isVacuumError || isVacuumOffline ? 'error' : isVacuumIdle ? 'idle' : 'inactive'
                   }`}
-                  title={`Robot: ${vacuumState || 'unknown'} — state log & office clean`}
+                  title={`Robot: ${vacuumState || 'unknown'}${isRobotEnabled ? '' : ' - disabled'}`}
                 />
               ) : null,
-              isOffice && !!vacuum,
-              isVacuumActive ? 3 : isVacuumError || isVacuumOffline ? 1 : cleaningRequested ? 1 : 0
-            );
-
-            make(
-              'guest',
-              isOffice && entities?.['input_boolean.overnight_guest'] && (
-                <div className={`indicator guest ${hasOvernightGuest ? 'active' : 'inactive'}`} title='Overnight guest'>
-                  <Icon icon='mdi:bed' />
-                </div>
-              ),
-              isOffice && !!entities?.['input_boolean.overnight_guest'],
-              hasOvernightGuest ? 1 : 0
+              isKitchen && !!vacuum,
+              isVacuumActive ? 3 : isVacuumError || isVacuumOffline ? 1 : kitchenCleanCookRequested || kitchenCleanDiningRequested ? 1 : 0
             );
 
             make(

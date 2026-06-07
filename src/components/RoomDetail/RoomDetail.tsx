@@ -12,7 +12,7 @@ import { WeatherCard } from '../Weather';
 import { WasherCard } from '../Washer';
 import { DishwasherCard } from '../Dishwasher';
 import { DryerCard } from '../Dryer';
-import { ROBOT_CLEAN_PREFIX, VACUUM_ENTITY } from '../../config/entities';
+import { ROBOT_CLEAN_PREFIX, ROBOT_ENABLED_BOOLEAN_ENTITY, VACUUM_ENTITY } from '../../config/entities';
 import { resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { useSwipeToClose } from '../../hooks';
 import './RoomDetail.css';
@@ -42,13 +42,12 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
   const cover = entities?.[coverId];
   const cleaningToggle = entities?.[cleaningToggleId];
 
-  // Vacuum lives in the Office
-  const isOffice = area.name.toLowerCase() === 'office';
   const isBedroom = area.name.toLowerCase() === 'bedroom';
   const isHallway = area.name.toLowerCase() === 'hallway';
   const isRooftop = area.area_id === 'rooftop' || area.name.toLowerCase().replace(/\s+/g, '_') === 'rooftop';
   const isLivingRoom = area.name.toLowerCase() === 'living room' || area.name.toLowerCase() === 'living_room';
   const isGuestBathroom = areaName === 'guest_bathroom';
+  const isKitchen = areaName === 'kitchen';
   const washerStateEntity = entities?.['sensor.washer_state'];
   const dryerStateEntity = entities?.['sensor.dryer_state'];
   const dishwasherStateEntity = entities?.['sensor.dishwasher_state'];
@@ -66,17 +65,15 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
   const isTvUsingSonos = isLivingRoom && isLivingRoomTvOn && livingRoomSonosSource.toLowerCase().includes('tv');
   const shouldShowSonos = !isTvUsingSonos;
 
-  // Overnight guest (Office only)
-  const overnightGuestId = 'input_boolean.overnight_guest';
-  const overnightGuest = entities?.[overnightGuestId];
-  const hasOvernightGuest = overnightGuest?.state === 'on';
+  const robotEnabled = entities?.[ROBOT_ENABLED_BOOLEAN_ENTITY];
+  const isRobotEnabled = robotEnabled?.state === 'on';
 
-  const handleOvernightGuestToggle = () => {
+  const handleRobotEnabledToggle = () => {
     if (!callService) return;
     callService({
       domain: 'input_boolean',
-      service: hasOvernightGuest ? 'turn_off' : 'turn_on',
-      target: { entity_id: overnightGuestId },
+      service: isRobotEnabled ? 'turn_off' : 'turn_on',
+      target: { entity_id: ROBOT_ENABLED_BOOLEAN_ENTITY },
     });
   };
 
@@ -86,7 +83,6 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
   const roomState = entities?.[roomStateId]?.state;
   const lastClean = entities?.[lastCleanId]?.state;
   // Kitchen has two zones; show both last-clean values if present
-  const isKitchen = areaName === 'kitchen';
   const lastCleanKitchen = isKitchen ? entities?.['input_text.kitchen_last_clean']?.state : null;
   const lastCleanKitchen2 = isKitchen ? entities?.['input_text.kitchen_2_last_clean']?.state : null;
   const illuminanceId = `sensor.${areaName}_presence_illuminance`;
@@ -172,18 +168,18 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
         {/* Cover/Blinds Card */}
         {cover && <CoverCard areaName={area.name} entities={entities} callService={callService} />}
 
-        {/* Vacuum Card - only in Office where it lives */}
-        {isOffice && vacuum && <VacuumCard entities={entities} callService={callService} />}
+        {/* Vacuum Card - only in Kitchen where it lives */}
+        {isKitchen && vacuum && <VacuumCard entities={entities} callService={callService} />}
 
         {/* Room Cleaning Toggle - for rooms that have it */}
         {cleaningToggle && <RoomCleaningToggle areaName={area.name} entities={entities} callService={callService} />}
 
-        {/* Overnight Guest Toggle - Office only */}
-        {isOffice && overnightGuest && (
-          <button className={`overnight-guest-toggle ${hasOvernightGuest ? 'on' : 'off'}`} onClick={handleOvernightGuestToggle}>
-            <Icon icon='mdi:bed' />
-            <span className='toggle-label'>Overnight Guest</span>
-            <div className={`toggle-switch ${hasOvernightGuest ? 'on' : 'off'}`} />
+        {/* Robot enabled toggle - Kitchen only */}
+        {isKitchen && robotEnabled && (
+          <button className={`overnight-guest-toggle ${isRobotEnabled ? 'on' : 'off'}`} onClick={handleRobotEnabledToggle}>
+            <Icon icon='mdi:robot-vacuum' />
+            <span className='toggle-label'>Rober2 Enabled</span>
+            <div className={`toggle-switch ${isRobotEnabled ? 'on' : 'off'}`} />
           </button>
         )}
 
