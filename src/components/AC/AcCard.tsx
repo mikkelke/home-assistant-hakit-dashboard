@@ -78,8 +78,10 @@ export function AcCard({ entities, callService }: AcCardProps) {
   // Prefer the dedicated bedroom room sensor; the AC's own current_temperature reads cold (intake air).
   const currentTemp = attrNum(entities?.[AC_ROOM_TEMP_SENSOR]?.state, attrNum(thermostat?.attributes?.current_temperature, NaN));
   const targetTemp = attrNum(thermostat?.attributes?.temperature, NaN);
-  const minTemp = attrNum(thermostat?.attributes?.min_temp, 17);
-  const maxTemp = attrNum(thermostat?.attributes?.max_temp, 30);
+  // The integration advertises min_temp 17, but the unit actually accepts 16 (confirmed — it holds a 16° set point).
+  const minTemp = Math.min(attrNum(thermostat?.attributes?.min_temp, 17), 16);
+  // Cap the slider at 26 — it's a cooler, so targets above that are never useful (better resolution in 16–26).
+  const maxTemp = Math.min(attrNum(thermostat?.attributes?.max_temp, 30), 26);
   // The unit only accepts whole-degree targets (it advertises a 0.5° step but doesn't honour halves).
   const tempStep = 1;
 
