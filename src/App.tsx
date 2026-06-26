@@ -3,6 +3,15 @@ import { ThemeProvider } from '@hakit/components';
 import { HassConnect } from '@hakit/core';
 import { Dashboard } from './components/Dashboard';
 
+function hasInheritedHassConnection() {
+  try {
+    const topWindow = window.top as (Window & { hassConnection?: unknown }) | null;
+    return window.self !== window.top && topWindow?.hassConnection !== undefined;
+  } catch {
+    return false;
+  }
+}
+
 function App() {
   // In dev, use localhost so all HA traffic goes through Vite proxy; in production use VITE_HA_URL or same-origin
   const hassUrl = import.meta.env.DEV
@@ -10,6 +19,7 @@ function App() {
     : import.meta.env.VITE_HA_URL && import.meta.env.VITE_HA_URL.length > 0
       ? import.meta.env.VITE_HA_URL
       : window.location.origin;
+  const inheritsParentConnection = hasInheritedHassConnection();
 
   useEffect(() => {
     const html = document.documentElement;
@@ -31,7 +41,11 @@ function App() {
   const hassToken = import.meta.env.DEV ? import.meta.env.VITE_HA_TOKEN : undefined;
   return (
     <>
-      <HassConnect hassUrl={hassUrl} hassToken={hassToken}>
+      <HassConnect
+        hassUrl={hassUrl}
+        hassToken={hassToken}
+        options={inheritsParentConnection ? { handleResumeOptions: { suspendWhenHidden: false } } : undefined}
+      >
         <ThemeProvider />
         <Dashboard />
       </HassConnect>

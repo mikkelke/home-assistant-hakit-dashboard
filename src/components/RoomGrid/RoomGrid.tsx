@@ -8,6 +8,7 @@ import {
   ROBOT_CLEAN_PREFIX,
   ROBOT_CLEAN_KITCHEN_1,
   ROBOT_CLEAN_KITCHEN_2,
+  AC_THERMOSTAT_ENTITY,
 } from '../../config/entities';
 import { RoomCard } from './RoomCard';
 import './RoomGrid.css';
@@ -42,7 +43,8 @@ type IndicatorKey =
   | 'lights'
   | 'presence'
   | 'alarm'
-  | 'bed';
+  | 'bed'
+  | 'cooling';
 
 type IndicatorCounts = Record<IndicatorKey, number>;
 
@@ -68,6 +70,7 @@ const indicatorKeys: IndicatorKey[] = [
   'presence',
   'alarm',
   'bed',
+  'cooling',
 ];
 
 function getIndicatorCounts(areas: Area[], entities: HassEntities): IndicatorCounts {
@@ -129,6 +132,10 @@ function getIndicatorCounts(areas: Area[], entities: HassEntities): IndicatorCou
 
     // Bed occupancy
     if (isBedroom && BEDROOM_BED_OCCUPANCY_SENSORS.some(sensor => entities?.[sensor.entityId])) counts.bed++;
+
+    // Portable AC (bedroom, seasonal) — counted only while deployed (climate entity available)
+    const acEntity = isBedroom ? entities?.[AC_THERMOSTAT_ENTITY] : undefined;
+    if (acEntity && acEntity.state !== 'unavailable' && acEntity.state !== 'unknown') counts.cooling++;
 
     // Dishwasher
     const dishwasherState = isKitchen ? entities?.['sensor.dishwasher_state']?.state : null;

@@ -78,6 +78,7 @@
 /* Accents - apply glow to SVG directly for natural shape */
 .indicator.heat.active svg,
 .indicator.water.active svg,
+.indicator.cooling.active svg,
 .indicator.media.active svg,
 .indicator.power.active svg {
   filter: drop-shadow(0 0 3px currentColor);
@@ -85,6 +86,7 @@
 
 .indicator.heat.active { color: #f97316; }
 .indicator.water.active { color: #06b6d4; }
+.indicator.cooling.active { color: #06b6d4; }
 .indicator.media.active { 
   color: #22c55e;
   animation: attention-pulse 1.5s ease-in-out infinite;

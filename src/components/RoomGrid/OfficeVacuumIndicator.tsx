@@ -50,30 +50,41 @@ function resolveNarrativeHeadline(entities: HassEntities): string | null {
   if (!s) return null;
   const sl = s.toLowerCase();
   if (sl === 'unknown' || sl === 'unavailable') return null;
+  const vacuumState = (entities[VACUUM_ENTITY]?.state || '').toLowerCase();
+  const isNarrativeState = vacuumState === 'cleaning' || vacuumState === 'returning' || vacuumState === 'paused' || vacuumState === 'error';
+  if (!isNarrativeState || sl.includes('quiet hours')) return null;
   return s;
 }
 
 function buildRobotMetaLine(entities: HassEntities): string | null {
   const parts: string[] = [];
+  const vacuumState = (entities[VACUUM_ENTITY]?.state || '').toLowerCase();
+  const isVacuumActive = vacuumState === 'cleaning' || vacuumState === 'returning';
+  const shouldShowBattery = vacuumState === 'paused' || vacuumState === 'error' || isVacuumActive;
   const batRaw = entities[VACUUM_BATTERY_SENSOR]?.state;
   if (batRaw != null && batRaw !== '' && batRaw !== 'unknown' && batRaw !== 'unavailable') {
     const n = Number(batRaw);
-    if (!Number.isNaN(n)) parts.push(`Battery ${Math.round(n)}%`);
+    if (!Number.isNaN(n) && (shouldShowBattery || n < 100)) parts.push(`Battery ${Math.round(n)}%`);
   } else {
     const attr = entities[VACUUM_ENTITY]?.attributes?.battery_level;
     if (attr !== undefined && attr !== null) {
       const n = Number(attr);
-      if (!Number.isNaN(n)) parts.push(`Battery ${Math.round(n)}%`);
+      if (!Number.isNaN(n) && (shouldShowBattery || n < 100)) parts.push(`Battery ${Math.round(n)}%`);
     }
   }
   const progRaw = entities[VACUUM_CLEANING_PROGRESS_SENSOR]?.state;
   if (progRaw != null && progRaw !== '' && progRaw !== 'unknown' && progRaw !== 'unavailable') {
     const n = Number(progRaw);
-    if (!Number.isNaN(n)) parts.push(`${Math.round(Math.max(0, Math.min(100, n)))}% progress`);
+    if (!Number.isNaN(n) && (isVacuumActive || n > 0)) parts.push(`${Math.round(Math.max(0, Math.min(100, n)))}% progress`);
   }
   if (entities[ROBOT_PAUSED_BOOLEAN_ENTITY]?.state === 'on') {
     const reason = typeof entities[ROBOT_PAUSE_REASON_ENTITY]?.state === 'string' ? entities[ROBOT_PAUSE_REASON_ENTITY].state.trim() : '';
-    parts.push(reason ? `Paused: ${reason.slice(0, 120)}` : 'Paused');
+    const normalizedReason = reason.toLowerCase();
+    if (normalizedReason && !normalizedReason.includes('automation disabled')) {
+      parts.push(`Paused: ${reason.slice(0, 120)}`);
+    } else if (!normalizedReason && vacuumState === 'paused') {
+      parts.push('Paused');
+    }
   }
   return parts.length > 0 ? parts.join(' · ') : null;
 }
@@ -103,20 +114,11 @@ interface OfficeVacuumIndicatorProps {
   hassUrl: string | null;
   cleaningToggleId?: string;
   lastCleanId?: string | null;
-  cleaningRequested: boolean;
   className: string;
   title: string;
 }
 
-export function OfficeVacuumIndicator({
-  entities,
-  hassUrl,
-  cleaningToggleId,
-  lastCleanId,
-  cleaningRequested,
-  className,
-  title,
-}: OfficeVacuumIndicatorProps) {
+export function OfficeVacuumIndicator({ entities, hassUrl, cleaningToggleId, lastCleanId, className, title }: OfficeVacuumIndicatorProps) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<OfficeVacuumTab>('robot');
   const openRef = useRef(open);
@@ -289,7 +291,6 @@ export function OfficeVacuumIndicator({
     <>
       <div className={className} title={title} onClick={handleOpen} style={{ cursor: 'pointer' }} onMouseDown={e => e.stopPropagation()}>
         <Icon icon='mdi:robot-vacuum' />
-        {cleaningRequested ? <span className='indicator-label'>!</span> : null}
       </div>
       {typeof document !== 'undefined' && createPortal(modal, document.body)}
     </>
