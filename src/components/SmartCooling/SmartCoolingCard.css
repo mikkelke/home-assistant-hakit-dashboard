@@ -1,0 +1,334 @@
+.sc-card {
+  background: rgba(18, 19, 22, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+.sc-card.active {
+  border-color: rgba(6, 182, 212, 0.4);
+}
+.sc-card.expanded {
+  border-color: rgba(6, 182, 212, 0.35);
+}
+
+/* Header */
+.sc-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  background: transparent;
+  border: none;
+  color: #e4e4e7;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+}
+.sc-header:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.sc-head-info {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+.sc-icon {
+  font-size: 1.4rem;
+  color: #22d3ee;
+  flex-shrink: 0;
+}
+.sc-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.sc-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.sc-subtitle {
+  font-size: 0.72rem;
+  color: #71717a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 13rem;
+}
+.sc-head-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #71717a;
+  flex-shrink: 0;
+}
+
+/* Status chip */
+.sc-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: 0.4rem;
+  background: rgba(100, 100, 120, 0.3);
+  color: #a1a1aa;
+  white-space: nowrap;
+}
+.sc-status-icon {
+  font-size: 0.85rem;
+}
+.sc-status.cool {
+  background: rgba(6, 182, 212, 0.18);
+  color: #22d3ee;
+}
+.sc-status.sim {
+  background: rgba(168, 85, 247, 0.16);
+  color: #c084fc;
+}
+.sc-status.wait {
+  background: rgba(59, 130, 246, 0.16);
+  color: #60a5fa;
+}
+.sc-status.ok {
+  background: rgba(16, 185, 129, 0.16);
+  color: #6ee7b7;
+}
+.sc-status.off {
+  background: rgba(100, 100, 120, 0.3);
+  color: #a1a1aa;
+}
+
+/* Vent reminder */
+.sc-reminder {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 1rem 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.55rem;
+  font-size: 0.78rem;
+  line-height: 1.3;
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+/* Content */
+.sc-content {
+  padding: 0 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* Toggle rows */
+.sc-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.6rem;
+  cursor: pointer;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #e4e4e7;
+  transition: background 0.15s, border-color 0.15s;
+}
+.sc-toggle:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.sc-toggle > svg {
+  font-size: 1.15rem;
+  color: #a1a1aa;
+  flex-shrink: 0;
+}
+.sc-toggle.on > svg {
+  color: #22d3ee;
+}
+.sc-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+.sc-toggle-text span {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.sc-toggle-text small {
+  font-size: 0.7rem;
+  color: #71717a;
+}
+.sc-switch {
+  width: 2.5rem;
+  height: 1.45rem;
+  border-radius: 1rem;
+  background: rgba(120, 120, 140, 0.35);
+  flex-shrink: 0;
+  position: relative;
+  transition: background 0.2s;
+}
+.sc-switch.on {
+  background: #06b6d4;
+}
+.sc-knob {
+  position: absolute;
+  top: 0.18rem;
+  left: 0.2rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+}
+.sc-switch.on .sc-knob {
+  transform: translateX(1.05rem);
+}
+
+/* Plan tiles */
+.sc-plan {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+.sc-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.6rem 0.5rem;
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.03);
+  text-align: center;
+}
+.sc-tile-label {
+  font-size: 0.62rem;
+  color: #71717a;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.sc-tile-value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #e4e4e7;
+}
+.sc-tile-value small {
+  font-size: 0.62rem;
+  font-weight: 500;
+  color: #a1a1aa;
+}
+.sc-tile-sub {
+  font-size: 0.66rem;
+  color: #71717a;
+}
+
+.sc-reason {
+  font-size: 0.75rem;
+  color: #a1a1aa;
+  line-height: 1.35;
+}
+.sc-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  align-self: flex-start;
+  font-size: 0.72rem;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.12);
+  border-radius: 0.4rem;
+  padding: 0.2rem 0.5rem;
+  text-transform: capitalize;
+}
+
+/* Steppers */
+.sc-steppers {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.sc-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.sc-stepper-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: #d4d4d8;
+}
+.sc-stepper-ctl {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.sc-stepper-ctl button {
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 0.5rem;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #e4e4e7;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.15s, color 0.15s;
+}
+.sc-stepper-ctl button:hover {
+  background: rgba(6, 182, 212, 0.18);
+  color: #22d3ee;
+}
+.sc-stepper-value {
+  min-width: 3.6rem;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+.sc-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.sc-time select {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.5rem;
+  color: #e4e4e7;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.3rem 0.4rem;
+  font-family: inherit;
+  color-scheme: dark;
+  cursor: pointer;
+}
+.sc-time-sep {
+  color: #71717a;
+}
+
+/* Live readout */
+.sc-foot {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  padding-top: 0.5rem;
+  margin-top: 0.1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.75rem;
+  color: #a1a1aa;
+}
+.sc-foot span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}

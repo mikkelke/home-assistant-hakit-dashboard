@@ -4,6 +4,7 @@ import { useHass } from '@hakit/core';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { getAccessibleHistoryWindow, getHistoryUrl } from '../../utils/navigation';
 import {
+  ROBOT_ENABLED_BOOLEAN_ENTITY,
   VACUUM_ENTITY,
   VACUUM_BATTERY_SENSOR,
   VACUUM_CLEANING_PROGRESS_SENSOR,
@@ -781,6 +782,37 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
               >
                 <Icon icon='mdi:home-variant' />
                 <span className='toggle-label'>Clean while home</span>
+                <div className={`toggle-switch ${isEnabled ? 'on' : ''}`}>
+                  <div className='toggle-slider' />
+                </div>
+              </button>
+            );
+          })()}
+
+          {/* Robot enabled toggle */}
+          {(() => {
+            const robotEnabled = entities?.[ROBOT_ENABLED_BOOLEAN_ENTITY];
+            if (!robotEnabled) return null;
+
+            const isEnabled = robotEnabled.state === 'on';
+
+            const handleToggle = () => {
+              if (!callService) return;
+              callService({
+                domain: 'input_boolean',
+                service: isEnabled ? 'turn_off' : 'turn_on',
+                target: { entity_id: ROBOT_ENABLED_BOOLEAN_ENTITY },
+              });
+            };
+
+            return (
+              <button
+                className={`vacuum-setting-toggle ${isEnabled ? 'on' : ''}`}
+                onClick={handleToggle}
+                title={isEnabled ? 'Disable robot automation' : 'Enable robot automation'}
+              >
+                <Icon icon='mdi:robot-vacuum' />
+                <span className='toggle-label'>Rober2</span>
                 <div className={`toggle-switch ${isEnabled ? 'on' : ''}`}>
                   <div className='toggle-slider' />
                 </div>

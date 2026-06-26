@@ -3,6 +3,8 @@ import { Icon } from '@iconify/react';
 import type { RoomDetailProps } from '../../types';
 import { SonosPlayer, TVCard } from '../MediaPlayer';
 import { ClimateCard } from '../Climate';
+import { AcCard } from '../AC';
+import { SmartCoolingCard } from '../SmartCooling';
 import { CoverCard } from '../Cover';
 import { VacuumCard, RoomCleaningToggle } from '../Vacuum';
 import { LightCard } from '../Light';
@@ -12,7 +14,7 @@ import { WeatherCard } from '../Weather';
 import { WasherCard } from '../Washer';
 import { DishwasherCard } from '../Dishwasher';
 import { DryerCard } from '../Dryer';
-import { ROBOT_CLEAN_PREFIX, ROBOT_ENABLED_BOOLEAN_ENTITY, VACUUM_ENTITY } from '../../config/entities';
+import { ROBOT_CLEAN_PREFIX, VACUUM_ENTITY, isAcDeployed } from '../../config/entities';
 import { resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { useSwipeToClose } from '../../hooks';
 import './RoomDetail.css';
@@ -53,6 +55,11 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
   const dishwasherStateEntity = entities?.['sensor.dishwasher_state'];
   const vacuum = entities?.[VACUUM_ENTITY];
 
+  // Rooftop: keep the Sonos on / exempt from follow-me (no-motion) muting.
+  const keepSpeakerOnId = 'input_boolean.rooftop_keep_speaker_on';
+  const keepSpeakerEntity = entities?.[keepSpeakerOnId];
+  const keepSpeakerOn = keepSpeakerEntity?.state === 'on';
+
   // TV entities
   const bedroomTv = entities?.['media_player.bedroom_tv'];
   const livingRoomTv = entities?.['media_player.living_room_tv'];
@@ -64,18 +71,6 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
   const livingRoomSonosSource = typeof mediaPlayer?.attributes?.source === 'string' ? mediaPlayer.attributes.source : '';
   const isTvUsingSonos = isLivingRoom && isLivingRoomTvOn && livingRoomSonosSource.toLowerCase().includes('tv');
   const shouldShowSonos = !isTvUsingSonos;
-
-  const robotEnabled = entities?.[ROBOT_ENABLED_BOOLEAN_ENTITY];
-  const isRobotEnabled = robotEnabled?.state === 'on';
-
-  const handleRobotEnabledToggle = () => {
-    if (!callService) return;
-    callService({
-      domain: 'input_boolean',
-      service: isRobotEnabled ? 'turn_off' : 'turn_on',
-      target: { entity_id: ROBOT_ENABLED_BOOLEAN_ENTITY },
-    });
-  };
 
   // Room info entities
   const roomStateId = `input_text.${areaName}_state`;
@@ -162,6 +157,31 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
         {/* Weather (Rooftop) */}
         {isRooftop && <WeatherCard entities={entities} callService={callService} hassUrl={hassUrl} />}
 
+        {/* Keep speaker on (follow-me exempt) — Rooftop */}
+        {isRooftop && keepSpeakerEntity && (
+          <button
+            className={`room-cleaning-toggle ${keepSpeakerOn ? 'requested' : ''}`}
+            onClick={() =>
+              callService?.({
+                domain: 'input_boolean',
+                service: keepSpeakerOn ? 'turn_off' : 'turn_on',
+                target: { entity_id: keepSpeakerOnId },
+              })
+            }
+            title='Keep the rooftop speaker on (exempt from follow-me / no-motion muting)'
+          >
+            <Icon icon='mdi:speaker' />
+            <span className='toggle-text'>Keep speaker playing</span>
+            <div className={`toggle-indicator ${keepSpeakerOn ? 'on' : 'off'}`} />
+          </button>
+        )}
+
+        {/* Portable AC (Midea porta split) — bedroom only, auto-appears while deployed */}
+        {isBedroom && isAcDeployed(entities) && <AcCard entities={entities} callService={callService} />}
+
+        {/* Smart cooling — autonomous price-aware pre-cool + comfort (AppDaemon SmartCooling app) */}
+        {isBedroom && isAcDeployed(entities) && <SmartCoolingCard entities={entities} callService={callService} />}
+
         {/* Climate Card */}
         {climate && <ClimateCard areaName={area.name} entities={entities} callService={callService} />}
 
@@ -173,15 +193,6 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
 
         {/* Room Cleaning Toggle - for rooms that have it */}
         {cleaningToggle && <RoomCleaningToggle areaName={area.name} entities={entities} callService={callService} />}
-
-        {/* Robot enabled toggle - Kitchen only */}
-        {isKitchen && robotEnabled && (
-          <button className={`overnight-guest-toggle ${isRobotEnabled ? 'on' : 'off'}`} onClick={handleRobotEnabledToggle}>
-            <Icon icon='mdi:robot-vacuum' />
-            <span className='toggle-label'>Rober2 Enabled</span>
-            <div className={`toggle-switch ${isRobotEnabled ? 'on' : 'off'}`} />
-          </button>
-        )}
 
         {/* Humidity (if no climate, show standalone) */}
         {!climate && humidity && (

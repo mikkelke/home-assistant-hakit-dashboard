@@ -9,6 +9,7 @@ import {
   ROBOT_CLEAN_PREFIX,
   ROBOT_CLEAN_KITCHEN_1,
   ROBOT_CLEAN_KITCHEN_2,
+  AC_THERMOSTAT_ENTITY,
 } from '../../config/entities';
 import { ROOM_LIGHTS } from '../../config/lights';
 import { resolveDishwasherSemanticState } from '../../utils/dishwasherSemanticState';
@@ -39,7 +40,8 @@ type IndicatorKey =
   | 'lights'
   | 'presence'
   | 'alarm'
-  | 'bed';
+  | 'bed'
+  | 'cooling';
 
 export interface RoomCardWithCountsProps extends RoomCardProps {
   indicatorCounts: Record<IndicatorKey, number>;
@@ -134,6 +136,13 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
   // Climate/heating status - uses climateSensorId defined above
   const hvacAction = climateEntity?.attributes?.hvac_action;
   const isHeating = hvacAction === 'heating';
+
+  // Portable AC (Midea porta split) — seasonal, bedroom only, separate from the heating thermostat above.
+  // Stored away → the climate entity is `unavailable`, so the badge disappears on its own.
+  const acEntity = areaNameNormalized === 'bedroom' ? entities?.[AC_THERMOSTAT_ENTITY] : undefined;
+  const acState = acEntity?.state;
+  const acDeployed = !!acEntity && acState !== 'unavailable' && acState !== 'unknown';
+  const isAcCooling = acDeployed && (acState === 'cool' || acState === 'dry' || acEntity?.attributes?.hvac_action === 'cooling');
 
   // Find if any lights are on in this area using configured mapping; fallback to name matching if no mapping found
   const mappedLights = ROOM_LIGHTS[areaNameNormalized] || [];
@@ -481,6 +490,20 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
           );
 
           make(
+            'cooling',
+            acDeployed && (
+              <div
+                className={`indicator cooling ${isAcCooling ? 'active' : 'inactive'}`}
+                title={isAcCooling ? 'Air conditioner cooling' : 'Air conditioner idle'}
+              >
+                <Icon icon='mdi:snowflake' />
+              </div>
+            ),
+            acDeployed,
+            isAcCooling ? 1 : 0 // Other active state
+          );
+
+          make(
             'shower',
             isBathroom && bathPresenceId && entities?.[bathPresenceId] && (
               <IndicatorWithTimeline
@@ -553,7 +576,6 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
               <OfficeVacuumIndicator
                 entities={entities}
                 hassUrl={hassUrl}
-                cleaningRequested={kitchenCleanCookRequested || kitchenCleanDiningRequested}
                 className={`indicator vacuum ${
                   isVacuumActive ? 'working' : isVacuumError || isVacuumOffline ? 'error' : isVacuumIdle ? 'idle' : 'inactive'
                 }`}
@@ -926,6 +948,17 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
             );
 
             make(
+              'cooling',
+              isAcCooling && (
+                <div className='indicator cooling active' title='Air conditioner cooling'>
+                  <Icon icon='mdi:snowflake' />
+                </div>
+              ),
+              isAcCooling,
+              1 // Other active state
+            );
+
+            make(
               'shower',
               isBathroom && bathPresenceId && entities?.[bathPresenceId] && (
                 <IndicatorWithTimeline
@@ -998,7 +1031,6 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                 <OfficeVacuumIndicator
                   entities={entities}
                   hassUrl={hassUrl}
-                  cleaningRequested={kitchenCleanCookRequested || kitchenCleanDiningRequested}
                   className={`indicator vacuum ${
                     isVacuumActive ? 'working' : isVacuumError || isVacuumOffline ? 'error' : isVacuumIdle ? 'idle' : 'inactive'
                   }`}

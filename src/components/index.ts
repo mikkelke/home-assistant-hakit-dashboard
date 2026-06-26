@@ -6,6 +6,8 @@ export * from './RoomGrid';
 export * from './RoomDetail';
 export * from './MediaPlayer';
 export * from './Climate';
+export * from './AC';
+export * from './SmartCooling';
 export * from './Cover';
 export * from './Vacuum';
 export { WasherCard } from './Washer';
