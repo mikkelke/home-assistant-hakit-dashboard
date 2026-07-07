@@ -12,7 +12,7 @@ export const ROOM_ORDER = [
   'living_room',
   'kitchen',
   'hallway',
-  'office',
+  'claudias_room',
   'kristines_room',
   'guest_bathroom',
   'rooftop',

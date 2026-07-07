@@ -114,18 +114,26 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
   };
   const tempSensor = getTempSensor();
 
-  // Find humidity sensor for this area
+  // Find humidity sensor for this area.
+  // Prefer the exact sensor.{area}_humidity; otherwise fall back to a guarded search that
+  // excludes absolute humidity (g/m³) and only accepts a real percentage sensor — otherwise
+  // the loose match could grab e.g. sensor.{area}_absolute_humidity and print g/m³ as "%".
+  const exactHumiditySensor = `sensor.${areaNameNormalized}_humidity`;
   const humiditySensor = isRooftop
     ? 'sensor.gw2000a_humidity'
-    : entityKeys.find(
-        key =>
-          key.includes('humidity') &&
-          !key.includes('floor') &&
-          (String(entities[key]?.attributes?.friendly_name ?? '')
-            .toLowerCase()
-            .includes(areaName) ||
-            key.toLowerCase().includes(areaNameNormalized))
-      );
+    : entities?.[exactHumiditySensor]
+      ? exactHumiditySensor
+      : entityKeys.find(
+          key =>
+            key.includes('humidity') &&
+            !key.includes('absolute') &&
+            !key.includes('floor') &&
+            entities[key]?.attributes?.unit_of_measurement === '%' &&
+            (String(entities[key]?.attributes?.friendly_name ?? '')
+              .toLowerCase()
+              .includes(areaName) ||
+              key.toLowerCase().includes(areaNameNormalized))
+        );
 
   // Presence: PIR only
   const presenceSensorId = `binary_sensor.${areaNameNormalized}_pir_presence`;
@@ -178,7 +186,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
 
   // Hallway: door access only (lock control stays in room detail / Intercom)
   const isHallway = areaNameNormalized === 'hallway';
-  const isOffice = areaNameNormalized === 'office';
+  const isClaudiasRoom = areaNameNormalized === 'claudias_room';
   const hallwayDoorId = isHallway ? resolveHallwayDoorSensorId(entities) : null;
   const frontDoor = hallwayDoorId ? entities?.[hallwayDoorId] : undefined;
   const isDoorOpen = isHallway && frontDoor?.state === 'on';
@@ -521,7 +529,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
 
           make(
             'cleaning',
-            !isKitchen && !isOffice && cleaningToggleId && entities?.[cleaningToggleId] && (
+            !isKitchen && !isClaudiasRoom && cleaningToggleId && entities?.[cleaningToggleId] && (
               <IndicatorWithTimeline
                 entityId={cleaningToggleId}
                 entities={entities}
@@ -532,7 +540,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                 secondaryEntityId={lastCleanId || undefined}
               />
             ),
-            !!(!isKitchen && !isOffice && cleaningToggleId && entities?.[cleaningToggleId]),
+            !!(!isKitchen && !isClaudiasRoom && cleaningToggleId && entities?.[cleaningToggleId]),
             cleaningRequested ? 1 : 0 // Other active state
           );
 
@@ -976,7 +984,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
 
             make(
               'cleaning',
-              !isKitchen && !isOffice && cleaningToggleId && entities?.[cleaningToggleId] && (
+              !isKitchen && !isClaudiasRoom && cleaningToggleId && entities?.[cleaningToggleId] && (
                 <IndicatorWithTimeline
                   entityId={cleaningToggleId}
                   entities={entities}
@@ -987,7 +995,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                   secondaryEntityId={lastCleanId || undefined}
                 />
               ),
-              !!(!isKitchen && !isOffice && cleaningToggleId && entities?.[cleaningToggleId]),
+              !!(!isKitchen && !isClaudiasRoom && cleaningToggleId && entities?.[cleaningToggleId]),
               cleaningRequested ? 1 : 0
             );
 

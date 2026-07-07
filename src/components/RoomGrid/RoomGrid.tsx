@@ -122,7 +122,7 @@ function getIndicatorCounts(areas: Area[], entities: HassEntities): IndicatorCou
     if (isKitchen) {
       if (entities?.[ROBOT_CLEAN_KITCHEN_1]) counts.cleaning_cook++;
       if (entities?.[ROBOT_CLEAN_KITCHEN_2]) counts.cleaning_dining++;
-    } else if (areaNameNormalized !== 'office' && entities?.[cleaningToggleId]) {
+    } else if (areaNameNormalized !== 'claudias_room' && entities?.[cleaningToggleId]) {
       counts.cleaning++;
     }
 

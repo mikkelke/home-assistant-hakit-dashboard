@@ -46,7 +46,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     '25': 'Kitchen dining side',
     '18': 'Living room',
     '21': 'Dining room',
-    '23': 'Office',
+    '23': 'Claudias Room',
     '16': 'Kristines room',
     '20': 'Bedroom',
     '24': 'Bathroom',
@@ -544,15 +544,15 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   const getRoomStatusDisplay = (): string => {
     // When docked, always show Office
     if (state === 'docked') {
-      return 'Office';
+      return 'Claudias Room';
     }
 
     // When finished with all rooms (no target room), show current room going to Office
     if (!targetRoomRaw || targetRoomRaw === '' || targetRoomRaw === 'unknown' || targetRoomRaw === 'unavailable') {
       if (liveRoomName) {
-        return `${liveRoomName} going to Office`;
+        return `${liveRoomName} going to Claudias Room`;
       }
-      return 'Office';
+      return 'Claudias Room';
     }
 
     // Check if robot is in the ordered room
@@ -578,7 +578,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
       return liveRoomName;
     }
 
-    return 'Office';
+    return 'Claudias Room';
   };
 
   const roomStatusDisplay = getRoomStatusDisplay();
