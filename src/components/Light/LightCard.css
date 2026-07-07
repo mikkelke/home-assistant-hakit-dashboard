@@ -471,3 +471,81 @@
   color: #3b82f6;
 }
 
+
+/* Manual override (global mechanism: pauses this room's automatic lighting) */
+.light-override-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.7rem;
+  margin-bottom: 0.6rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.5rem;
+  color: #a1a1aa;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.light-override-row.active {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+.light-override-icon {
+  font-size: 1.1rem;
+  color: #71717a;
+  flex-shrink: 0;
+}
+.light-override-row.active .light-override-icon {
+  color: #fbbf77;
+}
+.light-override-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+.light-override-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+.light-override-sub {
+  font-size: 0.7rem;
+  color: #71717a;
+}
+.light-override-row.active .light-override-sub {
+  color: #fbbf77;
+}
+.light-override-switch {
+  width: 38px;
+  height: 21px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.12);
+  position: relative;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.light-override-switch.on {
+  background: rgba(245, 158, 11, 0.55);
+}
+.light-override-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #d4d4d8;
+  transition: transform 0.15s;
+}
+.light-override-switch.on .light-override-knob {
+  transform: translateX(17px);
+  background: #fff;
+}
+.light-override-header-icon {
+  color: #fbbf77;
+  font-size: 1rem;
+}

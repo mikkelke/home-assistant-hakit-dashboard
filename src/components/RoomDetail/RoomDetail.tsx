@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
 import type { RoomDetailProps } from '../../types';
 import { SonosPlayer, TVCard } from '../MediaPlayer';
@@ -15,12 +15,16 @@ import { WasherCard } from '../Washer';
 import { DishwasherCard } from '../Dishwasher';
 import { DryerCard } from '../Dryer';
 import { ROBOT_CLEAN_PREFIX, VACUUM_ENTITY, isAcDeployed } from '../../config/entities';
+import { ROOM_LIGHT_MANUAL_OVERRIDE, ROOM_LIGHT_MANUAL_OVERRIDE_TIMEOUT_HOURS } from '../../config/lights';
 import { resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { useSwipeToClose } from '../../hooks';
 import './RoomDetail.css';
 
 export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMobile }: RoomDetailProps) {
   const [showRoomInfo, setShowRoomInfo] = useState(false);
+  // Clock for the manual-override countdown. Held in state (render must stay pure per
+  // lint react-hooks/purity); refreshed by timer callbacks only while an override is on.
+  const [overrideNowMs, setOverrideNowMs] = useState(0);
   const areaName = area.name.toLowerCase().replace(/\s+/g, '_');
   const formatName = (text: string) => text.replace(/\b(\p{L})(\p{L}*)/gu, (_, a, b) => a.toUpperCase() + b.toLowerCase());
 
@@ -82,7 +86,48 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
   const lastCleanKitchen2 = isKitchen ? entities?.['input_text.kitchen_2_last_clean']?.state : null;
   const illuminanceId = `sensor.${areaName}_presence_illuminance`;
   const illuminance = entities?.[illuminanceId]?.state;
-  const hasRoomInfo = roomState || lastClean || lastCleanKitchen || lastCleanKitchen2 || illuminance;
+
+  // Manual lights override — tucked into Room Info; auto-clears after 12 h (AppDaemon watcher)
+  const lightOverrideId = ROOM_LIGHT_MANUAL_OVERRIDE[areaName];
+  const lightOverrideEntity = lightOverrideId ? entities?.[lightOverrideId] : undefined;
+  const lightOverrideOn = lightOverrideEntity?.state === 'on';
+
+  // Live countdown to the 12 h auto-resume: computed from the boolean's last_changed —
+  // the same source the AppDaemon watcher uses, so dashboard and server always agree.
+  // Timer callbacks (async) refresh the clock state; render itself stays pure.
+  useEffect(() => {
+    if (!lightOverrideOn) return;
+    const update = () => setOverrideNowMs(Date.now());
+    const t0 = window.setTimeout(update, 0); // first paint of the countdown
+    const id = window.setInterval(update, 30000);
+    return () => {
+      window.clearTimeout(t0);
+      window.clearInterval(id);
+    };
+  }, [lightOverrideOn]);
+
+  const overrideRemainingLabel = (() => {
+    if (!lightOverrideOn) return null;
+    const lc = lightOverrideEntity?.last_changed ? Date.parse(lightOverrideEntity.last_changed) : NaN;
+    if (Number.isNaN(lc) || overrideNowMs <= 0) return 'resumes in ≤12 h';
+    const remainingMs = ROOM_LIGHT_MANUAL_OVERRIDE_TIMEOUT_HOURS * 3600_000 - (overrideNowMs - lc);
+    if (remainingMs <= 0) return 'resuming…';
+    const totalMin = Math.ceil(remainingMs / 60000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return h > 0 ? `resumes in ${h}h ${String(m).padStart(2, '0')}m` : `resumes in ${m} min`;
+  })();
+
+  const handleToggleLightOverride = () => {
+    if (!callService || !lightOverrideId) return;
+    callService({
+      domain: 'input_boolean',
+      service: lightOverrideOn ? 'turn_off' : 'turn_on',
+      target: { entity_id: lightOverrideId },
+    });
+  };
+
+  const hasRoomInfo = roomState || lastClean || lastCleanKitchen || lastCleanKitchen2 || illuminance || lightOverrideEntity;
 
   return (
     <div
@@ -262,6 +307,25 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
                       <span className='room-info-value'>{illuminance} lx</span>
                     </div>
                   </div>
+                )}
+                {lightOverrideEntity && (
+                  <button
+                    type='button'
+                    className={`room-info-item room-info-action ${lightOverrideOn ? 'active' : ''}`}
+                    onClick={handleToggleLightOverride}
+                    title='When on, automatic lighting is paused for this room (auto-resumes after 12 h)'
+                  >
+                    <Icon icon='mdi:hand-back-right' />
+                    <div className='room-info-details'>
+                      <span className='room-info-label'>Manual lights</span>
+                      <span className='room-info-value'>
+                        {lightOverrideOn ? `Auto paused — ${overrideRemainingLabel}` : 'Auto lights active'}
+                      </span>
+                    </div>
+                    <span className={`room-info-switch ${lightOverrideOn ? 'on' : ''}`}>
+                      <span className='room-info-switch-knob' />
+                    </span>
+                  </button>
                 )}
               </div>
             )}

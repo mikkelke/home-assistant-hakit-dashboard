@@ -506,3 +506,47 @@
   background: #3b82f6;
 }
 
+
+/* Manual lights override — tucked into Room Info (auto-clears after 12 h) */
+button.room-info-item.room-info-action {
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.room-info-action.active > svg {
+  color: #fbbf77;
+}
+.room-info-action.active .room-info-value {
+  color: #fbbf77;
+}
+.room-info-switch {
+  margin-left: auto;
+  width: 34px;
+  height: 19px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  position: relative;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.room-info-switch.on {
+  background: rgba(245, 158, 11, 0.55);
+}
+.room-info-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #d4d4d8;
+  transition: transform 0.15s;
+}
+.room-info-switch.on .room-info-switch-knob {
+  transform: translateX(15px);
+  background: #fff;
+}

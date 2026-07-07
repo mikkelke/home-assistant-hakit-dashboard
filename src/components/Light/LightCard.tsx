@@ -4,7 +4,7 @@ import type { HassEntities, CallServiceFunction } from '../../types';
 import { attrNum, attrStringArray, attrStr } from '../../types';
 import { useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
 import './LightCard.css';
-import { ROOM_LIGHTS } from '../../config/lights';
+import { ROOM_LIGHTS, ROOM_LIGHT_MANUAL_OVERRIDE } from '../../config/lights';
 
 interface LightCardProps {
   areaName: string;
@@ -25,6 +25,11 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
 
   const areaNameNormalized = areaName.toLowerCase().replace(/\s+/g, '_');
   const roomLights = ROOM_LIGHTS[areaNameNormalized] || [];
+
+  // Global mechanism: manual override toggle — ON pauses this room's automatic lighting.
+  const overrideId = ROOM_LIGHT_MANUAL_OVERRIDE[areaNameNormalized];
+  const overrideEntity = overrideId ? entities?.[overrideId] : undefined;
+  const overrideOn = overrideEntity?.state === 'on';
 
   // Filter to only existing lights
   const availableLights = roomLights.filter(lightId => entities?.[lightId]);
@@ -156,7 +161,18 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
 
   const getLightName = (lightId: string) => {
     const entity = entities[lightId];
-    return attrStr(entity?.attributes?.friendly_name) || lightId.split('.')[1].replace(/_/g, ' ');
+    const full = attrStr(entity?.attributes?.friendly_name) || lightId.split('.')[1].replace(/_/g, ' ');
+    // The light already lives inside its room's card, so drop a redundant room-name prefix
+    // (e.g. "Claudias Room ceiling lights" -> "Ceiling lights", "Bedroom bed lights" -> "Bed lights").
+    const room = areaName.trim();
+    if (room && full.toLowerCase().startsWith(room.toLowerCase())) {
+      const stripped = full
+        .slice(room.length)
+        .replace(/^[\s-]+/, '')
+        .trim();
+      if (stripped) return stripped.charAt(0).toUpperCase() + stripped.slice(1);
+    }
+    return full;
   };
 
   const getBrightness = (lightId: string) => {
@@ -284,6 +300,7 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
           </div>
         </div>
         <div className='light-header-right'>
+          {overrideOn && <Icon icon='mdi:hand-back-right' className='light-override-header-icon' />}
           <Icon icon={isExpanded ? 'mdi:chevron-up' : 'mdi:chevron-down'} />
         </div>
       </div>
