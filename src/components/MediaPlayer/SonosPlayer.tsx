@@ -4,6 +4,7 @@ import type { SonosPlayerProps } from '../../types';
 import { SONOS_SPEAKERS } from '../../config/speakers';
 import { RADIO_STATIONS } from '../../config/radio';
 import { PODCAST_FEEDS } from '../../config/podcasts';
+import { AUDIOCAST_STREAM_URI, rawSonosEntityId } from '../../config/audiocast';
 import { isMediaPlayerOutOfSync } from '../../utils/mediaPlayer';
 import { getAccessibleHistoryWindow, getHistoryUrl } from '../../utils/navigation';
 import { useModalBackButton, useSwipeToClose } from '../../hooks';
@@ -941,12 +942,26 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
 
   const handleSelectSource = (source: string) => {
     if (!callService) return;
-    callService({
-      domain: 'media_player',
-      service: 'select_source',
-      target: { entity_id: entityId },
-      serviceData: { source },
-    });
+    if (isLineIn(source)) {
+      // Audiocast: pull the line-in host's feed onto this room. Must target the raw
+      // Sonos entity — x-rincon-stream is a Sonos-native URI Music Assistant can't play.
+      callService({
+        domain: 'media_player',
+        service: 'play_media',
+        target: { entity_id: rawSonosEntityId(baseEntityId(entityId)) },
+        serviceData: {
+          media_content_id: AUDIOCAST_STREAM_URI,
+          media_content_type: 'music',
+        },
+      });
+    } else {
+      callService({
+        domain: 'media_player',
+        service: 'select_source',
+        target: { entity_id: entityId },
+        serviceData: { source },
+      });
+    }
     setShowSourcePicker(false);
   };
 
