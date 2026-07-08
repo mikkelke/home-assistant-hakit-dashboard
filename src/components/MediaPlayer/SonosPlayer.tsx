@@ -512,6 +512,18 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
     return source;
   };
 
+  // Inputs shown in the picker. Drop the MA queue (default), AirPlay (native, not
+  // selectable) and any line-in entry — Audiocast is synthesized for every room
+  // instead, since x-rincon-stream playback works regardless of a room's own
+  // source_list (e.g. the Arc Ultra never advertises Line-in).
+  const inputSources = sourceList.filter(source => {
+    const sourceLower = source.toLowerCase();
+    if (sourceLower.includes('music assistant queue') || sourceLower.includes('music assistant')) return false;
+    if (isAirPlaySource(source)) return false;
+    if (isLineIn(source)) return false;
+    return true;
+  });
+
   // When source is Audiocast (line-in), HA often leaves media_title empty – show "Audiocast" instead of "Not playing"
   const displayTitle =
     currentRadio?.name ||
@@ -1229,48 +1241,29 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
             </div>
           )}
 
-          {/* Input Sources */}
-          {sourceList.filter(source => {
-            // Hide "Music Assistant Queue" as it's the default
-            const sourceLower = source.toLowerCase();
-            return !sourceLower.includes('music assistant queue') && !sourceLower.includes('music assistant');
-          }).length > 0 && (
-            <div className='source-section'>
-              <span className='source-section-label'>Inputs</span>
-              {sourceList
-                .filter(source => {
-                  const sourceLower = source.toLowerCase();
-                  // Hide Music Assistant Queue (default)
-                  if (sourceLower.includes('music assistant queue') || sourceLower.includes('music assistant')) return false;
-                  // Hide AirPlay – it's native to Sonos, shown only when active in the source toggle, not selectable here
-                  if (isAirPlaySource(source)) return false;
-                  return true;
-                })
-                .map(source => {
-                  // Determine icon based on source type
-                  let iconName = 'mdi:audio-input-stereo-minijack';
-                  if (isLineIn(source)) {
-                    iconName = 'mdi:cast';
-                  } else if (isAirPlaySource(source)) {
-                    iconName = 'mdi:airplay';
-                  } else if (isTVSourceName(source)) {
-                    iconName = 'mdi:television';
-                  }
-
-                  return (
-                    <button
-                      key={source}
-                      className={`sonos-source-item ${source === currentSource ? 'active' : ''} ${isLineIn(source) ? 'audiocast' : ''} ${isAirPlaySource(source) ? 'airplay' : ''}`}
-                      onClick={() => handleSelectSource(source)}
-                    >
-                      <Icon icon={iconName} />
-                      <span>{getSourceDisplayName(source)}</span>
-                      {source === currentSource && <Icon icon='mdi:check' className='check' />}
-                    </button>
-                  );
-                })}
-            </div>
-          )}
+          {/* Input Sources — Audiocast is always offered: any room can pull the cast feed */}
+          <div className='source-section'>
+            <span className='source-section-label'>Inputs</span>
+            <button
+              className={`sonos-source-item audiocast ${isLineIn(currentSource) ? 'active' : ''}`}
+              onClick={() => handleSelectSource('Audiocast')}
+            >
+              <Icon icon='mdi:cast' />
+              <span>Audiocast</span>
+              {isLineIn(currentSource) && <Icon icon='mdi:check' className='check' />}
+            </button>
+            {inputSources.map(source => (
+              <button
+                key={source}
+                className={`sonos-source-item ${source === currentSource ? 'active' : ''}`}
+                onClick={() => handleSelectSource(source)}
+              >
+                <Icon icon={isTVSourceName(source) ? 'mdi:television' : 'mdi:audio-input-stereo-minijack'} />
+                <span>{getSourceDisplayName(source)}</span>
+                {source === currentSource && <Icon icon='mdi:check' className='check' />}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
