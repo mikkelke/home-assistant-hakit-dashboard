@@ -128,6 +128,9 @@ interface SpeakerInfo {
 
 export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps) {
   const [openModal, setOpenModal] = useState<ModalType>(null);
+  // Frozen at media-modal open: joins/unjoins change coordinators and flicker `playing`,
+  // which would otherwise unmount a SonosPlayer (and its open speaker picker) mid-operation.
+  const [mediaPlayersSnapshot, setMediaPlayersSnapshot] = useState<PlayingSpeaker[] | null>(null);
   const [selectedSpeakerForQuickStart, setSelectedSpeakerForQuickStart] = useState<string | null>(null);
   const [showSpeakerSelector, setShowSpeakerSelector] = useState(false);
   const [expandedLine, setExpandedLine] = useState<string | null>(null);
@@ -140,59 +143,6 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
     const id = setInterval(() => setNow(new Date()), ms);
     return () => clearInterval(id);
   }, [openModal]);
-
-  const resetModalState = useCallback(() => {
-    setSelectedSpeakerForQuickStart(null);
-    setShowSpeakerSelector(false);
-    setExpandedLine(null);
-  }, []);
-
-  const openQuickAccess = useCallback(
-    (type: Exclude<ModalType, null>) => {
-      resetModalState();
-      setOpenModal(type);
-    },
-    [resetModalState]
-  );
-
-  const handleClose = useCallback(() => {
-    setOpenModal(null);
-    resetModalState();
-  }, [resetModalState]);
-
-  const { requestClose: requestCloseQuickAccess } = useModalBackButton({
-    isOpen: openModal !== null,
-    onRequestClose: handleClose,
-    historyKey: openModal ? `quick-access-${openModal}` : 'quick-access',
-  });
-
-  useEffect(() => {
-    const handleOpenQuickAccess = (event: Event) => {
-      const modal = (event as CustomEvent<{ modal?: ModalType }>).detail?.modal;
-      if (modal === 'intercom' || modal === 'media' || modal === 'weather' || modal === 'transit') {
-        openQuickAccess(modal);
-      }
-    };
-
-    window.addEventListener(QUICK_ACCESS_OPEN_EVENT, handleOpenQuickAccess as EventListener);
-    return () => window.removeEventListener(QUICK_ACCESS_OPEN_EVENT, handleOpenQuickAccess as EventListener);
-  }, [openQuickAccess]);
-
-  const toggleLineExpand = (statusEntityId: string) => setExpandedLine(prev => (prev === statusEntityId ? null : statusEntityId));
-
-  const handleTransitToggle = (enabledEntityId: string) => {
-    callService?.({ domain: 'input_boolean', service: 'toggle', target: { entity_id: enabledEntityId } });
-  };
-
-  const handleTransitRefresh = async () => {
-    if (!callService || isTransitRefreshing) return;
-    setIsTransitRefreshing(true);
-    try {
-      await callService({ domain: 'input_button', service: 'press', target: { entity_id: TRANSIT_REFRESH_BUTTON } });
-    } finally {
-      setTimeout(() => setIsTransitRefreshing(false), 2000);
-    }
-  };
 
   // Find all playing Sonos speakers/groups
   const playingSpeakers = useMemo<PlayingSpeaker[]>(() => {
@@ -269,6 +219,63 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
       return a.name.localeCompare(b.name); // Then alphabetically
     });
   }, [entities]);
+
+  const resetModalState = useCallback(() => {
+    setSelectedSpeakerForQuickStart(null);
+    setShowSpeakerSelector(false);
+    setExpandedLine(null);
+    setMediaPlayersSnapshot(null);
+  }, []);
+
+  const openQuickAccess = useCallback(
+    (type: Exclude<ModalType, null>) => {
+      resetModalState();
+      // Freeze the media player list for the modal's lifetime: group operations change
+      // coordinators and flicker `playing`, which would unmount an open speaker picker.
+      if (type === 'media') setMediaPlayersSnapshot(playingSpeakers);
+      setOpenModal(type);
+    },
+    [resetModalState, playingSpeakers]
+  );
+
+  const handleClose = useCallback(() => {
+    setOpenModal(null);
+    resetModalState();
+  }, [resetModalState]);
+
+  const { requestClose: requestCloseQuickAccess } = useModalBackButton({
+    isOpen: openModal !== null,
+    onRequestClose: handleClose,
+    historyKey: openModal ? `quick-access-${openModal}` : 'quick-access',
+  });
+
+  useEffect(() => {
+    const handleOpenQuickAccess = (event: Event) => {
+      const modal = (event as CustomEvent<{ modal?: ModalType }>).detail?.modal;
+      if (modal === 'intercom' || modal === 'media' || modal === 'weather' || modal === 'transit') {
+        openQuickAccess(modal);
+      }
+    };
+
+    window.addEventListener(QUICK_ACCESS_OPEN_EVENT, handleOpenQuickAccess as EventListener);
+    return () => window.removeEventListener(QUICK_ACCESS_OPEN_EVENT, handleOpenQuickAccess as EventListener);
+  }, [openQuickAccess]);
+
+  const toggleLineExpand = (statusEntityId: string) => setExpandedLine(prev => (prev === statusEntityId ? null : statusEntityId));
+
+  const handleTransitToggle = (enabledEntityId: string) => {
+    callService?.({ domain: 'input_boolean', service: 'toggle', target: { entity_id: enabledEntityId } });
+  };
+
+  const handleTransitRefresh = async () => {
+    if (!callService || isTransitRefreshing) return;
+    setIsTransitRefreshing(true);
+    try {
+      await callService({ domain: 'input_button', service: 'press', target: { entity_id: TRANSIT_REFRESH_BUTTON } });
+    } finally {
+      setTimeout(() => setIsTransitRefreshing(false), 2000);
+    }
+  };
 
   // Find all active/playing TVs
   const playingTVs = useMemo<PlayingTV[]>(() => {
@@ -401,6 +408,16 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
   const hasPlayingTVs = playingTVs.length > 0;
   const hasPlayingMedia = hasPlayingSpeakers || hasPlayingTVs;
 
+  // Inside the media modal, render from the open-time snapshot so cards (and any open
+  // speaker picker inside them) survive regrouping; fall back to live when no snapshot.
+  const displayedSpeakers = mediaPlayersSnapshot ?? playingSpeakers;
+  const hasMediaForModal = displayedSpeakers.length > 0 || hasPlayingTVs;
+  const liveGroupSize = (id: string): number => {
+    const gm = entities?.[id]?.attributes?.group_members;
+    const n = Array.isArray(gm) ? gm.filter(m => typeof m === 'string' && m.length > 0).length : 0;
+    return n > 0 ? n : 1;
+  };
+
   // Use standardized swipe-to-close hook
   const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestCloseQuickAccess);
 
@@ -501,7 +518,7 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
                         callService={callService}
                       />
                     </div>
-                  ) : showSpeakerSelector || !hasPlayingMedia ? (
+                  ) : showSpeakerSelector || !hasMediaForModal ? (
                     // Show speaker list when "add speaker" button is clicked OR when nothing is playing
                     <div className='qa-media-section'>
                       <div className='qa-speaker-list'>
@@ -524,20 +541,21 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
                     // Show playing speakers and TVs when something is playing
                     <div className='qa-media-section'>
                       <div className='qa-media-list'>
-                        {playingSpeakers.map(speaker => (
-                          <div key={speaker.entityId} className='qa-media-item'>
-                            <div className='qa-media-identity'>
-                              <div className='qa-media-label'>
-                                <Icon icon='mdi:speaker' />
-                                <span className='qa-media-label-text'>{speaker.name}</span>
+                        {displayedSpeakers.map(speaker => {
+                          const groupSize = liveGroupSize(speaker.entityId);
+                          return (
+                            <div key={speaker.entityId} className='qa-media-item'>
+                              <div className='qa-media-identity'>
+                                <div className='qa-media-label'>
+                                  <Icon icon='mdi:speaker' />
+                                  <span className='qa-media-label-text'>{speaker.name}</span>
+                                </div>
+                                {groupSize > 1 && <span className='qa-media-badge qa-media-badge--group'>{groupSize} speakers</span>}
                               </div>
-                              {speaker.groupSize > 1 && (
-                                <span className='qa-media-badge qa-media-badge--group'>{speaker.groupSize} speakers</span>
-                              )}
+                              <SonosPlayer entityId={speaker.entityId} entities={entities} hassUrl={hassUrl} callService={callService} />
                             </div>
-                            <SonosPlayer entityId={speaker.entityId} entities={entities} hassUrl={hassUrl} callService={callService} />
-                          </div>
-                        ))}
+                          );
+                        })}
                         {playingTVs.map(tv => {
                           // Get TV-specific props based on entity ID
                           const isBedroom = tv.entityId === 'media_player.bedroom_tv';

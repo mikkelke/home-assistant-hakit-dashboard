@@ -1026,3 +1026,142 @@
 .ungroup-btn:hover {
   background: rgba(239, 68, 68, 0.25);
 }
+
+/* Apple AirPlay-style speaker picker (group modal) — one line per speaker */
+.sp-modal {
+  width: min(560px, 96vw);
+  max-width: 96vw;
+}
+.sp-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.sp-item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.03);
+  transition: border-color 0.15s, background 0.15s;
+}
+.sp-item.member {
+  background: rgba(6, 182, 212, 0.08);
+  border-color: rgba(6, 182, 212, 0.3);
+}
+.sp-item.unavailable {
+  opacity: 0.45;
+}
+.sp-main {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  flex: 1;
+  padding: 0.25rem 0;
+  background: transparent;
+  border: none;
+  color: #e4e4e7;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+/* When the slider is present, the name yields the line to it */
+.sp-item.member .sp-main {
+  flex: 0 1 auto;
+  max-width: 42%;
+}
+.sp-main:disabled {
+  cursor: default;
+}
+.sp-icon {
+  font-size: 1.05rem;
+  color: #a1a1aa;
+  flex-shrink: 0;
+}
+.sp-item.member .sp-icon {
+  color: #22d3ee;
+}
+.sp-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sp-this {
+  font-weight: 400;
+  color: #71717a;
+  margin-left: 2px;
+}
+.sp-sub {
+  font-size: 0.68rem;
+  color: #71717a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+  text-align: right;
+}
+.sp-vol-mute {
+  flex-shrink: 0;
+}
+.sp-vol-mute.muted {
+  color: #f87171;
+}
+.sp-vol-slider {
+  flex: 1;
+  min-width: 60px;
+  height: 5px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 3px;
+  outline: none;
+}
+.sp-vol-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+.sp-vol-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: #ffffff;
+  border: none;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+.sp-check {
+  font-size: 1.2rem;
+  color: #52525b;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border: none;
+  padding: 0.2rem;
+  cursor: pointer;
+}
+.sp-check:disabled {
+  cursor: default;
+}
+.sp-check.on {
+  color: #22d3ee;
+}
+.sp-check.pending svg {
+  animation: sp-spin 0.9s linear infinite;
+}
+@keyframes sp-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

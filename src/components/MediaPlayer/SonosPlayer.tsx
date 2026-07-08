@@ -61,6 +61,14 @@ const getMasterFromEntity = (entity: { attributes?: { group_members?: unknown[] 
   return validMembers.length > 0 ? validMembers[0] : fallbackEntityId;
 };
 
+/**
+ * MA players use the clean id (media_player.kitchen); the native Sonos twins carry a
+ * `_2` suffix (media_player.kitchen_2). group_members always match the flavor of the
+ * entity they came from, so names/membership must compare BASE ids while service calls
+ * must target the ACTUAL (flavored) ids.
+ */
+const baseEntityId = (id: string): string => (id.endsWith('_2') ? id.slice(0, -2) : id);
+
 /** pushState/replaceState must keep #room=… or Dashboard hash sync closes the room (iframe / rooftop). */
 function podcastHistoryUrl(): string {
   return getHistoryUrl();
@@ -74,11 +82,14 @@ function withHistoryWindow(action: (targetWindow: Window) => void) {
 
 export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosPlayerProps) {
   const [showGroupModal, setShowGroupModal] = useState(false);
-  const [showVolumeMixer, setShowVolumeMixer] = useState(false);
   const [showSourcePicker, setShowSourcePicker] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [volumeUi, setVolumeUi] = useState(0);
-  const [mixerVolumes, setMixerVolumes] = useState<Record<string, number>>({});
+  // Apple-style picker: optimistic membership per speaker. Shown while it differs from the
+  // entity's actual group state, ignored once HA converges (derive-during-render, no effects).
+  const [pendingGroup, setPendingGroup] = useState<Record<string, boolean>>({});
+  // Local slider values for the picker (slider owns its value once touched, like the mixer)
+  const [pickerVolumes, setPickerVolumes] = useState<Record<string, number>>({});
   const [podcastEpisodes, setPodcastEpisodes] = useState<Record<string, Array<{ title: string; url: string; pubDate?: string }>>>({});
   const [podcastLoading, setPodcastLoading] = useState<string | null>(null);
   const [podcastError, setPodcastError] = useState<string | null>(null);
@@ -110,11 +121,17 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
   }, [attributes.group_members, entityId]);
   // Determine master from entity state: group_members[0] is always the coordinator/master
   const masterId = getMasterFromEntity(player ?? null, entityId);
-  const sortedGroupMembers = [...groupMembers].sort((a, b) => {
-    const aName = SONOS_SPEAKERS.find(s => s.id === a)?.name || a.split('.')[1] || a;
-    const bName = SONOS_SPEAKERS.find(s => s.id === b)?.name || b.split('.')[1] || b;
-    return aName.localeCompare(bName, undefined, { sensitivity: 'base' });
-  });
+
+  // Resolve any id flavor to the configured display name; last resort = friendly_name.
+  const speakerNameFor = (id: string): string => {
+    const cfg = SONOS_SPEAKERS.find(s => s.id === baseEntityId(id));
+    if (cfg) return cfg.name;
+    const fn = entities?.[id]?.attributes?.friendly_name;
+    return typeof fn === 'string' && fn ? fn : id.split('.')[1] || id;
+  };
+  // Map a config (base) speaker id to the id actually used in this player's group flavor.
+  const idFlavor = entityId.endsWith('_2') ? '_2' : '';
+  const actualIdFor = (configId: string): string => groupMembers.find(m => baseEntityId(m) === configId) ?? `${configId}${idFlavor}`;
   const sourceList: string[] = Array.isArray(attributes.source_list)
     ? attributes.source_list.filter((s): s is string => typeof s === 'string')
     : [];
@@ -371,11 +388,12 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
 
   const groupedSpeakers = useMemo(() => {
     const speakers = groupMembers.map((id, index) => {
-      const speaker = SONOS_SPEAKERS.find(s => s.id === id);
+      const speaker = SONOS_SPEAKERS.find(s => s.id === baseEntityId(id));
       const entity = entities?.[id];
       return {
         id,
-        name: speaker?.name || id.split('.')[1],
+        name:
+          speaker?.name || (typeof entity?.attributes?.friendly_name === 'string' && entity.attributes.friendly_name) || id.split('.')[1],
         volume: Math.round((Number(entity?.attributes?.volume_level) || 0) * 100),
         isMuted: entity?.attributes?.is_volume_muted || false,
         isMaster: index === 0, // First speaker is the coordinator/master
@@ -389,22 +407,6 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
   useEffect(() => {
     setVolumeUi(volume);
   }, [volume]);
-
-  // Initialize mixer volumes when mixer opens (only once per open)
-  useEffect(() => {
-    if (!(showVolumeMixer && hasGroup)) return;
-    const initialVolumes: Record<string, number> = {};
-    groupedSpeakers.forEach(speaker => {
-      initialVolumes[speaker.id] = speaker.volume;
-    });
-    setMixerVolumes(prev => {
-      // Only replace if different to avoid re-render loops
-      const sameKeys =
-        Object.keys(prev).length === Object.keys(initialVolumes).length &&
-        Object.keys(initialVolumes).every(k => prev[k] === initialVolumes[k]);
-      return sameKeys ? prev : initialVolumes;
-    });
-  }, [showVolumeMixer, hasGroup, groupedSpeakers]);
 
   // Close group modal
   const closeGroupModal = () => {
@@ -688,25 +690,6 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
     handleVolumeChange(entityId, next);
   };
 
-  const handleMixerVolumeStep = (speakerId: string, delta: number) => {
-    const current = mixerVolumes[speakerId] ?? groupedSpeakers.find(s => s.id === speakerId)?.volume ?? 0;
-    const next = clampVolume(current + delta);
-    setMixerVolumes(prev => ({ ...prev, [speakerId]: next }));
-    handleVolumeChange(speakerId, next);
-  };
-
-  const handleMixerMuteToggle = (speakerId: string) => {
-    if (!callService) return;
-    const speaker = groupedSpeakers.find(s => s.id === speakerId);
-    if (!speaker) return;
-    callService({
-      domain: 'media_player',
-      service: 'volume_mute',
-      target: { entity_id: speakerId },
-      serviceData: { is_volume_muted: !speaker.isMuted },
-    });
-  };
-
   const parseRss = (xmlText: string) => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(xmlText, 'text/xml');
@@ -967,102 +950,73 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
     setShowSourcePicker(false);
   };
 
-  // Add a speaker to the current group
-  // Per HA docs: entity_id = master whose playback expands, group_members = speakers to sync
-  // https://www.home-assistant.io/integrations/media_player/
-  const handleJoinGroup = async (targetSpeakerId: string) => {
+  // Apple AirPlay model: ONE list, tap a row to toggle that speaker in/out of THIS group.
+  // Checking a speaker always pulls it into this group (HA join moves it out of any other
+  // group in the same call); unchecking always unjoins it. No two-step ungroup-then-add.
+  const handleToggleSpeaker = (speakerId: string) => {
     if (!callService) return;
-
-    const targetSpeakerEntity = entities?.[targetSpeakerId];
-    if (!targetSpeakerEntity) {
-      console.warn(`[SonosPlayer] Target speaker ${targetSpeakerId} not found in entities`);
-      return;
-    }
-
-    // Robustly determine target's master from entity state (never from input_select)
-    const targetGroupMasterId = getMasterFromEntity(targetSpeakerEntity, targetSpeakerId);
-    const rawTargetMembers = targetSpeakerEntity?.attributes?.group_members;
-    const targetGroupMembers: string[] = Array.isArray(rawTargetMembers)
-      ? rawTargetMembers.filter((id): id is string => typeof id === 'string' && id.length > 0)
-      : [targetSpeakerId];
-    const isTargetInGroup = targetGroupMembers.length > 1;
-    const targetGroupMaster = isTargetInGroup ? targetGroupMasterId : null;
-
-    // Check if current speaker is a solo master (playing independently)
-    // A solo master has empty group_members or group_members with only itself, and is playing
-    const rawGroupMembers = attributes.group_members || [];
-    const isCurrentSoloMaster =
-      state === 'playing' &&
-      (rawGroupMembers.length === 0 ||
-        (rawGroupMembers.length === 1 && rawGroupMembers[0] === entityId) ||
-        (groupMembers.length === 1 && groupMembers[0] === entityId));
-
-    // If current speaker is a solo master, unjoin it first to avoid "already synced" error
-    if (isCurrentSoloMaster) {
-      console.log(`[SonosPlayer] Unjoining solo master ${entityId} before grouping`);
-      await callService({
-        domain: 'media_player',
-        service: 'unjoin',
-        target: { entity_id: entityId },
-      });
-      // Give Sonos a moment to process the unjoin
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-
-    if (isTargetInGroup && targetGroupMaster) {
-      // Target is in another group - join current speaker to target's group
-      callService({
-        domain: 'media_player',
-        service: 'join',
-        target: { entity_id: targetGroupMaster },
-        serviceData: { group_members: [entityId] },
-      });
+    const actualId = actualIdFor(speakerId);
+    const isMember = groupMembers.some(m => baseEntityId(m) === speakerId);
+    setPendingGroup(prev => ({ ...prev, [speakerId]: !isMember }));
+    if (isMember) {
+      callService({ domain: 'media_player', service: 'unjoin', target: { entity_id: actualId } });
     } else {
-      // Target is not in a group - expand current group (or create new group) to include target
-      // If we unjoined a solo master, use entityId; otherwise use masterId
-      const groupMaster = isCurrentSoloMaster ? entityId : masterId;
       callService({
         domain: 'media_player',
         service: 'join',
-        target: { entity_id: groupMaster },
-        serviceData: { group_members: [targetSpeakerId] },
+        target: { entity_id: masterId },
+        serviceData: { group_members: [actualId] },
       });
     }
   };
 
-  // Remove a speaker from the group
-  // Can remove any speaker, not just the current one
-  const handleRemoveFromGroup = (speakerId: string) => {
+  const handleSpeakerMuteToggle = (speakerId: string) => {
     if (!callService) return;
+    const muted = Boolean(entities?.[speakerId]?.attributes?.is_volume_muted);
     callService({
       domain: 'media_player',
-      service: 'unjoin',
+      service: 'volume_mute',
       target: { entity_id: speakerId },
+      serviceData: { is_volume_muted: !muted },
     });
-    // Close modal if removing the current speaker
-    if (speakerId === entityId) {
-      requestCloseGroupModal();
-    }
   };
 
-  const otherSpeakers = SONOS_SPEAKERS.filter(s => !groupMembers.includes(s.id)).sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
-  );
-
-  useEffect(() => {
-    // Sync mixer volumes from entity state when group changes
-    setMixerVolumes(prev => {
-      let changed = false;
-      const next = { ...prev };
-      groupedSpeakers.forEach(s => {
-        if (next[s.id] === undefined) {
-          next[s.id] = s.volume;
-          changed = true;
-        }
-      });
-      return changed ? next : prev;
+  // Unified picker rows: members first (master on top), then the rest alphabetically.
+  // All comparisons use BASE ids (MA/native `_2` flavors), service targets use actual ids.
+  const pickerSpeakers = useMemo(() => {
+    const rows = SONOS_SPEAKERS.map(speaker => {
+      const isMember = groupMembers.some(m => baseEntityId(m) === speaker.id);
+      const actualId = groupMembers.find(m => baseEntityId(m) === speaker.id) ?? `${speaker.id}${idFlavor}`;
+      const ent = entities?.[actualId] ?? entities?.[speaker.id];
+      const entState = ent?.state || 'unavailable';
+      const rawMembers = ent?.attributes?.group_members;
+      const members: string[] = Array.isArray(rawMembers)
+        ? rawMembers.filter((id): id is string => typeof id === 'string' && id.length > 0)
+        : [speaker.id];
+      const inOtherGroup = !isMember && members.length > 1;
+      const otherMaster = inOtherGroup ? getMasterFromEntity(ent ?? null, speaker.id) : null;
+      return {
+        id: speaker.id,
+        actualId,
+        name: speaker.name,
+        available: entState !== 'unavailable' && entState !== 'unknown',
+        isMember,
+        isMaster: isMember && baseEntityId(masterId) === speaker.id,
+        isThis: speaker.id === baseEntityId(entityId),
+        playingTitle: entState === 'playing' ? String(ent?.attributes?.media_title || '') : '',
+        otherMasterName: otherMaster ? speakerNameFor(otherMaster) : '',
+        volume: Math.round((Number(ent?.attributes?.volume_level) || 0) * 100),
+        isMuted: Boolean(ent?.attributes?.is_volume_muted),
+      };
     });
-  }, [groupedSpeakers]);
+    return rows.sort((a, b) => {
+      if (a.isMember !== b.isMember) return a.isMember ? -1 : 1;
+      if (a.isMember && b.isMember && a.isMaster !== b.isMaster) return a.isMaster ? -1 : 1;
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    });
+    // speakerNameFor/actualIdFor derive from entities+groupMembers+idFlavor already in deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entities, groupMembers, masterId, entityId, idFlavor]);
 
   if (!player) return <div className='sonos-player'>Speaker not found</div>;
 
@@ -1177,44 +1131,6 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
           {hasGroup && <span className='group-badge'>{groupMembers.length}</span>}
         </button>
       </div>
-
-      {/* Volume Mixer (if grouped) */}
-      {hasGroup && (
-        <button className={`sonos-mixer-toggle ${showVolumeMixer ? 'active' : ''}`} onClick={() => setShowVolumeMixer(!showVolumeMixer)}>
-          <Icon icon='mdi:tune-vertical' />
-          <span>Adjust volumes ({groupMembers.length})</span>
-          <Icon icon={showVolumeMixer ? 'mdi:chevron-up' : 'mdi:chevron-down'} />
-        </button>
-      )}
-
-      {hasGroup && showVolumeMixer && (
-        <div className='sonos-volume-mixer'>
-          {groupedSpeakers.map(speaker => (
-            <div key={speaker.id} className={`sonos-mixer-item ${speaker.isMaster ? 'master' : ''}`}>
-              <span className='mixer-speaker-name'>
-                {speaker.isMaster && <Icon icon='mdi:crown' className='master-icon' />}
-                {speaker.name}
-              </span>
-              <div className='sonos-mixer-controls'>
-                <button className='sonos-btn-xs' onClick={() => handleMixerVolumeStep(speaker.id, -5)} title='Volume down'>
-                  <Icon icon='mdi:minus' />
-                </button>
-                <span className='sonos-volume-value'>{mixerVolumes[speaker.id] ?? speaker.volume}%</span>
-                <button className='sonos-btn-xs' onClick={() => handleMixerVolumeStep(speaker.id, 5)} title='Volume up'>
-                  <Icon icon='mdi:plus' />
-                </button>
-                <button
-                  className={`sonos-btn-xs sonos-mixer-mute ${speaker.isMuted ? 'muted' : ''}`}
-                  onClick={() => handleMixerMuteToggle(speaker.id)}
-                  title={speaker.isMuted ? 'Unmute' : 'Mute'}
-                >
-                  <Icon icon={speaker.isMuted ? 'mdi:volume-off' : 'mdi:volume-high'} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Source Picker Toggle */}
       <button
@@ -1352,99 +1268,92 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
           onTouchMove={handleModalTouchMove}
           onTouchEnd={handleModalTouchEnd}
         >
-          <div className='sonos-modal' onClick={e => e.stopPropagation()}>
+          <div className='sonos-modal sp-modal' onClick={e => e.stopPropagation()}>
             <div className='sonos-modal-header'>
-              <h3>Group Speakers</h3>
+              <h3>Speakers</h3>
               <button className='modal-close modal-close-button' onClick={requestCloseGroupModal}>
                 <Icon icon='mdi:close' />
               </button>
             </div>
 
             <div className='sonos-modal-content'>
-              {/* Current group - click any speaker to remove it */}
-              {hasGroup && (
-                <div className='group-section'>
-                  <span className='group-section-label'>Currently playing together (tap to remove)</span>
-                  {sortedGroupMembers.map(memberId => {
-                    const speaker = SONOS_SPEAKERS.find(s => s.id === memberId);
-                    const isThis = memberId === entityId;
-                    const isMaster = memberId === masterId;
-                    let label = speaker?.name || memberId;
-                    if (isMaster && isThis) {
-                      label += ' (master, this)';
-                    } else if (isMaster) {
-                      label += ' (master)';
-                    } else if (isThis) {
-                      label += ' (this)';
-                    }
-                    return (
+              {/* Apple AirPlay-style picker: one list, one LINE per speaker, tap to toggle */}
+              <div className='sp-picker'>
+                {pickerSpeakers.map(sp => {
+                  // Optimistic display: pending wins until the entity's group state converges.
+                  // shownIn also drives the layout, so joining grows the slider instantly.
+                  const pend = pendingGroup[sp.id];
+                  const inFlight = pend !== undefined && pend !== sp.isMember;
+                  const shownIn = inFlight ? pend : sp.isMember;
+
+                  // Members carry no subtitle (check + crown say it) — the line belongs to the slider
+                  let subtitle = '';
+                  if (!sp.available) subtitle = 'Unavailable';
+                  else if (inFlight && !shownIn) subtitle = 'Leaving…';
+                  else if (!shownIn) {
+                    if (sp.otherMasterName) subtitle = `With ${sp.otherMasterName}`;
+                    else if (sp.playingTitle) subtitle = `Playing · ${sp.playingTitle}`;
+                    else subtitle = 'Not playing';
+                  }
+
+                  const sliderValue = pickerVolumes[sp.id] ?? sp.volume;
+
+                  return (
+                    <div key={sp.id} className={`sp-item ${shownIn ? 'member' : ''} ${!sp.available ? 'unavailable' : ''}`}>
                       <button
-                        key={memberId}
-                        className='group-speaker active'
-                        onClick={() => handleRemoveFromGroup(memberId)}
-                        title={`Remove ${speaker?.name || memberId} from group`}
+                        type='button'
+                        className='sp-main'
+                        onClick={() => sp.available && handleToggleSpeaker(sp.id)}
+                        disabled={!sp.available}
+                        title={shownIn ? 'Tap to remove from group' : 'Tap to add to group'}
                       >
-                        <Icon icon='mdi:speaker' />
-                        <span>{label}</span>
-                        <Icon icon='mdi:check' className='check' />
+                        <Icon
+                          icon={sp.isMaster ? 'mdi:crown' : sp.otherMasterName ? 'mdi:speaker-multiple' : 'mdi:speaker'}
+                          className='sp-icon'
+                        />
+                        <span className='sp-name'>
+                          {sp.name}
+                          {sp.isThis && <span className='sp-this'>*</span>}
+                        </span>
+                        {subtitle && <span className='sp-sub'>{subtitle}</span>}
                       </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Available speakers */}
-              {otherSpeakers.length > 0 && (
-                <div className='group-section'>
-                  <span className='group-section-label'>Available speakers</span>
-                  {otherSpeakers.map(speaker => {
-                    const speakerEntity = entities?.[speaker.id];
-                    const speakerState = speakerEntity?.state || 'unavailable';
-                    const isAvailable = speakerState !== 'unavailable';
-                    // Check if speaker is in another group - use helper to robustly determine master
-                    const rawSpeakerMembers = speakerEntity?.attributes?.group_members;
-                    const speakerGroupMembers: string[] = Array.isArray(rawSpeakerMembers)
-                      ? rawSpeakerMembers.filter((id): id is string => typeof id === 'string' && id.length > 0)
-                      : [speaker.id];
-                    const isInAnotherGroup = speakerGroupMembers.length > 1;
-                    const otherGroupMaster = isInAnotherGroup ? getMasterFromEntity(speakerEntity, speaker.id) : null;
-                    const otherGroupMasterName = otherGroupMaster
-                      ? SONOS_SPEAKERS.find(s => s.id === otherGroupMaster)?.name || 'another group'
-                      : '';
-
-                    let statusText = speakerState;
-                    if (isInAnotherGroup) {
-                      statusText = `grouped with ${otherGroupMasterName}`;
-                    }
-
-                    // Click action: if in another group → unjoin, otherwise → join
-                    const handleClick = () => {
-                      if (!isAvailable) return;
-                      if (isInAnotherGroup) {
-                        // Unjoin from other group - will become available
-                        handleRemoveFromGroup(speaker.id);
-                      } else {
-                        // Join this group
-                        handleJoinGroup(speaker.id);
-                      }
-                    };
-
-                    return (
+                      {shownIn && sp.available && (
+                        <>
+                          <button
+                            type='button'
+                            className={`sonos-btn-xs sp-vol-mute ${sp.isMuted ? 'muted' : ''}`}
+                            onClick={() => handleSpeakerMuteToggle(sp.actualId)}
+                            title={sp.isMuted ? 'Unmute' : 'Mute'}
+                          >
+                            <Icon icon={sp.isMuted ? 'mdi:volume-off' : 'mdi:volume-high'} />
+                          </button>
+                          <input
+                            type='range'
+                            className='sp-vol-slider'
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={sliderValue}
+                            onChange={e => setPickerVolumes(prev => ({ ...prev, [sp.id]: Number(e.target.value) }))}
+                            onMouseUp={() => handleVolumeChange(sp.actualId, pickerVolumes[sp.id] ?? sp.volume)}
+                            onTouchEnd={() => handleVolumeChange(sp.actualId, pickerVolumes[sp.id] ?? sp.volume)}
+                            aria-label={`${sp.name} volume`}
+                          />
+                        </>
+                      )}
                       <button
-                        key={speaker.id}
-                        className={`group-speaker ${!isAvailable ? 'unavailable' : ''} ${isInAnotherGroup ? 'in-group' : ''}`}
-                        onClick={handleClick}
-                        disabled={!isAvailable}
-                        title={isInAnotherGroup ? `Tap to ungroup from ${otherGroupMasterName}` : `Tap to add to group`}
+                        type='button'
+                        className={`sp-check ${shownIn ? 'on' : ''} ${inFlight ? 'pending' : ''}`}
+                        onClick={() => sp.available && handleToggleSpeaker(sp.id)}
+                        disabled={!sp.available}
+                        aria-label={shownIn ? `Remove ${sp.name}` : `Add ${sp.name}`}
                       >
-                        <Icon icon={isInAnotherGroup ? 'mdi:speaker-multiple' : 'mdi:speaker'} />
-                        <span>{speaker.name}</span>
-                        <span className='speaker-status'>{statusText}</span>
+                        <Icon icon={inFlight ? 'mdi:loading' : shownIn ? 'mdi:check-circle' : 'mdi:circle-outline'} />
                       </button>
-                    );
-                  })}
-                </div>
-              )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
