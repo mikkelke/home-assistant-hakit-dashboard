@@ -7,10 +7,9 @@
 export const AUDIOCAST_STREAM_URI = 'x-rincon-stream:RINCON_804AF2CB391401400'; // Kristines room Era 100
 
 // media_player entities whose raw-Sonos sibling does not follow the `${id}_2`
-// convention (leftover from the Office -> Claudias Room rename).
-const RAW_SONOS_ENTITY_OVERRIDES: Record<string, string> = {
-  'media_player.claudias_room': 'media_player.office_2',
-};
+// convention (empty today; add entries if a speaker is renamed in HA without
+// its raw Sonos twin following).
+const RAW_SONOS_ENTITY_OVERRIDES: Record<string, string> = {};
 
 // Raw Sonos integration entity for a base (Music Assistant) media_player id.
 export function rawSonosEntityId(baseId: string): string {
