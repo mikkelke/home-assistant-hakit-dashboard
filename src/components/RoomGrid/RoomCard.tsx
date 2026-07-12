@@ -186,7 +186,6 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
 
   // Hallway: door access only (lock control stays in room detail / Intercom)
   const isHallway = areaNameNormalized === 'hallway';
-  const isClaudiasRoom = areaNameNormalized === 'claudias_room';
   const hallwayDoorId = isHallway ? resolveHallwayDoorSensorId(entities) : null;
   const frontDoor = hallwayDoorId ? entities?.[hallwayDoorId] : undefined;
   const isDoorOpen = isHallway && frontDoor?.state === 'on';
@@ -529,7 +528,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
 
           make(
             'cleaning',
-            !isKitchen && !isClaudiasRoom && cleaningToggleId && entities?.[cleaningToggleId] && (
+            !isKitchen && cleaningToggleId && entities?.[cleaningToggleId] && (
               <IndicatorWithTimeline
                 entityId={cleaningToggleId}
                 entities={entities}
@@ -540,7 +539,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                 secondaryEntityId={lastCleanId || undefined}
               />
             ),
-            !!(!isKitchen && !isClaudiasRoom && cleaningToggleId && entities?.[cleaningToggleId]),
+            !!(!isKitchen && cleaningToggleId && entities?.[cleaningToggleId]),
             cleaningRequested ? 1 : 0 // Other active state
           );
 
@@ -984,7 +983,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
 
             make(
               'cleaning',
-              !isKitchen && !isClaudiasRoom && cleaningToggleId && entities?.[cleaningToggleId] && (
+              !isKitchen && cleaningToggleId && entities?.[cleaningToggleId] && (
                 <IndicatorWithTimeline
                   entityId={cleaningToggleId}
                   entities={entities}
@@ -995,7 +994,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                   secondaryEntityId={lastCleanId || undefined}
                 />
               ),
-              !!(!isKitchen && !isClaudiasRoom && cleaningToggleId && entities?.[cleaningToggleId]),
+              !!(!isKitchen && cleaningToggleId && entities?.[cleaningToggleId]),
               cleaningRequested ? 1 : 0
             );
 
