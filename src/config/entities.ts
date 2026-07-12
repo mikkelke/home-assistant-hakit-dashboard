@@ -194,6 +194,9 @@ export const SMART_COOLING_COMFORT_TEMP = 'input_number.smart_cooling_day_mainta
 /** Night ceiling: keep the bedroom <= this for the whole night (the primary cooling objective). */
 export const SMART_COOLING_NIGHT_CEILING = 'input_number.smart_cooling_night_ceiling';
 
+/** Bedroom comfort middle layer (AppDaemon BedroomComfort): dew point, effective ceiling, vent advice. */
+export const BEDROOM_COMFORT_SENSOR = 'sensor.bedroom_comfort';
+
 // --- Bedroom solar shade (AppDaemon `BedroomSolarShade` app: blocks morning ENE sun, keeps daylight) ---
 
 /** Opt-in toggle for automatic sun-shading of cover.bedroom_blind. */

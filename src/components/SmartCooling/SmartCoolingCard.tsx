@@ -10,6 +10,7 @@ import {
   SMART_COOLING_COMFORT_PRICE,
   SMART_COOLING_COMFORT_TEMP,
   SMART_COOLING_NIGHT_CEILING,
+  BEDROOM_COMFORT_SENSOR,
   BEDROOM_SOLAR_SHADE_ENABLE,
   BEDROOM_SOLAR_SHADE_STATUS,
 } from '../../config/entities';
@@ -131,19 +132,30 @@ export function SmartCoolingCard({ entities, callService }: SmartCoolingCardProp
   const shadeOn = entities?.[BEDROOM_SOLAR_SHADE_ENABLE]?.state === 'on';
   const shadeReason = attrStr((entities?.[BEDROOM_SOLAR_SHADE_STATUS]?.attributes as Record<string, unknown> | undefined)?.reason);
 
-  const predicted = attrNum(a.predicted_bedtime_temp, NaN);
+  // SmartCooling v2 (closed-loop) attributes
+  const zoneNow = attrNum(a.sleeping_zone, NaN);
+  const floorTarget = attrNum(a.floor_target, NaN);
   const nextStart = attrStr(a.next_start);
   const minutes = attrNum(a.minutes_needed, NaN);
   const estCost = attrNum(a.est_cost_kr, NaN);
   const priceNow = attrNum(a.price_now, NaN);
-  const room = attrNum(a.room, NaN);
-  const apt = attrNum(a.apartment, NaN);
-  const outdoor = attrNum(a.outdoor, NaN);
-  const nightCeiling = attrNum(entities?.[SMART_COOLING_NIGHT_CEILING]?.state, attrNum(a.night_ceiling, 23));
-  const nightPeak = attrNum(a.night_peak, NaN);
-  const dayRating = attrStr(a.day_rating);
-  const ceilingReachable = a.ceiling_reachable === true || attrStr(a.ceiling_reachable) === 'true';
+  const kitchenT = attrNum(a.kitchen, NaN);
+  const floorLimited = a.floor_limited === true || attrStr(a.floor_limited) === 'true';
+  const dryRun = a.dry_run === true || attrStr(a.dry_run) === 'true';
+  const nightCeiling = attrNum(entities?.[SMART_COOLING_NIGHT_CEILING]?.state, attrNum(a.ceiling_base, 23));
+  const planCeiling = attrNum(a.night_ceiling, NaN); // effective ceiling the app plans against
   const reason = attrStr(a.reason);
+
+  // Bedroom comfort middle layer (sensor.bedroom_comfort)
+  const comfortEnt = entities?.[BEDROOM_COMFORT_SENSOR];
+  const ca = (comfortEnt?.attributes ?? {}) as Record<string, unknown>;
+  const comfortState = comfortEnt?.state ?? '';
+  const dewPoint = attrNum(ca.dew_point, NaN);
+  const dewMorning = attrNum(ca.dew_point_morning, NaN);
+  const ceilingEff = attrNum(ca.ceiling_effective, planCeiling);
+  const ventHelps = ca.vent_helps === true;
+  const ventReason = attrStr(ca.vent_reason);
+  const outdoor = attrNum(ca.outdoor_temperature, NaN);
   const windowOpen = a.window_open === true || attrStr(a.window_open) === 'true';
   const isActive = state.startsWith('cooling') || state.startsWith('comfort');
 
@@ -160,7 +172,8 @@ export function SmartCoolingCard({ entities, callService }: SmartCoolingCardProp
   else if (state === 'unit_stored') subtitle = 'Deploy the unit to start';
   else if (state === 'done_for_tonight') subtitle = 'Pre-cool done — seal the room';
   else if (isActive) subtitle = reason || meta.label;
-  else if (Number.isFinite(predicted)) subtitle = `~${predicted.toFixed(1)}° by ${bedtime}${nextStart ? ` · ${nextStart}` : ''}`;
+  else if (Number.isFinite(zoneNow) && Number.isFinite(floorTarget))
+    subtitle = `zone ${zoneNow.toFixed(1)}° → ${floorTarget.toFixed(1)}° by ${bedtime}${nextStart ? ` · starts ${nextStart}` : ''}`;
   else subtitle = meta.label;
 
   return (
@@ -177,6 +190,7 @@ export function SmartCoolingCard({ entities, callService }: SmartCoolingCardProp
           <span className={`sc-status ${meta.cls}`}>
             <Icon icon={meta.icon} className='sc-status-icon' />
             {meta.label}
+            {dryRun && masterOn && state !== 'off' && state !== 'disabled' ? ' · sim' : ''}
           </span>
           <Icon icon={expanded ? 'mdi:chevron-up' : 'mdi:chevron-down'} />
         </div>
@@ -236,20 +250,32 @@ export function SmartCoolingCard({ entities, callService }: SmartCoolingCardProp
             </button>
           )}
 
+          {comfortEnt && (
+            <div className='sc-rating'>
+              <Icon icon='mdi:water-percent' />
+              {comfortState || '—'}
+              {Number.isFinite(dewPoint) ? ` · dew point ${dewPoint.toFixed(1)}°` : ''}
+              {Number.isFinite(dewMorning) ? ` → ${dewMorning.toFixed(1)}° by morning` : ''}
+              {Number.isFinite(ceilingEff) && ceilingEff < nightCeiling
+                ? ` · ceiling ${nightCeiling.toFixed(1)}° → ${ceilingEff.toFixed(1)}° (humid night)`
+                : ''}
+            </div>
+          )}
+          {comfortEnt && ventHelps && (
+            <div className='sc-rating'>
+              <Icon icon='mdi:window-open-variant' /> Venting helps — {ventReason}
+            </div>
+          )}
+
           {masterOn && (
             <>
-              {dayRating && (
-                <div className='sc-rating'>
-                  <Icon icon='mdi:white-balance-sunny' /> {dayRating} day
-                  {Number.isFinite(predicted) ? ` · would drift to ${predicted.toFixed(0)}° by bed if left off` : ''}
-                </div>
-              )}
               <div className='sc-plan'>
                 <div className='sc-tile'>
-                  <span className='sc-tile-label'>Night peak</span>
-                  <span className='sc-tile-value'>{Number.isFinite(nightPeak) ? `${nightPeak.toFixed(1)}°` : '—'}</span>
+                  <span className='sc-tile-label'>Bed target</span>
+                  <span className='sc-tile-value'>{Number.isFinite(floorTarget) ? `${floorTarget.toFixed(1)}°` : '—'}</span>
                   <span className='sc-tile-sub'>
-                    {ceilingReachable ? `≤ ${nightCeiling.toFixed(0)}°` : `over ${nightCeiling.toFixed(0)}°`}
+                    {Number.isFinite(zoneNow) ? `zone ${zoneNow.toFixed(1)}°` : '—'}
+                    {floorLimited ? ' · floor-limited' : ''}
                   </span>
                 </div>
                 <div className='sc-tile'>
@@ -295,16 +321,16 @@ export function SmartCoolingCard({ entities, callService }: SmartCoolingCardProp
             />
           </div>
 
-          {(Number.isFinite(room) || Number.isFinite(apt) || Number.isFinite(outdoor)) && (
+          {(Number.isFinite(zoneNow) || Number.isFinite(kitchenT) || Number.isFinite(outdoor)) && (
             <div className='sc-foot'>
-              {Number.isFinite(room) && (
+              {Number.isFinite(zoneNow) && (
                 <span>
-                  <Icon icon='mdi:bed' /> {room.toFixed(1)}°
+                  <Icon icon='mdi:bed' /> {zoneNow.toFixed(1)}°
                 </span>
               )}
-              {Number.isFinite(apt) && (
+              {Number.isFinite(kitchenT) && (
                 <span>
-                  <Icon icon='mdi:home' /> {apt.toFixed(1)}°
+                  <Icon icon='mdi:home' /> {kitchenT.toFixed(1)}°
                 </span>
               )}
               {Number.isFinite(outdoor) && (
