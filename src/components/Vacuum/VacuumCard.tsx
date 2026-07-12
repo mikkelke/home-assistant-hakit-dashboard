@@ -59,8 +59,9 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     kitchen_2: 'Kitchen dining side',
   };
 
-  // Stuck map entries (robot got stuck) – used for call-to-action elsewhere; hide from room maps grid
-  const STUCK_MAP_ROOMS = ['stuck_in_the_office', 'stuck_trying_to_leave_the_office'];
+  // Stuck map entries (robot got stuck) – used for call-to-action elsewhere; hide from room maps grid.
+  // Keyed "stuck_…" by the rober2 app; prefix match so the dock room can move without breaking this.
+  const isStuckMapRoom = (room?: string) => !!room && room.startsWith('stuck');
 
   const formatRoomName = (room: string | undefined) => {
     if (!room) return undefined;
@@ -737,7 +738,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
               {!mapsLoading && !mapsError && maps.length === 0 && <div className='vacuum-maps-empty'>No maps found.</div>}
               {!mapsLoading && maps.length > 0 && (
                 <div className='vacuum-maps-list'>
-                  {getLatestMapsByRoom(maps.filter(e => !STUCK_MAP_ROOMS.includes(e.room || ''))).map(entry => {
+                  {getLatestMapsByRoom(maps.filter(e => !isStuckMapRoom(e.room))).map(entry => {
                     const friendlyRoom = formatRoomName(entry.room || entry.room?.toString());
                     const label = friendlyRoom || entry.room || 'Unknown room';
                     const dateStr = formatMapDate(entry.datetime, entry.timestamp);

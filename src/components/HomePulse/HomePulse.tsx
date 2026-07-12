@@ -54,7 +54,8 @@ interface RobotMapEntry {
   url: string;
 }
 
-const STUCK_MAP_ROOMS = ['stuck_in_the_office', 'stuck_trying_to_leave_the_office'];
+// Stuck-diagnostic snapshots are keyed "stuck_…" by the rober2 app (room name varies with the dock location)
+const isStuckMapRoom = (room?: string) => !!room && room.startsWith('stuck');
 
 export function HomePulse({ areas, entities, hassUrl, onRoomSelect }: HomePulseProps) {
   const summary = useMemo(() => deriveHomePulseSummary(areas, entities), [areas, entities]);
@@ -112,7 +113,7 @@ export function HomePulse({ areas, entities, hassUrl, onRoomSelect }: HomePulseP
 
         const data = await res.json();
         const entries: RobotMapEntry[] = Array.isArray(data?.maps) ? data.maps : [];
-        const stuck = entries.find(entry => entry.room && STUCK_MAP_ROOMS.includes(entry.room));
+        const stuck = entries.find(entry => isStuckMapRoom(entry.room));
         if (cancelled) return;
 
         if (stuck) {
