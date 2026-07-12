@@ -26,8 +26,12 @@ export const VACUUM_MAP_IMAGE_ENTITY = 'image.rober2_rooftop';
 /** Path under HA /local/ for robot maps. Used in URLs like /local/rober2_maps/index.json. */
 export const ROBOT_MAPS_PATH = 'rober2_maps';
 
-/** Hallway / “main door” lock (HA: lock.yale; Intercom building front is lock.intercomproxy_front_door). */
-export const FRONT_DOOR_LOCK_ENTITY = 'lock.yale';
+/**
+ * Hallway / “main door” lock. lock.yale_bt (local Bluetooth) is authoritative — the cloud
+ * twin lock.yale can miss re-lock pushes and stick "unlocked" (seen 2026-07-12, 1.5 h stale).
+ * Intercom building front is lock.intercomproxy_front_door.
+ */
+export const FRONT_DOOR_LOCK_ENTITY = 'lock.yale_bt';
 
 /**
  * Template: any apartment entry door open (OR of physical contacts).
@@ -49,12 +53,12 @@ export function resolveHallwayDoorSensorId(entities: HassEntities | undefined): 
 }
 
 /**
- * Hallway lock indicator: primary {@link FRONT_DOOR_LOCK_ENTITY}, then BT lock, then legacy IDs.
+ * Hallway lock indicator: primary {@link FRONT_DOOR_LOCK_ENTITY} (BLE), then cloud twin, then legacy IDs.
  */
 export function resolveHallwayLockEntityId(entities: HassEntities | undefined): string | null {
   if (!entities) return null;
   if (entities[FRONT_DOOR_LOCK_ENTITY]) return FRONT_DOOR_LOCK_ENTITY;
-  if (entities['lock.yale_bt']) return 'lock.yale_bt';
+  if (entities['lock.yale']) return 'lock.yale';
   if (entities['lock.front_door']) return 'lock.front_door';
   return null;
 }
