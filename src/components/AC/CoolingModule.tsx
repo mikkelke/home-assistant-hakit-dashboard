@@ -46,7 +46,11 @@ function comfortDetail(state: string, attrs: Record<string, unknown>, deployed: 
   else if (state === 'comfortable') lines.push(humidNight ? 'Mild night, though the air turns humid' : 'Cool, dry air overnight');
 
   if (deployed && base !== null && eff !== null && eff < base) {
-    lines.push(`Worth cooling to ${eff.toFixed(0)}° tonight — humid air feels warmer`);
+    // Quote the ADJUSTMENT, not the target - "cool to 22°" sounds like nothing,
+    // "a degree deeper than usual" carries the point (user feedback 2026-07-13).
+    const delta = base - eff;
+    const deltaStr = delta % 1 === 0 ? delta.toFixed(0) : delta.toFixed(1);
+    lines.push(`Cool about ${deltaStr}° deeper than usual tonight — humid air feels warmer`);
   }
   return lines;
 }
