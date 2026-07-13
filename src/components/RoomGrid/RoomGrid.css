@@ -873,15 +873,19 @@
   direction: rtl; /* fill from right to left */
   row-gap: clamp(0.3rem, 1vw, 0.5rem);
   column-gap: clamp(0.4rem, 1vw, 0.6rem);
-  padding-bottom: clamp(0.35rem, 1vw, 0.6rem); /* add space under the last icon */
+  /* 4px top/right/left headroom: this is a scroll container, so it CLIPS at its
+     box edge - without it the count badges (absolute, top/right -4px) get their
+     tops cut off on the first icon row. Position compensates so the icons
+     themselves stay put. */
+  padding: 4px 4px clamp(0.35rem, 1vw, 0.6rem) 4px;
   flex-shrink: 0;
   max-height: 100%;
   overflow-y: auto;
   justify-content: flex-start;
   z-index: 3;
   position: absolute;
-  top: clamp(0.75rem, 2vw, 1rem);
-  right: clamp(0.75rem, 2vw, 1rem);
+  top: calc(clamp(0.75rem, 2vw, 1rem) - 4px);
+  right: calc(clamp(0.75rem, 2vw, 1rem) - 4px);
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
 }
