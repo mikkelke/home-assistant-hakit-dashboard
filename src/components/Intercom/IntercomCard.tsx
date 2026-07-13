@@ -1,6 +1,6 @@
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
-import { APARTMENT_DOOR_OPEN_ENTITY, resolveHallwayDoorSensorId } from '../../config/entities';
+import { APARTMENT_DOOR_OPEN_ENTITY, APARTMENT_ENTRY_SECURE_ENTITY, resolveHallwayDoorSensorId } from '../../config/entities';
 import './IntercomCard.css';
 
 interface IntercomCardProps {
@@ -24,7 +24,13 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
   const aptLock = entities?.[aptLockId];
   const aptDoorSensor = entities?.[aptDoorSensorId];
 
-  const aptLocked = aptLock?.state === 'locked';
+  // Entry truth middle layer: BLE-authoritative state + cloud-divergence knowledge.
+  // Falls back to the raw BLE lock when the semantic entity is unavailable.
+  const entrySecure = entities?.[APARTMENT_ENTRY_SECURE_ENTITY];
+  const entryAttrs = (entrySecure?.attributes ?? {}) as Record<string, unknown>;
+  const lockStateSource = typeof entryAttrs.lock_state === 'string' ? entryAttrs.lock_state : aptLock?.state;
+  const aptLocked = lockStateSource === 'locked';
+  const cloudStale = !!entrySecure && entryAttrs.cloud_agrees === false;
   const aptDoorOpen = aptDoorSensor?.state === 'on';
 
   // Show only if we have any relevant entity
@@ -98,6 +104,11 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
                 <Icon icon={aptLocked ? 'mdi:lock' : 'mdi:lock-open-variant'} />
                 <span>Apartment lock</span>
                 <span className={`apt-pill ${aptLocked ? 'locked' : 'unlocked'}`}>{aptLocked ? 'Locked' : 'Unlocked'}</span>
+                {cloudStale && (
+                  <span className='apt-pill stale' title={String(entryAttrs.reason ?? 'Yale cloud out of sync — the lock itself is authoritative')}>
+                    Yale app stale
+                  </span>
+                )}
               </div>
               <div className='apt-line'>
                 <Icon icon={aptDoorOpen ? 'mdi:door-open' : 'mdi:door-closed'} />

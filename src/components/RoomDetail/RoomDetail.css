@@ -550,3 +550,56 @@ button.room-info-item.room-info-action {
   transform: translateX(15px);
   background: #fff;
 }
+
+/* Bedroom night comfort row (middle layer sensor.bedroom_comfort) */
+.bedroom-comfort-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: rgba(18, 19, 22, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.bedroom-comfort-row > svg {
+  font-size: 1.4rem;
+  color: #71717a;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.bedroom-comfort-row.comfortable > svg { color: #34d399; }
+.bedroom-comfort-row.warm > svg { color: #fbbf24; }
+.bedroom-comfort-row.sticky > svg { color: #f59e0b; }
+.bedroom-comfort-row.hot > svg { color: #ef4444; }
+
+.comfort-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.comfort-state {
+  font-weight: 600;
+  color: #e4e4e7;
+  font-size: 0.9rem;
+}
+
+.comfort-detail {
+  font-size: 0.78rem;
+  color: #a1a1aa;
+}
+
+.comfort-vent {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: #34d399;
+}
+
+.comfort-vent svg {
+  font-size: 0.9rem;
+}

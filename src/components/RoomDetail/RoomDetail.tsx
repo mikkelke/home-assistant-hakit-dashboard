@@ -14,11 +14,39 @@ import { WeatherCard } from '../Weather';
 import { WasherCard } from '../Washer';
 import { DishwasherCard } from '../Dishwasher';
 import { DryerCard } from '../Dryer';
-import { ROBOT_CLEAN_PREFIX, VACUUM_ENTITY, isAcDeployed } from '../../config/entities';
+import { ROBOT_CLEAN_PREFIX, VACUUM_ENTITY, isAcDeployed, BEDROOM_COMFORT_SENSOR } from '../../config/entities';
 import { ROOM_LIGHT_MANUAL_OVERRIDE, ROOM_LIGHT_MANUAL_OVERRIDE_TIMEOUT_HOURS } from '../../config/lights';
 import { resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { useSwipeToClose } from '../../hooks';
 import './RoomDetail.css';
+
+// Bedroom night-comfort row (sensor.bedroom_comfort middle layer)
+const COMFORT_LABELS: Record<string, string> = {
+  comfortable: 'Comfortable night ahead',
+  warm: 'Warm night ahead',
+  sticky: 'Sticky night ahead',
+  hot: 'Hot night ahead',
+};
+
+const COMFORT_ICONS: Record<string, string> = {
+  comfortable: 'mdi:weather-night',
+  warm: 'mdi:thermometer',
+  sticky: 'mdi:water-percent',
+  hot: 'mdi:thermometer-high',
+};
+
+function comfortDetail(attrs: Record<string, unknown>): string {
+  const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  const dp = num(attrs.dew_point);
+  const dpMorning = num(attrs.dew_point_morning);
+  const base = num(attrs.ceiling_base);
+  const eff = num(attrs.ceiling_effective);
+  const parts: string[] = [];
+  if (dp !== null && dpMorning !== null) parts.push(`Dew point ${dp.toFixed(1)}° → ${dpMorning.toFixed(1)}° by morning`);
+  else if (dp !== null) parts.push(`Dew point ${dp.toFixed(1)}°`);
+  if (base !== null && eff !== null && eff < base) parts.push(`ceiling ${base.toFixed(1)}° → ${eff.toFixed(1)}°`);
+  return parts.join(' · ');
+}
 
 export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMobile }: RoomDetailProps) {
   const [showRoomInfo, setShowRoomInfo] = useState(false);
@@ -49,6 +77,7 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
   const cleaningToggle = entities?.[cleaningToggleId];
 
   const isBedroom = area.name.toLowerCase() === 'bedroom';
+  const bedroomComfort = isBedroom ? entities?.[BEDROOM_COMFORT_SENSOR] : undefined;
   const isHallway = area.name.toLowerCase() === 'hallway';
   const isRooftop = area.area_id === 'rooftop' || area.name.toLowerCase().replace(/\s+/g, '_') === 'rooftop';
   const isLivingRoom = area.name.toLowerCase() === 'living room' || area.name.toLowerCase() === 'living_room';
@@ -226,6 +255,27 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
 
         {/* Smart cooling — autonomous price-aware pre-cool + comfort (AppDaemon SmartCooling app) */}
         {isBedroom && isAcDeployed(entities) && <SmartCoolingCard entities={entities} callService={callService} />}
+
+        {/* Bedroom night comfort (middle layer) — deliberately OUTSIDE SmartCoolingCard,
+            which hides while the AC is stored: that is exactly when "worth deploying
+            tonight?" needs an answer on the wall. */}
+        {bedroomComfort && (
+          <div
+            className={`bedroom-comfort-row ${bedroomComfort.state}`}
+            title={String((bedroomComfort.attributes as Record<string, unknown>)?.reason ?? '')}
+          >
+            <Icon icon={COMFORT_ICONS[bedroomComfort.state] ?? 'mdi:bed-clock'} />
+            <div className='comfort-text'>
+              <span className='comfort-state'>{COMFORT_LABELS[bedroomComfort.state] ?? bedroomComfort.state}</span>
+              <span className='comfort-detail'>{comfortDetail(bedroomComfort.attributes as Record<string, unknown>)}</span>
+              {(bedroomComfort.attributes as Record<string, unknown>)?.vent_helps === true && (
+                <span className='comfort-vent'>
+                  <Icon icon='mdi:window-open-variant' /> Venting helps — outdoor is cooler and drier
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Climate Card */}
         {climate && <ClimateCard areaName={area.name} entities={entities} callService={callService} />}
