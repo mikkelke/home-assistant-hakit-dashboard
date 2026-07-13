@@ -3,8 +3,7 @@ import { Icon } from '@iconify/react';
 import type { RoomDetailProps } from '../../types';
 import { SonosPlayer, TVCard } from '../MediaPlayer';
 import { ClimateCard } from '../Climate';
-import { AcCard } from '../AC';
-import { SmartCoolingCard } from '../SmartCooling';
+import { CoolingModule } from '../AC';
 import { CoverCard } from '../Cover';
 import { VacuumCard, RoomCleaningToggle } from '../Vacuum';
 import { LightCard } from '../Light';
@@ -14,65 +13,11 @@ import { WeatherCard } from '../Weather';
 import { WasherCard } from '../Washer';
 import { DishwasherCard } from '../Dishwasher';
 import { DryerCard } from '../Dryer';
-import {
-  ROBOT_CLEAN_PREFIX,
-  VACUUM_ENTITY,
-  isAcDeployed,
-  BEDROOM_COMFORT_SENSOR,
-  BEDROOM_NIGHT_PROJECTION_SENSOR,
-} from '../../config/entities';
+import { ROBOT_CLEAN_PREFIX, VACUUM_ENTITY } from '../../config/entities';
 import { ROOM_LIGHT_MANUAL_OVERRIDE, ROOM_LIGHT_MANUAL_OVERRIDE_TIMEOUT_HOURS } from '../../config/lights';
 import { resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { useSwipeToClose } from '../../hooks';
 import './RoomDetail.css';
-
-// Bedroom night-comfort row (sensor.bedroom_comfort middle layer)
-const COMFORT_LABELS: Record<string, string> = {
-  comfortable: 'Comfortable night ahead',
-  warm: 'Warm night ahead',
-  sticky: 'Sticky night ahead',
-  hot: 'Hot night ahead',
-};
-
-const COMFORT_ICONS: Record<string, string> = {
-  comfortable: 'mdi:weather-night',
-  warm: 'mdi:thermometer',
-  sticky: 'mdi:water-percent',
-  hot: 'mdi:thermometer-high',
-};
-
-function comfortDetail(attrs: Record<string, unknown>): string {
-  const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
-  const dp = num(attrs.dew_point);
-  const dpMorning = num(attrs.dew_point_morning);
-  const base = num(attrs.ceiling_base);
-  const eff = num(attrs.ceiling_effective);
-  const parts: string[] = [];
-  if (dp !== null && dpMorning !== null) parts.push(`Dew point ${dp.toFixed(1)}° → ${dpMorning.toFixed(1)}° by morning`);
-  else if (dp !== null) parts.push(`Dew point ${dp.toFixed(1)}°`);
-  if (base !== null && eff !== null && eff < base) parts.push(`ceiling ${base.toFixed(1)}° → ${eff.toFixed(1)}°`);
-  return parts.join(' · ');
-}
-
-// Night projection row (sensor.bedroom_night_projection, DeployAdvisor middle layer).
-// Shown whether or not the AC is deployed - "worth setting it up?" is exactly the
-// stored-away question.
-type ProjectedNight = { date: string; peak: number; over_ceiling?: unknown };
-
-function projectionNights(attrs: Record<string, unknown>): ProjectedNight[] {
-  const raw = attrs.nights;
-  if (!Array.isArray(raw)) return [];
-  return raw.filter(
-    (n): n is ProjectedNight => !!n && typeof (n as ProjectedNight).date === 'string' && typeof (n as ProjectedNight).peak === 'number'
-  );
-}
-
-function nightLabel(date: string, index: number): string {
-  if (index === 0) return 'Tonight';
-  return new Date(`${date}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short' });
-}
-
-const nightIsOver = (n: ProjectedNight) => n.over_ceiling === true || n.over_ceiling === 'true';
 
 export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMobile }: RoomDetailProps) {
   const [showRoomInfo, setShowRoomInfo] = useState(false);
@@ -103,9 +48,6 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
   const cleaningToggle = entities?.[cleaningToggleId];
 
   const isBedroom = area.name.toLowerCase() === 'bedroom';
-  const bedroomComfort = isBedroom ? entities?.[BEDROOM_COMFORT_SENSOR] : undefined;
-  const nightProjection = isBedroom ? entities?.[BEDROOM_NIGHT_PROJECTION_SENSOR] : undefined;
-  const projNights = nightProjection ? projectionNights(nightProjection.attributes as Record<string, unknown>).slice(0, 3) : [];
   const isHallway = area.name.toLowerCase() === 'hallway';
   const isRooftop = area.area_id === 'rooftop' || area.name.toLowerCase().replace(/\s+/g, '_') === 'rooftop';
   const isLivingRoom = area.name.toLowerCase() === 'living room' || area.name.toLowerCase() === 'living_room';
@@ -278,49 +220,9 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
           </button>
         )}
 
-        {/* Portable AC (Midea porta split) — bedroom only, auto-appears while deployed */}
-        {isBedroom && isAcDeployed(entities) && <AcCard entities={entities} callService={callService} />}
-
-        {/* Smart cooling — autonomous price-aware pre-cool + comfort (AppDaemon SmartCooling app) */}
-        {isBedroom && isAcDeployed(entities) && <SmartCoolingCard entities={entities} callService={callService} />}
-
-        {/* Bedroom night comfort (middle layer) — deliberately OUTSIDE SmartCoolingCard,
-            which hides while the AC is stored: that is exactly when "worth deploying
-            tonight?" needs an answer on the wall. */}
-        {bedroomComfort && (
-          <div
-            className={`bedroom-comfort-row ${bedroomComfort.state}`}
-            title={String((bedroomComfort.attributes as Record<string, unknown>)?.reason ?? '')}
-          >
-            <Icon icon={COMFORT_ICONS[bedroomComfort.state] ?? 'mdi:bed-clock'} />
-            <div className='comfort-text'>
-              <span className='comfort-state'>{COMFORT_LABELS[bedroomComfort.state] ?? bedroomComfort.state}</span>
-              <span className='comfort-detail'>{comfortDetail(bedroomComfort.attributes as Record<string, unknown>)}</span>
-              {(bedroomComfort.attributes as Record<string, unknown>)?.vent_helps === true && (
-                <span className='comfort-vent'>
-                  <Icon icon='mdi:window-open-variant' /> Venting helps — outdoor is cooler and drier
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Projected night peaks without cooling (DeployAdvisor) — the "worth
-            setting up the AC?" answer, most useful while the unit is stored. */}
-        {nightProjection && projNights.length > 0 && (
-          <div className='night-projection-row' title={String((nightProjection.attributes as Record<string, unknown>)?.reason ?? '')}>
-            <Icon icon='mdi:weather-night' />
-            <div className='projection-nights'>
-              {projNights.map((n, i) => (
-                <div key={n.date} className={`projection-night ${nightIsOver(n) ? 'over' : ''}`}>
-                  <span className='pn-day'>{nightLabel(n.date, i)}</span>
-                  <span className='pn-peak'>{n.peak.toFixed(1)}°</span>
-                </div>
-              ))}
-            </div>
-            <span className='projection-note'>{projNights.some(nightIsOver) ? 'AC worth deploying' : 'no cooling needed'}</span>
-          </div>
-        )}
+        {/* Cooling — one fold-out module: comfort layer + night projection (always)
+            plus the AC + SmartCooling cards while the unit is deployed. */}
+        {isBedroom && <CoolingModule entities={entities} callService={callService} />}
 
         {/* Climate Card */}
         {climate && <ClimateCard areaName={area.name} entities={entities} callService={callService} />}
