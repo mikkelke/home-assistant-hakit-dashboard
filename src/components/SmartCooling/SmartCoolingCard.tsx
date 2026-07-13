@@ -200,8 +200,8 @@ export function SmartCoolingCard({ entities, callService }: SmartCoolingCardProp
           <button type='button' className={`sc-toggle ${masterOn ? 'on' : ''}`} onClick={() => toggleBool(SMART_COOLING_ENABLE, masterOn)}>
             <Icon icon='mdi:power' />
             <div className='sc-toggle-text'>
-              <span>Automation</span>
-              <small>{masterOn ? 'On — controls the AC' : 'Off — AC stays off'}</small>
+              <span>Cool night</span>
+              <small>{masterOn ? 'On — takes care of tonight, humidity included' : 'Off — you control the AC yourself'}</small>
             </div>
             <div className={`sc-switch ${masterOn ? 'on' : ''}`}>
               <div className='sc-knob' />

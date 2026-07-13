@@ -3,7 +3,13 @@ import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { AcCard } from './AcCard';
 import { SmartCoolingCard } from '../SmartCooling';
-import { isAcDeployed, AC_THERMOSTAT_ENTITY, BEDROOM_COMFORT_SENSOR, BEDROOM_NIGHT_PROJECTION_SENSOR } from '../../config/entities';
+import {
+  isAcDeployed,
+  AC_THERMOSTAT_ENTITY,
+  SMART_COOLING_ENABLE,
+  BEDROOM_COMFORT_SENSOR,
+  BEDROOM_NIGHT_PROJECTION_SENSOR,
+} from '../../config/entities';
 import './CoolingModule.css';
 
 // One fold-out module for everything cooling-related in the bedroom:
@@ -32,7 +38,7 @@ const COMFORT_ICONS: Record<string, string> = {
 // Human copy, not telemetry: one sentence about how the night will FEEL, and a
 // second one only when there is something to act on. The full technical reason
 // stays available as the row's hover/long-press title.
-function comfortDetail(state: string, attrs: Record<string, unknown>, deployed: boolean): string[] {
+function comfortDetail(state: string, attrs: Record<string, unknown>, deployed: boolean, armed: boolean): string[] {
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
   const dpMorning = num(attrs.dew_point_morning);
   const eff = num(attrs.ceiling_effective);
@@ -46,11 +52,15 @@ function comfortDetail(state: string, attrs: Record<string, unknown>, deployed: 
   else if (state === 'comfortable') lines.push(humidNight ? 'Mild night, though the air turns humid' : 'Cool, dry air overnight');
 
   if (deployed && base !== null && eff !== null && eff < base) {
-    // Quote the ADJUSTMENT, not the target - "cool to 22°" sounds like nothing,
-    // "a degree deeper than usual" carries the point (user feedback 2026-07-13).
+    // Quote the ADJUSTMENT, not the target - and address the right actor: when
+    // Cool night is armed the automation handles the depth itself (user 2026-07-13).
     const delta = base - eff;
     const deltaStr = delta % 1 === 0 ? delta.toFixed(0) : delta.toFixed(1);
-    lines.push(`Cool about ${deltaStr}° deeper than usual tonight — humid air feels warmer`);
+    lines.push(
+      armed
+        ? `Cool night will run about ${deltaStr}° deeper — humid air feels warmer`
+        : `Cool about ${deltaStr}° deeper than usual tonight — humid air feels warmer`
+    );
   }
   return lines;
 }
@@ -76,6 +86,7 @@ export function CoolingModule({ entities, callService }: CoolingModuleProps) {
   const [expanded, setExpanded] = useState(false);
 
   const deployed = isAcDeployed(entities);
+  const armed = entities?.[SMART_COOLING_ENABLE]?.state === 'on';
   const acState = entities?.[AC_THERMOSTAT_ENTITY]?.state;
   const comfort = entities?.[BEDROOM_COMFORT_SENSOR];
   const projection = entities?.[BEDROOM_NIGHT_PROJECTION_SENSOR];
@@ -94,9 +105,11 @@ export function CoolingModule({ entities, callService }: CoolingModuleProps) {
   const subtitle = subtitleParts.join(' · ') || (deployed ? 'AC deployed' : 'AC stored');
 
   const pill = deployed
-    ? acState === 'off'
-      ? { label: 'AC idle', cls: 'idle' }
-      : { label: 'AC on', cls: 'on' }
+    ? armed
+      ? { label: 'Auto', cls: 'on' }
+      : acState === 'off'
+        ? { label: 'AC idle', cls: 'idle' }
+        : { label: 'AC on', cls: 'on' }
     : anyOver
       ? { label: 'Deploy?', cls: 'warn' }
       : { label: 'Stored', cls: 'idle' };
@@ -123,7 +136,7 @@ export function CoolingModule({ entities, callService }: CoolingModuleProps) {
               <Icon icon={COMFORT_ICONS[comfortState] ?? 'mdi:bed-clock'} />
               <div className='comfort-text'>
                 <span className='comfort-state'>{COMFORT_LABELS[comfortState] ?? comfortState}</span>
-                {comfortDetail(comfortState, comfort.attributes as Record<string, unknown>, deployed).map(line => (
+                {comfortDetail(comfortState, comfort.attributes as Record<string, unknown>, deployed, armed).map(line => (
                   <span key={line} className='comfort-detail'>
                     {line}
                   </span>
