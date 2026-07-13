@@ -143,18 +143,10 @@ export function SmartCoolingCard({ entities, callService }: SmartCoolingCardProp
   const floorLimited = a.floor_limited === true || attrStr(a.floor_limited) === 'true';
   const dryRun = a.dry_run === true || attrStr(a.dry_run) === 'true';
   const nightCeiling = attrNum(entities?.[SMART_COOLING_NIGHT_CEILING]?.state, attrNum(a.ceiling_base, 23));
-  const planCeiling = attrNum(a.night_ceiling, NaN); // effective ceiling the app plans against
   const reason = attrStr(a.reason);
 
-  // Bedroom comfort middle layer (sensor.bedroom_comfort)
-  const comfortEnt = entities?.[BEDROOM_COMFORT_SENSOR];
-  const ca = (comfortEnt?.attributes ?? {}) as Record<string, unknown>;
-  const comfortState = comfortEnt?.state ?? '';
-  const dewPoint = attrNum(ca.dew_point, NaN);
-  const dewMorning = attrNum(ca.dew_point_morning, NaN);
-  const ceilingEff = attrNum(ca.ceiling_effective, planCeiling);
-  const ventHelps = ca.vent_helps === true;
-  const ventReason = attrStr(ca.vent_reason);
+  // Outdoor reading comes via the comfort middle layer (its own display lives in CoolingModule)
+  const ca = (entities?.[BEDROOM_COMFORT_SENSOR]?.attributes ?? {}) as Record<string, unknown>;
   const outdoor = attrNum(ca.outdoor_temperature, NaN);
   const windowOpen = a.window_open === true || attrStr(a.window_open) === 'true';
   const isActive = state.startsWith('cooling') || state.startsWith('comfort');
@@ -250,23 +242,7 @@ export function SmartCoolingCard({ entities, callService }: SmartCoolingCardProp
             </button>
           )}
 
-          {comfortEnt && (
-            <div className='sc-rating'>
-              <Icon icon='mdi:water-percent' />
-              {comfortState || '—'}
-              {Number.isFinite(dewPoint) ? ` · dew point ${dewPoint.toFixed(1)}°` : ''}
-              {Number.isFinite(dewMorning) ? ` → ${dewMorning.toFixed(1)}° by morning` : ''}
-              {Number.isFinite(ceilingEff) && ceilingEff < nightCeiling
-                ? ` · ceiling ${nightCeiling.toFixed(1)}° → ${ceilingEff.toFixed(1)}° (humid night)`
-                : ''}
-            </div>
-          )}
-          {comfortEnt && ventHelps && (
-            <div className='sc-rating'>
-              <Icon icon='mdi:window-open-variant' /> Venting helps — {ventReason}
-            </div>
-          )}
-
+          {/* Comfort/humidity display lives in the CoolingModule wrapper - not repeated here. */}
           {masterOn && (
             <>
               <div className='sc-plan'>

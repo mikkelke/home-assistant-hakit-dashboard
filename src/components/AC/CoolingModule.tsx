@@ -3,12 +3,7 @@ import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { AcCard } from './AcCard';
 import { SmartCoolingCard } from '../SmartCooling';
-import {
-  isAcDeployed,
-  AC_THERMOSTAT_ENTITY,
-  BEDROOM_COMFORT_SENSOR,
-  BEDROOM_NIGHT_PROJECTION_SENSOR,
-} from '../../config/entities';
+import { isAcDeployed, AC_THERMOSTAT_ENTITY, BEDROOM_COMFORT_SENSOR, BEDROOM_NIGHT_PROJECTION_SENSOR } from '../../config/entities';
 import './CoolingModule.css';
 
 // One fold-out module for everything cooling-related in the bedroom:
@@ -34,17 +29,26 @@ const COMFORT_ICONS: Record<string, string> = {
   hot: 'mdi:thermometer-high',
 };
 
-function comfortDetail(attrs: Record<string, unknown>): string {
+// Human copy, not telemetry: one sentence about how the night will FEEL, and a
+// second one only when there is something to act on. The full technical reason
+// stays available as the row's hover/long-press title.
+function comfortDetail(state: string, attrs: Record<string, unknown>, deployed: boolean): string[] {
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
-  const dp = num(attrs.dew_point);
   const dpMorning = num(attrs.dew_point_morning);
-  const base = num(attrs.ceiling_base);
   const eff = num(attrs.ceiling_effective);
-  const parts: string[] = [];
-  if (dp !== null && dpMorning !== null) parts.push(`Dew point ${dp.toFixed(1)}° → ${dpMorning.toFixed(1)}° by morning`);
-  else if (dp !== null) parts.push(`Dew point ${dp.toFixed(1)}°`);
-  if (base !== null && eff !== null && eff < base) parts.push(`ceiling ${base.toFixed(1)}° → ${eff.toFixed(1)}°`);
-  return parts.join(' · ');
+  const base = num(attrs.ceiling_base);
+  const humidNight = dpMorning !== null && dpMorning >= 13.5;
+
+  const lines: string[] = [];
+  if (state === 'sticky') lines.push('Humidity builds up overnight — it will feel warmer than it is');
+  else if (state === 'warm') lines.push('The bedroom stays warm through the night');
+  else if (state === 'hot') lines.push('Too warm for good sleep without cooling');
+  else if (state === 'comfortable') lines.push(humidNight ? 'Mild night, though the air turns humid' : 'Cool, dry air overnight');
+
+  if (deployed && base !== null && eff !== null && eff < base) {
+    lines.push(`Worth cooling to ${eff.toFixed(0)}° tonight — humid air feels warmer`);
+  }
+  return lines;
 }
 
 type ProjectedNight = { date: string; peak: number; over_ceiling?: unknown };
@@ -81,7 +85,8 @@ export function CoolingModule({ entities, callService }: CoolingModuleProps) {
 
   const subtitleParts: string[] = [];
   if (comfort) subtitleParts.push(COMFORT_LABELS[comfortState] ?? comfortState);
-  if (tonight) subtitleParts.push(`tonight ~${tonight.peak.toFixed(1)}°`);
+  // The projected peak assumes NO cooling - only meaningful while the unit is stored.
+  if (!deployed && tonight) subtitleParts.push(`up to ${tonight.peak.toFixed(1)}° tonight`);
   const subtitle = subtitleParts.join(' · ') || (deployed ? 'AC deployed' : 'AC stored');
 
   const pill = deployed
@@ -114,10 +119,14 @@ export function CoolingModule({ entities, callService }: CoolingModuleProps) {
               <Icon icon={COMFORT_ICONS[comfortState] ?? 'mdi:bed-clock'} />
               <div className='comfort-text'>
                 <span className='comfort-state'>{COMFORT_LABELS[comfortState] ?? comfortState}</span>
-                <span className='comfort-detail'>{comfortDetail(comfort.attributes as Record<string, unknown>)}</span>
+                {comfortDetail(comfortState, comfort.attributes as Record<string, unknown>, deployed).map(line => (
+                  <span key={line} className='comfort-detail'>
+                    {line}
+                  </span>
+                ))}
                 {(comfort.attributes as Record<string, unknown>)?.vent_helps === true && (
                   <span className='comfort-vent'>
-                    <Icon icon='mdi:window-open-variant' /> Venting helps — outdoor is cooler and drier
+                    <Icon icon='mdi:window-open-variant' /> Open a window — the air outside is cooler and drier
                   </span>
                 )}
               </div>
