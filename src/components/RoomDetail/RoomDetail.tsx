@@ -63,8 +63,7 @@ function projectionNights(attrs: Record<string, unknown>): ProjectedNight[] {
   const raw = attrs.nights;
   if (!Array.isArray(raw)) return [];
   return raw.filter(
-    (n): n is ProjectedNight =>
-      !!n && typeof (n as ProjectedNight).date === 'string' && typeof (n as ProjectedNight).peak === 'number'
+    (n): n is ProjectedNight => !!n && typeof (n as ProjectedNight).date === 'string' && typeof (n as ProjectedNight).peak === 'number'
   );
 }
 
@@ -106,9 +105,7 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
   const isBedroom = area.name.toLowerCase() === 'bedroom';
   const bedroomComfort = isBedroom ? entities?.[BEDROOM_COMFORT_SENSOR] : undefined;
   const nightProjection = isBedroom ? entities?.[BEDROOM_NIGHT_PROJECTION_SENSOR] : undefined;
-  const projNights = nightProjection
-    ? projectionNights(nightProjection.attributes as Record<string, unknown>).slice(0, 3)
-    : [];
+  const projNights = nightProjection ? projectionNights(nightProjection.attributes as Record<string, unknown>).slice(0, 3) : [];
   const isHallway = area.name.toLowerCase() === 'hallway';
   const isRooftop = area.area_id === 'rooftop' || area.name.toLowerCase().replace(/\s+/g, '_') === 'rooftop';
   const isLivingRoom = area.name.toLowerCase() === 'living room' || area.name.toLowerCase() === 'living_room';
@@ -311,10 +308,7 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
         {/* Projected night peaks without cooling (DeployAdvisor) — the "worth
             setting up the AC?" answer, most useful while the unit is stored. */}
         {nightProjection && projNights.length > 0 && (
-          <div
-            className='night-projection-row'
-            title={String((nightProjection.attributes as Record<string, unknown>)?.reason ?? '')}
-          >
+          <div className='night-projection-row' title={String((nightProjection.attributes as Record<string, unknown>)?.reason ?? '')}>
             <Icon icon='mdi:weather-night' />
             <div className='projection-nights'>
               {projNights.map((n, i) => (
@@ -324,9 +318,7 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
                 </div>
               ))}
             </div>
-            <span className='projection-note'>
-              {projNights.some(nightIsOver) ? 'AC worth deploying' : 'no cooling needed'}
-            </span>
+            <span className='projection-note'>{projNights.some(nightIsOver) ? 'AC worth deploying' : 'no cooling needed'}</span>
           </div>
         )}
 
