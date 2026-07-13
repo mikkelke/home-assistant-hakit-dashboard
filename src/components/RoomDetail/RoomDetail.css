@@ -603,3 +603,68 @@ button.room-info-item.room-info-action {
 .comfort-vent svg {
   font-size: 0.9rem;
 }
+
+/* Night projection row (DeployAdvisor) - projected sleeping-zone peaks without cooling */
+.night-projection-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: rgba(18, 19, 22, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.night-projection-row > svg {
+  font-size: 1.4rem;
+  color: #818cf8;
+  flex-shrink: 0;
+}
+
+.projection-nights {
+  display: flex;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.projection-night {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 0.3rem 0.55rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.projection-night.over {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.pn-day {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #a1a1aa;
+}
+
+.pn-peak {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.projection-night.over .pn-peak {
+  color: #f87171;
+}
+
+.projection-note {
+  font-size: 0.7rem;
+  color: #a1a1aa;
+  text-align: right;
+  flex-shrink: 0;
+  max-width: 5.5rem;
+}

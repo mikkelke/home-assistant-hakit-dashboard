@@ -105,7 +105,10 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
                 <span>Apartment lock</span>
                 <span className={`apt-pill ${aptLocked ? 'locked' : 'unlocked'}`}>{aptLocked ? 'Locked' : 'Unlocked'}</span>
                 {cloudStale && (
-                  <span className='apt-pill stale' title={String(entryAttrs.reason ?? 'Yale cloud out of sync — the lock itself is authoritative')}>
+                  <span
+                    className='apt-pill stale'
+                    title={String(entryAttrs.reason ?? 'Yale cloud out of sync — the lock itself is authoritative')}
+                  >
                     Yale app stale
                   </span>
                 )}

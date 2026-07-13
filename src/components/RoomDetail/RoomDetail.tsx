@@ -14,7 +14,13 @@ import { WeatherCard } from '../Weather';
 import { WasherCard } from '../Washer';
 import { DishwasherCard } from '../Dishwasher';
 import { DryerCard } from '../Dryer';
-import { ROBOT_CLEAN_PREFIX, VACUUM_ENTITY, isAcDeployed, BEDROOM_COMFORT_SENSOR } from '../../config/entities';
+import {
+  ROBOT_CLEAN_PREFIX,
+  VACUUM_ENTITY,
+  isAcDeployed,
+  BEDROOM_COMFORT_SENSOR,
+  BEDROOM_NIGHT_PROJECTION_SENSOR,
+} from '../../config/entities';
 import { ROOM_LIGHT_MANUAL_OVERRIDE, ROOM_LIGHT_MANUAL_OVERRIDE_TIMEOUT_HOURS } from '../../config/lights';
 import { resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { useSwipeToClose } from '../../hooks';
@@ -48,6 +54,27 @@ function comfortDetail(attrs: Record<string, unknown>): string {
   return parts.join(' · ');
 }
 
+// Night projection row (sensor.bedroom_night_projection, DeployAdvisor middle layer).
+// Shown whether or not the AC is deployed - "worth setting it up?" is exactly the
+// stored-away question.
+type ProjectedNight = { date: string; peak: number; over_ceiling?: unknown };
+
+function projectionNights(attrs: Record<string, unknown>): ProjectedNight[] {
+  const raw = attrs.nights;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (n): n is ProjectedNight =>
+      !!n && typeof (n as ProjectedNight).date === 'string' && typeof (n as ProjectedNight).peak === 'number'
+  );
+}
+
+function nightLabel(date: string, index: number): string {
+  if (index === 0) return 'Tonight';
+  return new Date(`${date}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short' });
+}
+
+const nightIsOver = (n: ProjectedNight) => n.over_ceiling === true || n.over_ceiling === 'true';
+
 export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMobile }: RoomDetailProps) {
   const [showRoomInfo, setShowRoomInfo] = useState(false);
   // Clock for the manual-override countdown. Held in state (render must stay pure per
@@ -78,6 +105,10 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
 
   const isBedroom = area.name.toLowerCase() === 'bedroom';
   const bedroomComfort = isBedroom ? entities?.[BEDROOM_COMFORT_SENSOR] : undefined;
+  const nightProjection = isBedroom ? entities?.[BEDROOM_NIGHT_PROJECTION_SENSOR] : undefined;
+  const projNights = nightProjection
+    ? projectionNights(nightProjection.attributes as Record<string, unknown>).slice(0, 3)
+    : [];
   const isHallway = area.name.toLowerCase() === 'hallway';
   const isRooftop = area.area_id === 'rooftop' || area.name.toLowerCase().replace(/\s+/g, '_') === 'rooftop';
   const isLivingRoom = area.name.toLowerCase() === 'living room' || area.name.toLowerCase() === 'living_room';
@@ -274,6 +305,28 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
                 </span>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Projected night peaks without cooling (DeployAdvisor) — the "worth
+            setting up the AC?" answer, most useful while the unit is stored. */}
+        {nightProjection && projNights.length > 0 && (
+          <div
+            className='night-projection-row'
+            title={String((nightProjection.attributes as Record<string, unknown>)?.reason ?? '')}
+          >
+            <Icon icon='mdi:weather-night' />
+            <div className='projection-nights'>
+              {projNights.map((n, i) => (
+                <div key={n.date} className={`projection-night ${nightIsOver(n) ? 'over' : ''}`}>
+                  <span className='pn-day'>{nightLabel(n.date, i)}</span>
+                  <span className='pn-peak'>{n.peak.toFixed(1)}°</span>
+                </div>
+              ))}
+            </div>
+            <span className='projection-note'>
+              {projNights.some(nightIsOver) ? 'AC worth deploying' : 'no cooling needed'}
+            </span>
           </div>
         )}
 

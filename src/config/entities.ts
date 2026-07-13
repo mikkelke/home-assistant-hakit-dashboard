@@ -197,6 +197,9 @@ export const SMART_COOLING_NIGHT_CEILING = 'input_number.smart_cooling_night_cei
 /** Bedroom comfort middle layer (AppDaemon BedroomComfort): dew point, effective ceiling, vent advice. */
 export const BEDROOM_COMFORT_SENSOR = 'sensor.bedroom_comfort';
 
+/** AC deploy advisor (AppDaemon DeployAdvisor): projected sleeping-zone night peaks without cooling. */
+export const BEDROOM_NIGHT_PROJECTION_SENSOR = 'sensor.bedroom_night_projection';
+
 /** Entry arbitration middle layer (AppDaemon EntryTruth): BLE-authoritative lock + door fused, cloud_agrees flag. */
 export const APARTMENT_ENTRY_SECURE_ENTITY = 'binary_sensor.apartment_entry_secure';
 
