@@ -39,8 +39,8 @@ function formatPriceLabel(value: number): string {
 }
 
 /** "00/06/12/18" ticks across every local day the horizon touches, plus (at each local midnight) a
- * day marker — "i morgen" for the first day boundary the horizon crosses, the da-DK weekday name
- * for the next one — component Date math (DST-safe). */
+ * day marker — "tomorrow" for the first day boundary the horizon crosses, the browser-default-locale
+ * weekday name for the next one — component Date math (DST-safe). */
 function hourTicksFor(rangeStartMs: number, rangeEndMs: number, todayStartMs: number): HourTick[] {
   const ticks: HourTick[] = [];
   for (let day = startOfLocalDay(rangeStartMs); day < rangeEndMs; day = addDays(day, 1)) {
@@ -51,7 +51,7 @@ function hourTicksFor(rangeStartMs: number, rangeEndMs: number, todayStartMs: nu
       let dayLabel: string | null = null;
       if (hour === 0) {
         const dayOffset = localDayIndex(todayStartMs, ms);
-        dayLabel = dayOffset <= 1 ? 'i morgen' : new Date(ms).toLocaleDateString('da-DK', { weekday: 'long' });
+        dayLabel = dayOffset <= 1 ? 'tomorrow' : new Date(ms).toLocaleDateString(undefined, { weekday: 'long' });
       }
       ticks.push({ ms, hourLabel: String(hour).padStart(2, '0'), dayLabel });
     }
@@ -107,7 +107,7 @@ export function PriceForecast({ forecast, nowMs }: PriceForecastProps) {
   return (
     <div className='price-forecast'>
       <div className='price-forecast-header'>
-        <h2>Prisprognose · næste 48 timer</h2>
+        <h2>Price forecast · next 48 hours</h2>
       </div>
 
       <svg className='price-forecast-svg' viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}>
@@ -190,20 +190,20 @@ export function PriceForecast({ forecast, nowMs }: PriceForecastProps) {
           <>
             <span className='price-forecast-legend-item'>
               <span className='price-forecast-legend-swatch' />
-              spotpris (i morgen)
+              day-ahead (tomorrow)
             </span>
             <span className='price-forecast-legend-item'>
               <span className='price-forecast-legend-swatch price-forecast-legend-swatch--dashed' />
-              Carnot-prognose
+              Carnot forecast
             </span>
           </>
         ) : (
           <>
             <span className='price-forecast-legend-item'>
               <span className='price-forecast-legend-swatch price-forecast-legend-swatch--dashed' />
-              Carnot-prognose
+              Carnot forecast
             </span>
-            <span className='price-forecast-legend-note'>spotpriser for i morgen kommer ca. 13.35</span>
+            <span className='price-forecast-legend-note'>day-ahead prices for tomorrow arrive ~13:35</span>
           </>
         )}
       </div>

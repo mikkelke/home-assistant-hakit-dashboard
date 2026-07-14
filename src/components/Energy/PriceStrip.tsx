@@ -33,7 +33,7 @@ function formatPriceLabel(value: number): string {
 
 /** Day view only: hourly price curve under the consumption bars, sharing their x-scale (same
  * PAD.left/right). Step-after line — price is constant within the hour, never diagonally
- * interpolated — with a 17–21 peak-window band, direct min/max labels and a live "nu" marker. */
+ * interpolated — with a 17–21 peak-window band, direct min/max labels and a live "now" marker. */
 export function PriceStrip({ series, rangeStartMs, rangeEndMs, selectedMs }: PriceStripProps) {
   const plotWidth = VIEW_WIDTH - PAD.left - PAD.right;
   const plotBottom = VIEW_HEIGHT - PAD.bottom;
@@ -82,7 +82,7 @@ export function PriceStrip({ series, rangeStartMs, rangeEndMs, selectedMs }: Pri
           <g>
             <rect x={peakX1} y={PAD.top} width={peakX2 - peakX1} height={plotHeight} className='price-strip-peak-band' />
             <text x={peakX2 - 4} y={PAD.top + 9} textAnchor='end' className='price-strip-peak-label'>
-              spidslast
+              peak
             </text>
           </g>
         )}

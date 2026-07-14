@@ -41,7 +41,7 @@ export function DeviceDialog({ device, period, anchorStartMs, rangeEndMs, onClos
   const { config } = useEnergyConfig();
 
   // Clock-in-state (purity lint forbids a bare Date.now() in render): read once at mount, used
-  // only to phrase the period label ("I dag" vs a weekday name) the same way the page itself does.
+  // only to phrase the period label ("Today" vs a weekday name) the same way the page itself does.
   const [todayStartMs] = useState(() => startOfLocalDay(Date.now()));
   const [exactResult, setExactResult] = useState<ExactResult>(EMPTY_EXACT_RESULT);
 
@@ -77,12 +77,12 @@ export function DeviceDialog({ device, period, anchorStartMs, rangeEndMs, onClos
   }, [connection, priceStatId, exactKey, device.statId, anchorStartMs, rangeEndMs]);
 
   const exactLabel = (() => {
-    if (period === 'year') return 'Eksakt beregning er ikke tilgængelig for år';
-    if (config == null) return 'Beregner …'; // config still resolving (module-cached — normally near-instant)
-    if (!priceStatId || !exactKey) return 'Kan ikke beregnes eksakt'; // no price stat configured
-    if (exactResult.key !== exactKey) return 'Beregner …'; // fetch for the current inputs hasn't resolved yet
-    if (exactResult.costKr == null) return 'Kan ikke beregnes eksakt';
-    return `Eksakt: ${formatKr(exactResult.costKr)}`;
+    if (period === 'year') return 'Exact calculation is not available for the year view';
+    if (config == null) return 'Calculating …'; // config still resolving (module-cached — normally near-instant)
+    if (!priceStatId || !exactKey) return 'Exact cost unavailable'; // no price stat configured
+    if (exactResult.key !== exactKey) return 'Calculating …'; // fetch for the current inputs hasn't resolved yet
+    if (exactResult.costKr == null) return 'Exact cost unavailable';
+    return `Exact: ${formatKr(exactResult.costKr)}`;
   })();
 
   return (
@@ -96,7 +96,7 @@ export function DeviceDialog({ device, period, anchorStartMs, rangeEndMs, onClos
       >
         <div className='device-dialog-header'>
           <h2 id='device-dialog-title'>{device.name}</h2>
-          <button className='device-dialog-close modal-close-button' onClick={requestClose} aria-label='Luk'>
+          <button className='device-dialog-close modal-close-button' onClick={requestClose} aria-label='Close'>
             <Icon icon='mdi:close' />
           </button>
         </div>
@@ -105,15 +105,15 @@ export function DeviceDialog({ device, period, anchorStartMs, rangeEndMs, onClos
 
         <div className='device-dialog-body'>
           <div className='device-dialog-row'>
-            <span className='device-dialog-label'>Forbrug</span>
+            <span className='device-dialog-label'>Consumption</span>
             <span className='device-dialog-value'>{formatKWh(device.kWh)}</span>
           </div>
           <div className='device-dialog-row'>
-            <span className='device-dialog-label'>Omtrentlig pris</span>
+            <span className='device-dialog-label'>Approximate price</span>
             <span className='device-dialog-value'>{device.costKr != null ? `≈ ${formatKr(device.costKr)}` : '—'}</span>
           </div>
           <div className='device-dialog-row'>
-            <span className='device-dialog-label'>Eksakt pris</span>
+            <span className='device-dialog-label'>Exact price</span>
             <span className='device-dialog-value'>{exactLabel}</span>
           </div>
         </div>

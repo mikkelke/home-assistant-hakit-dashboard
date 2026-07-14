@@ -21,8 +21,8 @@ const PAD = { top: 14, right: 10, bottom: 26, left: 38 };
 const MIN_HIT_RECT_WIDTH = 12;
 const HOUR_LABELS = [0, 6, 12, 18];
 const MONTH_LABEL_SLOTS = [0, 7, 14, 21, 28];
-const WEEKDAY_LETTERS = ['sø', 'ma', 'ti', 'on', 'to', 'fr', 'lø']; // index = Date#getDay(): 0 = Sunday
-const MONTH_AXIS_LABELS = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+const WEEKDAY_LETTERS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']; // index = Date#getDay(): 0 = Sunday
+const MONTH_AXIS_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const NICE_STEPS = [0.25, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500];
 
 /** Rounded-top / square-baseline bar outline; clamps the radius so short bars never overshoot. */
@@ -106,7 +106,7 @@ export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period, unit, onSe
   // No axes, no gridlines — just the message (HA-restart gaps, or a year view's months before
   // Dec 2025, an absent period rather than a genuine zero).
   if (bars.length === 0) {
-    return <div className='energy-chart-empty'>Ingen data for denne periode</div>;
+    return <div className='energy-chart-empty'>No data for this period</div>;
   }
 
   const slots = Math.max(1, slotsInRange(period, rangeStartMs, rangeEndMs));

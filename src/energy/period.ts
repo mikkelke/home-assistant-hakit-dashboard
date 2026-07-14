@@ -20,9 +20,9 @@ export function hoursInRange(startMs: number, endMs: number): number {
 
 export function dayTitle(anchorMs: number, todayStartMs: number): string {
   const anchorStartMs = startOfLocalDay(anchorMs);
-  if (anchorStartMs === todayStartMs) return 'I dag';
-  if (anchorStartMs === addDays(todayStartMs, -1)) return 'I går';
-  return new Date(anchorMs).toLocaleDateString('da-DK', { weekday: 'long', day: 'numeric', month: 'long' });
+  if (anchorStartMs === todayStartMs) return 'Today';
+  if (anchorStartMs === addDays(todayStartMs, -1)) return 'Yesterday';
+  return new Date(anchorMs).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
 /** Local Monday-start of the week containing `ms` — `(getDay() + 6) % 7` days back from local midnight. */
@@ -127,17 +127,17 @@ export function isoWeekNumber(ms: number): number {
   return Math.ceil((Math.round((date.getTime() - yearStart.getTime()) / 86_400_000) + 1) / 7);
 }
 
-/** "13." — bare day-of-month; da-DK's `{ day: 'numeric' }` already appends the trailing period. */
+/** "13" — bare day-of-month, browser-default locale (see `toLocaleDateString(undefined, …)` convention). */
 function formatDayLabel(ms: number): string {
-  return new Date(ms).toLocaleDateString('da-DK', { day: 'numeric' });
+  return new Date(ms).toLocaleDateString(undefined, { day: 'numeric' });
 }
 
-/** "19. jul." — day-of-month plus abbreviated month, da-DK formatted (spacing and periods included). */
+/** "19 Jul" — day-of-month plus abbreviated month, browser-default locale. */
 function formatDayMonthLabel(ms: number): string {
-  return new Date(ms).toLocaleDateString('da-DK', { day: 'numeric', month: 'short' });
+  return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
-/** Header label for the visible period, da-DK. */
+/** Header label for the visible period, browser-default locale. */
 export function labelFor(period: Period, anchorStartMs: number, todayStartMs: number): string {
   switch (period) {
     case 'day':
@@ -150,10 +150,10 @@ export function labelFor(period: Period, anchorStartMs: number, todayStartMs: nu
       const sameMonth = startDate.getFullYear() === lastDate.getFullYear() && startDate.getMonth() === lastDate.getMonth();
       const startLabel = sameMonth ? formatDayLabel(startMs) : formatDayMonthLabel(startMs);
       const endLabel = formatDayMonthLabel(lastDayMs);
-      return `Uge ${isoWeekNumber(anchorStartMs)} · ${startLabel}–${endLabel}`;
+      return `Week ${isoWeekNumber(anchorStartMs)} · ${startLabel}–${endLabel}`;
     }
     case 'month':
-      return new Date(anchorStartMs).toLocaleDateString('da-DK', { month: 'long', year: 'numeric' });
+      return new Date(anchorStartMs).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
     case 'year':
       return String(new Date(anchorStartMs).getFullYear());
   }

@@ -58,7 +58,7 @@ function parseCurrentPrice(value: unknown): number | null {
 
 /** The live price entity's attributes this page consumes, pre-parsed once per entity change —
  * `rawToday`/`currentPrice` drive the day view's settled price curve (`StatTiles`, `PriceStrip`);
- * `rawTomorrow`/`tomorrowValid`/`carnotForecast` drive the "Prisprognose" strip
+ * `rawTomorrow`/`tomorrowValid`/`carnotForecast` drive the "Price forecast" strip
  * (`assembleForecast` in `bill.ts`). */
 export interface EnergyPriceAttrs {
   rawToday: RawTodayPoint[] | null;

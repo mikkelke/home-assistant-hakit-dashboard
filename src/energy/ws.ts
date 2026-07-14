@@ -37,7 +37,7 @@ export function resolveEnergyConfig(prefs: EnergyPrefs, info: EnergyInfo | null)
   const flow = gridSource && ('flow_from' in gridSource ? gridSource.flow_from[0] : gridSource);
 
   if (!flow) {
-    throw new Error('Ingen grid-kilde i energikonfigurationen');
+    throw new Error('No grid source in the energy configuration');
   }
 
   const gridStatId = flow.stat_energy_from;

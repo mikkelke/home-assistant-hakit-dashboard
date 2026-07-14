@@ -532,7 +532,13 @@ export function Dashboard() {
 
   return (
     <div className={`dashboard ${selectedRoom ? 'has-detail' : ''}`}>
-      <Menu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} entities={displayEntities} callService={callService} />
+      <Menu
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        entities={displayEntities}
+        callService={callService}
+        onOpenEnergy={handleOpenEnergy}
+      />
       <div className='dashboard-main'>
         <div className='dashboard-content'>
           <StatusBar entities={displayEntities} hassUrl={hassUrl} onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
@@ -543,7 +549,6 @@ export function Dashboard() {
             selectedAreaId={selectedRoom?.area_id || null}
             onRoomClick={handleRoomClick}
             hassUrl={hassUrl}
-            onOpenEnergy={handleOpenEnergy}
           />
           <QuickAccess entities={displayEntities} hassUrl={hassUrl} callService={callService} />
         </div>

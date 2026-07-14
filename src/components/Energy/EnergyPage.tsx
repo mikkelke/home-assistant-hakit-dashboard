@@ -31,13 +31,13 @@ function describeBar(period: Period, bar: EnergyBar): string {
     }
     case 'week':
     case 'month': {
-      const dateLabel = new Date(bar.startMs).toLocaleDateString('da-DK', { weekday: 'long', day: 'numeric', month: 'short' });
+      const dateLabel = new Date(bar.startMs).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
       const parts = [dateLabel, formatKWh(bar.kWh), formatKr(bar.costKr)];
       if (bar.price != null) parts.push(`≈${formatPrice(bar.price)}`);
       return parts.join(' · ');
     }
     case 'year': {
-      const monthLabel = new Date(bar.startMs).toLocaleDateString('da-DK', { month: 'long' });
+      const monthLabel = new Date(bar.startMs).toLocaleDateString(undefined, { month: 'long' });
       return [monthLabel, formatKWh(bar.kWh), formatKr(bar.costKr)].join(' · ');
     }
   }
@@ -107,7 +107,7 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
           <Icon icon='mdi:close' />
         </button>
         <div className='energy-page-title'>
-          <h1>Energi</h1>
+          <h1>Energy</h1>
           <span className='energy-page-subtitle'>{labelFor(period, anchorStartMs, todayStartMs)}</span>
         </div>
       </div>
@@ -129,18 +129,18 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
           <div className='energy-page-card'>
             <div className='energy-page-card-header'>
               <div className='energy-page-card-header-left'>
-                <h2>Forbrug</h2>
+                <h2>Consumption</h2>
                 {refreshing && (
                   <span className='energy-page-refreshing'>
                     <span className='energy-page-refreshing-dot' />
-                    opdaterer…
+                    updating…
                   </span>
                 )}
               </div>
               {data && (
                 <div className='energy-page-card-header-right'>
                   <span className='energy-page-card-total'>
-                    I alt {unit === 'kr' ? formatKr(data.totals.costKr) : formatKWh(data.totals.kWh)}
+                    Total {unit === 'kr' ? formatKr(data.totals.costKr) : formatKWh(data.totals.kWh)}
                   </span>
                   <UnitToggle unit={unit} onChange={setUnit} />
                 </div>
@@ -153,7 +153,7 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
               <div className='energy-page-state-error'>
                 <p>{error}</p>
                 <button type='button' onClick={reload}>
-                  Prøv igen
+                  Try again
                 </button>
               </div>
             )}
@@ -174,11 +174,11 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
 
                 <div
                   className='energy-chart-legend'
-                  title={`billig < ${PRICE_BAND_THRESHOLDS.lowMaxKrPerKWh.toLocaleString('da-DK')} kr/kWh · normal ${PRICE_BAND_THRESHOLDS.lowMaxKrPerKWh.toLocaleString('da-DK')}–${PRICE_BAND_THRESHOLDS.midMaxKrPerKWh.toLocaleString('da-DK')} kr/kWh · dyr > ${PRICE_BAND_THRESHOLDS.midMaxKrPerKWh.toLocaleString('da-DK')} kr/kWh`}
+                  title={`cheap < ${PRICE_BAND_THRESHOLDS.lowMaxKrPerKWh.toLocaleString('da-DK')} kr/kWh · normal ${PRICE_BAND_THRESHOLDS.lowMaxKrPerKWh.toLocaleString('da-DK')}–${PRICE_BAND_THRESHOLDS.midMaxKrPerKWh.toLocaleString('da-DK')} kr/kWh · expensive > ${PRICE_BAND_THRESHOLDS.midMaxKrPerKWh.toLocaleString('da-DK')} kr/kWh`}
                 >
                   <span className='energy-chart-legend-item'>
                     <span className='energy-chart-legend-dot energy-chart-legend-dot--low' />
-                    billig
+                    cheap
                   </span>
                   <span className='energy-chart-legend-item'>
                     <span className='energy-chart-legend-dot energy-chart-legend-dot--mid' />
@@ -186,7 +186,7 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
                   </span>
                   <span className='energy-chart-legend-item'>
                     <span className='energy-chart-legend-dot energy-chart-legend-dot--high' />
-                    dyr
+                    expensive
                   </span>
                 </div>
 

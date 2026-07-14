@@ -19,10 +19,10 @@ interface PeriodPickerProps {
 }
 
 const PERIOD_OPTIONS: Array<{ value: Period; label: string }> = [
-  { value: 'day', label: 'Dag' },
-  { value: 'week', label: 'Uge' },
-  { value: 'month', label: 'Måned' },
-  { value: 'year', label: 'År' },
+  { value: 'day', label: 'Day' },
+  { value: 'week', label: 'Week' },
+  { value: 'month', label: 'Month' },
+  { value: 'year', label: 'Year' },
 ];
 
 const LONG_PRESS_MS = 500;
@@ -73,13 +73,13 @@ export function PeriodPicker({
       </div>
 
       <div className='period-picker-nav'>
-        <button type='button' className='period-picker-nav-btn' onClick={() => onStep(-1)} aria-label='Forrige periode'>
+        <button type='button' className='period-picker-nav-btn' onClick={() => onStep(-1)} aria-label='Previous period'>
           <Icon icon='mdi:chevron-left' />
         </button>
         <span
           className='period-picker-label'
           data-interactive={onForceReload ? 'true' : undefined}
-          title={onForceReload ? 'Hold nede for at genindlæse' : undefined}
+          title={onForceReload ? 'Hold to reload' : undefined}
           onPointerDown={handleLabelPointerDown}
           onPointerUp={clearLongPress}
           onPointerLeave={clearLongPress}
@@ -95,7 +95,7 @@ export function PeriodPicker({
           className='period-picker-nav-btn'
           onClick={() => onStep(1)}
           disabled={nextStepDisabled}
-          aria-label='Næste periode'
+          aria-label='Next period'
         >
           <Icon icon='mdi:chevron-right' />
         </button>

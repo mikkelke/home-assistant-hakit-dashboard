@@ -9,7 +9,7 @@ interface DeviceBreakdownProps {
   devices: EnergyDevices | null;
   loading: boolean;
   /** True while `devices` is a stale cache hit shown instantly and a real fetch is still in
-   * flight — rows stay visible, dimmed, with a small "opdaterer…" indicator in the header. */
+   * flight — rows stay visible, dimmed, with a small "updating…" indicator in the header. */
   refreshing: boolean;
   error: string | null;
   onReload: () => void;
@@ -21,7 +21,7 @@ const SKELETON_ROW_COUNT = 5;
 
 /** Bar width as a percentage of the shared scale (the period's largest top-level device) —
  * always at least 2% once there's any consumption at all, so small devices stay visible; capped
- * at 100% since "Ikke målt" can exceed every individual device's kWh. */
+ * at 100% since "Untracked" can exceed every individual device's kWh. */
 function barWidthPercent(kWh: number, maxKWh: number): number {
   if (maxKWh <= 0 || kWh <= 0) return 0;
   return Math.max(2, Math.min(100, (kWh / maxKWh) * 100));
@@ -97,9 +97,9 @@ function DeviceRow({ name, kWh, costKr, costExact, maxKWh, indent, untracked, ta
   );
 }
 
-/** Card "Enheder": per-device kWh/kr breakdown below the consumption chart, all periods. Top-level
+/** Card "Devices": per-device kWh/kr breakdown below the consumption chart, all periods. Top-level
  * devices sorted desc (children nested directly under their parent, excluded from the shared
- * ranking); the tail beyond the top 12 collapses into one "Andre enheder" row, followed by the
+ * ranking); the tail beyond the top 12 collapses into one "Other devices" row, followed by the
  * untracked remainder. `period`/`view` are accepted for API parity with the rest of the page's
  * cards (e.g. `StatTiles`) — the row scale and content here are entirely derived from `devices`. */
 export function DeviceBreakdown({ devices, loading, refreshing, error, onReload, onSelectDevice }: DeviceBreakdownProps) {
@@ -112,11 +112,11 @@ export function DeviceBreakdown({ devices, loading, refreshing, error, onReload,
     <div className='device-breakdown'>
       <div className='device-breakdown-header'>
         <div className='device-breakdown-header-left'>
-          <h2>Enheder</h2>
+          <h2>Devices</h2>
           {refreshing && (
             <span className='device-breakdown-refreshing'>
               <span className='device-breakdown-refreshing-dot' />
-              opdaterer…
+              updating…
             </span>
           )}
         </div>
@@ -134,7 +134,7 @@ export function DeviceBreakdown({ devices, loading, refreshing, error, onReload,
         <div className='device-breakdown-state-error'>
           <p>{error}</p>
           <button type='button' onClick={onReload}>
-            Prøv igen
+            Try again
           </button>
         </div>
       )}
@@ -168,7 +168,7 @@ export function DeviceBreakdown({ devices, loading, refreshing, error, onReload,
 
           {overflow.length > 0 && (
             <DeviceRow
-              name={`Andre enheder (${overflow.length})`}
+              name={`Other devices (${overflow.length})`}
               kWh={overflow.reduce((sum, device) => sum + device.kWh, 0)}
               costKr={sumCostKr(overflow)}
               costExact={false}
@@ -177,7 +177,7 @@ export function DeviceBreakdown({ devices, loading, refreshing, error, onReload,
           )}
 
           <DeviceRow
-            name='Ikke målt'
+            name='Untracked'
             kWh={devices.untracked.kWh}
             costKr={devices.untracked.costKr}
             costExact={false}

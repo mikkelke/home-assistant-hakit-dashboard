@@ -1,4 +1,4 @@
-/** Pure "Regning" (bill) assembly + day-ahead price forecast — no React, no clock reads; every
+/** Pure "Bill" assembly + day-ahead price forecast — no React, no clock reads; every
  * function takes explicit ms args, so it stays independently testable (mirrors assemble.ts). */
 import { FIXED_FEES_EXCL_MOMS_KR_PER_MONTH, MOMS_FACTOR } from '../config/energy';
 import { addDays, startOfLocalDay } from './period';
@@ -7,8 +7,8 @@ import type { EnergyView } from './types';
 
 const HOUR_MS = 3_600_000;
 
-/** Full month's fixed subscription fees, moms included — mirrors the Vindstød invoice's line
- * items (only the fees need ×moms; HA's cost stat is already all-in on the variable side). */
+/** Full month's fixed subscription fees, VAT included — mirrors the Vindstød invoice's line
+ * items (only the fees need ×VAT; HA's cost stat is already all-in on the variable side). */
 export function monthlyFixedFeesInclMoms(): number {
   const exclMoms = Object.values(FIXED_FEES_EXCL_MOMS_KR_PER_MONTH).reduce<number>((sum, fee) => sum + fee, 0);
   return exclMoms * MOMS_FACTOR;
@@ -36,7 +36,7 @@ export function fixedFeesForRange(startMs: number, endMs: number): number {
 /** Same daily walk as `fixedFeesForRange`, but stops once it reaches a day that hasn't started yet
  * (a day counts once `nowMs` is past its local midnight) — the fee share accrued "to date" within
  * an in-progress period. Not wired into `assembleBill` (a bill always carries its full period's
- * fees — see there); exported for a future "til dato" breakdown. */
+ * fees — see there); exported for a future "to date" breakdown. */
 export function proratedFeesToDate(startMs: number, endMs: number, nowMs: number): number {
   const monthlyFee = monthlyFixedFeesInclMoms();
   let total = 0;
@@ -53,11 +53,11 @@ export interface BillBreakdown {
   projectedTotalKr: number | null;
 }
 
-/** Minimum elapsed fraction of the period before a "Forventet" projection is shown — earlier than
+/** Minimum elapsed fraction of the period before a "Projected" total is shown — earlier than
  * this, a straight-line projection would be extrapolating from noise. */
 const MIN_PROJECTION_FRACTION = 0.02;
 
-/** "Regning" for one view's period: exact variable cost (HA's own cost stat, already inkl. moms)
+/** "Bill" for one view's period: exact variable cost (HA's own cost stat, already incl. VAT)
  * plus the period's full share of the fixed subscription fees — a bill is a period commitment, so
  * even a past, fully-settled period always carries its whole fees; that's what reconciles with the
  * actual invoice. The in-progress period additionally gets a simple, honestly-labelled ≈
@@ -112,7 +112,7 @@ function peakWindowsFor(horizonStartMs: number, horizonEndMs: number): Array<{ s
   return windows;
 }
 
-/** Day-ahead price forecast for the "Prisprognose" strip, assembled purely from the live price
+/** Day-ahead price forecast for the "Price forecast" strip, assembled purely from the live price
  * entity's own attributes (no extra WS calls): `raw_tomorrow` (only once `tomorrowValid`) wins on
  * any hour it covers — it's the real day-ahead settlement — the Carnot `forecast` attribute fills
  * every other hour in the horizon. Returns null when there's too little to plot (<6 points): a

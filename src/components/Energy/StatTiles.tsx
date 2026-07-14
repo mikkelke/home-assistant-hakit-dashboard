@@ -12,7 +12,7 @@ function hourRangeLabel(ms: number): string {
   return `${hour}–${hour + 1}`;
 }
 
-/** Day view only: billigste/dyreste time (derived from the price curve) + forbrug/pris totals. */
+/** Day view only: cheapest/most-expensive hour (derived from the price curve) + consumption/cost totals. */
 export function StatTiles({ view }: StatTilesProps) {
   const points = view.price?.points ?? [];
   const cheapest = points.length > 0 ? points.reduce((lowest, point) => (point.price < lowest.price ? point : lowest)) : null;
@@ -22,24 +22,24 @@ export function StatTiles({ view }: StatTilesProps) {
     <div className='stat-tiles'>
       {cheapest && (
         <div className='stat-tile'>
-          <span className='stat-tile-label'>Billigste time</span>
+          <span className='stat-tile-label'>Cheapest hour</span>
           <span className='stat-tile-value'>{hourRangeLabel(cheapest.ms)}</span>
           <span className='stat-tile-sub'>{formatPrice(cheapest.price)}</span>
         </div>
       )}
       {dearest && (
         <div className='stat-tile'>
-          <span className='stat-tile-label'>Dyreste time</span>
+          <span className='stat-tile-label'>Most expensive hour</span>
           <span className='stat-tile-value'>{hourRangeLabel(dearest.ms)}</span>
           <span className='stat-tile-sub'>{formatPrice(dearest.price)}</span>
         </div>
       )}
       <div className='stat-tile'>
-        <span className='stat-tile-label'>Forbrug</span>
+        <span className='stat-tile-label'>Consumption</span>
         <span className='stat-tile-value'>{formatKWh(view.totals.kWh)}</span>
       </div>
       <div className='stat-tile'>
-        <span className='stat-tile-label'>Pris</span>
+        <span className='stat-tile-label'>Cost</span>
         <span className='stat-tile-value'>{formatKr(view.totals.costKr)}</span>
       </div>
     </div>
