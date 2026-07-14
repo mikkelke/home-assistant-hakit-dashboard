@@ -550,7 +550,9 @@ export function Dashboard() {
             onRoomClick={handleRoomClick}
             hassUrl={hassUrl}
           />
-          <QuickAccess entities={displayEntities} hassUrl={hassUrl} callService={callService} />
+          {/* Fixed bar at z-index 1000 — would float above the Energy page (z-index 90), so it
+              unmounts while that view is open. */}
+          {!energyOpen && <QuickAccess entities={displayEntities} hassUrl={hassUrl} callService={callService} />}
         </div>
 
         {selectedRoom && (

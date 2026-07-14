@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { useEnergyConfig, type Period } from '../../energy';
-import { labelFor, nextDisabled, startOfLocalDay, startOfPeriod, stepAnchor } from '../../energy/period';
+import { nextDisabled, startOfLocalDay, startOfPeriod, stepAnchor } from '../../energy/period';
 import { useSwipeToClose } from '../../hooks';
 import { buildHistoryUrlWithHash, getAccessibleHistoryWindow } from '../../utils/navigation';
 import { BillTab } from './BillTab';
@@ -85,20 +85,6 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
 
   return (
     <div className='energy-page' onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
-      <div className='energy-page-header'>
-        <button className='close-button' onClick={onClose}>
-          <Icon icon='mdi:close' />
-        </button>
-        <div className='energy-page-title'>
-          <h1>Energy</h1>
-          <span className='energy-page-subtitle'>
-            {tab === 'live'
-              ? new Date(nowMs).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-              : labelFor(period, anchorStartMs, todayStartMs)}
-          </span>
-        </div>
-      </div>
-
       <div className='energy-page-tabs'>
         <EnergyTabs tab={tab} onChange={handleTabChange} />
       </div>
@@ -144,6 +130,10 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
           )}
         </div>
       </div>
+
+      <button className='energy-page-exit' onClick={onClose} aria-label='Close energy'>
+        <Icon icon='mdi:chevron-left' />
+      </button>
     </div>
   );
 }

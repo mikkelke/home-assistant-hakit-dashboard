@@ -7,39 +7,11 @@
   flex-direction: column;
 }
 
-.energy-page-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(18, 19, 22, 0.95);
-  flex-shrink: 0;
-}
-
-.energy-page-title {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.energy-page-title h1 {
-  margin: 0;
-  font-size: 1.35rem;
-  font-weight: 600;
-  color: #e4e4e7;
-}
-
-.energy-page-subtitle {
-  font-size: 0.8rem;
-  color: #a1a1aa;
-}
-
-/* Tab bar sits between the header and the scrollable content — always visible, never scrolls away
-   with a tab's own content (mirrors .energy-page-header's own flex-shrink: 0). */
+/* Tab bar is the page's topmost chrome — always visible, never scrolls away with a tab's own
+   content. Safe-area aware since there is no header above it anymore. */
 .energy-page-tabs {
   flex-shrink: 0;
-  padding: 0.75rem 1.25rem;
+  padding: calc(0.75rem + env(safe-area-inset-top)) 1.25rem 0.75rem;
   background: rgba(18, 19, 22, 0.95);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -48,7 +20,33 @@
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 1.25rem;
+  /* Bottom padding clears the floating exit button so the last card stays reachable. */
+  padding: 1.25rem 1.25rem calc(5.5rem + env(safe-area-inset-bottom));
+}
+
+/* Floating exit — bottom-left, above the tab content but inside the page's stacking context. */
+.energy-page-exit {
+  position: absolute;
+  left: max(1rem, env(safe-area-inset-left));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 5;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(24, 25, 28, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e4e4e7;
+  font-size: 1.5rem;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+.energy-page-exit:active {
+  background: rgba(40, 42, 46, 0.95);
 }
 
 .energy-page-inner {
@@ -65,13 +63,11 @@
   }
 
   .energy-page-content {
-    padding: 0.75rem;
+    padding: 0.75rem 0.75rem calc(5.5rem + env(safe-area-inset-bottom));
   }
 
-  /* .close-button is 32px globally (index.css, !important) — widen just this page's for a ≥44px
-     touch target; the extra class beats the global rule's specificity even though both are !important. */
-  .energy-page-header .close-button {
-    width: 44px !important;
-    height: 44px !important;
+  .energy-page-exit {
+    width: 52px;
+    height: 52px;
   }
 }
