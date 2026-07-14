@@ -1,0 +1,21 @@
+.energy-chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.energy-chart-gridline,
+.energy-chart-baseline {
+  stroke: rgba(255, 255, 255, 0.07);
+  stroke-width: 1;
+}
+
+.energy-chart-tick-label,
+.energy-chart-axis-label {
+  fill: #71717a;
+  font-size: 10px;
+}
+
+.energy-chart-bar {
+  fill: #38bdf8;
+}

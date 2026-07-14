@@ -21,8 +21,17 @@ export function buildHistoryUrlWithHash(targetWindow: Window, hash: string | nul
   return hash ? `${pathname}${search}${hash}` : `${pathname}${search}`;
 }
 
-export function getRoomIdFromHistoryHash(targetWindow: Window | null = getAccessibleHistoryWindow()): string | null {
-  if (!targetWindow) return null;
+export type DashboardView = { kind: 'room'; roomId: string } | { kind: 'energy' } | { kind: 'none' };
+
+export function getViewFromHistoryHash(targetWindow: Window | null = getAccessibleHistoryWindow()): DashboardView {
+  if (!targetWindow) return { kind: 'none' };
   const { hash } = targetWindow.location;
-  return hash.startsWith('#room=') ? hash.slice(6) : null;
+  if (hash === '#energy') return { kind: 'energy' };
+  if (hash.startsWith('#room=')) return { kind: 'room', roomId: hash.slice(6) };
+  return { kind: 'none' };
+}
+
+export function getRoomIdFromHistoryHash(targetWindow: Window | null = getAccessibleHistoryWindow()): string | null {
+  const view = getViewFromHistoryHash(targetWindow);
+  return view.kind === 'room' ? view.roomId : null;
 }

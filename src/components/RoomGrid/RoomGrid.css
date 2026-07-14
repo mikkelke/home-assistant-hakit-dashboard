@@ -302,6 +302,45 @@
   border-color: rgba(34, 197, 94, 0.4);
 }
 
+/* Energy tile - last cell of the room grid, opens the full-page Energy view */
+.room-card.energy-tile {
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.room-card.energy-tile:hover {
+  background: rgba(28, 30, 35, 0.95);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.room-card.energy-tile:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
+.energy-tile-icon {
+  width: clamp(56px, 14vw, 76px);
+  height: clamp(56px, 14vw, 76px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(56, 189, 248, 0.15);
+}
+
+.energy-tile-icon svg {
+  font-size: clamp(1.75rem, 5vw, 2.25rem);
+  color: #38bdf8;
+  filter: drop-shadow(0 0 10px currentColor);
+}
+
+.energy-tile-label {
+  font-size: clamp(0.85rem, 2.5vw, 1rem);
+  font-weight: 800;
+  color: #e4e4e7;
+}
+
 /* Status Indicators Container - Hidden since we moved them to the right */
 .room-indicators {
   display: none;

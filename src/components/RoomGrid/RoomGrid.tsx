@@ -1,3 +1,4 @@
+import { Icon } from '@iconify/react';
 import type { Area, CallServiceFunction, HassEntities } from '../../types';
 import { ROOM_ORDER } from '../../config/dashboard';
 import { ROOM_LIGHTS } from '../../config/lights';
@@ -20,6 +21,7 @@ interface RoomGridProps {
   onRoomClick: (area: Area) => void;
   hassUrl: string | null;
   callService?: CallServiceFunction | undefined;
+  onOpenEnergy?: () => void;
 }
 
 type IndicatorKey =
@@ -179,7 +181,7 @@ function getIndicatorCounts(areas: Area[], entities: HassEntities): IndicatorCou
   return counts;
 }
 
-export function RoomGrid({ areas, entities, selectedAreaId, onRoomClick, hassUrl }: RoomGridProps) {
+export function RoomGrid({ areas, entities, selectedAreaId, onRoomClick, hassUrl, onOpenEnergy }: RoomGridProps) {
   const allowedAreas = new Set(ROOM_ORDER);
 
   const filteredAreas = areas.filter(area => {
@@ -206,6 +208,12 @@ export function RoomGrid({ areas, entities, selectedAreaId, onRoomClick, hassUrl
             indicatorCounts={indicatorCounts}
           />
         ))}
+        <button type='button' className='room-card energy-tile' onClick={onOpenEnergy}>
+          <div className='energy-tile-icon'>
+            <Icon icon='mdi:lightning-bolt' />
+          </div>
+          <span className='energy-tile-label'>Energi</span>
+        </button>
       </div>
     </main>
   );

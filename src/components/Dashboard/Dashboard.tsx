@@ -3,12 +3,13 @@ import { useHass } from '@hakit/core';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { EXCLUDED_AREAS } from '../../config/dashboard';
 import type { Area, HassEntities } from '../../types';
-import { buildHistoryUrlWithHash, getAccessibleHistoryWindow, getRoomIdFromHistoryHash } from '../../utils/navigation';
+import { buildHistoryUrlWithHash, getAccessibleHistoryWindow, getViewFromHistoryHash } from '../../utils/navigation';
 import { StatusBar } from '../StatusBar';
 import { HomePulse } from '../HomePulse';
 import { QuickAccess } from '../QuickAccess/QuickAccess';
 import { RoomGrid } from '../RoomGrid';
 import { RoomDetail } from '../RoomDetail';
+import { EnergyPage } from '../Energy';
 import { Menu } from '../Menu';
 import './Dashboard.css';
 
@@ -247,6 +248,7 @@ export function Dashboard() {
   const callService = useHass(state => state.helpers?.callService);
 
   const [selectedRoom, setSelectedRoom] = useState<Area | null>(null);
+  const [energyOpen, setEnergyOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isMobile = useIsMobile();
   // Flag to prevent hash change handler from running during programmatic updates
@@ -254,6 +256,8 @@ export function Dashboard() {
   const hashUpdateTimeoutRef = useRef<number | null>(null);
   // Ref to track current selected room without causing dependency issues
   const selectedRoomRef = useRef<Area | null>(null);
+  // Ref to track energy view open state without causing dependency issues
+  const energyOpenRef = useRef(false);
 
   // Filter out excluded areas
   const areaList = Object.values(areas || {}).filter(area => !EXCLUDED_AREAS.includes(area.name.toLowerCase())) as Area[];
@@ -276,6 +280,10 @@ export function Dashboard() {
   useEffect(() => {
     selectedRoomRef.current = selectedRoom;
   }, [selectedRoom]);
+
+  useEffect(() => {
+    energyOpenRef.current = energyOpen;
+  }, [energyOpen]);
 
   useEffect(() => {
     return () => {
@@ -340,14 +348,48 @@ export function Dashboard() {
     [markHashUpdating]
   );
 
+  const replaceEnergyHistory = useCallback(() => {
+    const targetWindow = getAccessibleHistoryWindow();
+    if (!targetWindow) return;
+
+    try {
+      markHashUpdating();
+      targetWindow.history.replaceState({ energy: null }, '', buildHistoryUrlWithHash(targetWindow, null));
+    } catch (err) {
+      console.debug('Failed to replace energy history:', err);
+      isUpdatingHashRef.current = false;
+    }
+  }, [markHashUpdating]);
+
+  const pushEnergyHistory = useCallback(() => {
+    const targetWindow = getAccessibleHistoryWindow();
+    if (!targetWindow) return;
+
+    try {
+      markHashUpdating();
+      targetWindow.history.pushState({ energy: true }, '', buildHistoryUrlWithHash(targetWindow, '#energy'));
+    } catch (err) {
+      console.debug('Failed to push energy history:', err);
+      isUpdatingHashRef.current = false;
+    }
+  }, [markHashUpdating]);
+
   // Sync state from URL hash (single source of truth)
   const syncStateFromHash = useCallback(() => {
     if (areaList.length === 0) return;
     if (isUpdatingHashRef.current) return; // Skip if we're updating hash programmatically
 
-    const roomIdFromHash = getRoomIdFromHistoryHash();
+    const view = getViewFromHistoryHash();
 
-    if (!roomIdFromHash) {
+    if (view.kind === 'energy') {
+      if (!energyOpenRef.current) setEnergyOpen(true);
+      if (selectedRoomRef.current) setSelectedRoom(null);
+      return;
+    }
+
+    if (energyOpenRef.current) setEnergyOpen(false);
+
+    if (view.kind === 'none') {
       // No hash - close room if open
       if (selectedRoomRef.current) {
         setSelectedRoom(null);
@@ -356,7 +398,7 @@ export function Dashboard() {
     }
 
     // Find room from hash
-    const room = findRoomById(roomIdFromHash);
+    const room = findRoomById(view.roomId);
 
     if (!room) {
       if (selectedRoomRef.current) {
@@ -477,6 +519,17 @@ export function Dashboard() {
     replaceRoomHistory(null);
   };
 
+  const handleOpenEnergy = () => {
+    pushEnergyHistory();
+    setEnergyOpen(true);
+    setSelectedRoom(null);
+  };
+
+  const handleCloseEnergy = () => {
+    setEnergyOpen(false);
+    replaceEnergyHistory();
+  };
+
   return (
     <div className={`dashboard ${selectedRoom ? 'has-detail' : ''}`}>
       <Menu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} entities={displayEntities} callService={callService} />
@@ -490,6 +543,7 @@ export function Dashboard() {
             selectedAreaId={selectedRoom?.area_id || null}
             onRoomClick={handleRoomClick}
             hassUrl={hassUrl}
+            onOpenEnergy={handleOpenEnergy}
           />
           <QuickAccess entities={displayEntities} hassUrl={hassUrl} callService={callService} />
         </div>
@@ -508,6 +562,8 @@ export function Dashboard() {
             />
           </>
         )}
+
+        {energyOpen && <EnergyPage onClose={handleCloseEnergy} />}
       </div>
     </div>
   );
