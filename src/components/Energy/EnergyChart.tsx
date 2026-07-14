@@ -7,6 +7,9 @@ interface EnergyChartProps {
   rangeStartMs: number;
   rangeEndMs: number;
   period: Period;
+  unit: 'kwh' | 'kr';
+  onSelectBar?: (bar: EnergyBar | null) => void;
+  selectedStartMs?: number | null;
 }
 
 const VIEW_WIDTH = 600;
@@ -89,7 +92,13 @@ function axisLabelFor(period: Period, slotStartMs: number, slot: number): string
   }
 }
 
-export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period }: EnergyChartProps) {
+/** Bare da-DK number for the on-chart value label — no unit suffix (1 decimal kWh / 2 decimals kr). */
+function formatBarValue(value: number, unit: 'kwh' | 'kr'): string {
+  const decimals = unit === 'kr' ? 2 : 1;
+  return value.toLocaleString('da-DK', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period, unit, onSelectBar, selectedStartMs }: EnergyChartProps) {
   const slots = Math.max(1, slotsInRange(period, rangeStartMs, rangeEndMs));
   const plotWidth = VIEW_WIDTH - PAD.left - PAD.right;
   const plotBottom = VIEW_HEIGHT - PAD.bottom;
@@ -97,10 +106,13 @@ export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period }: EnergyCh
   const slotWidth = plotWidth / slots;
   const barWidth = Math.min(24, slotWidth - 2);
 
-  const maxKWh = bars.reduce((max, bar) => Math.max(max, bar.kWh), 0);
-  const { max: axisMax, ticks } = niceScale(maxKWh);
+  const valueFor = (bar: EnergyBar) => (unit === 'kr' ? bar.costKr : bar.kWh);
+  const maxValue = bars.reduce((max, bar) => Math.max(max, valueFor(bar)), 0);
+  const { max: axisMax, ticks } = niceScale(maxValue);
   const yFor = (value: number) => plotBottom - (value / axisMax) * plotHeight;
   const slotXFor = (startMs: number) => PAD.left + slotIndexFor(period, rangeStartMs, startMs) * slotWidth;
+
+  const maxBar = bars.reduce<EnergyBar | null>((best, bar) => (best === null || valueFor(bar) > valueFor(best) ? bar : best), null);
 
   return (
     <svg className='energy-chart-svg' viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}>
@@ -116,11 +128,27 @@ export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period }: EnergyCh
       <line x1={PAD.left} y1={plotBottom} x2={VIEW_WIDTH - PAD.right} y2={plotBottom} className='energy-chart-baseline' />
 
       {bars.map(bar => {
+        const value = valueFor(bar);
         const barX = slotXFor(bar.startMs) + (slotWidth - barWidth) / 2;
-        const barTopY = yFor(bar.kWh);
+        const barTopY = yFor(value);
         const barHeight = Math.max(0, plotBottom - barTopY);
-        return <path key={bar.startMs} d={roundedTopRect(barX, barTopY, barWidth, barHeight, 4)} className='energy-chart-bar' />;
+        const isSelected = selectedStartMs === bar.startMs;
+        const classNames = ['energy-chart-bar', `energy-chart-bar--${bar.level}`];
+        if (bar.partial) classNames.push('energy-chart-bar--partial');
+        if (isSelected) classNames.push('energy-chart-bar--selected');
+        return <path key={bar.startMs} d={roundedTopRect(barX, barTopY, barWidth, barHeight, 4)} className={classNames.join(' ')} />;
       })}
+
+      {maxBar && valueFor(maxBar) > 0 && selectedStartMs !== maxBar.startMs && (
+        <text
+          x={slotXFor(maxBar.startMs) + slotWidth / 2}
+          y={yFor(valueFor(maxBar)) - 6}
+          textAnchor='middle'
+          className='energy-chart-value-label'
+        >
+          {formatBarValue(valueFor(maxBar), unit)}
+        </text>
+      )}
 
       {Array.from({ length: slots }, (_, slot) => {
         const slotStartMs = slotStartMsFor(period, rangeStartMs, slot);
@@ -133,6 +161,19 @@ export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period }: EnergyCh
           </text>
         );
       })}
+
+      {onSelectBar &&
+        bars.map(bar => (
+          <rect
+            key={`hit-${bar.startMs}`}
+            x={slotXFor(bar.startMs)}
+            y={PAD.top}
+            width={slotWidth}
+            height={plotHeight}
+            className='energy-chart-hit-rect'
+            onPointerDown={() => onSelectBar(selectedStartMs === bar.startMs ? null : bar)}
+          />
+        ))}
     </svg>
   );
 }

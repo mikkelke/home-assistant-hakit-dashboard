@@ -69,9 +69,61 @@
   color: #e4e4e7;
 }
 
+.energy-page-card-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
 .energy-page-card-total {
   font-size: 0.85rem;
   color: #a1a1aa;
+}
+
+.energy-selection-pill {
+  display: inline-block;
+  margin-bottom: 0.6rem;
+  padding: 0.35rem 0.7rem;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 999px;
+  color: #e4e4e7;
+  font-size: 0.8rem;
+}
+
+/* Price-band swatch colors mirror EnergyChart.css's .energy-chart-bar--low/--mid/--high fills —
+   keep both in sync if the ramp ever changes. */
+.energy-chart-legend {
+  display: flex;
+  gap: 0.9rem;
+  margin-top: 0.5rem;
+  color: #a1a1aa;
+  font-size: 0.75rem;
+}
+
+.energy-chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.energy-chart-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.energy-chart-legend-dot--low {
+  background: #9a3412;
+}
+
+.energy-chart-legend-dot--mid {
+  background: #ea580c;
+}
+
+.energy-chart-legend-dot--high {
+  background: #fdba74;
 }
 
 .energy-page-state {

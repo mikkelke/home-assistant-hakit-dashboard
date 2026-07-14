@@ -16,6 +16,39 @@
   font-size: 10px;
 }
 
-.energy-chart-bar {
-  fill: #38bdf8;
+.energy-chart-bar--low {
+  fill: #9a3412;
+}
+
+.energy-chart-bar--mid {
+  fill: #ea580c;
+}
+
+.energy-chart-bar--high {
+  fill: #fdba74;
+}
+
+.energy-chart-bar--unknown {
+  fill: #3f3f46;
+}
+
+.energy-chart-bar--partial {
+  opacity: 0.7;
+}
+
+.energy-chart-bar--selected {
+  filter: brightness(1.25);
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 1.5;
+}
+
+.energy-chart-value-label {
+  fill: #a1a1aa;
+  font-size: 9px;
+}
+
+.energy-chart-hit-rect {
+  fill: transparent;
+  pointer-events: all;
+  cursor: pointer;
 }

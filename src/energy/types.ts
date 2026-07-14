@@ -67,9 +67,25 @@ export interface EnergyBar {
   startMs: number;
   endMs: number;
   kWh: number;
-  costKr?: number;
-  price?: number | null;
+  costKr: number;
+  price: number | null;
+  level: 'low' | 'mid' | 'high' | 'unknown';
   partial?: boolean;
+}
+
+/** One hour's price, ms-keyed — used for the day view's price curve. */
+export interface PricePoint {
+  ms: number;
+  price: number;
+}
+
+export interface PriceSeries {
+  points: PricePoint[]; // hourly, step-constant per hour
+  min: PricePoint;
+  max: PricePoint;
+  peakStartMs: number; // 17:00 of the anchor day
+  peakEndMs: number; // 21:00 of the anchor day
+  now?: { ms: number; price: number }; // only when viewing today
 }
 
 export interface EnergyView {
@@ -77,6 +93,7 @@ export interface EnergyView {
   startMs: number;
   endMs: number;
   bars: EnergyBar[];
-  totals: { kWh: number; costKr?: number };
+  totals: { kWh: number; costKr: number };
+  price?: PriceSeries; // day view only
   complete: boolean;
 }

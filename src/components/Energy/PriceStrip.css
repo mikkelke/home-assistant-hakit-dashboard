@@ -1,0 +1,64 @@
+.price-strip {
+  margin-top: 0.5rem;
+}
+
+.price-strip-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.price-strip-gridline,
+.price-strip-baseline {
+  stroke: rgba(255, 255, 255, 0.07);
+  stroke-width: 1;
+}
+
+.price-strip-tick-label {
+  fill: #71717a;
+  font-size: 10px;
+}
+
+.price-strip-peak-band {
+  fill: rgba(251, 146, 60, 0.08);
+}
+
+.price-strip-peak-label {
+  fill: #a1a1aa;
+  font-size: 8px;
+}
+
+.price-strip-area {
+  fill: rgba(56, 189, 248, 0.1);
+  stroke: none;
+}
+
+.price-strip-step-line {
+  stroke: #38bdf8;
+  stroke-width: 2;
+  fill: none;
+}
+
+.price-strip-step-line--selected {
+  stroke-width: 3;
+}
+
+.price-strip-extreme-dot {
+  fill: #38bdf8;
+  stroke: #141518;
+  stroke-width: 2;
+}
+
+.price-strip-extreme-label {
+  fill: #a1a1aa;
+  font-size: 9px;
+}
+
+.price-strip-now-line {
+  stroke: rgba(255, 255, 255, 0.25);
+  stroke-width: 1;
+}
+
+.price-strip-now-dot {
+  fill: #38bdf8;
+}

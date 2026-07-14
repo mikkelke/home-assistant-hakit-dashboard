@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { useEnergyConfig, useEnergyView, type Period } from '../../energy';
+import { useEnergyConfig, useEnergyView, type EnergyBar, type Period } from '../../energy';
 import { labelFor, nextDisabled, startOfLocalDay, startOfPeriod, stepAnchor } from '../../energy/period';
-import { formatKWh } from '../../utils/format';
+import { PRICE_BAND_THRESHOLDS } from '../../config/energy';
+import { formatKr, formatKWh, formatPrice } from '../../utils/format';
 import { EnergyChart } from './EnergyChart';
 import { PeriodPicker } from './PeriodPicker';
+import { PriceStrip } from './PriceStrip';
+import { StatTiles } from './StatTiles';
+import { UnitToggle } from './UnitToggle';
 import './EnergyPage.css';
 
 interface EnergyPageProps {
@@ -18,12 +22,37 @@ function debugDateLabel(ms: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/** Period-appropriate one-line summary for the selection info pill. */
+function describeBar(period: Period, bar: EnergyBar): string {
+  switch (period) {
+    case 'day': {
+      const hour = new Date(bar.startMs).getHours();
+      const parts = [`${hour}–${hour + 1}`, formatKWh(bar.kWh), formatKr(bar.costKr)];
+      if (bar.price != null) parts.push(formatPrice(bar.price));
+      return parts.join(' · ');
+    }
+    case 'week':
+    case 'month': {
+      const dateLabel = new Date(bar.startMs).toLocaleDateString('da-DK', { weekday: 'long', day: 'numeric', month: 'short' });
+      const parts = [dateLabel, formatKWh(bar.kWh), formatKr(bar.costKr)];
+      if (bar.price != null) parts.push(`≈${formatPrice(bar.price)}`);
+      return parts.join(' · ');
+    }
+    case 'year': {
+      const monthLabel = new Date(bar.startMs).toLocaleDateString('da-DK', { month: 'long' });
+      return [monthLabel, formatKWh(bar.kWh), formatKr(bar.costKr)].join(' · ');
+    }
+  }
+}
+
 export function EnergyPage({ onClose }: EnergyPageProps) {
   const [period, setPeriod] = useState<Period>('day');
   const [anchorStartMs, setAnchorStartMs] = useState(() => startOfLocalDay(Date.now()));
   // Clock-in-state (purity lint forbids Date.now()/new Date() in render): a 1-minute tick keeps
   // the period label and the next-arrow clamp correct across midnight.
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [unit, setUnit] = useState<'kwh' | 'kr'>('kwh');
+  const [selectedBar, setSelectedBar] = useState<EnergyBar | null>(null);
 
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 60_000);
@@ -38,13 +67,29 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
   const handlePeriodChange = (nextPeriod: Period) => {
     setPeriod(nextPeriod);
     setAnchorStartMs(startOfPeriod(nextPeriod, Date.now()));
+    setSelectedBar(null);
   };
 
   const handleStep = (delta: 1 | -1) => {
     setAnchorStartMs(current => (delta === 1 && nextDisabled(period, current, nowMs) ? current : stepAnchor(period, current, delta)));
+    setSelectedBar(null);
   };
 
   const nextStepDisabled = nextDisabled(period, anchorStartMs, nowMs);
+
+  // The stored selection tracks an hour/day/month by ms; re-derive against the live bars array so
+  // a background refresh (partial bar growing, hourly re-assemble) keeps the pill's numbers fresh.
+  const liveSelectedBar = selectedBar && (data?.bars.find(bar => bar.startMs === selectedBar.startMs) ?? selectedBar);
+
+  const debugLine =
+    [
+      `grid: ${config?.gridStatId ?? '—'}`,
+      `cost: ${config?.costStatId ?? '—'}`,
+      `rækker: ${data?.bars.length ?? 0}`,
+      `pris-punkter: ${data?.price?.points.length ?? 0}`,
+      `${period} ${data ? `${debugDateLabel(data.startMs)}→${debugDateLabel(data.endMs)}` : ''}`,
+      `kr i alt: ${data ? formatKr(data.totals.costKr) : '—'}`,
+    ].join(' · ') + (error ? ` · ${error}` : '');
 
   // Temporary spike-line diagnostics (Phase 1 only) — logs once per successful fetch.
   useEffect(() => {
@@ -76,10 +121,19 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
             nextStepDisabled={nextStepDisabled}
           />
 
+          {period === 'day' && data && <StatTiles view={data} />}
+
           <div className='energy-page-card'>
             <div className='energy-page-card-header'>
               <h2>Forbrug</h2>
-              {data && <span className='energy-page-card-total'>I alt {formatKWh(data.totals.kWh)}</span>}
+              {data && (
+                <div className='energy-page-card-header-right'>
+                  <span className='energy-page-card-total'>
+                    I alt {unit === 'kr' ? formatKr(data.totals.costKr) : formatKWh(data.totals.kWh)}
+                  </span>
+                  <UnitToggle unit={unit} onChange={setUnit} />
+                </div>
+              )}
             </div>
 
             {loading && <p className='energy-page-state'>Henter data …</p>}
@@ -94,15 +148,50 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
             )}
 
             {!loading && !error && data && (
-              <EnergyChart bars={data.bars} rangeStartMs={data.startMs} rangeEndMs={data.endMs} period={period} />
+              <>
+                {liveSelectedBar && <div className='energy-selection-pill'>{describeBar(period, liveSelectedBar)}</div>}
+
+                <EnergyChart
+                  bars={data.bars}
+                  rangeStartMs={data.startMs}
+                  rangeEndMs={data.endMs}
+                  period={period}
+                  unit={unit}
+                  onSelectBar={setSelectedBar}
+                  selectedStartMs={selectedBar?.startMs ?? null}
+                />
+
+                <div
+                  className='energy-chart-legend'
+                  title={`billig < ${PRICE_BAND_THRESHOLDS.lowMaxKrPerKWh.toLocaleString('da-DK')} kr/kWh · normal ${PRICE_BAND_THRESHOLDS.lowMaxKrPerKWh.toLocaleString('da-DK')}–${PRICE_BAND_THRESHOLDS.midMaxKrPerKWh.toLocaleString('da-DK')} kr/kWh · dyr > ${PRICE_BAND_THRESHOLDS.midMaxKrPerKWh.toLocaleString('da-DK')} kr/kWh`}
+                >
+                  <span className='energy-chart-legend-item'>
+                    <span className='energy-chart-legend-dot energy-chart-legend-dot--low' />
+                    billig
+                  </span>
+                  <span className='energy-chart-legend-item'>
+                    <span className='energy-chart-legend-dot energy-chart-legend-dot--mid' />
+                    normal
+                  </span>
+                  <span className='energy-chart-legend-item'>
+                    <span className='energy-chart-legend-dot energy-chart-legend-dot--high' />
+                    dyr
+                  </span>
+                </div>
+
+                {period === 'day' && data.price && (
+                  <PriceStrip
+                    series={data.price}
+                    rangeStartMs={data.startMs}
+                    rangeEndMs={data.endMs}
+                    selectedMs={selectedBar?.startMs ?? null}
+                  />
+                )}
+              </>
             )}
 
-            {/* Temporary spike line — removed in Phase 3 once price/cost wiring is trusted. */}
-            <p className='energy-page-debug'>
-              grid: {config?.gridStatId ?? '—'} · cost: {config?.costStatId ?? '—'} · rækker: {data?.bars.length ?? 0} · {period}{' '}
-              {data ? `${debugDateLabel(data.startMs)}→${debugDateLabel(data.endMs)}` : ''}
-              {error ? ` · ${error}` : ''}
-            </p>
+            {/* Debug line — kept while cost/price wiring is still being cross-checked live. */}
+            <p className='energy-page-debug'>{debugLine}</p>
           </div>
         </div>
       </div>
