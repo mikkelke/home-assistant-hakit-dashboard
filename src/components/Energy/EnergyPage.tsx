@@ -91,7 +91,11 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
         </button>
         <div className='energy-page-title'>
           <h1>Energy</h1>
-          <span className='energy-page-subtitle'>{labelFor(period, anchorStartMs, todayStartMs)}</span>
+          <span className='energy-page-subtitle'>
+            {tab === 'live'
+              ? new Date(nowMs).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+              : labelFor(period, anchorStartMs, todayStartMs)}
+          </span>
         </div>
       </div>
 
