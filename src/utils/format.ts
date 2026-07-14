@@ -26,3 +26,8 @@ export function formatKr(value: number): string {
 export function formatPrice(value: number): string {
   return `${twoDecimalFormatter.format(value)} kr/kWh`;
 }
+
+/** e.g. `formatW(234)` → `"234 W"`, `formatW(1234)` → `"1.234 W"` */
+export function formatW(value: number): string {
+  return `${getNumberFormatter(0).format(value)} W`;
+}

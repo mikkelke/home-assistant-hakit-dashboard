@@ -1,6 +1,6 @@
 /** Pure view-model assembly for the Energy page — no React, no clock reads; every function takes
  * explicit ms args (or nullable data), so it stays independently testable. */
-import { PRICE_BAND_THRESHOLDS } from '../config/energy';
+import { LIVE_POWER_MIN_WATTS, PRICE_BAND_THRESHOLDS } from '../config/energy';
 import { addDays } from './period';
 import type {
   DevicePref,
@@ -276,4 +276,59 @@ export function deviceCostExact(deviceRows: StatisticValue[], priceRows: Statist
 
   if (totalKWh > 0 && unpricedKWh / totalKWh > 0.1) return null;
   return costKr;
+}
+
+/** One device's live power for the Live tab's "Drawing now" list — mirrors `DeviceUsage`'s
+ * parent/children shape but for an instantaneous watts reading instead of a period's kWh/cost. */
+export interface LiveDeviceUsage {
+  statId: string;
+  name: string;
+  watts: number;
+  children?: LiveDeviceUsage[];
+}
+
+export interface LivePowerView {
+  devices: LiveDeviceUsage[]; // top-level only, sorted watts desc; each's children sorted watts desc
+  totalTopLevelWatts: number; // Σ over every top-level device, not just a UI-visible slice of it
+  untrackedWatts: number | null; // max(0, gridW − totalTopLevelWatts); null when gridW is null
+}
+
+/** Assembles the Live tab's "Drawing now" list from already-resolved power readings — pure, no
+ * React/HA-entity types: the caller resolves each device's current watts (`powerByStatId`, keyed by
+ * `statId`, present only for a device with a usable reading right now) and the grid's own watts
+ * (`gridW`) ahead of time (see `LiveTab`'s `powerOf` helper). Devices below `LIVE_POWER_MIN_WATTS`
+ * or without a reading at all are omitted entirely (not even as a 0 W row) — a reading that low is
+ * noise, not "drawing". Mirrors `assembleDevices`' parent/child tree: a device whose `parentStatId`
+ * names another QUALIFYING device nests under it and is excluded from the top-level ranking/sum
+ * (its watts are already part of its parent's own reading); everything else — no parent declared,
+ * or a parent that didn't qualify — is top-level, so a reading is never silently dropped. */
+export function assembleLivePower(devicePrefs: DevicePref[], powerByStatId: Record<string, number>, gridW: number | null): LivePowerView {
+  const usageByStatId = new Map<string, LiveDeviceUsage>();
+
+  for (const pref of devicePrefs) {
+    const watts = powerByStatId[pref.statId];
+    if (watts == null || watts < LIVE_POWER_MIN_WATTS) continue;
+    usageByStatId.set(pref.statId, { statId: pref.statId, name: pref.name, watts });
+  }
+
+  const topLevel: LiveDeviceUsage[] = [];
+  for (const pref of devicePrefs) {
+    const usage = usageByStatId.get(pref.statId);
+    if (!usage) continue; // no power reading, or below the noise floor — omitted entirely
+    const parent = pref.parentStatId != null ? usageByStatId.get(pref.parentStatId) : undefined;
+    if (parent) {
+      (parent.children ??= []).push(usage);
+    } else {
+      topLevel.push(usage); // no parent declared, or its parent didn't qualify — never dropped silently
+    }
+  }
+
+  const byWattsDesc = (a: LiveDeviceUsage, b: LiveDeviceUsage) => b.watts - a.watts;
+  for (const usage of usageByStatId.values()) usage.children?.sort(byWattsDesc);
+  topLevel.sort(byWattsDesc);
+
+  const totalTopLevelWatts = topLevel.reduce((sum, usage) => sum + usage.watts, 0);
+  const untrackedWatts = gridW != null ? Math.max(0, gridW - totalTopLevelWatts) : null;
+
+  return { devices: topLevel, totalTopLevelWatts, untrackedWatts };
 }

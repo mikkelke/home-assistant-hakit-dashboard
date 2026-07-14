@@ -18,6 +18,8 @@ export interface EnergyPrefsGridFlow {
   stat_energy_from: string;
   entity_energy_price?: string | null;
   stat_cost?: string | null;
+  /** The grid's live power (W) sensor, when configured — mirrors `EnergyPrefsDevice.stat_rate`. */
+  stat_rate?: string | null;
 }
 
 /** Live-observed shape: grid source carries stat_energy_from etc. directly. */
@@ -53,6 +55,9 @@ export interface DevicePref {
   statId: string;
   name: string;
   parentStatId?: string;
+  /** The device's live power (W) sensor, when configured (HA prefs: `stat_rate`) — used by the
+   * Live tab's "Drawing now" list; unrelated to `statId`'s own energy (kWh) statistic. */
+  powerEntityId?: string;
 }
 
 export interface EnergyConfig {
@@ -60,6 +65,7 @@ export interface EnergyConfig {
   costStatId: string | null;
   priceStatId: string | null;
   priceEntityId: string | null;
+  gridPowerEntityId: string | null;
   devices: DevicePref[];
 }
 

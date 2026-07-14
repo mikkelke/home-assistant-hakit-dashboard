@@ -1,63 +1,53 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { assembleForecast, useEnergyDevices, useEnergyView, type DeviceUsage, type EnergyBar, type Period } from '../../energy';
-import { labelFor, nextDisabled, rangeFor, startOfLocalDay, startOfPeriod, stepAnchor } from '../../energy/period';
-import { PRICE_BAND_THRESHOLDS } from '../../config/energy';
+import { useEnergyConfig, type Period } from '../../energy';
+import { labelFor, nextDisabled, startOfLocalDay, startOfPeriod, stepAnchor } from '../../energy/period';
 import { useSwipeToClose } from '../../hooks';
-import { formatKr, formatKWh, formatPrice } from '../../utils/format';
-import { BillCard } from './BillCard';
-import { DeviceBreakdown } from './DeviceBreakdown';
-import { DeviceDialog } from './DeviceDialog';
-import { EnergyChart } from './EnergyChart';
-import { PeriodPicker } from './PeriodPicker';
-import { PriceForecast } from './PriceForecast';
-import { PriceStrip } from './PriceStrip';
-import { StatTiles } from './StatTiles';
-import { UnitToggle } from './UnitToggle';
+import { buildHistoryUrlWithHash, getAccessibleHistoryWindow } from '../../utils/navigation';
+import { BillTab } from './BillTab';
+import { DevicesTab } from './DevicesTab';
+import { EnergyTabs } from './EnergyTabs';
+import { LiveTab } from './LiveTab';
+import { UsageTab } from './UsageTab';
 import './EnergyPage.css';
 
 interface EnergyPageProps {
   onClose: () => void;
 }
 
-/** Period-appropriate one-line summary for the selection info pill. */
-function describeBar(period: Period, bar: EnergyBar): string {
-  switch (period) {
-    case 'day': {
-      const hour = new Date(bar.startMs).getHours();
-      const parts = [`${hour}–${hour + 1}`, formatKWh(bar.kWh), formatKr(bar.costKr)];
-      if (bar.price != null) parts.push(formatPrice(bar.price));
-      return parts.join(' · ');
-    }
-    case 'week':
-    case 'month': {
-      const dateLabel = new Date(bar.startMs).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
-      const parts = [dateLabel, formatKWh(bar.kWh), formatKr(bar.costKr)];
-      if (bar.price != null) parts.push(`≈${formatPrice(bar.price)}`);
-      return parts.join(' · ');
-    }
-    case 'year': {
-      const monthLabel = new Date(bar.startMs).toLocaleDateString(undefined, { month: 'long' });
-      return [monthLabel, formatKWh(bar.kWh), formatKr(bar.costKr)].join(' · ');
-    }
-  }
+export type EnergyTab = 'live' | 'usage' | 'devices' | 'bill';
+
+const ENERGY_TAB_VALUES: readonly EnergyTab[] = ['live', 'usage', 'devices', 'bill'];
+
+function isEnergyTab(value: string): value is EnergyTab {
+  return (ENERGY_TAB_VALUES as readonly string[]).includes(value);
+}
+
+/** Reads the initial tab from `#energy=<tab>` — bare `#energy` or anything unrecognized falls back
+ * to `live`, the page's default. Goes through `getAccessibleHistoryWindow()` like every other hash
+ * read in this app (iframe-safe — see utils/navigation.ts). */
+function tabFromHash(): EnergyTab {
+  const hash = getAccessibleHistoryWindow()?.location.hash ?? '';
+  const candidate = hash.startsWith('#energy=') ? hash.slice('#energy='.length) : '';
+  return isEnergyTab(candidate) ? candidate : 'live';
 }
 
 export function EnergyPage({ onClose }: EnergyPageProps) {
+  const [tab, setTab] = useState<EnergyTab>(() => tabFromHash());
   const [period, setPeriod] = useState<Period>('day');
   const [anchorStartMs, setAnchorStartMs] = useState(() => startOfLocalDay(Date.now()));
   // Clock-in-state (purity lint forbids Date.now()/new Date() in render): a 1-minute tick keeps
   // the period label and the next-arrow clamp correct across midnight.
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [unit, setUnit] = useState<'kwh' | 'kr'>('kwh');
-  const [selectedBar, setSelectedBar] = useState<EnergyBar | null>(null);
-  const [selectedDevice, setSelectedDevice] = useState<DeviceUsage | null>(null);
+
+  const { config } = useEnergyConfig();
 
   // Mobile swipe-to-close on the page root (mirrors RoomDetail's usage). The hook's own
-  // interactive-target allowlist already ignores buttons/[role="button"] (PeriodPicker's segments
-  // and arrows, tappable device rows) and anything marked data-interactive="true" (EnergyChart's
-  // SVG, whose bar hit-rects are real tap targets, and the period label's long-press target); it's
-  // a no-op on non-mobile viewports.
+  // interactive-target allowlist already ignores buttons/[role="button"] (EnergyTabs' and
+  // PeriodPicker's segments and arrows, tappable device rows) and anything marked
+  // data-interactive="true" (EnergyChart's SVG, whose bar hit-rects are real tap targets, and the
+  // period label's long-press target); it's a no-op on non-mobile viewports.
   const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(onClose);
 
   useEffect(() => {
@@ -67,38 +57,31 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
 
   const todayStartMs = useMemo(() => startOfLocalDay(nowMs), [nowMs]);
 
-  const { data, loading, refreshing, error, reload, forceReload, priceAttrs } = useEnergyView(period, anchorStartMs);
-  const devicesState = useEnergyDevices(period, anchorStartMs, data);
-  const forecast = useMemo(
-    () => assembleForecast(priceAttrs.rawTomorrow, priceAttrs.tomorrowValid, priceAttrs.carnotForecast, nowMs),
-    [priceAttrs, nowMs]
-  );
+  const handleTabChange = (nextTab: EnergyTab) => {
+    setTab(nextTab);
+    const targetWindow = getAccessibleHistoryWindow();
+    if (!targetWindow) return;
+    try {
+      // replaceState fires no hashchange/popstate, and Dashboard's own hash poll still sees kind
+      // 'energy' either way — no isUpdatingHashRef guard dance needed here (contrast Dashboard's
+      // own history helpers, which do need it to avoid reacting to their own writes).
+      const hash = nextTab === 'live' ? '#energy' : `#energy=${nextTab}`;
+      targetWindow.history.replaceState(null, '', buildHistoryUrlWithHash(targetWindow, hash));
+    } catch (err) {
+      console.debug('Failed to replace energy tab history:', err);
+    }
+  };
 
   const handlePeriodChange = (nextPeriod: Period) => {
     setPeriod(nextPeriod);
     setAnchorStartMs(startOfPeriod(nextPeriod, Date.now()));
-    setSelectedBar(null);
-    setSelectedDevice(null);
   };
 
   const handleStep = (delta: 1 | -1) => {
     setAnchorStartMs(current => (delta === 1 && nextDisabled(period, current, nowMs) ? current : stepAnchor(period, current, delta)));
-    setSelectedBar(null);
-    setSelectedDevice(null);
-  };
-
-  // Force-refresh (PeriodPicker long-press): busts both hooks' persisted cache for the current
-  // period and reloads, bypassing their own reload-coalescing guard.
-  const handleForceReload = () => {
-    forceReload();
-    devicesState.forceReload();
   };
 
   const nextStepDisabled = nextDisabled(period, anchorStartMs, nowMs);
-
-  // The stored selection tracks an hour/day/month by ms; re-derive against the live bars array so
-  // a background refresh (partial bar growing, hourly re-assemble) keeps the pill's numbers fresh.
-  const liveSelectedBar = selectedBar && (data?.bars.find(bar => bar.startMs === selectedBar.startMs) ?? selectedBar);
 
   return (
     <div className='energy-page' onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
@@ -112,124 +95,51 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
         </div>
       </div>
 
+      <div className='energy-page-tabs'>
+        <EnergyTabs tab={tab} onChange={handleTabChange} />
+      </div>
+
       <div className='energy-page-content'>
         <div className='energy-page-inner'>
-          <PeriodPicker
-            period={period}
-            anchorStartMs={anchorStartMs}
-            todayStartMs={todayStartMs}
-            onPeriodChange={handlePeriodChange}
-            onStep={handleStep}
-            nextStepDisabled={nextStepDisabled}
-            onForceReload={handleForceReload}
-          />
+          {tab === 'live' && config && <LiveTab config={config} nowMs={nowMs} todayStartMs={todayStartMs} />}
 
-          {period === 'day' && data && <StatTiles view={data} />}
-
-          <div className='energy-page-card'>
-            <div className='energy-page-card-header'>
-              <div className='energy-page-card-header-left'>
-                <h2>Consumption</h2>
-                {refreshing && (
-                  <span className='energy-page-refreshing'>
-                    <span className='energy-page-refreshing-dot' />
-                    updating…
-                  </span>
-                )}
-              </div>
-              {data && (
-                <div className='energy-page-card-header-right'>
-                  <span className='energy-page-card-total'>
-                    Total {unit === 'kr' ? formatKr(data.totals.costKr) : formatKWh(data.totals.kWh)}
-                  </span>
-                  <UnitToggle unit={unit} onChange={setUnit} />
-                </div>
-              )}
-            </div>
-
-            {loading && <div className='energy-chart-skeleton' aria-hidden='true' />}
-
-            {!loading && error && (
-              <div className='energy-page-state-error'>
-                <p>{error}</p>
-                <button type='button' onClick={reload}>
-                  Try again
-                </button>
-              </div>
-            )}
-
-            {!loading && !error && data && (
-              <div className={`energy-page-card-body ${refreshing ? 'energy-page-card-body--refreshing' : ''}`}>
-                {liveSelectedBar && <div className='energy-selection-pill'>{describeBar(period, liveSelectedBar)}</div>}
-
-                <EnergyChart
-                  bars={data.bars}
-                  rangeStartMs={data.startMs}
-                  rangeEndMs={data.endMs}
-                  period={period}
-                  unit={unit}
-                  onSelectBar={setSelectedBar}
-                  selectedStartMs={selectedBar?.startMs ?? null}
-                />
-
-                <div
-                  className='energy-chart-legend'
-                  title={`cheap < ${PRICE_BAND_THRESHOLDS.lowMaxKrPerKWh.toLocaleString('da-DK')} kr/kWh · normal ${PRICE_BAND_THRESHOLDS.lowMaxKrPerKWh.toLocaleString('da-DK')}–${PRICE_BAND_THRESHOLDS.midMaxKrPerKWh.toLocaleString('da-DK')} kr/kWh · expensive > ${PRICE_BAND_THRESHOLDS.midMaxKrPerKWh.toLocaleString('da-DK')} kr/kWh`}
-                >
-                  <span className='energy-chart-legend-item'>
-                    <span className='energy-chart-legend-dot energy-chart-legend-dot--low' />
-                    cheap
-                  </span>
-                  <span className='energy-chart-legend-item'>
-                    <span className='energy-chart-legend-dot energy-chart-legend-dot--mid' />
-                    normal
-                  </span>
-                  <span className='energy-chart-legend-item'>
-                    <span className='energy-chart-legend-dot energy-chart-legend-dot--high' />
-                    expensive
-                  </span>
-                </div>
-
-                {period === 'day' && data.price && (
-                  <PriceStrip
-                    series={data.price}
-                    rangeStartMs={data.startMs}
-                    rangeEndMs={data.endMs}
-                    selectedMs={selectedBar?.startMs ?? null}
-                  />
-                )}
-              </div>
-            )}
-          </div>
-
-          {period === 'day' && anchorStartMs === todayStartMs && forecast && <PriceForecast forecast={forecast} nowMs={nowMs} />}
-
-          {data && <BillCard view={data} nowMs={nowMs} />}
-
-          {data && (
-            <DeviceBreakdown
+          {tab === 'usage' && (
+            <UsageTab
               period={period}
-              view={data}
-              devices={devicesState.data}
-              loading={devicesState.loading}
-              refreshing={devicesState.refreshing}
-              error={devicesState.error}
-              onReload={devicesState.reload}
-              onSelectDevice={setSelectedDevice}
+              anchorStartMs={anchorStartMs}
+              todayStartMs={todayStartMs}
+              nextStepDisabled={nextStepDisabled}
+              onPeriodChange={handlePeriodChange}
+              onStep={handleStep}
+              unit={unit}
+              onUnitChange={setUnit}
+            />
+          )}
+
+          {tab === 'devices' && (
+            <DevicesTab
+              period={period}
+              anchorStartMs={anchorStartMs}
+              todayStartMs={todayStartMs}
+              nextStepDisabled={nextStepDisabled}
+              onPeriodChange={handlePeriodChange}
+              onStep={handleStep}
+            />
+          )}
+
+          {tab === 'bill' && (
+            <BillTab
+              period={period}
+              anchorStartMs={anchorStartMs}
+              todayStartMs={todayStartMs}
+              nextStepDisabled={nextStepDisabled}
+              onPeriodChange={handlePeriodChange}
+              onStep={handleStep}
+              nowMs={nowMs}
             />
           )}
         </div>
       </div>
-
-      {selectedDevice && (
-        <DeviceDialog
-          device={selectedDevice}
-          period={period}
-          anchorStartMs={anchorStartMs}
-          rangeEndMs={rangeFor(period, anchorStartMs).endMs}
-          onClose={() => setSelectedDevice(null)}
-        />
-      )}
     </div>
   );
 }

@@ -26,7 +26,7 @@ export type DashboardView = { kind: 'room'; roomId: string } | { kind: 'energy' 
 export function getViewFromHistoryHash(targetWindow: Window | null = getAccessibleHistoryWindow()): DashboardView {
   if (!targetWindow) return { kind: 'none' };
   const { hash } = targetWindow.location;
-  if (hash === '#energy') return { kind: 'energy' };
+  if (hash === '#energy' || hash.startsWith('#energy=')) return { kind: 'energy' };
   if (hash.startsWith('#room=')) return { kind: 'room', roomId: hash.slice(6) };
   return { kind: 'none' };
 }

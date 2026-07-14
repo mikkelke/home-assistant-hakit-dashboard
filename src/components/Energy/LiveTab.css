@@ -1,0 +1,115 @@
+.live-price-level {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.live-price-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* Mirrors EnergyChart.css's .energy-chart-bar--low/--mid/--high ramp colors. */
+.live-price-dot--low {
+  background: #9a3412;
+}
+
+.live-price-dot--mid {
+  background: #ea580c;
+}
+
+.live-price-dot--high {
+  background: #fdba74;
+}
+
+.live-price-dot--unknown {
+  background: #3f3f46;
+}
+
+.live-drawing-now {
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+}
+
+.live-drawing-now-header h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.live-drawing-now-empty {
+  margin: 0;
+  padding: 0.5rem 0;
+  font-size: 0.85rem;
+  color: #71717a;
+  text-align: center;
+}
+
+.live-drawing-now-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.live-row-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.live-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) minmax(50px, 200px) 70px;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 44px;
+  padding: 0 0.35rem;
+}
+
+.live-row--child {
+  padding-left: 0.75rem;
+}
+
+.live-row-name {
+  font-size: 0.85rem;
+  color: #e4e4e7;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.live-row--child .live-row-name {
+  font-size: 0.8rem;
+  color: #a1a1aa;
+}
+
+.live-row-bar-track {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.live-row-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: #3b82f6;
+}
+
+.live-row-bar-fill--untracked {
+  background: #3f3f46;
+}
+
+.live-row-watts {
+  font-size: 0.8rem;
+  color: #e4e4e7;
+  text-align: right;
+  white-space: nowrap;
+}

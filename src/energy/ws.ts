@@ -43,11 +43,13 @@ export function resolveEnergyConfig(prefs: EnergyPrefs, info: EnergyInfo | null)
   const gridStatId = flow.stat_energy_from;
   const priceEntityId = flow.entity_energy_price ?? null;
   const costStatId = info?.cost_sensors?.[gridStatId] ?? null;
+  const gridPowerEntityId = flow.stat_rate ?? null;
 
   const devices: DevicePref[] = (prefs.device_consumption ?? []).map(device => ({
     statId: device.stat_consumption,
     name: device.name ?? device.stat_consumption,
     parentStatId: device.included_in_stat ?? undefined,
+    powerEntityId: device.stat_rate ?? undefined,
   }));
 
   return {
@@ -56,6 +58,7 @@ export function resolveEnergyConfig(prefs: EnergyPrefs, info: EnergyInfo | null)
     // A sensor's own long-term-statistics id is its entity id, so this doubles as priceEntityId for now.
     priceStatId: priceEntityId,
     priceEntityId,
+    gridPowerEntityId,
     devices,
   };
 }

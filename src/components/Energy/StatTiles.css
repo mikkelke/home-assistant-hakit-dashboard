@@ -32,3 +32,16 @@
   font-size: 0.75rem;
   color: #a1a1aa;
 }
+
+/* Phone layout (≤768px, matches useIsMobile) — this grid is shared by StatTiles (Usage tab, day
+   view) and LiveTab's hero row, which reuses these same classes for its own 3-tile row; kept here,
+   next to the base grid it adjusts, rather than duplicated in each tab's own stylesheet. */
+@media (max-width: 768px) {
+  .stat-tiles {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .stat-tile-value {
+    font-size: 1.15rem;
+  }
+}

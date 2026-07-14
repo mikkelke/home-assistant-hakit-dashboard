@@ -1,0 +1,196 @@
+/* Card "Consumption" — chart + legend + price strip. Relocated here from EnergyPage.css when the
+   Energy page split into tabs (it's Usage-tab-only content now); class names unchanged. */
+.energy-page-card {
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+}
+
+.energy-page-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.energy-page-card-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.energy-page-card-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.energy-page-card-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.energy-page-card-total {
+  font-size: 0.85rem;
+  color: #a1a1aa;
+}
+
+/* "updating…" indicator while stale data is shown and a background refetch is in flight. */
+.energy-page-refreshing {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  color: #71717a;
+}
+
+.energy-page-refreshing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #38bdf8;
+  animation: energy-page-refreshing-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes energy-page-refreshing-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Dims the already-rendered chart while it's stale-and-refreshing — no layout jump, the frame
+   stays put and just fades a little (dataviz: a refetch should never blank the chart). */
+.energy-page-card-body {
+  transition: opacity 0.15s;
+}
+
+.energy-page-card-body--refreshing {
+  opacity: 0.6;
+}
+
+/* Lightweight loading placeholder — same shimmer idiom as DeviceBreakdown.css's skeleton rows
+   (opacity pulse, 1.4s ease-in-out infinite), sized to the chart SVG's own aspect ratio so there's
+   no layout jump once real content replaces it. */
+.energy-chart-skeleton {
+  width: 100%;
+  aspect-ratio: 600 / 240;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  animation: energy-chart-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes energy-chart-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.energy-selection-pill {
+  display: inline-block;
+  margin-bottom: 0.6rem;
+  padding: 0.35rem 0.7rem;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 999px;
+  color: #e4e4e7;
+  font-size: 0.8rem;
+}
+
+/* Price-band swatch colors mirror EnergyChart.css's .energy-chart-bar--low/--mid/--high fills —
+   keep both in sync if the ramp ever changes. */
+.energy-chart-legend {
+  display: flex;
+  gap: 0.9rem;
+  margin-top: 0.5rem;
+  color: #a1a1aa;
+  font-size: 0.75rem;
+}
+
+.energy-chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.energy-chart-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.energy-chart-legend-dot--low {
+  background: #9a3412;
+}
+
+.energy-chart-legend-dot--mid {
+  background: #ea580c;
+}
+
+.energy-chart-legend-dot--high {
+  background: #fdba74;
+}
+
+/* Compact row, not a wall. */
+.energy-page-state-error {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 0.5rem;
+  color: #e4e4e7;
+}
+
+.energy-page-state-error p {
+  margin: 0;
+  font-size: 0.85rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.energy-page-state-error button {
+  flex-shrink: 0;
+  padding: 0.45rem 0.85rem;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 0.5rem;
+  color: #38bdf8;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.energy-page-state-error button:hover {
+  background: rgba(56, 189, 248, 0.25);
+}
+
+/* Phone layout (≤768px, matches useIsMobile) — reaches into UnitToggle's own class too, mirroring
+   EnergyPage.css's original convention of one file centralizing a view's phone overrides. */
+@media (max-width: 768px) {
+  .energy-page-card {
+    padding: 1rem 0.75rem;
+  }
+
+  .unit-toggle-btn {
+    min-height: 40px;
+  }
+}

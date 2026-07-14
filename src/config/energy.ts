@@ -13,3 +13,7 @@ export const FIXED_FEES_EXCL_MOMS_KR_PER_MONTH = {
   radiusNetAboC: 40.84,
   energinetTso: 15.58,
 } as const;
+
+// Live tab constants. Below this, a device's (or the grid's) live power reading is noise, not
+// "drawing" — used by `assembleLivePower` to decide which rows belong in the "Drawing now" list.
+export const LIVE_POWER_MIN_WATTS = 1;
