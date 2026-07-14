@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { useEnergyDevices, useEnergyView, type DeviceUsage, type EnergyBar, type Period } from '../../energy';
-import { assembleForecast } from '../../energy/bill';
+import { assembleForecast, useEnergyDevices, useEnergyView, type DeviceUsage, type EnergyBar, type Period } from '../../energy';
 import { labelFor, nextDisabled, rangeFor, startOfLocalDay, startOfPeriod, stepAnchor } from '../../energy/period';
 import { PRICE_BAND_THRESHOLDS } from '../../config/energy';
+import { useSwipeToClose } from '../../hooks';
 import { formatKr, formatKWh, formatPrice } from '../../utils/format';
 import { BillCard } from './BillCard';
 import { DeviceBreakdown } from './DeviceBreakdown';
@@ -53,6 +53,13 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
   const [selectedBar, setSelectedBar] = useState<EnergyBar | null>(null);
   const [selectedDevice, setSelectedDevice] = useState<DeviceUsage | null>(null);
 
+  // Mobile swipe-to-close on the page root (mirrors RoomDetail's usage). The hook's own
+  // interactive-target allowlist already ignores buttons/[role="button"] (PeriodPicker's segments
+  // and arrows, tappable device rows) and anything marked data-interactive="true" (EnergyChart's
+  // SVG, whose bar hit-rects are real tap targets, and the period label's long-press target); it's
+  // a no-op on non-mobile viewports.
+  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(onClose);
+
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 60_000);
     return () => window.clearInterval(id);
@@ -60,7 +67,7 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
 
   const todayStartMs = useMemo(() => startOfLocalDay(nowMs), [nowMs]);
 
-  const { data, loading, error, reload, priceAttrs } = useEnergyView(period, anchorStartMs);
+  const { data, loading, refreshing, error, reload, forceReload, priceAttrs } = useEnergyView(period, anchorStartMs);
   const devicesState = useEnergyDevices(period, anchorStartMs, data);
   const forecast = useMemo(
     () => assembleForecast(priceAttrs.rawTomorrow, priceAttrs.tomorrowValid, priceAttrs.carnotForecast, nowMs),
@@ -80,6 +87,13 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
     setSelectedDevice(null);
   };
 
+  // Force-refresh (PeriodPicker long-press): busts both hooks' persisted cache for the current
+  // period and reloads, bypassing their own reload-coalescing guard.
+  const handleForceReload = () => {
+    forceReload();
+    devicesState.forceReload();
+  };
+
   const nextStepDisabled = nextDisabled(period, anchorStartMs, nowMs);
 
   // The stored selection tracks an hour/day/month by ms; re-derive against the live bars array so
@@ -87,7 +101,7 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
   const liveSelectedBar = selectedBar && (data?.bars.find(bar => bar.startMs === selectedBar.startMs) ?? selectedBar);
 
   return (
-    <div className='energy-page'>
+    <div className='energy-page' onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
       <div className='energy-page-header'>
         <button className='close-button' onClick={onClose}>
           <Icon icon='mdi:close' />
@@ -107,13 +121,22 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
             onPeriodChange={handlePeriodChange}
             onStep={handleStep}
             nextStepDisabled={nextStepDisabled}
+            onForceReload={handleForceReload}
           />
 
           {period === 'day' && data && <StatTiles view={data} />}
 
           <div className='energy-page-card'>
             <div className='energy-page-card-header'>
-              <h2>Forbrug</h2>
+              <div className='energy-page-card-header-left'>
+                <h2>Forbrug</h2>
+                {refreshing && (
+                  <span className='energy-page-refreshing'>
+                    <span className='energy-page-refreshing-dot' />
+                    opdaterer…
+                  </span>
+                )}
+              </div>
               {data && (
                 <div className='energy-page-card-header-right'>
                   <span className='energy-page-card-total'>
@@ -124,10 +147,10 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
               )}
             </div>
 
-            {loading && <p className='energy-page-state'>Henter data …</p>}
+            {loading && <div className='energy-chart-skeleton' aria-hidden='true' />}
 
             {!loading && error && (
-              <div className='energy-page-state energy-page-state-error'>
+              <div className='energy-page-state-error'>
                 <p>{error}</p>
                 <button type='button' onClick={reload}>
                   Prøv igen
@@ -136,7 +159,7 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
             )}
 
             {!loading && !error && data && (
-              <>
+              <div className={`energy-page-card-body ${refreshing ? 'energy-page-card-body--refreshing' : ''}`}>
                 {liveSelectedBar && <div className='energy-selection-pill'>{describeBar(period, liveSelectedBar)}</div>}
 
                 <EnergyChart
@@ -175,7 +198,7 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
                     selectedMs={selectedBar?.startMs ?? null}
                   />
                 )}
-              </>
+              </div>
             )}
           </div>
 
@@ -189,6 +212,7 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
               view={data}
               devices={devicesState.data}
               loading={devicesState.loading}
+              refreshing={devicesState.refreshing}
               error={devicesState.error}
               onReload={devicesState.reload}
               onSelectDevice={setSelectedDevice}

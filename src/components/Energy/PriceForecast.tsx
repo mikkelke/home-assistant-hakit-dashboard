@@ -1,4 +1,4 @@
-import type { ForecastSeries } from '../../energy/bill';
+import type { ForecastSeries } from '../../energy';
 import { addDays, localDayIndex, startOfLocalDay } from '../../energy/period';
 import './PriceForecast.css';
 

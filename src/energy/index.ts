@@ -2,6 +2,8 @@ export * from './types';
 export * from './ws';
 export * from './period';
 export * from './assemble';
+export * from './bill';
+export * from './cache';
 export { useEnergyConfig } from './useEnergyConfig';
 export type { UseEnergyConfigResult } from './useEnergyConfig';
 export { useEnergyView } from './useEnergyView';

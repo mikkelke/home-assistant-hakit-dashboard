@@ -106,6 +106,15 @@ export function nextDisabled(period: Period, anchorStartMs: number, nowMs: numbe
   return rangeFor(period, anchorStartMs).endMs > nowMs;
 }
 
+/** True once a period is BOTH fully closed (its own range has already ended) AND older than the
+ * immediately-previous period — i.e. it can no longer be revised by a late-arriving recorder
+ * write and is safe to cache indefinitely (see cache.ts). The current period and the immediately
+ * previous one always revalidate on every fetch; anything older than that is immutable. */
+export function isImmutablePeriod(period: Period, anchorStartMs: number, endMs: number, nowMs: number): boolean {
+  const previousPeriodStartMs = stepAnchor(period, startOfPeriod(period, nowMs), -1);
+  return endMs <= nowMs && anchorStartMs < previousPeriodStartMs;
+}
+
 /** ISO 8601 week number (Monday-start weeks; week 1 is the week containing the year's first
  * Thursday). Calendar dates are extracted as local y/m/d, then walked in UTC so the day-count
  * division below is never perturbed by local DST offsets. */

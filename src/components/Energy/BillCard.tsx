@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
-import type { EnergyView } from '../../energy';
-import { assembleBill } from '../../energy/bill';
+import { assembleBill, type EnergyView } from '../../energy';
 import { formatKr } from '../../utils/format';
 import './BillCard.css';
 

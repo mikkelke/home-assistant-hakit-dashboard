@@ -14,6 +14,12 @@
   margin-bottom: 0.75rem;
 }
 
+.device-breakdown-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .device-breakdown-header h2 {
   margin: 0;
   font-size: 1rem;
@@ -21,10 +27,44 @@
   color: #e4e4e7;
 }
 
+/* "opdaterer…" indicator while stale rows are shown and a background refetch is in flight. */
+.device-breakdown-refreshing {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  color: #71717a;
+}
+
+.device-breakdown-refreshing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #38bdf8;
+  animation: device-breakdown-refreshing-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes device-breakdown-refreshing-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .device-breakdown-rows {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+  transition: opacity 0.15s;
+}
+
+.device-breakdown-rows--refreshing {
+  opacity: 0.6;
 }
 
 .device-row-group {
@@ -102,28 +142,36 @@
   white-space: nowrap;
 }
 
-.device-breakdown-state {
-  color: #a1a1aa;
-  font-size: 0.9rem;
-  text-align: center;
-  padding: 1.5rem 0;
-}
-
+/* Compact row, not a wall — same treatment as the Forbrug card's error state (EnergyPage.css). */
 .device-breakdown-state-error {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 0.6rem;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 0.5rem;
   color: #e4e4e7;
 }
 
+.device-breakdown-state-error p {
+  margin: 0;
+  font-size: 0.85rem;
+  flex: 1;
+  min-width: 0;
+}
+
 .device-breakdown-state-error button {
-  padding: 0.5rem 1rem;
+  flex-shrink: 0;
+  padding: 0.45rem 0.85rem;
   background: rgba(56, 189, 248, 0.15);
   border: 1px solid rgba(56, 189, 248, 0.35);
   border-radius: 0.5rem;
   color: #38bdf8;
   font: inherit;
+  font-size: 0.8rem;
   cursor: pointer;
   transition: background 0.15s;
 }

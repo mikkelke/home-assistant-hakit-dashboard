@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import type { Period } from '../../energy';
 import { labelFor } from '../../energy/period';
@@ -12,6 +13,9 @@ interface PeriodPickerProps {
   /** Parent owns the clock (`nowMs`) and computes this via `nextDisabled` — the picker itself
    * never reads the clock. */
   nextStepDisabled: boolean;
+  /** Long-press (500 ms) on the period label force-reloads, bypassing the cache — optional so this
+   * component doesn't need to know anything about caching when a caller has none to bust. */
+  onForceReload?: () => void;
 }
 
 const PERIOD_OPTIONS: Array<{ value: Period; label: string }> = [
@@ -21,7 +25,38 @@ const PERIOD_OPTIONS: Array<{ value: Period; label: string }> = [
   { value: 'year', label: 'År' },
 ];
 
-export function PeriodPicker({ period, anchorStartMs, todayStartMs, onPeriodChange, onStep, nextStepDisabled }: PeriodPickerProps) {
+const LONG_PRESS_MS = 500;
+
+export function PeriodPicker({
+  period,
+  anchorStartMs,
+  todayStartMs,
+  onPeriodChange,
+  onStep,
+  nextStepDisabled,
+  onForceReload,
+}: PeriodPickerProps) {
+  const longPressTimeoutRef = useRef<number | null>(null);
+
+  const clearLongPress = useCallback(() => {
+    if (longPressTimeoutRef.current != null) {
+      window.clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Cancel a pending long-press if the label unmounts mid-press (e.g. the page closes underneath it).
+  useEffect(() => clearLongPress, [clearLongPress]);
+
+  const handleLabelPointerDown = useCallback(() => {
+    if (!onForceReload) return;
+    clearLongPress();
+    longPressTimeoutRef.current = window.setTimeout(() => {
+      longPressTimeoutRef.current = null;
+      onForceReload();
+    }, LONG_PRESS_MS);
+  }, [onForceReload, clearLongPress]);
+
   return (
     <div className='period-picker'>
       <div className='period-picker-segment'>
@@ -41,7 +76,20 @@ export function PeriodPicker({ period, anchorStartMs, todayStartMs, onPeriodChan
         <button type='button' className='period-picker-nav-btn' onClick={() => onStep(-1)} aria-label='Forrige periode'>
           <Icon icon='mdi:chevron-left' />
         </button>
-        <span className='period-picker-label'>{labelFor(period, anchorStartMs, todayStartMs)}</span>
+        <span
+          className='period-picker-label'
+          data-interactive={onForceReload ? 'true' : undefined}
+          title={onForceReload ? 'Hold nede for at genindlæse' : undefined}
+          onPointerDown={handleLabelPointerDown}
+          onPointerUp={clearLongPress}
+          onPointerLeave={clearLongPress}
+          onPointerCancel={clearLongPress}
+          onContextMenu={e => {
+            if (onForceReload) e.preventDefault();
+          }}
+        >
+          {labelFor(period, anchorStartMs, todayStartMs)}
+        </span>
         <button
           type='button'
           className='period-picker-nav-btn'

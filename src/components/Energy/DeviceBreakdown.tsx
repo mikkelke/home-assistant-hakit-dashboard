@@ -8,6 +8,9 @@ interface DeviceBreakdownProps {
   view: EnergyView;
   devices: EnergyDevices | null;
   loading: boolean;
+  /** True while `devices` is a stale cache hit shown instantly and a real fetch is still in
+   * flight — rows stay visible, dimmed, with a small "opdaterer…" indicator in the header. */
+  refreshing: boolean;
   error: string | null;
   onReload: () => void;
   onSelectDevice: (device: DeviceUsage) => void;
@@ -99,7 +102,7 @@ function DeviceRow({ name, kWh, costKr, costExact, maxKWh, indent, untracked, ta
  * ranking); the tail beyond the top 12 collapses into one "Andre enheder" row, followed by the
  * untracked remainder. `period`/`view` are accepted for API parity with the rest of the page's
  * cards (e.g. `StatTiles`) — the row scale and content here are entirely derived from `devices`. */
-export function DeviceBreakdown({ devices, loading, error, onReload, onSelectDevice }: DeviceBreakdownProps) {
+export function DeviceBreakdown({ devices, loading, refreshing, error, onReload, onSelectDevice }: DeviceBreakdownProps) {
   const topLevel = devices?.devices ?? [];
   const visibleTopLevel = topLevel.slice(0, VISIBLE_TOP_LEVEL_COUNT);
   const overflow = topLevel.slice(VISIBLE_TOP_LEVEL_COUNT);
@@ -108,7 +111,15 @@ export function DeviceBreakdown({ devices, loading, error, onReload, onSelectDev
   return (
     <div className='device-breakdown'>
       <div className='device-breakdown-header'>
-        <h2>Enheder</h2>
+        <div className='device-breakdown-header-left'>
+          <h2>Enheder</h2>
+          {refreshing && (
+            <span className='device-breakdown-refreshing'>
+              <span className='device-breakdown-refreshing-dot' />
+              opdaterer…
+            </span>
+          )}
+        </div>
       </div>
 
       {loading && (
@@ -120,7 +131,7 @@ export function DeviceBreakdown({ devices, loading, error, onReload, onSelectDev
       )}
 
       {!loading && error && (
-        <div className='device-breakdown-state device-breakdown-state-error'>
+        <div className='device-breakdown-state-error'>
           <p>{error}</p>
           <button type='button' onClick={onReload}>
             Prøv igen
@@ -129,7 +140,7 @@ export function DeviceBreakdown({ devices, loading, error, onReload, onSelectDev
       )}
 
       {!loading && !error && devices && (
-        <div className='device-breakdown-rows'>
+        <div className={`device-breakdown-rows ${refreshing ? 'device-breakdown-rows--refreshing' : ''}`}>
           {visibleTopLevel.map(device => (
             <div className='device-row-group' key={device.statId}>
               <DeviceRow

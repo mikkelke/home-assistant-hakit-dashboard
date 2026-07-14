@@ -1,10 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHass } from '@hakit/core';
 import { assembleBars, assemblePriceSeries, synthesizePartialBar, type RawTodayPoint } from './assemble';
+import {
+  clearCached,
+  clearPersisted,
+  dedupeFetch,
+  getCached,
+  hashIds,
+  persistClosed,
+  readPersisted,
+  setCached,
+  statsCacheKey,
+} from './cache';
 import type { EnergyView, Period } from './types';
 import { useEnergyConfig } from './useEnergyConfig';
 import { fetchStatistics } from './ws';
-import { bucketPeriodFor, rangeFor, startOfLocalDay } from './period';
+import { bucketPeriodFor, isImmutablePeriod, rangeFor, startOfLocalDay } from './period';
 
 /** Identifies "what should be fetched" so loading/committed state can be compared without a
  * synchronous setState at the top of the effect (react-hooks/set-state-in-effect). */
@@ -61,15 +72,28 @@ interface FetchResult {
   key: string;
   data: EnergyView | null;
   error: string | null;
+  /** True while `data` is a stale cache hit shown instantly and a real fetch is still in flight —
+   * never true for an immutable-period cache hit, since that's the final, authoritative value. */
+  refreshing: boolean;
 }
 
-const EMPTY_RESULT: FetchResult = { key: '', data: null, error: null };
+const EMPTY_RESULT: FetchResult = { key: '', data: null, error: null, refreshing: false };
+
+/** Two rapid reload() calls (e.g. `ready` and `visibilitychange` firing moments apart) would
+ * otherwise each bump `reloadTick` to a distinct value and bypass dedupeFetch's own recent-resolve
+ * guard (which is keyed without the tick — see below). Coalescing at the source keeps a single
+ * cache key stable across those double-triggers instead. */
+const RELOAD_COALESCE_MS = 2000;
 
 export interface UseEnergyViewResult {
   data: EnergyView | null;
   loading: boolean;
+  refreshing: boolean;
   error: string | null;
   reload: () => void;
+  /** Bypasses both the reload coalescing guard and the persisted (L3) cache for the current
+   * period — wired to the PeriodPicker's long-press force-refresh. */
+  forceReload: () => void;
   priceAttrs: EnergyPriceAttrs;
 }
 
@@ -94,11 +118,43 @@ export function useEnergyView(period: Period, anchorStartMs: number): UseEnergyV
     };
   }, [priceEntity]);
 
+  const isDay = period === 'day';
+  // Cache-key inputs — memoized so the fetch effect and forceReload can share one identity without
+  // recomputing the id list / hash on every render.
+  const statisticIds = useMemo(
+    () =>
+      config
+        ? isDay
+          ? pickIds(config.gridStatId, config.costStatId, config.priceStatId)
+          : pickIds(config.gridStatId, config.costStatId)
+        : [],
+    [config, isDay]
+  );
+  const cacheKey = useMemo(
+    () => statsCacheKey(hashIds(statisticIds), period, anchorStartMs, 'view'),
+    [statisticIds, period, anchorStartMs]
+  );
+
   const [result, setResult] = useState<FetchResult>(EMPTY_RESULT);
   const [reloadTick, setReloadTick] = useState(0);
   const requestSeqRef = useRef(0);
+  const lastReloadAtMsRef = useRef(0);
 
-  const reload = useCallback(() => setReloadTick(tick => tick + 1), []);
+  const reload = useCallback(() => {
+    const nowMs = Date.now(); // event-handler read — purity lint only constrains render itself
+    if (nowMs - lastReloadAtMsRef.current < RELOAD_COALESCE_MS) return;
+    lastReloadAtMsRef.current = nowMs;
+    setReloadTick(tick => tick + 1);
+  }, []);
+
+  const forceReload = useCallback(() => {
+    // Both layers: L1 has no TTL, so leaving an immutable period's in-memory hit in place would
+    // still short-circuit the fetch below even after L3 is cleared.
+    clearCached(cacheKey);
+    clearPersisted(cacheKey);
+    lastReloadAtMsRef.current = Date.now();
+    setReloadTick(tick => tick + 1);
+  }, [cacheKey]);
 
   useEffect(() => {
     if (!connection || !config) return;
@@ -106,21 +162,41 @@ export function useEnergyView(period: Period, anchorStartMs: number): UseEnergyV
     const { endMs } = rangeFor(period, anchorStartMs);
     const key = buildRequestKey(config.gridStatId, period, anchorStartMs, reloadTick);
     const requestId = ++requestSeqRef.current;
-    const isDay = period === 'day';
-    const statisticIds = isDay
-      ? pickIds(config.gridStatId, config.costStatId, config.priceStatId)
-      : pickIds(config.gridStatId, config.costStatId);
+    const effectNowMs = Date.now();
+    const immutable = isImmutablePeriod(period, anchorStartMs, endMs, effectNowMs);
 
-    fetchStatistics(connection, {
-      startTimeIso: new Date(anchorStartMs).toISOString(),
-      endTimeIso: new Date(endMs).toISOString(),
-      statisticIds,
-      period: bucketPeriodFor(period),
-      types: isDay ? ['change', 'state'] : ['change'],
-    })
-      .then(async response => {
-        if (requestId !== requestSeqRef.current) return; // superseded by a newer request
+    if (immutable) {
+      // Closed period, at least two periods old — L1 first (fast reopen), then L3 (survives a
+      // page reload). A hit is the final, authoritative value: never touch the network for it.
+      const cachedEntry = getCached<EnergyView>(cacheKey) ?? readPersisted<EnergyView>(cacheKey);
+      if (cachedEntry) {
+        if (!getCached<EnergyView>(cacheKey)) setCached(cacheKey, cachedEntry.value, effectNowMs); // backfill L1 from L3
+        Promise.resolve(cachedEntry.value).then(view => {
+          if (requestId !== requestSeqRef.current) return; // superseded by a newer request
+          setResult({ key, data: view, error: null, refreshing: false });
+        });
+        return;
+      }
+    } else {
+      // Current/previous period (or any period seen for the first time this session): show any L1
+      // stale value instantly while the real fetch runs, so the frame never goes blank on refetch.
+      const stale = getCached<EnergyView>(cacheKey);
+      if (stale) {
+        Promise.resolve(stale.value).then(view => {
+          if (requestId !== requestSeqRef.current) return;
+          setResult({ key, data: view, error: null, refreshing: true });
+        });
+      }
+    }
 
+    dedupeFetch(cacheKey, effectNowMs, () =>
+      fetchStatistics(connection, {
+        startTimeIso: new Date(anchorStartMs).toISOString(),
+        endTimeIso: new Date(endMs).toISOString(),
+        statisticIds,
+        period: bucketPeriodFor(period),
+        types: isDay ? ['change', 'state'] : ['change'],
+      }).then(async response => {
         const gridRows = response[config.gridStatId] ?? [];
         const costRows = config.costStatId ? (response[config.costStatId] ?? []) : [];
         const priceRows = isDay && config.priceStatId ? (response[config.priceStatId] ?? []) : null;
@@ -144,7 +220,6 @@ export function useEnergyView(period: Period, anchorStartMs: number): UseEnergyV
               period: '5minute',
               types: ['change'],
             });
-            if (requestId !== requestSeqRef.current) return;
 
             const fiveMinGridRows = fiveMinResponse[config.gridStatId] ?? [];
             const fiveMinCostRows = config.costStatId ? (fiveMinResponse[config.costStatId] ?? []) : [];
@@ -159,17 +234,33 @@ export function useEnergyView(period: Period, anchorStartMs: number): UseEnergyV
 
         const totals = bars.reduce((sum, bar) => ({ kWh: sum.kWh + bar.kWh, costKr: sum.costKr + bar.costKr }), { kWh: 0, costKr: 0 });
 
-        setResult({
-          key,
-          data: { period, startMs: anchorStartMs, endMs, bars, totals, price: priceSeries ?? undefined, complete: endMs <= nowMs },
-          error: null,
-        });
+        const view: EnergyView = {
+          period,
+          startMs: anchorStartMs,
+          endMs,
+          bars,
+          totals,
+          price: priceSeries ?? undefined,
+          complete: endMs <= nowMs,
+        };
+        return view;
+      })
+    )
+      .then(view => {
+        if (requestId !== requestSeqRef.current) return; // superseded by a newer request
+        const persistNowMs = Date.now();
+        setCached(cacheKey, view, persistNowMs);
+        // CAVEAT: only an immutable (fully past) period is ever persisted — a today-view carries
+        // `price.now`/partial-bar runtime artifacts that must never survive to a later reload; that
+        // invariant holds by construction here since `immutable` is always false for "today".
+        if (immutable) persistClosed(cacheKey, view, persistNowMs);
+        setResult({ key, data: view, error: null, refreshing: false });
       })
       .catch((err: unknown) => {
         if (requestId !== requestSeqRef.current) return;
-        setResult({ key, data: null, error: String(err) });
+        setResult({ key, data: null, error: String(err), refreshing: false });
       });
-  }, [connection, config, period, anchorStartMs, reloadTick, priceAttrs]);
+  }, [connection, config, period, anchorStartMs, reloadTick, priceAttrs, isDay, statisticIds, cacheKey]);
 
   useEffect(() => {
     if (!connection) return;
@@ -202,13 +293,16 @@ export function useEnergyView(period: Period, anchorStartMs: number): UseEnergyV
   }, [result, reload]);
 
   const requestKey = buildRequestKey(config?.gridStatId, period, anchorStartMs, reloadTick);
-  const fetchPending = config != null && result.key !== requestKey;
+  const resultMatchesRequest = result.key === requestKey;
+  const fetchPending = config != null && !resultMatchesRequest;
 
   return {
-    data: result.key === requestKey ? result.data : null,
+    data: resultMatchesRequest ? result.data : null,
     loading: configLoading || fetchPending,
-    error: configError ?? (result.key === requestKey ? result.error : null),
+    refreshing: resultMatchesRequest && result.refreshing,
+    error: configError ?? (resultMatchesRequest ? result.error : null),
     reload,
+    forceReload,
     priceAttrs,
   };
 }

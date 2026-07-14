@@ -15,6 +15,10 @@ interface EnergyChartProps {
 const VIEW_WIDTH = 600;
 const VIEW_HEIGHT = 240;
 const PAD = { top: 14, right: 10, bottom: 26, left: 38 };
+/** Floor for the invisible tap-target rects — on a narrow phone the month view's ~31 slots can
+ * render a natural slot width under 10px; below that a tap becomes unreliable, so the hit rect
+ * expands beyond its own slot (centered) and accepts overlap with its neighbors. */
+const MIN_HIT_RECT_WIDTH = 12;
 const HOUR_LABELS = [0, 6, 12, 18];
 const MONTH_LABEL_SLOTS = [0, 7, 14, 21, 28];
 const WEEKDAY_LETTERS = ['sø', 'ma', 'ti', 'on', 'to', 'fr', 'lø']; // index = Date#getDay(): 0 = Sunday
@@ -99,12 +103,19 @@ function formatBarValue(value: number, unit: 'kwh' | 'kr'): string {
 }
 
 export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period, unit, onSelectBar, selectedStartMs }: EnergyChartProps) {
+  // No axes, no gridlines — just the message (HA-restart gaps, or a year view's months before
+  // Dec 2025, an absent period rather than a genuine zero).
+  if (bars.length === 0) {
+    return <div className='energy-chart-empty'>Ingen data for denne periode</div>;
+  }
+
   const slots = Math.max(1, slotsInRange(period, rangeStartMs, rangeEndMs));
   const plotWidth = VIEW_WIDTH - PAD.left - PAD.right;
   const plotBottom = VIEW_HEIGHT - PAD.bottom;
   const plotHeight = plotBottom - PAD.top;
   const slotWidth = plotWidth / slots;
   const barWidth = Math.min(24, slotWidth - 2);
+  const hitRectWidth = Math.max(slotWidth, MIN_HIT_RECT_WIDTH);
 
   const valueFor = (bar: EnergyBar) => (unit === 'kr' ? bar.costKr : bar.kWh);
   const maxValue = bars.reduce((max, bar) => Math.max(max, valueFor(bar)), 0);
@@ -115,7 +126,10 @@ export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period, unit, onSe
   const maxBar = bars.reduce<EnergyBar | null>((best, bar) => (best === null || valueFor(bar) > valueFor(best) ? bar : best), null);
 
   return (
-    <svg className='energy-chart-svg' viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}>
+    // data-interactive: escape hatch useSwipeToClose already recognizes (see its
+    // isInteractiveElement allowlist) — the bar hit-rects below are real tap targets, so a swipe
+    // gesture starting on the chart must not be read as a swipe-to-close.
+    <svg className='energy-chart-svg' data-interactive='true' viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}>
       {ticks.map(tick => (
         <g key={tick}>
           <line x1={PAD.left} y1={yFor(tick)} x2={VIEW_WIDTH - PAD.right} y2={yFor(tick)} className='energy-chart-gridline' />
@@ -166,9 +180,9 @@ export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period, unit, onSe
         bars.map(bar => (
           <rect
             key={`hit-${bar.startMs}`}
-            x={slotXFor(bar.startMs)}
+            x={slotXFor(bar.startMs) + (slotWidth - hitRectWidth) / 2}
             y={PAD.top}
-            width={slotWidth}
+            width={hitRectWidth}
             height={plotHeight}
             className='energy-chart-hit-rect'
             onPointerDown={() => onSelectBar(selectedStartMs === bar.startMs ? null : bar)}

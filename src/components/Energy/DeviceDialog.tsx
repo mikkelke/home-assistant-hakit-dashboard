@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { useHass } from '@hakit/core';
-import { useEnergyConfig, type DeviceUsage, type Period } from '../../energy';
-import { deviceCostExact } from '../../energy/assemble';
+import { deviceCostExact, useEnergyConfig, type DeviceUsage, type Period } from '../../energy';
 import { labelFor, startOfLocalDay } from '../../energy/period';
 import { fetchStatistics } from '../../energy/ws';
 import { useModalBackButton } from '../../hooks';
