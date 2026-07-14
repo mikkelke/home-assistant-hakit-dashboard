@@ -1,0 +1,73 @@
+.bill-card {
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  margin-top: 1rem;
+}
+
+.bill-card-header {
+  margin-bottom: 0.75rem;
+}
+
+.bill-card-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.bill-card-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bill-card-row-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.bill-card-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.bill-card-row-label {
+  font-size: 0.85rem;
+  color: #a1a1aa;
+}
+
+.bill-card-row-value {
+  font-size: 0.85rem;
+  color: #e4e4e7;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.bill-card-note {
+  margin: 0.15rem 0 0;
+  font-size: 0.7rem;
+  color: #71717a;
+}
+
+.bill-card-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 0.15rem 0;
+}
+
+.bill-card-row--total .bill-card-row-label,
+.bill-card-row--total .bill-card-row-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.bill-card-footnote {
+  margin: 0.75rem 0 0;
+  font-size: 0.7rem;
+  color: #71717a;
+}

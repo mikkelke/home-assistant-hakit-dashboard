@@ -1,0 +1,115 @@
+.price-forecast {
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  margin-top: 1rem;
+}
+
+.price-forecast-header {
+  margin-bottom: 0.75rem;
+}
+
+.price-forecast-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.price-forecast-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.price-forecast-gridline,
+.price-forecast-baseline {
+  stroke: rgba(255, 255, 255, 0.07);
+  stroke-width: 1;
+}
+
+.price-forecast-tick-label {
+  fill: #71717a;
+  font-size: 10px;
+}
+
+.price-forecast-peak-band {
+  fill: rgba(251, 146, 60, 0.08);
+}
+
+.price-forecast-peak-label {
+  fill: #a1a1aa;
+  font-size: 8px;
+}
+
+.price-forecast-area {
+  fill: rgba(56, 189, 248, 0.06);
+  stroke: none;
+}
+
+.price-forecast-step-line {
+  stroke: #38bdf8;
+  stroke-width: 2;
+  fill: none;
+}
+
+.price-forecast-step-line--carnot {
+  stroke-dasharray: 3 3;
+  opacity: 0.7;
+}
+
+.price-forecast-extreme-dot {
+  fill: #38bdf8;
+  stroke: #141518;
+  stroke-width: 2;
+}
+
+.price-forecast-extreme-label {
+  fill: #a1a1aa;
+  font-size: 9px;
+}
+
+.price-forecast-axis-label {
+  fill: #71717a;
+  font-size: 9px;
+}
+
+.price-forecast-day-label {
+  fill: #71717a;
+  font-size: 8px;
+}
+
+.price-forecast-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  margin-top: 0.5rem;
+  color: #a1a1aa;
+  font-size: 0.7rem;
+}
+
+.price-forecast-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.price-forecast-legend-swatch {
+  display: inline-block;
+  width: 16px;
+  height: 0;
+  border-top-width: 2px;
+  border-top-style: solid;
+  border-top-color: #38bdf8;
+}
+
+.price-forecast-legend-swatch--dashed {
+  border-top-style: dashed;
+  opacity: 0.7;
+}
+
+.price-forecast-legend-note {
+  color: #71717a;
+}

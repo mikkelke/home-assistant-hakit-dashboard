@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { useEnergyConfig, useEnergyDevices, useEnergyView, type DeviceUsage, type EnergyBar, type Period } from '../../energy';
+import { useEnergyDevices, useEnergyView, type DeviceUsage, type EnergyBar, type Period } from '../../energy';
+import { assembleForecast } from '../../energy/bill';
 import { labelFor, nextDisabled, rangeFor, startOfLocalDay, startOfPeriod, stepAnchor } from '../../energy/period';
 import { PRICE_BAND_THRESHOLDS } from '../../config/energy';
 import { formatKr, formatKWh, formatPrice } from '../../utils/format';
+import { BillCard } from './BillCard';
 import { DeviceBreakdown } from './DeviceBreakdown';
 import { DeviceDialog } from './DeviceDialog';
 import { EnergyChart } from './EnergyChart';
 import { PeriodPicker } from './PeriodPicker';
+import { PriceForecast } from './PriceForecast';
 import { PriceStrip } from './PriceStrip';
 import { StatTiles } from './StatTiles';
 import { UnitToggle } from './UnitToggle';
@@ -15,13 +18,6 @@ import './EnergyPage.css';
 
 interface EnergyPageProps {
   onClose: () => void;
-}
-
-/** Local calendar date for the debug line — deliberately not `toISOString()`, which converts to
- * UTC and would print the wrong date for buckets near local midnight. */
-function debugDateLabel(ms: number): string {
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 /** Period-appropriate one-line summary for the selection info pill. */
@@ -64,9 +60,12 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
 
   const todayStartMs = useMemo(() => startOfLocalDay(nowMs), [nowMs]);
 
-  const { config } = useEnergyConfig();
-  const { data, loading, error, reload } = useEnergyView(period, anchorStartMs);
+  const { data, loading, error, reload, priceAttrs } = useEnergyView(period, anchorStartMs);
   const devicesState = useEnergyDevices(period, anchorStartMs, data);
+  const forecast = useMemo(
+    () => assembleForecast(priceAttrs.rawTomorrow, priceAttrs.tomorrowValid, priceAttrs.carnotForecast, nowMs),
+    [priceAttrs, nowMs]
+  );
 
   const handlePeriodChange = (nextPeriod: Period) => {
     setPeriod(nextPeriod);
@@ -86,25 +85,6 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
   // The stored selection tracks an hour/day/month by ms; re-derive against the live bars array so
   // a background refresh (partial bar growing, hourly re-assemble) keeps the pill's numbers fresh.
   const liveSelectedBar = selectedBar && (data?.bars.find(bar => bar.startMs === selectedBar.startMs) ?? selectedBar);
-
-  const debugLine =
-    [
-      `grid: ${config?.gridStatId ?? '—'}`,
-      `cost: ${config?.costStatId ?? '—'}`,
-      `rækker: ${data?.bars.length ?? 0}`,
-      `pris-punkter: ${data?.price?.points.length ?? 0}`,
-      `${period} ${data ? `${debugDateLabel(data.startMs)}→${debugDateLabel(data.endMs)}` : ''}`,
-      `kr i alt: ${data ? formatKr(data.totals.costKr) : '—'}`,
-      `enheder: ${devicesState.data?.devices.length ?? 0}`,
-      `umålt: ${devicesState.data ? formatKWh(devicesState.data.untracked.kWh) : '—'}`,
-    ].join(' · ') + (error ? ` · ${error}` : '');
-
-  // Temporary spike-line diagnostics (Phase 1 only) — logs once per successful fetch.
-  useEffect(() => {
-    if (data && config) {
-      console.debug('[energy]', config.gridStatId, data.bars.length);
-    }
-  }, [data, config]);
 
   return (
     <div className='energy-page'>
@@ -197,10 +177,11 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
                 )}
               </>
             )}
-
-            {/* Debug line — kept while cost/price wiring is still being cross-checked live. */}
-            <p className='energy-page-debug'>{debugLine}</p>
           </div>
+
+          {period === 'day' && anchorStartMs === todayStartMs && forecast && <PriceForecast forecast={forecast} nowMs={nowMs} />}
+
+          {data && <BillCard view={data} nowMs={nowMs} />}
 
           {data && (
             <DeviceBreakdown

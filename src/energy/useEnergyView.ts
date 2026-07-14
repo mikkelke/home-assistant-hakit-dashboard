@@ -26,8 +26,10 @@ function nextCompileMs(nowMs: number): number {
   return candidate.getTime();
 }
 
-/** Defensive parse of the live price entity's `raw_today` attribute — external data, never trusted blind. */
-function parseRawToday(value: unknown): RawTodayPoint[] | null {
+/** Defensive parse of one of the live price entity's hourly point-array attributes (`raw_today`,
+ * `raw_tomorrow`, or the Carnot `forecast` attribute — all three share this `{hour, price}` shape)
+ * — external data, never trusted blind. */
+function parseRawPoints(value: unknown): RawTodayPoint[] | null {
   if (!Array.isArray(value)) return null;
   const points = value.filter(
     (item): item is RawTodayPoint =>
@@ -43,6 +45,18 @@ function parseCurrentPrice(value: unknown): number | null {
   return typeof value === 'number' ? value : null;
 }
 
+/** The live price entity's attributes this page consumes, pre-parsed once per entity change —
+ * `rawToday`/`currentPrice` drive the day view's settled price curve (`StatTiles`, `PriceStrip`);
+ * `rawTomorrow`/`tomorrowValid`/`carnotForecast` drive the "Prisprognose" strip
+ * (`assembleForecast` in `bill.ts`). */
+export interface EnergyPriceAttrs {
+  rawToday: RawTodayPoint[] | null;
+  rawTomorrow: RawTodayPoint[] | null;
+  tomorrowValid: boolean;
+  carnotForecast: RawTodayPoint[] | null;
+  currentPrice: number | null;
+}
+
 interface FetchResult {
   key: string;
   data: EnergyView | null;
@@ -56,23 +70,27 @@ export interface UseEnergyViewResult {
   loading: boolean;
   error: string | null;
   reload: () => void;
+  priceAttrs: EnergyPriceAttrs;
 }
 
 export function useEnergyView(period: Period, anchorStartMs: number): UseEnergyViewResult {
   const connection = useHass(s => s.connection);
   const { config, loading: configLoading, error: configError } = useEnergyConfig();
 
-  // Live price-entity attributes (raw_today/current_price) — selected as the entity object so the
-  // memo below only re-derives when THIS entity actually changes.
+  // Live price-entity attributes (raw_today/raw_tomorrow/forecast/current_price) — selected as the
+  // entity object so the memo below only re-derives when THIS entity actually changes. Kept as one
+  // memo rather than split: it's also the fetch effect's own dependency below, so raw_tomorrow
+  // landing at ~13:35 (or the hourly current_price tick) naturally triggers a refetch — desirable,
+  // not churn.
   const priceEntity = useHass(s => (config?.priceEntityId ? s.entities[config.priceEntityId] : undefined));
-  const priceAttrs = useMemo(() => {
+  const priceAttrs = useMemo<EnergyPriceAttrs>(() => {
     const attrs = priceEntity?.attributes;
     return {
-      rawToday: parseRawToday(attrs?.raw_today),
-      currentPrice: parseCurrentPrice(attrs?.current_price),
-      // Reserved for Phase 5 (Prisprognose) — not consumed yet, kept alongside its siblings so
-      // this memo doesn't need re-deriving when that phase lands.
+      rawToday: parseRawPoints(attrs?.raw_today),
+      rawTomorrow: parseRawPoints(attrs?.raw_tomorrow),
       tomorrowValid: attrs?.tomorrow_valid === true,
+      carnotForecast: parseRawPoints(attrs?.forecast),
+      currentPrice: parseCurrentPrice(attrs?.current_price),
     };
   }, [priceEntity]);
 
@@ -191,5 +209,6 @@ export function useEnergyView(period: Period, anchorStartMs: number): UseEnergyV
     loading: configLoading || fetchPending,
     error: configError ?? (result.key === requestKey ? result.error : null),
     reload,
+    priceAttrs,
   };
 }
