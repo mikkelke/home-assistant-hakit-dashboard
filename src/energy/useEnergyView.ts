@@ -3,20 +3,7 @@ import { useHass } from '@hakit/core';
 import type { EnergyBar, EnergyView, Period } from './types';
 import { useEnergyConfig } from './useEnergyConfig';
 import { fetchStatistics } from './ws';
-import { addDays } from './period';
-
-/** Only 'day' is wired up in Phase 1; week/month/year bucket periods land in Phase 2. */
-function toStatisticsPeriod(period: Period): 'hour' | 'day' | 'month' {
-  switch (period) {
-    case 'day':
-      return 'hour';
-    case 'week':
-    case 'month':
-      return 'day';
-    case 'year':
-      return 'month';
-  }
-}
+import { bucketPeriodFor, rangeFor } from './period';
 
 /** Identifies "what should be fetched" so loading/committed state can be compared without a
  * synchronous setState at the top of the effect (react-hooks/set-state-in-effect). */
@@ -51,8 +38,7 @@ export function useEnergyView(period: Period, anchorStartMs: number): UseEnergyV
   useEffect(() => {
     if (!connection || !config) return;
 
-    // Phase 1 only ever renders the day view; range math for week/month/year arrives in Phase 2.
-    const endMs = addDays(anchorStartMs, 1);
+    const { endMs } = rangeFor(period, anchorStartMs);
     const key = buildRequestKey(config.gridStatId, period, anchorStartMs, reloadTick);
     const requestId = ++requestSeqRef.current;
 
@@ -60,7 +46,7 @@ export function useEnergyView(period: Period, anchorStartMs: number): UseEnergyV
       startTimeIso: new Date(anchorStartMs).toISOString(),
       endTimeIso: new Date(endMs).toISOString(),
       statisticIds: [config.gridStatId],
-      period: toStatisticsPeriod(period),
+      period: bucketPeriodFor(period),
       types: ['change'],
     })
       .then(response => {
