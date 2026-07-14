@@ -1,0 +1,156 @@
+.device-breakdown {
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  margin-top: 1rem;
+}
+
+.device-breakdown-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.device-breakdown-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.device-breakdown-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.device-row-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.device-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) minmax(50px, 200px) 64px 88px;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 44px;
+  padding: 0 0.35rem;
+  border-radius: 0.5rem;
+}
+
+.device-row--tappable {
+  cursor: pointer;
+}
+
+.device-row--tappable:hover,
+.device-row--tappable:focus-visible {
+  background: rgba(255, 255, 255, 0.05);
+  outline: none;
+}
+
+.device-row--child {
+  padding-left: 0.75rem;
+}
+
+.device-row-name {
+  font-size: 0.85rem;
+  color: #e4e4e7;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.device-row--child .device-row-name {
+  font-size: 0.8rem;
+  color: #a1a1aa;
+}
+
+.device-row-bar-track {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.device-row-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: #3b82f6;
+}
+
+.device-row-bar-fill--untracked {
+  background: #3f3f46;
+}
+
+.device-row-kwh {
+  font-size: 0.8rem;
+  color: #e4e4e7;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.device-row-cost {
+  font-size: 0.8rem;
+  color: #a1a1aa;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.device-breakdown-state {
+  color: #a1a1aa;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 1.5rem 0;
+}
+
+.device-breakdown-state-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  color: #e4e4e7;
+}
+
+.device-breakdown-state-error button {
+  padding: 0.5rem 1rem;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 0.5rem;
+  color: #38bdf8;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.device-breakdown-state-error button:hover {
+  background: rgba(56, 189, 248, 0.25);
+}
+
+.device-breakdown-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.device-row--skeleton {
+  height: 44px;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  animation: device-row-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes device-row-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}

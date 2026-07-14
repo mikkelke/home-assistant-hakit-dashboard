@@ -97,3 +97,23 @@ export interface EnergyView {
   price?: PriceSeries; // day view only
   complete: boolean;
 }
+
+/** One device's usage for the visible period. Device cost is always derived (HA computes no
+ * device cost) — `costExact` distinguishes the period-effective-price approximation used in the
+ * breakdown list from the on-demand hourly-joined exact cost computed when a row is tapped. */
+export interface DeviceUsage {
+  statId: string;
+  name: string;
+  kWh: number;
+  costKr: number | null; // null = no price basis
+  costExact: boolean;
+  parentStatId?: string;
+  children?: DeviceUsage[];
+}
+
+export interface EnergyDevices {
+  devices: DeviceUsage[]; // top-level only, children nested, sorted kWh desc
+  untracked: { kWh: number; costKr: number | null };
+  totalTrackedKWh: number; // top-level sum
+  complete: boolean;
+}

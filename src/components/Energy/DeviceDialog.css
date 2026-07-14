@@ -1,0 +1,68 @@
+.device-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+.device-dialog {
+  width: min(420px, 100%);
+  background: rgba(20, 21, 24, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  padding: 1.25rem 1.35rem;
+}
+
+.device-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.device-dialog-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #f4f4f5;
+}
+
+.device-dialog-period {
+  margin: 0.2rem 0 1rem;
+  font-size: 0.85rem;
+  color: #a1a1aa;
+}
+
+.device-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.device-dialog-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.6rem;
+}
+
+.device-dialog-label {
+  font-size: 0.8rem;
+  color: #a1a1aa;
+}
+
+.device-dialog-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #e4e4e7;
+  text-align: right;
+}

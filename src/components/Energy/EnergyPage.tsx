@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { useEnergyConfig, useEnergyView, type EnergyBar, type Period } from '../../energy';
-import { labelFor, nextDisabled, startOfLocalDay, startOfPeriod, stepAnchor } from '../../energy/period';
+import { useEnergyConfig, useEnergyDevices, useEnergyView, type DeviceUsage, type EnergyBar, type Period } from '../../energy';
+import { labelFor, nextDisabled, rangeFor, startOfLocalDay, startOfPeriod, stepAnchor } from '../../energy/period';
 import { PRICE_BAND_THRESHOLDS } from '../../config/energy';
 import { formatKr, formatKWh, formatPrice } from '../../utils/format';
+import { DeviceBreakdown } from './DeviceBreakdown';
+import { DeviceDialog } from './DeviceDialog';
 import { EnergyChart } from './EnergyChart';
 import { PeriodPicker } from './PeriodPicker';
 import { PriceStrip } from './PriceStrip';
@@ -53,6 +55,7 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [unit, setUnit] = useState<'kwh' | 'kr'>('kwh');
   const [selectedBar, setSelectedBar] = useState<EnergyBar | null>(null);
+  const [selectedDevice, setSelectedDevice] = useState<DeviceUsage | null>(null);
 
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 60_000);
@@ -63,16 +66,19 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
 
   const { config } = useEnergyConfig();
   const { data, loading, error, reload } = useEnergyView(period, anchorStartMs);
+  const devicesState = useEnergyDevices(period, anchorStartMs, data);
 
   const handlePeriodChange = (nextPeriod: Period) => {
     setPeriod(nextPeriod);
     setAnchorStartMs(startOfPeriod(nextPeriod, Date.now()));
     setSelectedBar(null);
+    setSelectedDevice(null);
   };
 
   const handleStep = (delta: 1 | -1) => {
     setAnchorStartMs(current => (delta === 1 && nextDisabled(period, current, nowMs) ? current : stepAnchor(period, current, delta)));
     setSelectedBar(null);
+    setSelectedDevice(null);
   };
 
   const nextStepDisabled = nextDisabled(period, anchorStartMs, nowMs);
@@ -89,6 +95,8 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
       `pris-punkter: ${data?.price?.points.length ?? 0}`,
       `${period} ${data ? `${debugDateLabel(data.startMs)}→${debugDateLabel(data.endMs)}` : ''}`,
       `kr i alt: ${data ? formatKr(data.totals.costKr) : '—'}`,
+      `enheder: ${devicesState.data?.devices.length ?? 0}`,
+      `umålt: ${devicesState.data ? formatKWh(devicesState.data.untracked.kWh) : '—'}`,
     ].join(' · ') + (error ? ` · ${error}` : '');
 
   // Temporary spike-line diagnostics (Phase 1 only) — logs once per successful fetch.
@@ -193,8 +201,30 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
             {/* Debug line — kept while cost/price wiring is still being cross-checked live. */}
             <p className='energy-page-debug'>{debugLine}</p>
           </div>
+
+          {data && (
+            <DeviceBreakdown
+              period={period}
+              view={data}
+              devices={devicesState.data}
+              loading={devicesState.loading}
+              error={devicesState.error}
+              onReload={devicesState.reload}
+              onSelectDevice={setSelectedDevice}
+            />
+          )}
         </div>
       </div>
+
+      {selectedDevice && (
+        <DeviceDialog
+          device={selectedDevice}
+          period={period}
+          anchorStartMs={anchorStartMs}
+          rangeEndMs={rangeFor(period, anchorStartMs).endMs}
+          onClose={() => setSelectedDevice(null)}
+        />
+      )}
     </div>
   );
 }

@@ -6,3 +6,5 @@ export { useEnergyConfig } from './useEnergyConfig';
 export type { UseEnergyConfigResult } from './useEnergyConfig';
 export { useEnergyView } from './useEnergyView';
 export type { UseEnergyViewResult } from './useEnergyView';
+export { useEnergyDevices } from './useEnergyDevices';
+export type { UseEnergyDevicesResult } from './useEnergyDevices';
