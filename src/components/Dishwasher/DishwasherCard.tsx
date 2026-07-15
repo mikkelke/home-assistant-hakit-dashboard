@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { resolveDishwasherSemanticState } from '../../utils/dishwasherSemanticState';
+import { formatKr } from '../../utils/format';
+import { useRunCost } from '../../energy';
 import { ApplianceCycleTiming } from '../ApplianceCycleTiming';
 import './DishwasherCard.css';
 
@@ -176,10 +178,21 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
     [feedbackData, feedbackUrl, persistFeedback, cycleSelection]
   );
 
-  if (!dishwasher) return null;
-
-  const attrs = dishwasher.attributes || {};
+  // Semantic state and the stats-line attributes are resolved unconditionally, before either early
+  // return below, because useRunCost is a hook and must run on every render (rules-of-hooks).
+  const attrs = dishwasher?.attributes ?? {};
   const state: DishwasherState = resolveDishwasherSemanticState(dishwasher, dishwasherInputState);
+  const runTimeMinutes = attrs.run_time_minutes != null ? Number(attrs.run_time_minutes) : undefined;
+  const energyUsed = attrs.energy_used != null ? Number(attrs.energy_used) : undefined;
+
+  const runCostKr = useRunCost({
+    active: state === 'Unemptied',
+    endDetectedIso: dishwasher?.last_changed,
+    runTimeMinutes,
+    energyKwh: energyUsed,
+  });
+
+  if (!dishwasher) return null;
 
   if (state === 'Off' || state === 'Emptied') return null;
 
@@ -191,8 +204,6 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
   const cycleStartTimeLocal = attrs.cycle_start_time_local as string | undefined;
   const startedAtDisplay = attrs.started_at_display as string | undefined;
   const estimatedEndTime = attrs.estimated_end_time as string | undefined;
-  const runTimeMinutes = attrs.run_time_minutes != null ? Number(attrs.run_time_minutes) : undefined;
-  const energyUsed = attrs.energy_used != null ? Number(attrs.energy_used) : undefined;
 
   const progressWhenRunning =
     state === 'Running' && ((totalMin != null && totalMin > 0) || (attrs.progress_pct != null && attrs.progress_pct !== ''));
@@ -341,6 +352,8 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
                 {runTimeMinutes != null && <span>Ran {formatDuration(runTimeMinutes)}</span>}
                 {runTimeMinutes != null && energyUsed != null && ' · '}
                 {energyUsed != null && <span>Used {Number(energyUsed).toFixed(2)} kWh</span>}
+                {energyUsed != null && runCostKr != null && ' · '}
+                {runCostKr != null && <span>≈ {formatKr(runCostKr)}</span>}
               </div>
             )}
             <div className='dishwasher-banner unemptied'>

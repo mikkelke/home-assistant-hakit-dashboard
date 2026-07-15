@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
+import { formatKr } from '../../utils/format';
+import { useRunCost } from '../../energy';
 import { ApplianceCycleTiming } from '../ApplianceCycleTiming';
 import {
   DRYER_ANNOUNCE_BOOLEAN,
@@ -201,11 +203,11 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
     [feedbackData, feedbackUrl, persistFeedback, cycleSelection]
   );
 
-  if (!dryer) return null;
-
-  const rawState = (dryer.state?.trim() || 'Off').toLowerCase();
-  const attrs = dryer.attributes || {};
-  let state: DryerState = (dryer.state?.trim() || 'Off') as DryerState;
+  // State + the stats-line attributes are resolved unconditionally, before either early return
+  // below, because useRunCost is a hook and must run on every render (rules-of-hooks).
+  const rawState = (dryer?.state?.trim() || 'Off').toLowerCase();
+  const attrs = dryer?.attributes ?? {};
+  let state: DryerState = (dryer?.state?.trim() || 'Off') as DryerState;
   if (rawState === 'on') {
     const hasRunningAttrs =
       attrs.estimated_remaining_min != null ||
@@ -217,6 +219,21 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
   } else if (rawState === 'off') {
     state = 'Off';
   }
+
+  const runTimeMinutes = attrs.run_time_minutes != null ? Number(attrs.run_time_minutes) : undefined;
+  const energyUsed = attrs.energy_used != null ? Number(attrs.energy_used) : undefined;
+  // Detection lag between real cycle end and the Unemptied flip, when the watcher publishes it.
+  const idleMinutes = attrs.idle_min != null ? Number(attrs.idle_min) : undefined;
+
+  const runCostKr = useRunCost({
+    active: state === 'Unemptied',
+    endDetectedIso: dryer?.last_changed,
+    runTimeMinutes,
+    idleMinutes,
+    energyKwh: energyUsed,
+  });
+
+  if (!dryer) return null;
 
   if (state === 'Off' || state === 'Emptied') return null;
 
@@ -234,8 +251,6 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
   const cycleStartTime = attrs.cycle_start_time as string | undefined;
   const startedAtDisplay = attrs.started_at_display as string | undefined;
   const estimatedEndTime = attrs.estimated_end_time as string | undefined;
-  const runTimeMinutes = attrs.run_time_minutes != null ? Number(attrs.run_time_minutes) : undefined;
-  const energyUsed = attrs.energy_used != null ? Number(attrs.energy_used) : undefined;
   const keepFreshDetected = attrs.keep_fresh_detected as boolean | undefined;
 
   const progressWhenRunning =
@@ -478,6 +493,8 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
                 {runTimeMinutes != null && <span>Ran {formatDuration(runTimeMinutes)}</span>}
                 {runTimeMinutes != null && energyUsed != null && ' · '}
                 {energyUsed != null && <span>Used {Number(energyUsed).toFixed(2)} kWh</span>}
+                {energyUsed != null && runCostKr != null && ' · '}
+                {runCostKr != null && <span>≈ {formatKr(runCostKr)}</span>}
                 {keepFreshDetected && ' · Keep fresh detected'}
               </div>
             )}

@@ -40,7 +40,7 @@ function nextCompileMs(nowMs: number): number {
 /** Defensive parse of one of the live price entity's hourly point-array attributes (`raw_today`,
  * `raw_tomorrow`, or the Carnot `forecast` attribute — all three share this `{hour, price}` shape)
  * — external data, never trusted blind. */
-function parseRawPoints(value: unknown): RawTodayPoint[] | null {
+export function parseRawPoints(value: unknown): RawTodayPoint[] | null {
   if (!Array.isArray(value)) return null;
   const points = value.filter(
     (item): item is RawTodayPoint =>
