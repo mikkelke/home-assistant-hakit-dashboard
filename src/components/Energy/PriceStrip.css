@@ -6,6 +6,19 @@
   display: block;
   width: 100%;
   height: auto;
+  /* Vertical pans scroll the page; horizontal drags reach the scrub hook. */
+  touch-action: pan-y;
+}
+
+.price-strip-guide {
+  stroke: rgba(255, 255, 255, 0.28);
+  stroke-width: 1;
+}
+
+.price-strip-selected-dot {
+  fill: #38bdf8;
+  stroke: #141518;
+  stroke-width: 2;
 }
 
 .price-strip-gridline,

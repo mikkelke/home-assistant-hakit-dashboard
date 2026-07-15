@@ -1,12 +1,16 @@
-import { useState } from 'react';
-import { useEnergyView, type EnergyBar, type Period } from '../../energy';
+import { useCallback, useMemo, useState } from 'react';
+import { priceLevel, useEnergyView, type Period } from '../../energy';
+import { slotsInRange } from '../../energy/period';
 import { PRICE_BAND_THRESHOLDS } from '../../config/energy';
 import { formatKr, formatKWh, formatPrice } from '../../utils/format';
+import { ChartCallout, type ChartCalloutModel } from './ChartCallout';
+import { slotCenterPct, slotIndexFor, slotStartMsFor, snapToNearestSlot } from './chartGeometry';
 import { EnergyChart } from './EnergyChart';
 import { PeriodPicker } from './PeriodPicker';
 import { PriceStrip } from './PriceStrip';
 import { StatTiles } from './StatTiles';
 import { UnitToggle } from './UnitToggle';
+import { useChartScrub, type ScrubPhase } from './useChartScrub';
 import './UsageTab.css';
 
 interface UsageTabProps {
@@ -20,33 +24,17 @@ interface UsageTabProps {
   onUnitChange: (unit: 'kwh' | 'kr') => void;
 }
 
-/** Period-appropriate one-line summary for the selection info pill. */
-function describeBar(period: Period, bar: EnergyBar): string {
-  switch (period) {
-    case 'day': {
-      const hour = new Date(bar.startMs).getHours();
-      const parts = [`${hour}–${hour + 1}`, formatKWh(bar.kWh), formatKr(bar.costKr)];
-      if (bar.price != null) parts.push(formatPrice(bar.price));
-      return parts.join(' · ');
-    }
-    case 'week':
-    case 'month': {
-      const dateLabel = new Date(bar.startMs).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
-      const parts = [dateLabel, formatKWh(bar.kWh), formatKr(bar.costKr)];
-      if (bar.price != null) parts.push(`≈${formatPrice(bar.price)}`);
-      return parts.join(' · ');
-    }
-    case 'year': {
-      const monthLabel = new Date(bar.startMs).toLocaleDateString(undefined, { month: 'long' });
-      return [monthLabel, formatKWh(bar.kWh), formatKr(bar.costKr)].join(' · ');
-    }
-  }
+function hourRangeLabel(ms: number): string {
+  const startHour = new Date(ms).getHours();
+  const endHour = (startHour + 1) % 24;
+  return `${String(startHour).padStart(2, '0')}:00–${String(endHour).padStart(2, '0')}:00`;
 }
 
-/** Tab "Usage": period picker, day-view stat tiles, and the Consumption chart card — the page's
- * original single-view content minus the price forecast (now on the Live tab) and the Bill/Devices
- * cards (their own tabs). Owns `selectedBar` locally — a tab-local selection, reset on every
- * period/step change and (by unmounting) on tab switch. */
+/** Tab "Usage": period picker, day-view stat tiles, and the Consumption chart card with
+ * Apple-Health-style scrubbing — tap or drag across the bars OR the price strip to inspect an
+ * hour/day/month; a callout above the chart carries the numbers. Selection is slot-based
+ * (`selectedSlotMs`), so today's future hours — which have a price but no bar yet — are
+ * scrubbably real too. */
 export function UsageTab({
   period,
   anchorStartMs,
@@ -57,22 +45,90 @@ export function UsageTab({
   unit,
   onUnitChange,
 }: UsageTabProps) {
-  const [selectedBar, setSelectedBar] = useState<EnergyBar | null>(null);
+  const [selectedSlotMs, setSelectedSlotMs] = useState<number | null>(null);
   const { data, loading, refreshing, error, reload, forceReload } = useEnergyView(period, anchorStartMs);
 
   const handlePeriodChange = (nextPeriod: Period) => {
     onPeriodChange(nextPeriod);
-    setSelectedBar(null);
+    setSelectedSlotMs(null);
   };
 
   const handleStep = (delta: 1 | -1) => {
     onStep(delta);
-    setSelectedBar(null);
+    setSelectedSlotMs(null);
   };
 
-  // The stored selection tracks an hour/day/month by ms; re-derive against the live bars array so
-  // a background refresh (partial bar growing, hourly re-assemble) keeps the pill's numbers fresh.
-  const liveSelectedBar = selectedBar && (data?.bars.find(bar => bar.startMs === selectedBar.startMs) ?? selectedBar);
+  const slots = data ? Math.max(1, slotsInRange(period, data.startMs, data.endMs)) : 1;
+
+  // Slots that carry data — bars always; on the day view, price points too (future hours of
+  // today have a known price but no consumption yet).
+  const availableSlots = useMemo(() => {
+    const set = new Set<number>();
+    if (!data) return set;
+    for (const bar of data.bars) {
+      const slot = slotIndexFor(period, data.startMs, bar.startMs);
+      if (slot >= 0 && slot < slots) set.add(slot);
+    }
+    if (period === 'day' && data.price) {
+      for (const point of data.price.points) {
+        const slot = slotIndexFor(period, data.startMs, point.ms);
+        if (slot >= 0 && slot < slots) set.add(slot);
+      }
+    }
+    return set;
+  }, [data, period, slots]);
+
+  const handleScrub = useCallback(
+    (slot: number, phase: ScrubPhase) => {
+      if (!data) return;
+      const snapped = snapToNearestSlot(slot, availableSlots);
+      if (snapped === null) return;
+      const ms = slotStartMsFor(period, data.startMs, snapped);
+      setSelectedSlotMs(previous => (phase === 'tap' && previous === ms ? null : ms));
+    },
+    [data, availableSlots, period]
+  );
+
+  const scrubHandlers = useChartScrub({ slots, onScrub: handleScrub });
+
+  const callout = useMemo<ChartCalloutModel | null>(() => {
+    if (!data || selectedSlotMs == null) return null;
+    const slot = slotIndexFor(period, data.startMs, selectedSlotMs);
+    if (slot < 0 || slot >= slots) return null;
+
+    const bar = data.bars.find(candidate => candidate.startMs === selectedSlotMs) ?? null;
+    const pricePoint = period === 'day' ? (data.price?.points.find(point => point.ms === selectedSlotMs) ?? null) : null;
+    if (!bar && !pricePoint) return null;
+
+    const title =
+      period === 'day'
+        ? hourRangeLabel(selectedSlotMs)
+        : period === 'year'
+          ? new Date(selectedSlotMs).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+          : new Date(selectedSlotMs).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+
+    if (bar) {
+      const secondaryParts = [unit === 'kr' ? formatKWh(bar.kWh) : formatKr(bar.costKr)];
+      if (bar.price != null) secondaryParts.push(`${period !== 'day' ? '≈' : ''}${formatPrice(bar.price)}`);
+      return {
+        leftPct: slotCenterPct(slot, slots),
+        title,
+        primary: unit === 'kr' ? formatKr(bar.costKr) : formatKWh(bar.kWh),
+        secondary: secondaryParts.join(' · '),
+        dot: bar.price != null ? bar.level : null,
+        note: bar.partial ? 'in progress' : null,
+      };
+    }
+
+    return {
+      leftPct: slotCenterPct(slot, slots),
+      title,
+      primary: formatPrice(pricePoint!.price),
+      secondary: null,
+      dot: priceLevel(pricePoint!.price),
+      note: 'no usage yet',
+    };
+  }, [data, selectedSlotMs, period, slots, unit]);
 
   return (
     <>
@@ -122,7 +178,7 @@ export function UsageTab({
 
         {!loading && !error && data && (
           <div className={`energy-page-card-body ${refreshing ? 'energy-page-card-body--refreshing' : ''}`}>
-            {liveSelectedBar && <div className='energy-selection-pill'>{describeBar(period, liveSelectedBar)}</div>}
+            <div className='energy-callout-lane'>{callout && <ChartCallout {...callout} />}</div>
 
             <EnergyChart
               bars={data.bars}
@@ -130,8 +186,9 @@ export function UsageTab({
               rangeEndMs={data.endMs}
               period={period}
               unit={unit}
-              onSelectBar={setSelectedBar}
-              selectedStartMs={selectedBar?.startMs ?? null}
+              scrubHandlers={scrubHandlers}
+              selectedStartMs={selectedSlotMs}
+              hasSelection={selectedSlotMs != null}
             />
 
             <div
@@ -157,7 +214,8 @@ export function UsageTab({
                 series={data.price}
                 rangeStartMs={data.startMs}
                 rangeEndMs={data.endMs}
-                selectedMs={selectedBar?.startMs ?? null}
+                selectedMs={selectedSlotMs}
+                scrubHandlers={scrubHandlers}
               />
             )}
           </div>

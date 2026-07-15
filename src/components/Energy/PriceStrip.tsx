@@ -1,4 +1,5 @@
 import type { PricePoint, PriceSeries } from '../../energy';
+import type { ScrubHandlers } from './useChartScrub';
 import './PriceStrip.css';
 
 interface PriceStripProps {
@@ -6,6 +7,7 @@ interface PriceStripProps {
   rangeStartMs: number;
   rangeEndMs: number;
   selectedMs?: number | null;
+  scrubHandlers?: ScrubHandlers;
 }
 
 const VIEW_WIDTH = 600;
@@ -34,7 +36,7 @@ function formatPriceLabel(value: number): string {
 /** Day view only: hourly price curve under the consumption bars, sharing their x-scale (same
  * PAD.left/right). Step-after line — price is constant within the hour, never diagonally
  * interpolated — with a 17–21 peak-window band, direct min/max labels and a live "now" marker. */
-export function PriceStrip({ series, rangeStartMs, rangeEndMs, selectedMs }: PriceStripProps) {
+export function PriceStrip({ series, rangeStartMs, rangeEndMs, selectedMs, scrubHandlers }: PriceStripProps) {
   const plotWidth = VIEW_WIDTH - PAD.left - PAD.right;
   const plotBottom = VIEW_HEIGHT - PAD.bottom;
   const plotHeight = plotBottom - PAD.top;
@@ -43,6 +45,9 @@ export function PriceStrip({ series, rangeStartMs, rangeEndMs, selectedMs }: Pri
   const xFor = (ms: number) => PAD.left + ((ms - rangeStartMs) / rangeMs) * plotWidth;
   const axisMax = niceMax(series.max.price);
   const yFor = (price: number) => plotBottom - (price / axisMax) * plotHeight;
+
+  const selectedPoint = selectedMs != null ? (series.points.find(point => point.ms === selectedMs) ?? null) : null;
+  const selectedX = selectedMs != null ? xFor(selectedMs + HOUR_MS / 2) : null;
 
   const segments: StepSegment[] = series.points.map((point, i) => {
     const nextMs = i + 1 < series.points.length ? series.points[i + 1].ms : Math.min(point.ms + HOUR_MS, rangeEndMs);
@@ -68,7 +73,8 @@ export function PriceStrip({ series, rangeStartMs, rangeEndMs, selectedMs }: Pri
 
   return (
     <div className='price-strip'>
-      <svg className='price-strip-svg' viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}>
+      {/* data-interactive: scrubbing is horizontal — keep useSwipeToClose from hijacking it. */}
+      <svg className='price-strip-svg' data-interactive='true' viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`} {...scrubHandlers}>
         {[axisMax / 2, axisMax].map(tick => (
           <g key={tick}>
             <line x1={PAD.left} y1={yFor(tick)} x2={VIEW_WIDTH - PAD.right} y2={yFor(tick)} className='price-strip-gridline' />
@@ -88,6 +94,8 @@ export function PriceStrip({ series, rangeStartMs, rangeEndMs, selectedMs }: Pri
         )}
 
         <line x1={PAD.left} y1={plotBottom} x2={VIEW_WIDTH - PAD.right} y2={plotBottom} className='price-strip-baseline' />
+
+        {selectedX != null && <line x1={selectedX} y1={PAD.top} x2={selectedX} y2={plotBottom} className='price-strip-guide' />}
 
         {areaPath && <path d={areaPath} className='price-strip-area' />}
 
@@ -129,6 +137,10 @@ export function PriceStrip({ series, rangeStartMs, rangeEndMs, selectedMs }: Pri
             <line x1={xFor(series.now.ms)} y1={PAD.top} x2={xFor(series.now.ms)} y2={plotBottom} className='price-strip-now-line' />
             <circle cx={xFor(series.now.ms)} cy={yFor(series.now.price)} r={3} className='price-strip-now-dot' />
           </g>
+        )}
+
+        {selectedX != null && selectedPoint && (
+          <circle cx={selectedX} cy={yFor(selectedPoint.price)} r={4} className='price-strip-selected-dot' />
         )}
       </svg>
     </div>

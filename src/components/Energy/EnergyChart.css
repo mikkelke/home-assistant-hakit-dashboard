@@ -2,6 +2,28 @@
   display: block;
   width: 100%;
   height: auto;
+  /* Vertical pans stay with the browser (page scroll); horizontal drags reach the scrub hook. */
+  touch-action: pan-y;
+}
+
+.energy-chart-bar {
+  transition: opacity 120ms ease;
+}
+
+/* Scrub focus: everything but the selected bar recedes (Apple Health's dimming). */
+.energy-chart-svg--has-selection .energy-chart-bar:not(.energy-chart-bar--selected) {
+  opacity: 0.45;
+}
+
+.energy-chart-guide {
+  stroke: rgba(255, 255, 255, 0.28);
+  stroke-width: 1;
+}
+
+.energy-chart-guide-dot {
+  fill: #e4e4e7;
+  stroke: #141518;
+  stroke-width: 2;
 }
 
 .energy-chart-empty {
@@ -46,19 +68,13 @@
   opacity: 0.7;
 }
 
+/* The guide line + callout carry the emphasis now; a mild lift is enough (no stroke — it fought
+   the guide line visually). */
 .energy-chart-bar--selected {
-  filter: brightness(1.25);
-  stroke: rgba(255, 255, 255, 0.55);
-  stroke-width: 1.5;
+  filter: brightness(1.2);
 }
 
 .energy-chart-value-label {
   fill: #a1a1aa;
   font-size: 9px;
-}
-
-.energy-chart-hit-rect {
-  fill: transparent;
-  pointer-events: all;
-  cursor: pointer;
 }

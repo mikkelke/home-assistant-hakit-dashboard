@@ -1,5 +1,7 @@
 import type { EnergyBar, Period } from '../../energy';
-import { addDays, addMonths, localDayIndex, localMonthIndex, slotsInRange } from '../../energy/period';
+import { slotsInRange } from '../../energy/period';
+import { CHART_PAD_LEFT, CHART_PAD_RIGHT, CHART_VIEW_WIDTH, slotIndexFor, slotStartMsFor } from './chartGeometry';
+import type { ScrubHandlers } from './useChartScrub';
 import './EnergyChart.css';
 
 interface EnergyChartProps {
@@ -8,17 +10,14 @@ interface EnergyChartProps {
   rangeEndMs: number;
   period: Period;
   unit: 'kwh' | 'kr';
-  onSelectBar?: (bar: EnergyBar | null) => void;
+  scrubHandlers?: ScrubHandlers;
   selectedStartMs?: number | null;
+  hasSelection?: boolean;
 }
 
-const VIEW_WIDTH = 600;
+const VIEW_WIDTH = CHART_VIEW_WIDTH;
 const VIEW_HEIGHT = 240;
-const PAD = { top: 14, right: 10, bottom: 26, left: 38 };
-/** Floor for the invisible tap-target rects — on a narrow phone the month view's ~31 slots can
- * render a natural slot width under 10px; below that a tap becomes unreliable, so the hit rect
- * expands beyond its own slot (centered) and accepts overlap with its neighbors. */
-const MIN_HIT_RECT_WIDTH = 12;
+const PAD = { top: 14, right: CHART_PAD_RIGHT, bottom: 26, left: CHART_PAD_LEFT };
 const HOUR_LABELS = [0, 6, 12, 18];
 const MONTH_LABEL_SLOTS = [0, 7, 14, 21, 28];
 const WEEKDAY_LETTERS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']; // index = Date#getDay(): 0 = Sunday
@@ -51,35 +50,6 @@ function niceScale(maxValue: number): { max: number; ticks: number[] } {
   return { max: ticks[ticks.length - 1], ticks };
 }
 
-/** Bucket index for a bar's startMs along the visible slots. Day uses hour-quantized ms math
- * (every hour bucket is exactly 3.6M ms, DST or not); week/month/year use the component-based
- * helpers from period.ts so a DST transition or absent bucket never misplaces a bar. */
-function slotIndexFor(period: Period, rangeStartMs: number, ms: number): number {
-  switch (period) {
-    case 'day':
-      return Math.round((ms - rangeStartMs) / 3_600_000);
-    case 'week':
-    case 'month':
-      return localDayIndex(rangeStartMs, ms);
-    case 'year':
-      return localMonthIndex(rangeStartMs, ms);
-  }
-}
-
-/** Wall-clock start of hypothetical slot `slot` — used only to place x-axis tick labels, so
- * absent bars (DST gaps, months before Dec 2025) never affect where a label falls. */
-function slotStartMsFor(period: Period, rangeStartMs: number, slot: number): number {
-  switch (period) {
-    case 'day':
-      return rangeStartMs + slot * 3_600_000;
-    case 'week':
-    case 'month':
-      return addDays(rangeStartMs, slot);
-    case 'year':
-      return addMonths(rangeStartMs, slot);
-  }
-}
-
 /** Tick label for a given slot, or null to leave it unlabeled (selective labeling per period). */
 function axisLabelFor(period: Period, slotStartMs: number, slot: number): string | null {
   switch (period) {
@@ -102,7 +72,16 @@ function formatBarValue(value: number, unit: 'kwh' | 'kr'): string {
   return value.toLocaleString('da-DK', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
-export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period, unit, onSelectBar, selectedStartMs }: EnergyChartProps) {
+export function EnergyChart({
+  bars,
+  rangeStartMs,
+  rangeEndMs,
+  period,
+  unit,
+  scrubHandlers,
+  selectedStartMs,
+  hasSelection,
+}: EnergyChartProps) {
   // No axes, no gridlines — just the message (HA-restart gaps, or a year view's months before
   // Dec 2025, an absent period rather than a genuine zero).
   if (bars.length === 0) {
@@ -115,7 +94,6 @@ export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period, unit, onSe
   const plotHeight = plotBottom - PAD.top;
   const slotWidth = plotWidth / slots;
   const barWidth = Math.min(24, slotWidth - 2);
-  const hitRectWidth = Math.max(slotWidth, MIN_HIT_RECT_WIDTH);
 
   const valueFor = (bar: EnergyBar) => (unit === 'kr' ? bar.costKr : bar.kWh);
   const maxValue = bars.reduce((max, bar) => Math.max(max, valueFor(bar)), 0);
@@ -125,11 +103,19 @@ export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period, unit, onSe
 
   const maxBar = bars.reduce<EnergyBar | null>((best, bar) => (best === null || valueFor(bar) > valueFor(best) ? bar : best), null);
 
+  const selectedSlot = selectedStartMs != null ? slotIndexFor(period, rangeStartMs, selectedStartMs) : null;
+  const guideX = selectedSlot != null && selectedSlot >= 0 && selectedSlot < slots ? PAD.left + (selectedSlot + 0.5) * slotWidth : null;
+  const selectedBar = selectedStartMs != null ? (bars.find(bar => bar.startMs === selectedStartMs) ?? null) : null;
+
   return (
-    // data-interactive: escape hatch useSwipeToClose already recognizes (see its
-    // isInteractiveElement allowlist) — the bar hit-rects below are real tap targets, so a swipe
-    // gesture starting on the chart must not be read as a swipe-to-close.
-    <svg className='energy-chart-svg' data-interactive='true' viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}>
+    // data-interactive: escape hatch useSwipeToClose already recognizes — scrubbing is a
+    // horizontal gesture, so a swipe starting on the chart must not be read as swipe-to-close.
+    <svg
+      className={`energy-chart-svg ${hasSelection ? 'energy-chart-svg--has-selection' : ''}`}
+      data-interactive='true'
+      viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
+      {...scrubHandlers}
+    >
       {ticks.map(tick => (
         <g key={tick}>
           <line x1={PAD.left} y1={yFor(tick)} x2={VIEW_WIDTH - PAD.right} y2={yFor(tick)} className='energy-chart-gridline' />
@@ -140,6 +126,8 @@ export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period, unit, onSe
       ))}
 
       <line x1={PAD.left} y1={plotBottom} x2={VIEW_WIDTH - PAD.right} y2={plotBottom} className='energy-chart-baseline' />
+
+      {guideX != null && <line x1={guideX} y1={PAD.top} x2={guideX} y2={plotBottom} className='energy-chart-guide' />}
 
       {bars.map(bar => {
         const value = valueFor(bar);
@@ -153,7 +141,9 @@ export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period, unit, onSe
         return <path key={bar.startMs} d={roundedTopRect(barX, barTopY, barWidth, barHeight, 4)} className={classNames.join(' ')} />;
       })}
 
-      {maxBar && valueFor(maxBar) > 0 && selectedStartMs !== maxBar.startMs && (
+      {guideX != null && selectedBar && <circle cx={guideX} cy={yFor(valueFor(selectedBar))} r={3} className='energy-chart-guide-dot' />}
+
+      {!hasSelection && maxBar && valueFor(maxBar) > 0 && (
         <text
           x={slotXFor(maxBar.startMs) + slotWidth / 2}
           y={yFor(valueFor(maxBar)) - 6}
@@ -175,19 +165,6 @@ export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period, unit, onSe
           </text>
         );
       })}
-
-      {onSelectBar &&
-        bars.map(bar => (
-          <rect
-            key={`hit-${bar.startMs}`}
-            x={slotXFor(bar.startMs) + (slotWidth - hitRectWidth) / 2}
-            y={PAD.top}
-            width={hitRectWidth}
-            height={plotHeight}
-            className='energy-chart-hit-rect'
-            onPointerDown={() => onSelectBar(selectedStartMs === bar.startMs ? null : bar)}
-          />
-        ))}
     </svg>
   );
 }

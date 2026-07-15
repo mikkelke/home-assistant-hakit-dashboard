@@ -99,17 +99,6 @@
   }
 }
 
-.energy-selection-pill {
-  display: inline-block;
-  margin-bottom: 0.6rem;
-  padding: 0.35rem 0.7rem;
-  background: rgba(56, 189, 248, 0.1);
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  border-radius: 999px;
-  color: #e4e4e7;
-  font-size: 0.8rem;
-}
-
 /* Price-band swatch colors mirror EnergyChart.css's .energy-chart-bar--low/--mid/--high fills —
    keep both in sync if the ramp ever changes. */
 .energy-chart-legend {
