@@ -31,3 +31,10 @@ export function formatPrice(value: number): string {
 export function formatW(value: number): string {
   return `${getNumberFormatter(0).format(value)} W`;
 }
+
+/** e.g. `hourRangeLabel(<14:00 ms>)` → `"14:00–15:00"` (ms-arg Date construction is render-pure). */
+export function hourRangeLabel(ms: number): string {
+  const startHour = new Date(ms).getHours();
+  const endHour = (startHour + 1) % 24;
+  return `${String(startHour).padStart(2, '0')}:00–${String(endHour).padStart(2, '0')}:00`;
+}

@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { priceLevel, useEnergyView, type Period } from '../../energy';
 import { slotsInRange } from '../../energy/period';
 import { PRICE_BAND_THRESHOLDS } from '../../config/energy';
-import { formatKr, formatKWh, formatPrice } from '../../utils/format';
+import { formatKr, formatKWh, formatPrice, hourRangeLabel } from '../../utils/format';
 import { ChartCallout, type ChartCalloutModel } from './ChartCallout';
 import { slotCenterPct, slotIndexFor, slotStartMsFor, snapToNearestSlot } from './chartGeometry';
 import { EnergyChart } from './EnergyChart';
@@ -22,12 +22,6 @@ interface UsageTabProps {
   onStep: (delta: 1 | -1) => void;
   unit: 'kwh' | 'kr';
   onUnitChange: (unit: 'kwh' | 'kr') => void;
-}
-
-function hourRangeLabel(ms: number): string {
-  const startHour = new Date(ms).getHours();
-  const endHour = (startHour + 1) % 24;
-  return `${String(startHour).padStart(2, '0')}:00–${String(endHour).padStart(2, '0')}:00`;
 }
 
 /** Tab "Usage": period picker, day-view stat tiles, and the Consumption chart card with

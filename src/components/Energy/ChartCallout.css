@@ -73,3 +73,8 @@
   font-size: 0.7rem;
   color: #71717a;
 }
+
+/* Slightly shorter lane for the strip charts (their callout has no secondary line). */
+.energy-callout-lane--compact {
+  height: 3.4rem;
+}

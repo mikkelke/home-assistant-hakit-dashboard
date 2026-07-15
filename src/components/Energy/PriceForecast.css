@@ -113,3 +113,18 @@
 .price-forecast-legend-note {
   color: #71717a;
 }
+
+.price-forecast-svg {
+  touch-action: pan-y;
+}
+
+.price-forecast-guide {
+  stroke: rgba(255, 255, 255, 0.28);
+  stroke-width: 1;
+}
+
+.price-forecast-selected-dot {
+  fill: #38bdf8;
+  stroke: #141518;
+  stroke-width: 2;
+}

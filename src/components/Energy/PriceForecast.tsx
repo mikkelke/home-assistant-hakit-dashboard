@@ -1,5 +1,10 @@
-import type { ForecastSeries } from '../../energy';
+import { useCallback, useMemo, useState } from 'react';
+import { priceLevel, type ForecastSeries } from '../../energy';
 import { addDays, localDayIndex, startOfLocalDay } from '../../energy/period';
+import { formatPrice, hourRangeLabel } from '../../utils/format';
+import { ChartCallout, type ChartCalloutModel } from './ChartCallout';
+import { slotCenterPct, snapToNearestSlot } from './chartGeometry';
+import { useChartScrub, type ScrubPhase } from './useChartScrub';
 import './PriceForecast.css';
 
 interface PriceForecastProps {
@@ -69,6 +74,57 @@ export function PriceForecast({ forecast, nowMs }: PriceForecastProps) {
   const rangeEndMs = forecast.points[forecast.points.length - 1].ms + HOUR_MS;
   const todayStartMs = startOfLocalDay(nowMs);
 
+  // Same scrub interaction as the Usage chart: time-based hour slots over the horizon; hours a
+  // source didn't cover simply aren't scrubbably there (snap lands on the nearest real point).
+  const [selectedMs, setSelectedMs] = useState<number | null>(null);
+  const slots = Math.max(1, Math.round((rangeEndMs - forecast.points[0].ms) / HOUR_MS));
+
+  const slotByMs = useMemo(() => {
+    const available = new Set<number>();
+    const pointBySlot = new Map<number, (typeof forecast.points)[number]>();
+    for (const point of forecast.points) {
+      const slot = Math.floor((point.ms - rangeStartMs) / HOUR_MS);
+      if (slot >= 0 && slot < slots) {
+        available.add(slot);
+        pointBySlot.set(slot, point);
+      }
+    }
+    return { available, pointBySlot };
+  }, [forecast, rangeStartMs, slots]);
+
+  const handleScrub = useCallback(
+    (slot: number, phase: ScrubPhase) => {
+      const snapped = snapToNearestSlot(slot, slotByMs.available);
+      if (snapped === null) return;
+      const point = slotByMs.pointBySlot.get(snapped);
+      if (!point) return;
+      setSelectedMs(previous => (phase === 'tap' && previous === point.ms ? null : point.ms));
+    },
+    [slotByMs]
+  );
+
+  const scrubHandlers = useChartScrub({ slots, onScrub: handleScrub });
+
+  const callout = useMemo<ChartCalloutModel | null>(() => {
+    if (selectedMs == null) return null;
+    const point = forecast.points.find(candidate => candidate.ms === selectedMs);
+    if (!point) return null;
+    const slot = Math.floor((point.ms - rangeStartMs) / HOUR_MS);
+    const dayOffset = localDayIndex(todayStartMs, point.ms);
+    const dayLabel =
+      dayOffset === 0 ? 'today' : dayOffset === 1 ? 'tomorrow' : new Date(point.ms).toLocaleDateString(undefined, { weekday: 'long' });
+    return {
+      leftPct: slotCenterPct(slot, slots),
+      title: `${hourRangeLabel(point.ms)} · ${dayLabel}`,
+      primary: formatPrice(point.price),
+      secondary: null,
+      dot: priceLevel(point.price),
+      note: point.source === 'carnot' ? 'Carnot forecast' : 'day-ahead price',
+    };
+  }, [selectedMs, forecast, rangeStartMs, slots, todayStartMs]);
+
+  const selectedPoint = selectedMs != null ? (forecast.points.find(point => point.ms === selectedMs) ?? null) : null;
+
   const plotWidth = VIEW_WIDTH - PAD.left - PAD.right;
   const plotBottom = VIEW_HEIGHT - PAD.bottom;
   const plotHeight = plotBottom - PAD.top;
@@ -110,7 +166,10 @@ export function PriceForecast({ forecast, nowMs }: PriceForecastProps) {
         <h2>Price forecast · next 48 hours</h2>
       </div>
 
-      <svg className='price-forecast-svg' viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}>
+      <div className='energy-callout-lane energy-callout-lane--compact'>{callout && <ChartCallout {...callout} />}</div>
+
+      {/* data-interactive: scrubbing is horizontal — keep useSwipeToClose from hijacking it. */}
+      <svg className='price-forecast-svg' data-interactive='true' viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`} {...scrubHandlers}>
         {[axisMax / 2, axisMax].map(tick => (
           <g key={tick}>
             <line x1={PAD.left} y1={yFor(tick)} x2={VIEW_WIDTH - PAD.right} y2={yFor(tick)} className='price-forecast-gridline' />
@@ -135,6 +194,16 @@ export function PriceForecast({ forecast, nowMs }: PriceForecastProps) {
         })}
 
         <line x1={PAD.left} y1={plotBottom} x2={VIEW_WIDTH - PAD.right} y2={plotBottom} className='price-forecast-baseline' />
+
+        {selectedPoint && (
+          <line
+            x1={xFor(selectedPoint.ms + HOUR_MS / 2)}
+            y1={PAD.top}
+            x2={xFor(selectedPoint.ms + HOUR_MS / 2)}
+            y2={plotBottom}
+            className='price-forecast-guide'
+          />
+        )}
 
         {areaPath && <path d={areaPath} className='price-forecast-area' />}
 
@@ -167,6 +236,10 @@ export function PriceForecast({ forecast, nowMs }: PriceForecastProps) {
             </g>
           );
         })}
+
+        {selectedPoint && (
+          <circle cx={xFor(selectedPoint.ms + HOUR_MS / 2)} cy={yFor(selectedPoint.price)} r={4} className='price-forecast-selected-dot' />
+        )}
 
         {hourTicks.map(tick => {
           const x = xFor(tick.ms);
