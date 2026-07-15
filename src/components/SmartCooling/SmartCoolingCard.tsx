@@ -275,7 +275,7 @@ export function SmartCoolingCard({ entities, callService }: SmartCoolingCardProp
           <div className='sc-steppers'>
             <Stepper
               icon='mdi:weather-night'
-              label='Night max ≤'
+              label='Max night temp'
               value={`${nightCeiling.toFixed(1)}°`}
               onMinus={() => setNum(SMART_COOLING_NIGHT_CEILING, clamp(nightCeiling - 0.5, 20, 26))}
               onPlus={() => setNum(SMART_COOLING_NIGHT_CEILING, clamp(nightCeiling + 0.5, 20, 26))}
