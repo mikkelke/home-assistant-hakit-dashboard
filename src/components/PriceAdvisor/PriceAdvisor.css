@@ -1,51 +1,18 @@
-/* Home-screen "Power" strip + its "Best time to run" modal. Outer card chrome mirrors
-   HomePulse.css's own .home-pulse/.home-pulse-card tokens (same section/max-width/background/border
-   values) so the stack of StatusBar → PriceAdvisor → HomePulse reads as one consistent rhythm. */
-.price-advisor {
-  padding: 0 0.75rem 0.45rem;
-  display: flex;
-  justify-content: center;
-}
-
-.price-advisor-card {
-  position: relative;
-  width: 100%;
-  max-width: 1100px;
-  padding: 0.55rem 0.7rem;
-  border-radius: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(20, 21, 24, 0.9);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-}
-
-@media (min-width: 1025px) {
-  .price-advisor-card {
-    max-width: 660px;
-  }
-}
-
-@media (max-width: 700px) {
-  .price-advisor {
-    padding-inline: 0.5rem;
-    padding-bottom: 0.4rem;
-  }
-
-  .price-advisor-card {
-    padding: 0.5rem 0.6rem;
-    border-radius: 0.9rem;
-  }
-}
-
-/* The whole card is a button: reset button chrome, keep the row layout. */
-.price-advisor-strip {
+/* "Power" price indicator: a compact segment folded into StatusBar's header row (see StatusBar.tsx,
+   rendered between the people avatars and the menu button) plus its "Best time to run" modal
+   (per-appliance today-vs-overnight advice). The segment carries no standalone section/card chrome
+   of its own any more — StatusBar.css's own header layout places it. */
+.price-advisor-segment {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  width: 100%;
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
+  gap: 0.4rem;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0.5rem 0.75rem;
+  background: rgba(24, 25, 28, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 0.5rem;
   color: inherit;
   font: inherit;
   text-align: left;
@@ -77,38 +44,26 @@
   background: #3f3f46;
 }
 
-.price-advisor-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  flex: 1;
-  gap: 0.1rem;
-}
-
-/* Single-line, ellipsized: keeps the strip from wrapping ugly on narrow phones (see PriceAdvisor.tsx
-   for the copy itself). */
-.price-advisor-primary,
-.price-advisor-secondary {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.price-advisor-band {
   white-space: nowrap;
-}
-
-.price-advisor-primary {
   font-size: 0.85rem;
   font-weight: 600;
   color: #e4e4e7;
+  text-transform: capitalize;
 }
 
-.price-advisor-secondary {
-  font-size: 0.75rem;
+/* Hidden below ~480px — the dot + band word ("Cheap") alone still fits alongside the people avatars
+   and the menu button; the "until HH:00" half is the first thing to go. */
+.price-advisor-until {
+  white-space: nowrap;
+  font-size: 0.85rem;
   color: #a1a1aa;
 }
 
-.price-advisor-chevron {
-  color: rgba(226, 232, 240, 0.6);
-  flex-shrink: 0;
-  font-size: 1.15rem;
+@media (max-width: 480px) {
+  .price-advisor-until {
+    display: none;
+  }
 }
 
 /* Modal — same overlay/panel/header pattern as QuickAccess.css's own .qa-overlay/.qa-modal/
@@ -171,6 +126,7 @@
 .price-advisor-row-header {
   display: flex;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: 0.45rem;
   margin-bottom: 0.55rem;
 }
@@ -187,7 +143,8 @@
   color: #e4e4e7;
 }
 
-.price-advisor-row-cycle {
+.price-advisor-row-cycle,
+.price-advisor-row-kwh {
   font-size: 0.72rem;
   color: #71717a;
 }
@@ -231,19 +188,22 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* The emphasized number — this is the value a housemate dials into the machine's physical
+/* The emphasized delay figure — this is the number a housemate dials into the machine's physical
    delay-start knob, so it gets the same accent used for scrub/callout highlights elsewhere
-   (PriceStrip.css's step-line/now-dot). */
+   (PriceStrip.css's step-line/now-dot). Reads "now" instead whenever the window has already begun. */
 .price-advisor-column-delay {
   font-size: 0.82rem;
   font-weight: 700;
   color: #38bdf8;
 }
 
-.price-advisor-column-fine {
-  font-size: 0.74rem;
-  color: #71717a;
+/* Muted "est." suffix appended to a window's cost whenever it leans on the Carnot forecast rather
+   than settled/near-settled price data (see PriceWindow.usesForecast). */
+.price-advisor-est {
+  font-size: 0.7rem;
+  font-weight: 400;
   font-style: italic;
+  color: #71717a;
 }
 
 .price-advisor-column-empty {
@@ -257,6 +217,16 @@
   font-size: 0.75rem;
   color: #4ade80;
   font-weight: 600;
+}
+
+/* Row-level "now is fine" verdict — the muted alternative to .price-advisor-savings above, judged
+   once per row rather than once per Today/Overnight column (see ApplianceRow). */
+.price-advisor-fine {
+  display: inline-block;
+  margin-top: 0.55rem;
+  font-size: 0.75rem;
+  color: #71717a;
+  font-style: italic;
 }
 
 .price-advisor-footnote {

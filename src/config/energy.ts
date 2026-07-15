@@ -18,24 +18,32 @@ export const FIXED_FEES_EXCL_MOMS_KR_PER_MONTH = {
 // "drawing" — used by `assembleLivePower` to decide which rows belong in the "Drawing now" list.
 export const LIVE_POWER_MIN_WATTS = 1;
 
-// Price Advisor ("Power" home-screen strip + "Best time to run" modal) constants. `dayEndHour` and
-// `nightStartHour` are deliberately the same instant (21:00) — one pivot between "run it today,
+// Price Advisor ("Power" indicator in StatusBar + "Best time to run" modal) constants. `dayEndHour`
+// and `nightStartHour` are deliberately the same instant (21:00) — one pivot between "run it today,
 // during the day" and "delay it into the overnight window", not two independently-tunable knobs;
 // `nightEndHour` (06:00) is how far into tomorrow morning the overnight search reaches, since a
 // delay-start knob dialled at bedtime commonly reaches into the cheap early-morning hours.
 // `saveThresholdPct` gates every "wait, it's cheaper later" claim in the UI: below it, the
 // difference isn't worth advertising as a saving, so the UI says "now is fine" instead. `hours` per
 // appliance are generous whole-hour cycle-length assumptions (rounded up), not exact durations — the
-// point is a delay-start estimate a housemate can dial in, not a lab-precise runtime.
+// point is a delay-start estimate a housemate can dial in, not a lab-precise runtime. `typicalKwh` is
+// a typical FULL-CYCLE energy draw, used only to turn a kr/kWh rate into a "kr per run" figure a
+// non-technical housemate can actually compare across machines — a per-appliance kr/kWh average over
+// different window lengths reads as nonsense otherwise ("why is the dishwasher's rate different from
+// the washer's?"). Provenance (2026-07-15): dishwasher 0.7 — recent ECO runs measure ~0.72 kWh, but
+// the feedback-history file is currently empty after a migration, so this is a recent-observation
+// estimate rather than a large sample; washer 0.7 — the median over 59 recorded cycles; dryer 1.5 —
+// no house data yet, a Miele TCB150 WP heat-pump-dryer estimate, to be refined once cycle history
+// accumulates.
 export const PRICE_ADVICE = {
   dayEndHour: 21,
   nightStartHour: 21,
   nightEndHour: 6,
   saveThresholdPct: 15,
   appliances: [
-    { key: 'dishwasher', label: 'Dishwasher', icon: 'mdi:dishwasher', hours: 4 },
-    { key: 'washer', label: 'Washer', icon: 'mdi:washing-machine', hours: 3 },
-    { key: 'dryer', label: 'Dryer', icon: 'mdi:tumble-dryer', hours: 3 },
+    { key: 'dishwasher', label: 'Dishwasher', icon: 'mdi:dishwasher', hours: 4, typicalKwh: 0.7 },
+    { key: 'washer', label: 'Washer', icon: 'mdi:washing-machine', hours: 3, typicalKwh: 0.7 },
+    { key: 'dryer', label: 'Dryer', icon: 'mdi:tumble-dryer', hours: 3, typicalKwh: 1.5 },
   ],
 } as const;
 

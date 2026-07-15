@@ -1,7 +1,7 @@
-/** Pure "Power" strip / "Best time to run" advice assembly — no React, no clock reads; every
- * function takes explicit ms args, so it stays independently testable (mirrors assemble.ts/bill.ts).
- * Advises WHEN (today during the day, vs overnight) a housemate should start an appliance, and how
- * many hours to dial into its physical delay-start knob to land there. */
+/** Pure "Power" price-indicator / "Best time to run" advice assembly — no React, no clock reads;
+ * every function takes explicit ms args, so it stays independently testable (mirrors
+ * assemble.ts/bill.ts). Advises WHEN (today during the day, vs overnight) a housemate should start
+ * an appliance, and how many hours to dial into its physical delay-start knob to land there. */
 import { PRICE_ADVICE } from '../config/energy';
 import { priceLevel } from './assemble';
 import type { RawTodayPoint } from './assemble';
@@ -10,56 +10,71 @@ const HOUR_MS = 3_600_000;
 
 /** One hour's price, ms-keyed — the Power Advisor's own timeline point (mirrors `PricePoint` in
  * types.ts, kept separate since this timeline always starts at the CURRENT hour, never a day/period
- * boundary, and only ever looks forward). */
+ * boundary, and only ever looks forward). `estimated` is set only for an hour filled in from the
+ * Carnot `forecast` attribute rather than settled/near-settled price data. */
 export interface PricePointMs {
   ms: number;
   price: number;
+  estimated?: true;
 }
 
-/** Merges `raw_today`/`raw_tomorrow` (the live price entity's own hourly point arrays) into one
- * sorted, forward-looking timeline: every hour from the current one (floor of `nowMs`) through the
- * end of whatever data is available. `raw_tomorrow` is only trustworthy once `tomorrowValid` — before
- * that it can still be yesterday's stale carry-over, worse than not having it at all, so it's
- * dropped entirely rather than risk pricing a window off a stale hour. Hours already in the past
- * (before the current one) are dropped too — nothing here should ever suggest starting an appliance
- * in the past. Skips any point whose hour or price fails to parse to a finite number — external
- * attribute data, never trusted blind (mirrors `assemblePriceSeries`'s own `Date.parse` guard). */
+/** Merges `raw_today`/`raw_tomorrow` (the live price entity's own hourly point arrays) and that same
+ * entity's `forecast` attribute (Carnot's own hourly predictions, days ahead — same `{hour, price}`
+ * shape) into one sorted, forward-looking timeline: every hour from the current one (floor of
+ * `nowMs`) through the end of whatever data is available. `raw_tomorrow` is only trustworthy once
+ * `tomorrowValid` — before that it can still be yesterday's stale carry-over, worse than not having
+ * it at all, so it's dropped entirely rather than risk pricing a window off a stale hour. `forecast`
+ * only ever fills hours neither `raw_today` nor a valid `raw_tomorrow` already covers — real,
+ * settled-or-near-settled data always wins over a prediction for the same hour — and every hour it
+ * fills is marked `estimated`, so the UI can flag whichever windows lean on it (better than nothing,
+ * but not a firm price). Hours already in the past (before the current one) are dropped too —
+ * nothing here should ever suggest starting an appliance in the past. Skips any point whose hour or
+ * price fails to parse to a finite number — external attribute data, never trusted blind (mirrors
+ * `assemblePriceSeries`'s own `Date.parse` guard). */
 export function buildPriceTimeline(
   rawToday: RawTodayPoint[] | null,
   rawTomorrow: RawTodayPoint[] | null,
   tomorrowValid: boolean,
+  forecast: RawTodayPoint[] | null,
   nowMs: number
 ): PricePointMs[] {
   const currentHourStartMs = Math.floor(nowMs / HOUR_MS) * HOUR_MS;
-  const byMs = new Map<number, number>();
+  const byMs = new Map<number, PricePointMs>();
 
-  const addPoints = (points: RawTodayPoint[] | null) => {
+  const addPoints = (points: RawTodayPoint[] | null, estimated: boolean) => {
     for (const point of points ?? []) {
       const ms = Date.parse(point.hour);
       if (!Number.isFinite(ms) || !Number.isFinite(point.price) || ms < currentHourStartMs) continue;
-      byMs.set(ms, point.price);
+      if (estimated && byMs.has(ms)) continue; // real data (added first, below) always wins over a forecast hour
+      byMs.set(ms, estimated ? { ms, price: point.price, estimated: true } : { ms, price: point.price });
     }
   };
 
-  addPoints(rawToday);
-  if (tomorrowValid) addPoints(rawTomorrow);
+  addPoints(rawToday, false);
+  if (tomorrowValid) addPoints(rawTomorrow, false);
+  addPoints(forecast, true);
 
-  return Array.from(byMs, ([ms, price]) => ({ ms, price })).sort((a, b) => a.ms - b.ms);
+  return Array.from(byMs.values()).sort((a, b) => a.ms - b.ms);
 }
 
 export interface PriceWindow {
   startMs: number;
   avgPrice: number;
+  /** True when at least one of this window's hours came from the Carnot forecast rather than
+   * settled/near-settled data (see `PricePointMs.estimated`) — the UI marks the window's cost as an
+   * estimate rather than implying it's as firm as a real-data window. */
+  usesForecast: boolean;
 }
 
 /** Cheapest `durationHours`-long run starting on an hour boundary within [earliestStartMs,
  * latestStartMs] (inclusive both ends) — ties keep the earliest start, so a genuinely flat price
  * stretch never nudges the suggestion later than it needs to be. A candidate start only counts when
- * the timeline has real data for EVERY one of its `durationHours` hours: a data gap (or the search
- * simply running off the end of what's known) must never silently shrink the averaging window, which
- * would understate — or overstate — that window's true cost in a way the UI can't detect. Returns
- * null when no candidate start has full coverage (including whenever `earliestStartMs >
- * latestStartMs`, i.e. an empty search range). */
+ * the timeline has a point — real OR forecast-estimated, `buildPriceTimeline` marks which — for EVERY
+ * one of its `durationHours` hours: a data gap (or the search simply running off the end of what's
+ * known) must never silently shrink the averaging window, which would understate — or overstate —
+ * that window's true cost in a way the UI can't detect. `usesForecast` is true whenever any one of
+ * the winning window's hours leaned on the forecast. Returns null when no candidate start has full
+ * coverage (including whenever `earliestStartMs > latestStartMs`, i.e. an empty search range). */
 export function cheapestWindow(
   timeline: PricePointMs[],
   durationHours: number,
@@ -67,24 +82,26 @@ export function cheapestWindow(
   latestStartMs: number
 ): PriceWindow | null {
   if (durationHours <= 0) return null;
-  const priceByMs = new Map(timeline.map(point => [point.ms, point.price]));
+  const pointByMs = new Map(timeline.map(point => [point.ms, point]));
 
   let best: PriceWindow | null = null;
   for (let startMs = earliestStartMs; startMs <= latestStartMs; startMs += HOUR_MS) {
     let sum = 0;
     let coversAllHours = true;
+    let usesForecast = false;
     for (let hour = 0; hour < durationHours; hour++) {
-      const price = priceByMs.get(startMs + hour * HOUR_MS);
-      if (price == null) {
+      const point = pointByMs.get(startMs + hour * HOUR_MS);
+      if (point == null) {
         coversAllHours = false;
         break;
       }
-      sum += price;
+      sum += point.price;
+      if (point.estimated) usesForecast = true;
     }
     if (!coversAllHours) continue;
 
     const avgPrice = sum / durationHours;
-    if (!best || avgPrice < best.avgPrice) best = { startMs, avgPrice };
+    if (!best || avgPrice < best.avgPrice) best = { startMs, avgPrice, usesForecast };
   }
   return best;
 }
@@ -118,7 +135,9 @@ export interface ApplianceAdvice {
   bestNight: PriceWindow | null;
   /** False while the overnight search is missing part of its own range — `raw_tomorrow` only lands
    * around 13:20–13:35, so any `bestNight` found before then is drawn from a truncated search and
-   * could still be beaten by an early-morning hour that simply isn't known yet. */
+   * could still be beaten by an early-morning hour that simply isn't known (or predicted) yet.
+   * Computed from the caller's merged `timeline`, so the Carnot `forecast` folded in there (see
+   * `buildPriceTimeline`) can complete this horizon early, before `raw_tomorrow` itself even lands. */
   nightHorizonComplete: boolean;
 }
 

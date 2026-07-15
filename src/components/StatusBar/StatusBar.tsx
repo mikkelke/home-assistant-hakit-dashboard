@@ -1,6 +1,7 @@
 import { Icon } from '@iconify/react';
 import type { HassEntities } from '../../types';
 import { PersonStatus } from './PersonStatus';
+import { PriceAdvisor } from '../PriceAdvisor';
 import './StatusBar.css';
 
 interface StatusBarProps {
@@ -21,6 +22,7 @@ export function StatusBar({ entities, hassUrl, onMenuToggle }: StatusBarProps) {
             <PersonStatus key={person} entity={person} entities={entities} hassUrl={hassUrl} />
           ))}
         </div>
+        <PriceAdvisor />
         <div className='status-section'>
           <button className='sidebar-toggle-btn' onClick={onMenuToggle} title='Open menu' aria-label='Open menu'>
             <Icon icon='mdi:menu' />
