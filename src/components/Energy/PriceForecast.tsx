@@ -4,6 +4,7 @@ import { addDays, localDayIndex, startOfLocalDay } from '../../energy/period';
 import { formatPrice, hourRangeLabel } from '../../utils/format';
 import { ChartCallout, type ChartCalloutModel } from './ChartCallout';
 import { slotCenterPct, snapToNearestSlot } from './chartGeometry';
+import { PriceOutlook } from './PriceOutlook';
 import { useChartScrub, type ScrubPhase } from './useChartScrub';
 import './PriceForecast.css';
 
@@ -280,6 +281,8 @@ export function PriceForecast({ forecast, nowMs }: PriceForecastProps) {
           </>
         )}
       </div>
+
+      <PriceOutlook outlook={forecast.outlook} />
     </div>
   );
 }

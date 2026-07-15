@@ -86,9 +86,25 @@ export function assembleBill(view: EnergyView, nowMs: number): BillBreakdown {
 export interface ForecastSeries {
   points: Array<{ ms: number; price: number; source: 'tomorrow' | 'carnot' }>;
   peakWindows: Array<{ startMs: number; endMs: number }>;
+  outlook: DayOutlook[];
+}
+
+/** One extended-outlook day's price range, Carnot-only — no hourly detail this far out, just the
+ * day's shape (mirrors what a week-ahead weather forecast shows: low/high, not an hourly curve). */
+export interface DayOutlook {
+  dayStartMs: number;
+  minPrice: number;
+  meanPrice: number;
+  maxPrice: number;
 }
 
 const MIN_FORECAST_POINTS = 6;
+/** A day needs at least half its hours present in Carnot's `forecast` attribute to be summarized —
+ * below that, it's the ragged tail end of Carnot's own horizon, not a real day. */
+const MIN_OUTLOOK_DAY_COVERAGE_HOURS = 12;
+/** Generous cap — Carnot's own horizon (~7 days from today) rarely reaches this once the near-term
+ * hourly chart's own 2 days are excluded; it exists as a backstop, not a target to hit. */
+const MAX_OUTLOOK_DAYS = 6;
 
 /** ms of the next whole hour strictly after `ms` — the forecast starts here; the current/settled
  * hour is already shown by the day view's own price curve. */
@@ -110,6 +126,38 @@ function peakWindowsFor(horizonStartMs: number, horizonEndMs: number): Array<{ s
     }
   }
   return windows;
+}
+
+/** Daily min/mean/max summaries for the Carnot-only days beyond the near-term hourly horizon (the
+ * extended "This week" outlook) — the same already-fetched `forecast` attribute, just not
+ * truncated at `horizonHours`. Starts at the local midnight strictly after the calendar day
+ * containing `horizonEndMs`, so it never repeats an hour the hourly chart already shows even when
+ * `horizonEndMs` lands mid-day; stops once a day's Carnot coverage is too sparse to summarize
+ * honestly (Carnot's own horizon has simply run out) or `MAX_OUTLOOK_DAYS` is reached. */
+function outlookFor(carnotForecast: RawTodayPoint[] | null, horizonEndMs: number): DayOutlook[] {
+  const pricesByDay = new Map<number, number[]>();
+  for (const point of carnotForecast ?? []) {
+    const ms = Date.parse(point.hour);
+    if (Number.isNaN(ms)) continue;
+    const day = startOfLocalDay(ms);
+    const prices = pricesByDay.get(day);
+    if (prices) prices.push(point.price);
+    else pricesByDay.set(day, [point.price]);
+  }
+
+  const outlook: DayOutlook[] = [];
+  let day = addDays(startOfLocalDay(horizonEndMs), 1);
+  for (let i = 0; i < MAX_OUTLOOK_DAYS; i++, day = addDays(day, 1)) {
+    const prices = pricesByDay.get(day);
+    if (!prices || prices.length < MIN_OUTLOOK_DAY_COVERAGE_HOURS) break;
+    outlook.push({
+      dayStartMs: day,
+      minPrice: Math.min(...prices),
+      maxPrice: Math.max(...prices),
+      meanPrice: prices.reduce((sum, price) => sum + price, 0) / prices.length,
+    });
+  }
+  return outlook;
 }
 
 /** Day-ahead price forecast for the "Price forecast" strip, assembled purely from the live price
@@ -146,5 +194,9 @@ export function assembleForecast(
   const points = Array.from(byMs, ([ms, v]) => ({ ms, price: v.price, source: v.source })).sort((a, b) => a.ms - b.ms);
   if (points.length < MIN_FORECAST_POINTS) return null;
 
-  return { points, peakWindows: peakWindowsFor(horizonStartMs, horizonEndMs) };
+  return {
+    points,
+    peakWindows: peakWindowsFor(horizonStartMs, horizonEndMs),
+    outlook: outlookFor(carnotForecast, horizonEndMs),
+  };
 }

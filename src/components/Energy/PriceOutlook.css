@@ -1,0 +1,85 @@
+.price-outlook {
+  margin-top: 0.9rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.price-outlook-heading-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.price-outlook-heading {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.price-outlook-unit {
+  font-size: 0.7rem;
+  color: #71717a;
+}
+
+.price-outlook-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.price-outlook-row {
+  display: grid;
+  grid-template-columns: 2.2rem 2.6rem 1fr 2.6rem;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.4rem;
+}
+
+.price-outlook-day {
+  font-size: 0.8rem;
+  color: #a1a1aa;
+}
+
+.price-outlook-low,
+.price-outlook-high {
+  font-size: 0.78rem;
+  color: #a1a1aa;
+  font-variant-numeric: tabular-nums;
+}
+
+.price-outlook-low {
+  text-align: right;
+}
+
+.price-outlook-track {
+  position: relative;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.price-outlook-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 2px;
+}
+
+/* Band colors mirror EnergyChart.css's bar fills — keep both in sync if the ramp changes. */
+.price-outlook-fill--low {
+  background: #9a3412;
+}
+
+.price-outlook-fill--mid {
+  background: #ea580c;
+}
+
+.price-outlook-fill--high {
+  background: #fdba74;
+}
+
+.price-outlook-fill--unknown {
+  background: #3f3f46;
+}
