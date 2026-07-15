@@ -1,7 +1,13 @@
-.price-tab-level {
+/* Compact "current price" readout in the Today card's header — mirrors the app's established
+   card-header-right idiom (e.g. UsageTab.css's .energy-page-card-total: small, muted, inline) rather
+   than a full stat-tile card, which stretched to the whole row's width for one number. */
+.price-tab-current {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: #a1a1aa;
+  white-space: nowrap;
 }
 
 .price-tab-dot {
@@ -42,6 +48,10 @@
 }
 
 .price-tab-today-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
   margin-bottom: 0.75rem;
 }
 
