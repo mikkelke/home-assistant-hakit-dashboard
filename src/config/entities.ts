@@ -176,23 +176,8 @@ export const SMART_COOLING_STATUS_SENSOR = 'sensor.smart_cooling_status';
 /** Master enable — your morning toggle. Turning it OFF makes the app turn the AC off. */
 export const SMART_COOLING_ENABLE = 'input_boolean.smart_cooling';
 
-/** Comfort cooling: keep the room nice while power is cheap (independent of the sleep goal). */
-export const SMART_COOLING_COMFORT_ENABLE = 'input_boolean.smart_cooling_comfort';
-
-/** Sleep pre-cool target temperature to reach by bedtime. */
-export const SMART_COOLING_TARGET_TEMP = 'input_number.smart_cooling_target_temp';
-
-/** Bedtime — the time the room must hit the sleep target. */
-export const SMART_COOLING_BEDTIME = 'input_datetime.smart_cooling_bedtime';
-
-/** Comfort price ceiling (DKK/kWh): comfort cools only when the current price is at/below this. */
-export const SMART_COOLING_COMFORT_PRICE = 'input_number.smart_cooling_free_price';
-
-/** Comfort hold temperature. */
-export const SMART_COOLING_COMFORT_TEMP = 'input_number.smart_cooling_day_maintain_temp';
-
-/** Night ceiling: keep the bedroom <= this for the whole night (the primary cooling objective). */
-export const SMART_COOLING_NIGHT_CEILING = 'input_number.smart_cooling_night_ceiling';
+/** Click right before physically removing the AC — seals the room for the night. Auto-resets. */
+export const SMART_COOLING_AC_REMOVED = 'input_boolean.smart_cooling_ac_removed';
 
 /** Bedroom comfort middle layer (AppDaemon BedroomComfort): dew point, effective ceiling, vent advice. */
 export const BEDROOM_COMFORT_SENSOR = 'sensor.bedroom_comfort';

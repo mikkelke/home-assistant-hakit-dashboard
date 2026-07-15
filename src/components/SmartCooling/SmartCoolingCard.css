@@ -1,33 +1,17 @@
+/* Flat section within CoolingModule's single card - no own box, just a divider above it. */
 .sc-card {
-  background: rgba(18, 19, 22, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.75rem;
-  overflow: hidden;
-  margin-bottom: 1rem;
-}
-.sc-card.active {
-  border-color: rgba(6, 182, 212, 0.4);
-}
-.sc-card.expanded {
-  border-color: rgba(6, 182, 212, 0.35);
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Header */
+/* Section label (was a clickable header; content is always visible now) */
 .sc-header {
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.85rem 1rem;
-  background: transparent;
-  border: none;
   color: #e4e4e7;
-  cursor: pointer;
-  transition: background 0.15s;
   text-align: left;
-}
-.sc-header:hover {
-  background: rgba(255, 255, 255, 0.04);
 }
 .sc-head-info {
   display: flex;
@@ -120,7 +104,7 @@
 
 /* Content */
 .sc-content {
-  padding: 0 1rem 1rem;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
@@ -233,87 +217,6 @@
   font-size: 0.75rem;
   color: #a1a1aa;
   line-height: 1.35;
-}
-.sc-rating {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  align-self: flex-start;
-  font-size: 0.72rem;
-  color: #fbbf24;
-  background: rgba(245, 158, 11, 0.12);
-  border-radius: 0.4rem;
-  padding: 0.2rem 0.5rem;
-  text-transform: capitalize;
-}
-
-/* Steppers */
-.sc-steppers {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-.sc-stepper {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-.sc-stepper-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.8rem;
-  color: #d4d4d8;
-}
-.sc-stepper-ctl {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-.sc-stepper-ctl button {
-  width: 1.85rem;
-  height: 1.85rem;
-  border-radius: 0.5rem;
-  display: grid;
-  place-items: center;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #e4e4e7;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: background 0.15s, color 0.15s;
-}
-.sc-stepper-ctl button:hover {
-  background: rgba(6, 182, 212, 0.18);
-  color: #22d3ee;
-}
-.sc-stepper-value {
-  min-width: 3.6rem;
-  text-align: center;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #e4e4e7;
-}
-.sc-time {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-.sc-time select {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.5rem;
-  color: #e4e4e7;
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 0.3rem 0.4rem;
-  font-family: inherit;
-  color-scheme: dark;
-  cursor: pointer;
-}
-.sc-time-sep {
-  color: #71717a;
 }
 
 /* Live readout */

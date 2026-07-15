@@ -57,8 +57,6 @@ function comfortLabel(pmv: number): string | null {
 }
 
 export function AcCard({ entities, callService }: AcCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
   const thermostat = entities?.[AC_THERMOSTAT_ENTITY];
   const deviceStatus = entities?.[AC_DEVICE_STATUS_ENTITY];
 
@@ -161,8 +159,8 @@ export function AcCard({ entities, callService }: AcCardProps) {
   const sliderPct = ((sliderValue - minTemp) / (maxTemp - minTemp)) * 100;
 
   return (
-    <div className={`ac-card ${isExpanded ? 'expanded' : ''} ${isCooling ? 'cooling' : ''}`}>
-      <button className='ac-header' onClick={() => setIsExpanded(!isExpanded)}>
+    <div className={`ac-card ${isCooling ? 'cooling' : ''}`}>
+      <div className='ac-header'>
         <div className='ac-header-info'>
           <Icon icon='mdi:snowflake' className='ac-icon' />
           <div className='ac-header-text'>
@@ -193,11 +191,10 @@ export function AcCard({ entities, callService }: AcCardProps) {
         </div>
         <div className='ac-header-right'>
           <span className={`ac-mode ${modeCls}`}>{headerStateLabel}</span>
-          <Icon icon={isExpanded ? 'mdi:chevron-up' : 'mdi:chevron-down'} />
         </div>
-      </button>
+      </div>
 
-      {/* Reminder is always visible (even collapsed) — it's a venting safety cue. */}
+      {/* Reminder is always visible — it's a venting safety cue. */}
       {showVentWarning && (
         <div className='ac-reminder warn'>
           <Icon icon='mdi:window-closed-variant' />
@@ -205,163 +202,161 @@ export function AcCard({ entities, callService }: AcCardProps) {
         </div>
       )}
 
-      {isExpanded && (
-        <div className='ac-content'>
-          <div className='ac-display'>
+      <div className='ac-content'>
+        <div className='ac-display'>
+          <div className='ac-display-item'>
+            <Icon icon='mdi:home-thermometer' />
+            <span className='ac-value'>{Number.isFinite(currentTemp) ? currentTemp : '--'}°</span>
+            <span className='ac-label'>Room</span>
+          </div>
+          <div className={`ac-display-item target ${modeCls}`}>
+            <Icon icon='mdi:target' />
+            <span className='ac-value'>{Number.isFinite(displayTarget as number) ? displayTarget : '--'}°</span>
+            <span className='ac-label'>Target</span>
+          </div>
+          {Number.isFinite(unitTemp) && (
             <div className='ac-display-item'>
-              <Icon icon='mdi:home-thermometer' />
-              <span className='ac-value'>{Number.isFinite(currentTemp) ? currentTemp : '--'}°</span>
-              <span className='ac-label'>Room</span>
+              <Icon icon='mdi:air-conditioner' />
+              <span className='ac-value'>{unitTemp}°</span>
+              <span className='ac-label'>AC sensor</span>
             </div>
-            <div className={`ac-display-item target ${modeCls}`}>
-              <Icon icon='mdi:target' />
-              <span className='ac-value'>{Number.isFinite(displayTarget as number) ? displayTarget : '--'}°</span>
-              <span className='ac-label'>Target</span>
+          )}
+          {Number.isFinite(bathroomTemp) && (
+            <div className='ac-display-item'>
+              <Icon icon='mdi:shower' />
+              <span className='ac-value'>{bathroomTemp}°</span>
+              <span className='ac-label'>Bathroom</span>
             </div>
-            {Number.isFinite(unitTemp) && (
-              <div className='ac-display-item'>
-                <Icon icon='mdi:air-conditioner' />
-                <span className='ac-value'>{unitTemp}°</span>
-                <span className='ac-label'>AC sensor</span>
-              </div>
-            )}
-            {Number.isFinite(bathroomTemp) && (
-              <div className='ac-display-item'>
-                <Icon icon='mdi:shower' />
-                <span className='ac-value'>{bathroomTemp}°</span>
-                <span className='ac-label'>Bathroom</span>
-              </div>
-            )}
-          </div>
+          )}
+        </div>
 
-          {/* Target temperature */}
-          <div className='ac-slider-container'>
-            <span className='ac-slider-edge'>{minTemp}°</span>
-            <div className='ac-slider-wrap'>
-              <input
-                type='range'
-                min={minTemp}
-                max={maxTemp}
-                step={tempStep}
-                value={sliderValue}
-                onChange={e => {
-                  setTargetInput(parseFloat(e.target.value));
-                  setDragging(true);
-                }}
-                onMouseUp={() => {
-                  commitTarget(targetInput);
-                  setDragging(false);
-                }}
-                onTouchStart={e => e.stopPropagation()}
-                onTouchMove={e => {
-                  e.stopPropagation();
-                  setDragging(true);
-                }}
-                onTouchEnd={e => {
-                  e.stopPropagation();
-                  commitTarget(targetInput);
-                  setDragging(false);
-                }}
-                className='ac-slider'
-              />
-              <div className={`ac-slider-bubble ${dragging ? 'show' : ''}`} style={{ left: `${sliderPct}%` }}>
-                {Math.round(targetInput)}°
-              </div>
+        {/* Target temperature */}
+        <div className='ac-slider-container'>
+          <span className='ac-slider-edge'>{minTemp}°</span>
+          <div className='ac-slider-wrap'>
+            <input
+              type='range'
+              min={minTemp}
+              max={maxTemp}
+              step={tempStep}
+              value={sliderValue}
+              onChange={e => {
+                setTargetInput(parseFloat(e.target.value));
+                setDragging(true);
+              }}
+              onMouseUp={() => {
+                commitTarget(targetInput);
+                setDragging(false);
+              }}
+              onTouchStart={e => e.stopPropagation()}
+              onTouchMove={e => {
+                e.stopPropagation();
+                setDragging(true);
+              }}
+              onTouchEnd={e => {
+                e.stopPropagation();
+                commitTarget(targetInput);
+                setDragging(false);
+              }}
+              className='ac-slider'
+            />
+            <div className={`ac-slider-bubble ${dragging ? 'show' : ''}`} style={{ left: `${sliderPct}%` }}>
+              {Math.round(targetInput)}°
             </div>
-            <span className='ac-slider-edge'>{maxTemp}°</span>
           </div>
+          <span className='ac-slider-edge'>{maxTemp}°</span>
+        </div>
 
-          {/* Mode */}
-          <div className='ac-segment'>
-            {modes.map(mode => {
-              const meta = MODE_META[mode];
-              return (
+        {/* Mode */}
+        <div className='ac-segment'>
+          {modes.map(mode => {
+            const meta = MODE_META[mode];
+            return (
+              <button
+                key={mode}
+                type='button'
+                className={`ac-seg-btn ${MODE_META[mode]?.cls ?? ''} ${displayMode === mode ? 'active' : ''} ${pendingMode?.value === mode ? 'pending' : ''}`}
+                onClick={() => handleMode(mode)}
+                title={meta?.label ?? mode}
+              >
+                <Icon icon={meta?.icon ?? 'mdi:tune'} />
+                <span>{meta?.label ?? mode}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Boost — max compressor + fan, via the climate "boost" preset */}
+        {presetModes.includes('boost') && (
+          <div className='ac-control-row'>
+            <span className='ac-row-label'>
+              <Icon icon='mdi:rocket-launch-outline' /> Boost
+            </span>
+            <div className='ac-pills'>
+              <button type='button' className={`ac-pill boost ${boostOn ? 'active' : ''}`} onClick={handleBoost}>
+                {boostOn ? 'On' : 'Off'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Fan speed */}
+        {fanModes.length > 0 && (
+          <div className='ac-control-row'>
+            <span className='ac-row-label'>
+              <Icon icon='mdi:fan' /> Fan
+            </span>
+            <div className='ac-pills'>
+              {fanModes.map(mode => (
                 <button
                   key={mode}
                   type='button'
-                  className={`ac-seg-btn ${MODE_META[mode]?.cls ?? ''} ${displayMode === mode ? 'active' : ''} ${pendingMode?.value === mode ? 'pending' : ''}`}
-                  onClick={() => handleMode(mode)}
-                  title={meta?.label ?? mode}
+                  className={`ac-pill ${displayFan === mode ? 'active' : ''}`}
+                  onClick={() => handleFan(mode)}
                 >
-                  <Icon icon={meta?.icon ?? 'mdi:tune'} />
-                  <span>{meta?.label ?? mode}</span>
+                  {FAN_META[mode] ?? mode}
                 </button>
-              );
-            })}
+              ))}
+            </div>
           </div>
+        )}
 
-          {/* Boost — max compressor + fan, via the climate "boost" preset */}
-          {presetModes.includes('boost') && (
-            <div className='ac-control-row'>
-              <span className='ac-row-label'>
-                <Icon icon='mdi:rocket-launch-outline' /> Boost
-              </span>
-              <div className='ac-pills'>
-                <button type='button' className={`ac-pill boost ${boostOn ? 'active' : ''}`} onClick={handleBoost}>
-                  {boostOn ? 'On' : 'Off'}
+        {/* Swing (vertical louvre only on this model) */}
+        {swingModes.length > 0 && (
+          <div className='ac-control-row'>
+            <span className='ac-row-label'>
+              <Icon icon='mdi:arrow-up-down' /> Swing
+            </span>
+            <div className='ac-pills'>
+              {swingModes.map(mode => (
+                <button
+                  key={mode}
+                  type='button'
+                  className={`ac-pill ${displaySwing === mode ? 'active' : ''}`}
+                  onClick={() => handleSwing(mode)}
+                  title={SWING_META[mode] ?? mode}
+                >
+                  {SWING_META[mode] ?? mode}
                 </button>
-              </div>
+              ))}
             </div>
-          )}
-
-          {/* Fan speed */}
-          {fanModes.length > 0 && (
-            <div className='ac-control-row'>
-              <span className='ac-row-label'>
-                <Icon icon='mdi:fan' /> Fan
-              </span>
-              <div className='ac-pills'>
-                {fanModes.map(mode => (
-                  <button
-                    key={mode}
-                    type='button'
-                    className={`ac-pill ${displayFan === mode ? 'active' : ''}`}
-                    onClick={() => handleFan(mode)}
-                  >
-                    {FAN_META[mode] ?? mode}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Swing (vertical louvre only on this model) */}
-          {swingModes.length > 0 && (
-            <div className='ac-control-row'>
-              <span className='ac-row-label'>
-                <Icon icon='mdi:arrow-up-down' /> Swing
-              </span>
-              <div className='ac-pills'>
-                {swingModes.map(mode => (
-                  <button
-                    key={mode}
-                    type='button'
-                    className={`ac-pill ${displaySwing === mode ? 'active' : ''}`}
-                    onClick={() => handleSwing(mode)}
-                    title={SWING_META[mode] ?? mode}
-                  >
-                    {SWING_META[mode] ?? mode}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Telemetry footer */}
-          <div className='ac-footer'>
-            {Number.isFinite(powerW) && (
-              <span className='ac-stat'>
-                <Icon icon='mdi:flash' /> {Math.round(powerW)} W
-              </span>
-            )}
-            {comfort && (
-              <span className='ac-stat'>
-                <Icon icon='mdi:emoticon-cool-outline' /> {comfort}
-              </span>
-            )}
           </div>
+        )}
+
+        {/* Telemetry footer */}
+        <div className='ac-footer'>
+          {Number.isFinite(powerW) && (
+            <span className='ac-stat'>
+              <Icon icon='mdi:flash' /> {Math.round(powerW)} W
+            </span>
+          )}
+          {comfort && (
+            <span className='ac-stat'>
+              <Icon icon='mdi:emoticon-cool-outline' /> {comfort}
+            </span>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

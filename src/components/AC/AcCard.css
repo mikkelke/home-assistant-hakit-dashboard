@@ -1,35 +1,16 @@
+/* Flat section within CoolingModule's single card - no own box, just a divider above it. */
 .ac-card {
-  background: rgba(18, 19, 22, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.75rem;
-  overflow: hidden;
-  margin-bottom: 1rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.ac-card.cooling {
-  border-color: rgba(6, 182, 212, 0.3);
-}
-
-.ac-card.expanded {
-  border-color: rgba(6, 182, 212, 0.4);
-}
-
-/* Header */
+/* Section label (was a clickable header; AC content is always visible now) */
 .ac-header {
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.85rem 1rem;
-  background: transparent;
-  border: none;
   color: #e4e4e7;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.ac-header:hover {
-  background: rgba(255, 255, 255, 0.04);
 }
 
 .ac-header-info {
@@ -146,8 +127,7 @@
 
 /* Content */
 .ac-content {
-  padding: 0 1rem 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0;
 }
 
 .ac-display {
