@@ -109,12 +109,6 @@ const MIN_OUTLOOK_DAY_COVERAGE_HOURS = 12;
  * hourly chart's own 2 days are excluded; it exists as a backstop, not a target to hit. */
 const MAX_OUTLOOK_DAYS = 6;
 
-/** ms of the next whole hour strictly after `ms` — the forecast starts here; the current/settled
- * hour is already shown by the day view's own price curve. */
-function nextHourStartMs(ms: number): number {
-  return Math.floor(ms / HOUR_MS) * HOUR_MS + HOUR_MS;
-}
-
 /** Every 17:00–21:00 local window that intersects [horizonStartMs, horizonEndMs), one per local
  * calendar day the horizon touches — component Date math (DST-safe), mirrors
  * `assemblePriceSeries`'s single-day peak window in assemble.ts. */
@@ -170,20 +164,23 @@ function outlookFor(carnotForecast: RawTodayPoint[] | null, horizonEndMs: number
   return outlook;
 }
 
-/** Day-ahead price forecast for the "Price forecast" strip, assembled purely from the live price
- * entity's own attributes (no extra WS calls): `raw_tomorrow` (only once `tomorrowValid`) wins on
- * any hour it covers — it's the real day-ahead settlement — the Carnot `forecast` attribute fills
- * every other hour in the horizon. Returns null when there's too little to plot (<6 points): a
+/** "Tomorrow" price forecast, assembled purely from the live price entity's own attributes (no
+ * extra WS calls): `raw_tomorrow` (only once `tomorrowValid`) wins on any hour it covers — it's the
+ * real day-ahead settlement — the Carnot `forecast` attribute fills every other hour. The horizon is
+ * exactly tomorrow (local midnight to local midnight, `horizonHours` long from there) — day-aligned
+ * on purpose, so it never overlaps *today's* own price curve (a separate component elsewhere shows
+ * that) and so `outlookFor`'s own day-boundary math always gets a clean, whole-hour start with no
+ * partial first day to reason about. Returns null when there's too little to plot (<6 points): a
  * genuinely-empty state, never a zero-filled fake one. */
 export function assembleForecast(
   rawTomorrow: RawTodayPoint[] | null,
   tomorrowValid: boolean,
   carnotForecast: RawTodayPoint[] | null,
   nowMs: number,
-  horizonHours = 48
+  horizonHours = 24
 ): ForecastSeries | null {
-  const horizonStartMs = nextHourStartMs(nowMs);
-  const horizonEndMs = nowMs + horizonHours * HOUR_MS;
+  const horizonStartMs = addDays(startOfLocalDay(nowMs), 1);
+  const horizonEndMs = horizonStartMs + horizonHours * HOUR_MS;
 
   const byMs = new Map<number, { price: number; source: 'tomorrow' | 'carnot' }>();
 

@@ -29,6 +29,29 @@
   background: #3f3f46;
 }
 
+/* Card chrome mirrors PriceForecast.css's own .price-forecast/.price-forecast-header — same visual
+   family, different card. */
+.price-tab-today {
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  /* No margin-bottom here — PriceForecast.css's .price-forecast already carries margin-top: 1rem
+     as its own separator; matching that (rather than stacking both) keeps card-to-card spacing
+     uniform down the tab. */
+}
+
+.price-tab-today-header {
+  margin-bottom: 0.75rem;
+}
+
+.price-tab-today-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
 .price-tab-empty {
   margin: 0;
   padding: 1.5rem 0;

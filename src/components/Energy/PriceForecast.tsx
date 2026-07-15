@@ -65,11 +65,12 @@ function hourTicksFor(rangeStartMs: number, rangeEndMs: number, todayStartMs: nu
   return ticks;
 }
 
-/** Day view only, today's anchor only: the next 24–48 h of prices beyond the settled price curve —
- * `raw_tomorrow` (solid, once `tomorrow_valid`) where it covers an hour, the Carnot `forecast`
- * (dashed, dimmer) everywhere else, so "should the dishwasher run tonight or tomorrow morning?" is
- * answerable at a glance. Assumes `forecast.points` is non-empty (`assembleForecast` only ever
- * returns null, never an empty series, so the caller renders this component or nothing at all). */
+/** Tomorrow's hourly prices — `raw_tomorrow` (solid, once `tomorrow_valid`) where it covers an
+ * hour, the Carnot `forecast` (dashed, dimmer) everywhere else, so "should the dishwasher run
+ * tonight or tomorrow morning?" is answerable at a glance. The Price tab pairs this with a separate
+ * "Today" price curve above it, and `PriceOutlook` below it for the days beyond tomorrow. Assumes
+ * `forecast.points` is non-empty (`assembleForecast` only ever returns null, never an empty series,
+ * so the caller renders this component or nothing at all). */
 export function PriceForecast({ forecast, nowMs }: PriceForecastProps) {
   const rangeStartMs = forecast.points[0].ms;
   const rangeEndMs = forecast.points[forecast.points.length - 1].ms + HOUR_MS;
@@ -164,7 +165,7 @@ export function PriceForecast({ forecast, nowMs }: PriceForecastProps) {
   return (
     <div className='price-forecast'>
       <div className='price-forecast-header'>
-        <h2>Price forecast · next 48 hours</h2>
+        <h2>Tomorrow</h2>
       </div>
 
       <div className='energy-callout-lane energy-callout-lane--compact'>{callout && <ChartCallout {...callout} />}</div>

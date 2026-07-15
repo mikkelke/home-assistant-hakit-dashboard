@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { assembleForecast, priceLevel, useEnergyView, type EnergyBar } from '../../energy';
 import { formatPrice } from '../../utils/format';
 import { PriceForecast } from './PriceForecast';
+import { PriceStrip } from './PriceStrip';
 import './PriceTab.css';
 import './StatTiles.css'; // hero tile below reuses .stat-tiles/.stat-tile* directly (see render)
 
@@ -17,13 +18,13 @@ const PRICE_LEVEL_WORD: Record<EnergyBar['level'], string> = {
   unknown: 'unknown',
 };
 
-/** Tab "Price": current rate, the next 48 hours in detail, and the week ahead — split out of Live
- * (which stays focused on real-time power draw) so the price picture gets its own uncluttered read.
- * Reuses the day view's own hook purely for `priceAttrs` (the live price entity's attributes); its
- * bars/totals go unused here, but the module cache means this rarely costs a second fetch when
- * Live or Usage are also viewing today. */
+/** Tab "Price": current rate, today's full curve, tomorrow's forecast, and the week ahead — split
+ * out of Live (which stays focused on real-time power draw) so the price picture gets its own
+ * uncluttered read. `data.price` (today, via the day view's own `assemblePriceSeries`) and
+ * `priceAttrs` (tomorrow/Carnot, via `assembleForecast`) come from the SAME `useEnergyView('day', …)`
+ * call — its module cache means Live/Usage viewing today rarely costs this a second fetch. */
 export function PriceTab({ nowMs, todayStartMs }: PriceTabProps) {
-  const { priceAttrs } = useEnergyView('day', todayStartMs);
+  const { data, priceAttrs } = useEnergyView('day', todayStartMs);
 
   const forecast = useMemo(
     () => assembleForecast(priceAttrs.rawTomorrow, priceAttrs.tomorrowValid, priceAttrs.carnotForecast, nowMs),
@@ -45,6 +46,17 @@ export function PriceTab({ nowMs, todayStartMs }: PriceTabProps) {
             </span>
           )}
         </div>
+      </div>
+
+      <div className='price-tab-today'>
+        <div className='price-tab-today-header'>
+          <h2>Today</h2>
+        </div>
+        {data?.price ? (
+          <PriceStrip series={data.price} rangeStartMs={data.startMs} rangeEndMs={data.endMs} />
+        ) : (
+          <p className='price-tab-empty'>Loading today's prices…</p>
+        )}
       </div>
 
       {forecast ? (
