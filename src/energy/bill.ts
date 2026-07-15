@@ -96,6 +96,9 @@ export interface DayOutlook {
   minPrice: number;
   meanPrice: number;
   maxPrice: number;
+  /** True only for a possible first entry whose day was already partway through when the near-term
+   * hourly horizon ended — its range reflects just the leftover hours, not the whole day. */
+  partial: boolean;
 }
 
 const MIN_FORECAST_POINTS = 6;
@@ -128,17 +131,20 @@ function peakWindowsFor(horizonStartMs: number, horizonEndMs: number): Array<{ s
   return windows;
 }
 
-/** Daily min/mean/max summaries for the Carnot-only days beyond the near-term hourly horizon (the
+/** Daily min/mean/max summaries for the Carnot-only hours beyond the near-term hourly horizon (the
  * extended "This week" outlook) — the same already-fetched `forecast` attribute, just not
- * truncated at `horizonHours`. Starts at the local midnight strictly after the calendar day
- * containing `horizonEndMs`, so it never repeats an hour the hourly chart already shows even when
- * `horizonEndMs` lands mid-day; stops once a day's Carnot coverage is too sparse to summarize
- * honestly (Carnot's own horizon has simply run out) or `MAX_OUTLOOK_DAYS` is reached. */
+ * truncated at `horizonHours`. Excludes every hour `< horizonEndMs` (the hourly chart already shows
+ * those, so never repeat one) and starts counting days from the calendar day that CONTAINS
+ * `horizonEndMs` — that day's own leftover hours (e.g. Friday 08:00–24:00 when the 48h cutoff lands
+ * mid-Friday) still form a real, if partial, day and must not be dropped, or that day's prices go
+ * missing everywhere (neither the hourly chart nor the outlook shows them — a visible gap). Only
+ * that first day is allowed to be partial; it's skipped (not treated as "Carnot ran out") if it has
+ * too little leftover, but every day after it must be a genuinely full day or the loop stops. */
 function outlookFor(carnotForecast: RawTodayPoint[] | null, horizonEndMs: number): DayOutlook[] {
   const pricesByDay = new Map<number, number[]>();
   for (const point of carnotForecast ?? []) {
     const ms = Date.parse(point.hour);
-    if (Number.isNaN(ms)) continue;
+    if (Number.isNaN(ms) || ms < horizonEndMs) continue;
     const day = startOfLocalDay(ms);
     const prices = pricesByDay.get(day);
     if (prices) prices.push(point.price);
@@ -146,15 +152,19 @@ function outlookFor(carnotForecast: RawTodayPoint[] | null, horizonEndMs: number
   }
 
   const outlook: DayOutlook[] = [];
-  let day = addDays(startOfLocalDay(horizonEndMs), 1);
+  let day = startOfLocalDay(horizonEndMs);
   for (let i = 0; i < MAX_OUTLOOK_DAYS; i++, day = addDays(day, 1)) {
     const prices = pricesByDay.get(day);
-    if (!prices || prices.length < MIN_OUTLOOK_DAY_COVERAGE_HOURS) break;
+    if (!prices || prices.length < MIN_OUTLOOK_DAY_COVERAGE_HOURS) {
+      if (i === 0) continue; // this day's leftover is too thin a sliver to summarize — try the next
+      break; // any later day is either whole or absent; absent means Carnot's horizon ended here
+    }
     outlook.push({
       dayStartMs: day,
       minPrice: Math.min(...prices),
       maxPrice: Math.max(...prices),
       meanPrice: prices.reduce((sum, price) => sum + price, 0) / prices.length,
+      partial: prices.length < 24,
     });
   }
   return outlook;

@@ -26,7 +26,7 @@ export function PriceOutlook({ outlook }: PriceOutlookProps) {
     <div className='price-outlook'>
       <div className='price-outlook-heading-row'>
         <h3 className='price-outlook-heading'>This week</h3>
-        <span className='price-outlook-unit'>kr/kWh</span>
+        <span className='price-outlook-unit'>{outlook[0].partial ? '* rest of day · ' : ''}kr/kWh</span>
       </div>
 
       <div className='price-outlook-rows'>
@@ -35,11 +35,14 @@ export function PriceOutlook({ outlook }: PriceOutlookProps) {
           const widthPct = Math.max(4, ((day.maxPrice - day.minPrice) / globalRange) * 100);
           return (
             <div className='price-outlook-row' key={day.dayStartMs}>
-              <span className='price-outlook-day'>{new Date(day.dayStartMs).toLocaleDateString(undefined, { weekday: 'short' })}</span>
+              <span className='price-outlook-day'>
+                {new Date(day.dayStartMs).toLocaleDateString(undefined, { weekday: 'short' })}
+                {day.partial && <span className='price-outlook-partial-mark'>*</span>}
+              </span>
               <span className='price-outlook-low'>{formatBarePrice(day.minPrice)}</span>
               <span className='price-outlook-track'>
                 <span
-                  className={`price-outlook-fill price-outlook-fill--${priceLevel(day.meanPrice)}`}
+                  className={`price-outlook-fill price-outlook-fill--${priceLevel(day.meanPrice)} ${day.partial ? 'price-outlook-fill--partial' : ''}`}
                   style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
                 />
               </span>

@@ -42,6 +42,16 @@
   color: #a1a1aa;
 }
 
+.price-outlook-partial-mark {
+  color: #71717a;
+}
+
+/* Mirrors EnergyChart.css's own .energy-chart-bar--partial treatment — a partial day's range
+   reflects only its leftover hours, not the whole day. */
+.price-outlook-fill--partial {
+  opacity: 0.7;
+}
+
 .price-outlook-low,
 .price-outlook-high {
   font-size: 0.78rem;
