@@ -195,8 +195,13 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
       attrs.estimated_remaining_min != null ||
       attrs.programme_duration_min != null ||
       (attrs.programme_duration_min != null && attrs.cycle_start_time);
-    const hasUnemptiedAttrs = attrs.run_time_minutes != null || attrs.energy_used != null;
-    if (hasUnemptiedAttrs) state = 'Unemptied';
+    // Run stats (run_time_minutes/energy_used) alone no longer imply a finished cycle — energy_used
+    // is now also published live while Running, so only treat them as Unemptied once the cycle has
+    // actually ended (cycle_complete flagged, or cycle_start_time cleared).
+    const hasEndedCycleAttrs =
+      (attrs.run_time_minutes != null || attrs.energy_used != null) &&
+      (attrs.cycle_complete === true || attrs.cycle_complete === 'true' || !attrs.cycle_start_time);
+    if (hasEndedCycleAttrs) state = 'Unemptied';
     else if (hasRunningAttrs || attrs.programme_label) state = 'Running';
   } else if (rawState === 'off') {
     state = 'Off';
@@ -209,10 +214,18 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
   const idleMinutes = attrs.idle_min != null ? Number(attrs.idle_min) : undefined;
 
   const runCostKr = useRunCost({
+    mode: 'finished',
     active: state === 'Unemptied',
     endDetectedIso: washer?.last_changed,
     runTimeMinutes,
     idleMinutes,
+    energyKwh: energyUsed,
+  });
+  const liveCostKr = useRunCost({
+    mode: 'live',
+    active: state === 'Running',
+    startIso: typeof attrs.cycle_start_time === 'string' && attrs.cycle_start_time ? attrs.cycle_start_time : undefined,
+    endAnchorIso: washer?.last_updated,
     energyKwh: energyUsed,
   });
 
@@ -433,6 +446,13 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
                 formatTimeOnly={formatTimeOnly}
               />
             </div>
+            {(energyUsed != null || liveCostKr != null) && (
+              <div className='washer-stats'>
+                {energyUsed != null && <span>Used {Number(energyUsed).toFixed(2)} kWh</span>}
+                {energyUsed != null && liveCostKr != null && ' · '}
+                {liveCostKr != null && <span>≈ {formatKr(liveCostKr)}</span>}
+              </div>
+            )}
             {announceToggle && (
               <div className='washer-row announce-row'>
                 <Icon icon='mdi:bell' />

@@ -70,8 +70,13 @@ export function inferDishwasherSemanticState(entity: HassEntity | undefined | nu
       attrs.estimated_remaining_min != null ||
       attrs.programme_duration_min != null ||
       (attrs.progress_pct != null && attrs.progress_pct !== '');
-    const hasUnemptiedAttrs = attrs.run_time_minutes != null || attrs.energy_used != null;
-    if (hasUnemptiedAttrs) state = 'Unemptied';
+    // Run stats (run_time_minutes/energy_used) alone no longer imply a finished cycle — energy_used
+    // is now also published live while Running, so only treat them as Unemptied once the cycle has
+    // actually ended (cycle_complete flagged, or cycle_start_time cleared).
+    const hasEndedCycleAttrs =
+      (attrs.run_time_minutes != null || attrs.energy_used != null) &&
+      (attrs.cycle_complete === true || attrs.cycle_complete === 'true' || !attrs.cycle_start_time);
+    if (hasEndedCycleAttrs) state = 'Unemptied';
     else if (hasRunningAttrs || attrs.programme_label || attrs.detected_programme) state = 'Running';
   } else if (rawState === 'off') {
     state = 'Off';

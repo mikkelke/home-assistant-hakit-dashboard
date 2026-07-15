@@ -213,8 +213,13 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
       attrs.estimated_remaining_min != null ||
       attrs.programme_duration_min != null ||
       (attrs.progress_pct != null && attrs.progress_pct !== '');
-    const hasUnemptiedAttrs = attrs.run_time_minutes != null || attrs.energy_used != null;
-    if (hasUnemptiedAttrs) state = 'Unemptied';
+    // Run stats (run_time_minutes/energy_used) alone no longer imply a finished cycle — energy_used
+    // is now also published live while Running, so only treat them as Unemptied once the cycle has
+    // actually ended (cycle_complete flagged, or cycle_start_time cleared).
+    const hasEndedCycleAttrs =
+      (attrs.run_time_minutes != null || attrs.energy_used != null) &&
+      (attrs.cycle_complete === true || attrs.cycle_complete === 'true' || !attrs.cycle_start_time);
+    if (hasEndedCycleAttrs) state = 'Unemptied';
     else if (hasRunningAttrs || attrs.programme_label || attrs.detected_programme) state = 'Running';
   } else if (rawState === 'off') {
     state = 'Off';
@@ -226,10 +231,18 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
   const idleMinutes = attrs.idle_min != null ? Number(attrs.idle_min) : undefined;
 
   const runCostKr = useRunCost({
+    mode: 'finished',
     active: state === 'Unemptied',
     endDetectedIso: dryer?.last_changed,
     runTimeMinutes,
     idleMinutes,
+    energyKwh: energyUsed,
+  });
+  const liveCostKr = useRunCost({
+    mode: 'live',
+    active: state === 'Running',
+    startIso: typeof attrs.cycle_start_time === 'string' && attrs.cycle_start_time ? attrs.cycle_start_time : undefined,
+    endAnchorIso: dryer?.last_updated,
     energyKwh: energyUsed,
   });
 
@@ -476,6 +489,13 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
                 formatTimeOnly={formatTimeOnly}
               />
             </div>
+            {(energyUsed != null || liveCostKr != null) && (
+              <div className='dryer-stats'>
+                {energyUsed != null && <span>Used {Number(energyUsed).toFixed(2)} kWh</span>}
+                {energyUsed != null && liveCostKr != null && ' · '}
+                {liveCostKr != null && <span>≈ {formatKr(liveCostKr)}</span>}
+              </div>
+            )}
           </>
         )}
 

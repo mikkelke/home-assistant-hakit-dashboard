@@ -186,9 +186,17 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
   const energyUsed = attrs.energy_used != null ? Number(attrs.energy_used) : undefined;
 
   const runCostKr = useRunCost({
+    mode: 'finished',
     active: state === 'Unemptied',
     endDetectedIso: dishwasher?.last_changed,
     runTimeMinutes,
+    energyKwh: energyUsed,
+  });
+  const liveCostKr = useRunCost({
+    mode: 'live',
+    active: state === 'Running',
+    startIso: typeof attrs.cycle_start_time === 'string' && attrs.cycle_start_time ? attrs.cycle_start_time : undefined,
+    endAnchorIso: dishwasher?.last_updated,
     energyKwh: energyUsed,
   });
 
@@ -335,6 +343,13 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
                 formatTimeOnly={formatTimeOnly}
               />
             </div>
+            {(energyUsed != null || liveCostKr != null) && (
+              <div className='dishwasher-stats'>
+                {energyUsed != null && <span>Used {Number(energyUsed).toFixed(2)} kWh</span>}
+                {energyUsed != null && liveCostKr != null && ' · '}
+                {liveCostKr != null && <span>≈ {formatKr(liveCostKr)}</span>}
+              </div>
+            )}
           </>
         )}
 
