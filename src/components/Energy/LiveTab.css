@@ -1,34 +1,3 @@
-.live-price-level {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.live-price-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  display: inline-block;
-  flex-shrink: 0;
-}
-
-/* Mirrors EnergyChart.css's .energy-chart-bar--low/--mid/--high ramp colors. */
-.live-price-dot--low {
-  background: #9a3412;
-}
-
-.live-price-dot--mid {
-  background: #ea580c;
-}
-
-.live-price-dot--high {
-  background: #fdba74;
-}
-
-.live-price-dot--unknown {
-  background: #3f3f46;
-}
-
 .live-drawing-now {
   background: rgba(24, 25, 28, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.06);

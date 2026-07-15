@@ -8,12 +8,13 @@ interface EnergyTabsProps {
 
 const TAB_OPTIONS: Array<{ value: EnergyTab; label: string }> = [
   { value: 'live', label: 'Live' },
+  { value: 'price', label: 'Price' },
   { value: 'usage', label: 'Usage' },
   { value: 'devices', label: 'Devices' },
   { value: 'bill', label: 'Bill' },
 ];
 
-/** Segmented Live/Usage/Devices/Bill tab bar — visually mirrors PeriodPicker's own segment control
+/** Segmented Live/Price/Usage/Devices/Bill tab bar — visually mirrors PeriodPicker's own segment control
  * (filled-pill active state, ≥44px touch height). Rendered outside the page's scrollable content,
  * so — like the header — it stays on screen while a tab's own content scrolls underneath it. */
 export function EnergyTabs({ tab, onChange }: EnergyTabsProps) {

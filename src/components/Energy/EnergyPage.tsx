@@ -8,6 +8,7 @@ import { BillTab } from './BillTab';
 import { DevicesTab } from './DevicesTab';
 import { EnergyTabs } from './EnergyTabs';
 import { LiveTab } from './LiveTab';
+import { PriceTab } from './PriceTab';
 import { UsageTab } from './UsageTab';
 import './EnergyPage.css';
 
@@ -15,9 +16,9 @@ interface EnergyPageProps {
   onClose: () => void;
 }
 
-export type EnergyTab = 'live' | 'usage' | 'devices' | 'bill';
+export type EnergyTab = 'live' | 'price' | 'usage' | 'devices' | 'bill';
 
-const ENERGY_TAB_VALUES: readonly EnergyTab[] = ['live', 'usage', 'devices', 'bill'];
+const ENERGY_TAB_VALUES: readonly EnergyTab[] = ['live', 'price', 'usage', 'devices', 'bill'];
 
 function isEnergyTab(value: string): value is EnergyTab {
   return (ENERGY_TAB_VALUES as readonly string[]).includes(value);
@@ -91,7 +92,9 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
 
       <div className='energy-page-content'>
         <div className='energy-page-inner'>
-          {tab === 'live' && config && <LiveTab config={config} nowMs={nowMs} todayStartMs={todayStartMs} />}
+          {tab === 'live' && config && <LiveTab config={config} todayStartMs={todayStartMs} />}
+
+          {tab === 'price' && <PriceTab nowMs={nowMs} todayStartMs={todayStartMs} />}
 
           {tab === 'usage' && (
             <UsageTab

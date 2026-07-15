@@ -1,0 +1,38 @@
+.price-tab-level {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.price-tab-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* Mirrors EnergyChart.css's .energy-chart-bar--low/--mid/--high ramp colors. */
+.price-tab-dot--low {
+  background: #9a3412;
+}
+
+.price-tab-dot--mid {
+  background: #ea580c;
+}
+
+.price-tab-dot--high {
+  background: #fdba74;
+}
+
+.price-tab-dot--unknown {
+  background: #3f3f46;
+}
+
+.price-tab-empty {
+  margin: 0;
+  padding: 1.5rem 0;
+  text-align: center;
+  color: #71717a;
+  font-size: 0.85rem;
+}

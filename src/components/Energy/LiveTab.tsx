@@ -1,25 +1,15 @@
-import { useMemo } from 'react';
 import { useHass } from '@hakit/core';
-import { assembleForecast, assembleLivePower, priceLevel, useEnergyView, type EnergyBar, type EnergyConfig } from '../../energy';
-import { formatKr, formatKWh, formatPrice, formatW } from '../../utils/format';
-import { PriceForecast } from './PriceForecast';
+import { assembleLivePower, useEnergyView, type EnergyConfig } from '../../energy';
+import { formatKr, formatKWh, formatW } from '../../utils/format';
 import './LiveTab.css';
 import './StatTiles.css'; // hero row below reuses .stat-tiles/.stat-tile* directly (see render)
 
 interface LiveTabProps {
   config: EnergyConfig;
-  nowMs: number;
   todayStartMs: number;
 }
 
 const VISIBLE_ROW_COUNT = 10;
-
-const PRICE_LEVEL_WORD: Record<EnergyBar['level'], string> = {
-  low: 'cheap',
-  mid: 'normal',
-  high: 'expensive',
-  unknown: 'unknown',
-};
 
 /** Bar width as a percentage of the shared scale (the largest top-level device) — mirrors
  * DeviceBreakdown's own `barWidthPercent`: at least 2% once there's any draw at all so small
@@ -56,18 +46,13 @@ function LiveRow({ name, watts, maxWatts, indent, untracked }: LiveRowProps) {
   );
 }
 
-/** Tab "Live": what's happening right now. The hero row and "Drawing now" list are derived purely
- * from live entity states (no statistics calls — updates arrive via the `useHass` store
- * automatically); today's running total and the price forecast reuse the day view's own hook
- * (sharing its module cache with the Usage tab when it's viewing today). */
-export function LiveTab({ config, nowMs, todayStartMs }: LiveTabProps) {
+/** Tab "Live": what's happening right now, power-wise. The hero row and "Drawing now" list are
+ * derived purely from live entity states (no statistics calls — updates arrive via the `useHass`
+ * store automatically); today's running kWh/kr total reuses the day view's own hook (sharing its
+ * module cache with the Usage tab when it's viewing today). Price lives on its own tab now. */
+export function LiveTab({ config, todayStartMs }: LiveTabProps) {
   const entities = useHass(s => s.entities);
-  const { data: todayView, priceAttrs } = useEnergyView('day', todayStartMs);
-
-  const forecast = useMemo(
-    () => assembleForecast(priceAttrs.rawTomorrow, priceAttrs.tomorrowValid, priceAttrs.carnotForecast, nowMs),
-    [priceAttrs, nowMs]
-  );
+  const { data: todayView } = useEnergyView('day', todayStartMs);
 
   function powerOf(entityId?: string | null): number | null {
     if (!entityId) return null;
@@ -78,7 +63,6 @@ export function LiveTab({ config, nowMs, todayStartMs }: LiveTabProps) {
   }
 
   const gridW = powerOf(config.gridPowerEntityId);
-  const priceLvl = priceLevel(priceAttrs.currentPrice);
 
   const powerByStatId: Record<string, number> = {};
   for (const device of config.devices) {
@@ -104,17 +88,6 @@ export function LiveTab({ config, nowMs, todayStartMs }: LiveTabProps) {
           <span className='stat-tile-label'>Today so far</span>
           <span className='stat-tile-value'>{todayView ? formatKWh(todayView.totals.kWh) : '—'}</span>
           {todayView && <span className='stat-tile-sub'>{formatKr(todayView.totals.costKr)}</span>}
-        </div>
-
-        <div className='stat-tile'>
-          <span className='stat-tile-label'>Current price</span>
-          <span className='stat-tile-value'>{priceAttrs.currentPrice != null ? formatPrice(priceAttrs.currentPrice) : '—'}</span>
-          {priceAttrs.currentPrice != null && (
-            <span className='stat-tile-sub live-price-level'>
-              <span className={`live-price-dot live-price-dot--${priceLvl}`} />
-              {PRICE_LEVEL_WORD[priceLvl]}
-            </span>
-          )}
         </div>
       </div>
 
@@ -150,8 +123,6 @@ export function LiveTab({ config, nowMs, todayStartMs }: LiveTabProps) {
           </div>
         )}
       </div>
-
-      {forecast && <PriceForecast forecast={forecast} nowMs={nowMs} />}
     </>
   );
 }
