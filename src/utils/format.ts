@@ -38,3 +38,8 @@ export function hourRangeLabel(ms: number): string {
   const endHour = (startHour + 1) % 24;
   return `${String(startHour).padStart(2, '0')}:00–${String(endHour).padStart(2, '0')}:00`;
 }
+
+/** e.g. `formatClockHour(<22:00 ms>)` → `"22:00"` (ms-arg Date construction is render-pure). */
+export function formatClockHour(ms: number): string {
+  return `${String(new Date(ms).getHours()).padStart(2, '0')}:00`;
+}
