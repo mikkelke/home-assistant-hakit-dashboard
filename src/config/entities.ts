@@ -198,3 +198,13 @@ export const BEDROOM_SOLAR_SHADE_POSITION = 'input_number.bedroom_solar_shade_po
 
 /** Published status sensor (shading/open/inactive + reason). */
 export const BEDROOM_SOLAR_SHADE_STATUS = 'sensor.bedroom_solar_shade_status';
+
+// --- Home activity (AppDaemon `HouseEvents` app, apps/home_pulse/house_events.py): plain-English
+// feed of what the house just did, for non-technical housemates. ---
+
+/**
+ * Feed sensor. state is the UTC ISO timestamp of the newest event (or the string "empty");
+ * attributes.events is a newest-first array of `{ ts, icon, text }` (max 40 entries). Ephemeral —
+ * the list resets across HA restarts (nothing is persisted), so gaps are expected, not a bug.
+ */
+export const HOUSE_EVENTS_ENTITY = 'sensor.house_events';

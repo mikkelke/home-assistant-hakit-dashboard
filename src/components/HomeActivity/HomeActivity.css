@@ -1,0 +1,171 @@
+/* Card chrome mirrors HomePulse.css's own .home-pulse/.home-pulse-card — same box model/tokens,
+   kept as its own copy rather than a shared class (matches how this app duplicates small bits of
+   chrome per component; see PriceAdvisor.tsx's top comment). */
+.home-activity {
+  padding: 0 0.75rem 0.45rem;
+  display: flex;
+  justify-content: center;
+}
+
+.home-activity-card {
+  position: relative;
+  width: 100%;
+  max-width: 1100px;
+  padding: 0.5rem 0.65rem 0.55rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(20, 21, 24, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+}
+
+.home-activity-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+}
+
+.home-activity-header-icon {
+  font-size: 1rem;
+  color: #a1a1aa;
+}
+
+.home-activity-header-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.home-activity-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.home-activity-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.32rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.home-activity-row:last-child {
+  border-bottom: none;
+}
+
+.home-activity-row-icon {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  font-size: 0.95rem;
+  color: #e4e4e7;
+}
+
+.home-activity-row-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  color: #e4e4e7;
+}
+
+.home-activity-row-time {
+  flex-shrink: 0;
+  padding-top: 0.05rem;
+  font-size: 0.7rem;
+  color: #71717a;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* "Show all" — reuses the accent already used for actionable figures elsewhere (see
+   PriceAdvisor.css's own .price-advisor-column-delay). */
+.home-activity-show-all {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
+  padding: 0.35rem 0 0;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
+  color: #38bdf8;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+
+.home-activity-show-all:hover {
+  color: #7dd3fc;
+}
+
+@media (min-width: 1025px) {
+  .home-activity-card {
+    max-width: 660px;
+  }
+}
+
+@media (max-width: 700px) {
+  .home-activity {
+    padding-inline: 0.5rem;
+    padding-bottom: 0.4rem;
+  }
+
+  .home-activity-card {
+    padding: 0.48rem 0.56rem 0.52rem;
+    border-radius: 0.9rem;
+  }
+}
+
+/* Modal — same overlay/panel/header pattern as PriceAdvisor.css's own .price-advisor-overlay/
+   .price-advisor-modal/.price-advisor-modal-header (values copied rather than shared, matching
+   how DeviceDialog.css/QuickAccess.css also keep their own modal chrome independent). */
+.home-activity-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1rem;
+}
+
+.home-activity-modal {
+  background: #0f1117;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.9rem;
+  width: min(480px, 92vw);
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y pinch-zoom;
+  overscroll-behavior: contain;
+}
+
+.home-activity-modal-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.home-activity-modal-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.home-activity-modal-body {
+  padding: 0.25rem 1rem 1rem;
+}
+
+.home-activity-modal-body .home-activity-row {
+  padding: 0.4rem 0;
+}

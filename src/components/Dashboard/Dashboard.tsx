@@ -6,6 +6,7 @@ import type { Area, HassEntities } from '../../types';
 import { buildHistoryUrlWithHash, getAccessibleHistoryWindow, getViewFromHistoryHash } from '../../utils/navigation';
 import { StatusBar } from '../StatusBar';
 import { HomePulse } from '../HomePulse';
+import { HomeActivity } from '../HomeActivity';
 import { QuickAccess } from '../QuickAccess/QuickAccess';
 import { RoomGrid } from '../RoomGrid';
 import { RoomDetail } from '../RoomDetail';
@@ -543,6 +544,7 @@ export function Dashboard() {
         <div className='dashboard-content'>
           <StatusBar entities={displayEntities} hassUrl={hassUrl} onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
           <HomePulse areas={areaList} entities={displayEntities} hassUrl={hassUrl} onRoomSelect={handlePulseRoomSelect} />
+          <HomeActivity entities={displayEntities} />
           <RoomGrid
             areas={areaList}
             entities={displayEntities}
