@@ -212,7 +212,7 @@ export function PriceAdvisor() {
 
   const bandEndMs = useMemo(() => currentBandEndMs(timeline, nowMs), [timeline, nowMs]);
   const applianceAdvice = useMemo(
-    () => PRICE_ADVICE.appliances.map(appliance => ({ appliance, advice: adviseAppliance(timeline, nowMs, appliance.hours) })),
+    () => PRICE_ADVICE.appliances.map(appliance => ({ appliance, advice: adviseAppliance(timeline, nowMs, appliance.profile) })),
     [timeline, nowMs]
   );
 
@@ -235,7 +235,7 @@ export function PriceAdvisor() {
   return (
     <>
       <button type='button' className='price-advisor-segment' onClick={() => setIsOpen(true)} aria-label='Best time to run appliances'>
-        <span className={`price-advisor-dot price-advisor-dot--${currentLevel}`} aria-hidden='true' />
+        <Icon icon='mdi:flash' className={`price-advisor-icon price-advisor-icon--${currentLevel}`} aria-hidden='true' />
         <span className='price-advisor-band'>{PRICE_LEVEL_WORD[currentLevel]}</span>
         {bandEndMs != null && <span className='price-advisor-until'> until {formatClockHour(bandEndMs)}</span>}
       </button>

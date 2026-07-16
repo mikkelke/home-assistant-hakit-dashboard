@@ -59,48 +59,69 @@ export function buildPriceTimeline(
 
 export interface PriceWindow {
   startMs: number;
+  /** Weighted-average kr/kWh over the window's hours — Σ weight·price / Σ weight, i.e. the weights
+   * normalized by their own sum, so this stays a plain kr/kWh figure (a straight average whenever
+   * every weight is equal) and `formatRunCost`'s `avgPrice × typicalKwh` display keeps working
+   * unchanged. See `cheapestWindow`'s own `weights` param. */
   avgPrice: number;
-  /** True when at least one of this window's hours came from the Carnot forecast rather than
-   * settled/near-settled data (see `PricePointMs.estimated`) — the UI marks the window's cost as an
-   * estimate rather than implying it's as firm as a real-data window. */
+  /** True when at least one of this window's WEIGHTED hours (weight > 0) came from the Carnot
+   * forecast rather than settled/near-settled data (see `PricePointMs.estimated`) — the UI marks the
+   * window's cost as an estimate rather than implying it's as firm as a real-data window. A
+   * zero-weight hour leaning on the forecast (or missing outright) never sets this, since it never
+   * enters the average in the first place. */
   usesForecast: boolean;
 }
 
-/** Cheapest `durationHours`-long run starting on an hour boundary within [earliestStartMs,
- * latestStartMs] (inclusive both ends) — ties keep the earliest start, so a genuinely flat price
- * stretch never nudges the suggestion later than it needs to be. A candidate start only counts when
- * the timeline has a point — real OR forecast-estimated, `buildPriceTimeline` marks which — for EVERY
- * one of its `durationHours` hours: a data gap (or the search simply running off the end of what's
- * known) must never silently shrink the averaging window, which would understate — or overstate —
- * that window's true cost in a way the UI can't detect. `usesForecast` is true whenever any one of
- * the winning window's hours leaned on the forecast. Returns null when no candidate start has full
- * coverage (including whenever `earliestStartMs > latestStartMs`, i.e. an empty search range). */
+/** Cheapest run starting on an hour boundary within [earliestStartMs, latestStartMs] (inclusive both
+ * ends), weighted hour-by-hour by `weights` — the fraction of the appliance's total cycle energy
+ * drawn in each cycle-hour (`weights[i]` is the hour starting `i` hours after the candidate start;
+ * see `PRICE_ADVICE.appliances`' own `profile`). The window span is `weights.length` hours. Weighted
+ * average price = Σ weight·price / Σ weight over just the hours with weight > 0 (not divided by
+ * `weights.length`) — a front-loaded appliance (most of its weight in the first hour or two) is
+ * priced by when its energy is actually drawn, not by naively averaging in hours it barely touches;
+ * this is also why two appliances of different lengths can now land on the exact same cheapest start
+ * hour instead of picking different troughs for no user-visible reason. Ties keep the earliest start,
+ * so a genuinely flat price stretch never nudges the suggestion later than it needs to be.
+ *
+ * A candidate start only counts when the timeline has a point — real OR forecast-estimated,
+ * `buildPriceTimeline` marks which — for every hour whose weight is > 0: a data gap (or the search
+ * simply running off the end of what's known) must never silently shrink the averaging window, which
+ * would understate — or overstate — that window's true cost in a way the UI can't detect. Hours
+ * whose weight is exactly 0 need NO coverage at all — they're free to fall off the end of the known
+ * timeline entirely (e.g. a profile's unused trailing hour) without blocking the window, and can
+ * never mark the result `usesForecast` even on the rare occasion a point does exist there. Returns
+ * null when no candidate start has full coverage of its weighted hours (including whenever
+ * `earliestStartMs > latestStartMs`, i.e. an empty search range, or `weights` is empty). */
 export function cheapestWindow(
   timeline: PricePointMs[],
-  durationHours: number,
+  weights: readonly number[],
   earliestStartMs: number,
   latestStartMs: number
 ): PriceWindow | null {
-  if (durationHours <= 0) return null;
+  if (weights.length === 0) return null;
   const pointByMs = new Map(timeline.map(point => [point.ms, point]));
 
   let best: PriceWindow | null = null;
   for (let startMs = earliestStartMs; startMs <= latestStartMs; startMs += HOUR_MS) {
-    let sum = 0;
+    let weightedSum = 0;
+    let weightTotal = 0;
     let coversAllHours = true;
     let usesForecast = false;
-    for (let hour = 0; hour < durationHours; hour++) {
+    for (let hour = 0; hour < weights.length; hour++) {
+      const weight = weights[hour];
+      if (weight === 0) continue; // zero-weight hours need no price coverage — see this function's own doc
       const point = pointByMs.get(startMs + hour * HOUR_MS);
       if (point == null) {
         coversAllHours = false;
         break;
       }
-      sum += point.price;
+      weightedSum += weight * point.price;
+      weightTotal += weight;
       if (point.estimated) usesForecast = true;
     }
-    if (!coversAllHours) continue;
+    if (!coversAllHours || weightTotal <= 0) continue;
 
-    const avgPrice = sum / durationHours;
+    const avgPrice = weightedSum / weightTotal;
     if (!best || avgPrice < best.avgPrice) best = { startMs, avgPrice, usesForecast };
   }
   return best;
@@ -142,16 +163,18 @@ export interface ApplianceAdvice {
 }
 
 /** Assembles one appliance's "run it now vs today vs overnight" advice from the shared timeline —
- * the three windows a "Best time to run" row needs, each a `durationHours`-long run. */
-export function adviseAppliance(timeline: PricePointMs[], nowMs: number, durationHours: number): ApplianceAdvice {
+ * the three windows a "Best time to run" row needs, each a `weights.length`-long run weighted by
+ * `weights` (see `cheapestWindow`; day/night search ranges themselves don't depend on the appliance's
+ * own length, only on `PRICE_ADVICE.dayEndHour`/`nightStartHour`/`nightEndHour`). */
+export function adviseAppliance(timeline: PricePointMs[], nowMs: number, weights: readonly number[]): ApplianceAdvice {
   const currentHourStartMs = Math.floor(nowMs / HOUR_MS) * HOUR_MS;
-  const nowWindow = cheapestWindow(timeline, durationHours, currentHourStartMs, currentHourStartMs);
+  const nowWindow = cheapestWindow(timeline, weights, currentHourStartMs, currentHourStartMs);
 
   // Local wall-clock hours via component Date construction (render-pure — same convention as
   // utils/format.ts's hourRangeLabel and period.ts's addDays).
   const nowDate = new Date(nowMs);
   const dayEndMs = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate(), PRICE_ADVICE.dayEndHour).getTime();
-  const bestDay = cheapestWindow(timeline, durationHours, currentHourStartMs, dayEndMs - HOUR_MS);
+  const bestDay = cheapestWindow(timeline, weights, currentHourStartMs, dayEndMs - HOUR_MS);
 
   const todayNightStartMs = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate(), PRICE_ADVICE.nightStartHour).getTime();
   const tomorrowNightEndMs = new Date(
@@ -161,7 +184,7 @@ export function adviseAppliance(timeline: PricePointMs[], nowMs: number, duratio
     PRICE_ADVICE.nightEndHour
   ).getTime();
   const nightEarliestStartMs = Math.max(currentHourStartMs, todayNightStartMs);
-  const bestNight = cheapestWindow(timeline, durationHours, nightEarliestStartMs, tomorrowNightEndMs - HOUR_MS);
+  const bestNight = cheapestWindow(timeline, weights, nightEarliestStartMs, tomorrowNightEndMs - HOUR_MS);
 
   const nightHorizonComplete = timeline.length > 0 && timeline[timeline.length - 1].ms >= tomorrowNightEndMs - HOUR_MS;
 

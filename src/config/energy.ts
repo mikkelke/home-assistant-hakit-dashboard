@@ -35,15 +35,28 @@ export const LIVE_POWER_MIN_WATTS = 1;
 // estimate rather than a large sample; washer 0.7 — the median over 59 recorded cycles; dryer 1.5 —
 // no house data yet, a Miele TCB150 WP heat-pump-dryer estimate, to be refined once cycle history
 // accumulates.
+//
+// `profile` is each appliance's own per-cycle-hour ENERGY-weight curve — the fraction of the whole
+// cycle's energy drawn in that cycle-hour, index-aligned with `hours` (profile[0] is the first hour
+// after start, profile[1] the second, etc.), summing to ≈1. `cheapestWindow` uses it to weight its
+// average instead of treating every cycle-hour as equally expensive, so a front-loaded machine's
+// cheapest-start search is priced by the hour(s) it actually draws power in, not diluted by an
+// idle/residual-heat tail — this is also why two appliances with different `hours` can now land on
+// the SAME cheapest start hour instead of picking different troughs for no user-visible reason.
+// Provenance (2026-07-15): dishwasher [0.35, 0.6, 0.05, 0] — measured from the 2026-07-15 ECO run's
+// hourly plug statistics (34%/65%/~1%/0%: wash-heat lives in hours 1–2; the ECO dry phase uses
+// residual heat, ~zero draw); washer [0.7, 0.25, 0.05] — measured from the 2026-07-14 run
+// (79%/21%; heating is front-loaded; typical cycles are shorter than the 3 h envelope); dryer
+// [0.4, 0.35, 0.25] — heat-pump, fairly flat draw; assumption, no recent cycle data yet.
 export const PRICE_ADVICE = {
   dayEndHour: 21,
   nightStartHour: 21,
   nightEndHour: 6,
   saveThresholdPct: 15,
   appliances: [
-    { key: 'dishwasher', label: 'Dishwasher', icon: 'mdi:dishwasher', hours: 4, typicalKwh: 0.7 },
-    { key: 'washer', label: 'Washer', icon: 'mdi:washing-machine', hours: 3, typicalKwh: 0.7 },
-    { key: 'dryer', label: 'Dryer', icon: 'mdi:tumble-dryer', hours: 3, typicalKwh: 1.5 },
+    { key: 'dishwasher', label: 'Dishwasher', icon: 'mdi:dishwasher', hours: 4, typicalKwh: 0.7, profile: [0.35, 0.6, 0.05, 0] },
+    { key: 'washer', label: 'Washer', icon: 'mdi:washing-machine', hours: 3, typicalKwh: 0.7, profile: [0.7, 0.25, 0.05] },
+    { key: 'dryer', label: 'Dryer', icon: 'mdi:tumble-dryer', hours: 3, typicalKwh: 1.5, profile: [0.4, 0.35, 0.25] },
   ],
 } as const;
 

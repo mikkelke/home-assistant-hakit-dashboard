@@ -2,6 +2,11 @@
    rendered between the people avatars and the menu button) plus its "Best time to run" modal
    (per-appliance today-vs-overnight advice). The segment carries no standalone section/card chrome
    of its own any more — StatusBar.css's own header layout places it. */
+/* Padding + text scale deliberately match this bar's own regular text, not the larger/bolder scale
+   this segment used before — StatusBar.css's .person-name (0.75rem, the people section's own
+   primary label) is the reference, and the padding shrinks to match .status-item's own compact
+   mobile padding (its `@media (max-width: 500px)` rule below) so the segment reads as one status
+   pill among others instead of a dominant, oversized one. */
 .price-advisor-segment {
   display: flex;
   align-items: center;
@@ -9,7 +14,7 @@
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  padding: 0.5rem 0.75rem;
+  padding: 0.4rem 0.5rem;
   background: rgba(24, 25, 28, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 0.5rem;
@@ -44,19 +49,47 @@
   background: #3f3f46;
 }
 
+/* The status-bar segment's own "this is electricity" glyph (mdi:flash), reusing the class name so
+   sibling rules keep the "price-advisor-X--<level>" naming already used by .price-advisor-dot's own
+   modifiers. Sized relative to .price-advisor-band's own font-size below (same ~1.2x ratio as
+   .price-advisor-row-icon next to .price-advisor-row-label), not the dot's old fixed 10px. */
+.price-advisor-icon {
+  flex-shrink: 0;
+  font-size: 0.9rem;
+}
+
+/* Same 4 colors as this file's own .price-advisor-dot--low/--mid/--high/--unknown above (the
+   modal's per-row "Now" indicator keeps using the dot; this is the same ramp applied to an icon's
+   `color` instead of a `background`). */
+.price-advisor-icon--low {
+  color: #9a3412;
+}
+
+.price-advisor-icon--mid {
+  color: #ea580c;
+}
+
+.price-advisor-icon--high {
+  color: #fdba74;
+}
+
+.price-advisor-icon--unknown {
+  color: #3f3f46;
+}
+
 .price-advisor-band {
   white-space: nowrap;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: #e4e4e7;
   text-transform: capitalize;
 }
 
-/* Hidden below ~480px — the dot + band word ("Cheap") alone still fits alongside the people avatars
+/* Hidden below ~480px — the icon + band word ("Cheap") alone still fits alongside the people avatars
    and the menu button; the "until HH:00" half is the first thing to go. */
 .price-advisor-until {
   white-space: nowrap;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   color: #a1a1aa;
 }
 

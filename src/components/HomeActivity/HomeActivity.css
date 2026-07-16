@@ -69,6 +69,30 @@
   color: #e4e4e7;
 }
 
+/* Cause/effect two-line layout (see HomeActivity.tsx's EventRow) — replaces .home-activity-row-text
+   in the same flex slot, so the icon still sits to its left, spanning both lines, without any extra
+   markup of its own. */
+.home-activity-row-lines {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Muted line on top — reuses the same muted color as .home-activity-row-time. */
+.home-activity-row-cause {
+  font-size: 0.7rem;
+  line-height: 1.3;
+  color: #71717a;
+}
+
+/* Normal-weight line below — same size/color as the plain .home-activity-row-text it replaces here. */
+.home-activity-row-effect {
+  font-size: 0.8rem;
+  line-height: 1.3;
+  color: #e4e4e7;
+}
+
 .home-activity-row-time {
   flex-shrink: 0;
   padding-top: 0.05rem;
