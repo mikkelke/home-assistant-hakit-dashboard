@@ -48,15 +48,49 @@ export const LIVE_POWER_MIN_WATTS = 1;
 // residual heat, ~zero draw); washer [0.7, 0.25, 0.05] — measured from the 2026-07-14 run
 // (79%/21%; heating is front-loaded; typical cycles are shorter than the 3 h envelope); dryer
 // [0.4, 0.35, 0.25] — heat-pump, fairly flat draw; assumption, no recent cycle data yet.
+//
+// `quickProfile`/`quickKwh` price the modal's "Quick (~1 h)" toggle — a short programme instead of
+// the appliance's usual full cycle. Short/quick programmes (~1 h) do nearly all their work —
+// heating — inside a single hour, so a one-hour all-in profile (weight 1) prices them; `typicalKwh`
+// is a FULL-CYCLE measurement (see above), which doesn't apply to a short programme, hence the
+// separate `quickKwh` estimate (typical short-cycle energy, rough — measured full-cycle values
+// don't apply to short programmes).
 export const PRICE_ADVICE = {
   dayEndHour: 21,
   nightStartHour: 21,
   nightEndHour: 6,
   saveThresholdPct: 15,
   appliances: [
-    { key: 'dishwasher', label: 'Dishwasher', icon: 'mdi:dishwasher', hours: 4, typicalKwh: 0.7, profile: [0.35, 0.6, 0.05, 0] },
-    { key: 'washer', label: 'Washer', icon: 'mdi:washing-machine', hours: 3, typicalKwh: 0.7, profile: [0.7, 0.25, 0.05] },
-    { key: 'dryer', label: 'Dryer', icon: 'mdi:tumble-dryer', hours: 3, typicalKwh: 1.5, profile: [0.4, 0.35, 0.25] },
+    {
+      key: 'dishwasher',
+      label: 'Dishwasher',
+      icon: 'mdi:dishwasher',
+      hours: 4,
+      typicalKwh: 0.7,
+      profile: [0.35, 0.6, 0.05, 0],
+      quickProfile: [1],
+      quickKwh: 0.65,
+    },
+    {
+      key: 'washer',
+      label: 'Washer',
+      icon: 'mdi:washing-machine',
+      hours: 3,
+      typicalKwh: 0.7,
+      profile: [0.7, 0.25, 0.05],
+      quickProfile: [1],
+      quickKwh: 0.45,
+    },
+    {
+      key: 'dryer',
+      label: 'Dryer',
+      icon: 'mdi:tumble-dryer',
+      hours: 3,
+      typicalKwh: 1.5,
+      profile: [0.4, 0.35, 0.25],
+      quickProfile: [1],
+      quickKwh: 1.2,
+    },
   ],
 } as const;
 

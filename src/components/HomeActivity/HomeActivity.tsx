@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities } from '../../types';
 import { HOUSE_EVENTS_ENTITY } from '../../config/entities';
-import { useModalBackButton, useSwipeToClose } from '../../hooks';
+import { useSwipeToClose } from '../../hooks';
 import './HomeActivity.css';
 
 /** One published house-event row — see config/entities.ts's HOUSE_EVENTS_ENTITY doc for the
@@ -21,7 +21,6 @@ interface HouseEvent {
   effect?: string;
 }
 
-const COLLAPSED_COUNT = 3;
 // Mirrors the backend's own documented cap (AppDaemon HouseEvents keeps at most 40) — re-applied
 // here defensively since attributes.events is external data, never trusted blind.
 const MAX_EVENTS = 40;
@@ -121,15 +120,21 @@ function EventRow({ event, nowMs }: EventRowProps) {
   );
 }
 
-interface HomeActivityProps {
+interface HouseEventsModalProps {
   entities: HassEntities;
+  onClose: () => void;
 }
 
 /** "Home activity" — a plain-English feed of what the house just did, for non-technical
- * housemates (see HOUSE_EVENTS_ENTITY). Collapsed to the newest 3 events; "Show all" opens a
- * modal with the full (backend-capped) list. Renders nothing when the feed is missing or empty —
- * there's no useful empty state to show a housemate. */
-export function HomeActivity({ entities }: HomeActivityProps) {
+ * housemates (see HOUSE_EVENTS_ENTITY). Hosted by QuickAccess's own qa-button (icon 'mdi:history',
+ * title "House activity") rather than a permanent spot in the room grid; this component owns its
+ * own overlay/modal chrome (mirrors PriceAdvisor.tsx's self-contained modal) since QuickAccess's
+ * shared modal chrome is reserved for its own body-only content (intercom/media/transit/weather).
+ * Open state, Android back, and history all live in QuickAccess (the same
+ * `openQuickAccess`/`requestCloseQuickAccess` mechanism as its other modals) — this component only
+ * mounts while open and calls `onClose` rather than managing its own `isOpen` or pushing a second
+ * history entry. */
+export function HouseEventsModal({ entities, onClose }: HouseEventsModalProps) {
   // Depends on the whole `entities` map, matching HomePulse's own `deriveHomePulseSummary` memo —
   // this component is handed the whole map as a prop (not a scoped `useHass` selector), so that's
   // the granularity sibling code already re-derives at.
@@ -145,68 +150,37 @@ export function HomeActivity({ entities }: HomeActivityProps) {
   }, []);
   const nowMs = now.getTime();
 
-  const [isOpen, setIsOpen] = useState(false);
-  const handleClose = useCallback(() => setIsOpen(false), []);
-  const { requestClose } = useModalBackButton({ isOpen, onRequestClose: handleClose, historyKey: 'home-activity' });
-  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestClose);
-
-  if (events.length === 0) return null;
-
-  const collapsed = events.slice(0, COLLAPSED_COUNT);
-  const hasMore = events.length > COLLAPSED_COUNT;
+  // QuickAccess's own useSwipeToClose call only wires up its shared .qa-modal — this modal has its
+  // own wrapper element instead (see this component's own doc), so it needs its own swipe handlers.
+  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(onClose);
 
   return (
-    <>
-      <section className='home-activity' aria-label='Home activity'>
-        <div className='home-activity-card'>
-          <div className='home-activity-header'>
-            <Icon icon='mdi:history' className='home-activity-header-icon' aria-hidden='true' />
-            <span className='home-activity-header-label'>Home activity</span>
-          </div>
-
-          <div className='home-activity-rows'>
-            {collapsed.map((event, index) => (
-              <EventRow key={`${event.tsMs}-${index}`} event={event} nowMs={nowMs} />
-            ))}
-          </div>
-
-          {hasMore && (
-            <button type='button' className='home-activity-show-all' onClick={() => setIsOpen(true)}>
-              Show all
-            </button>
-          )}
+    <div className='home-activity-overlay' onClick={onClose}>
+      <div
+        className='home-activity-modal'
+        role='dialog'
+        aria-modal='true'
+        aria-labelledby='home-activity-title'
+        onClick={e => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className='home-activity-modal-header'>
+          <span className='home-activity-modal-title' id='home-activity-title'>
+            Home activity
+          </span>
+          <button className='home-activity-close modal-close-button' onClick={onClose} aria-label='Close'>
+            <Icon icon='mdi:close' />
+          </button>
         </div>
-      </section>
 
-      {isOpen && (
-        <div className='home-activity-overlay' onClick={requestClose}>
-          <div
-            className='home-activity-modal'
-            role='dialog'
-            aria-modal='true'
-            aria-labelledby='home-activity-title'
-            onClick={e => e.stopPropagation()}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          >
-            <div className='home-activity-modal-header'>
-              <span className='home-activity-modal-title' id='home-activity-title'>
-                Home activity
-              </span>
-              <button className='home-activity-close modal-close-button' onClick={requestClose} aria-label='Close'>
-                <Icon icon='mdi:close' />
-              </button>
-            </div>
-
-            <div className='home-activity-modal-body'>
-              {events.map((event, index) => (
-                <EventRow key={`${event.tsMs}-${index}`} event={event} nowMs={nowMs} />
-              ))}
-            </div>
-          </div>
+        <div className='home-activity-modal-body'>
+          {events.map((event, index) => (
+            <EventRow key={`${event.tsMs}-${index}`} event={event} nowMs={nowMs} />
+          ))}
         </div>
-      )}
-    </>
+      </div>
+    </div>
   );
 }

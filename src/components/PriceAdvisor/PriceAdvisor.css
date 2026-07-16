@@ -77,6 +77,24 @@
   color: #3f3f46;
 }
 
+/* Segment's primary fact — the actual current kr/kWh rate — reading slightly brighter/heavier than
+   .price-advisor-band below it, so the band word reads as the number's context ("1,02 kr ·
+   Normal") rather than the other way around (same emphasis convention as
+   ApplianceCycleTiming.css's own .appliance-cycle-timing__emph). */
+.price-advisor-price {
+  white-space: nowrap;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #f4f4f5;
+}
+
+/* Divider between the price and the band word — a literal glyph (not just flex `gap`), so it
+   still reads as "1,02 kr · Normal" rather than two figures run together. */
+.price-advisor-sep {
+  font-size: 0.75rem;
+  color: #71717a;
+}
+
 .price-advisor-band {
   white-space: nowrap;
   font-size: 0.75rem;
@@ -141,6 +159,47 @@
   font-size: 1rem;
   font-weight: 600;
   color: #e4e4e7;
+}
+
+/* "Full programme"/"Quick (~1 h)" toggle — same base/hover/active structure as Menu.css's own
+   .menu-item-toggle, recolored to this modal's own accent (.price-advisor-column-delay's
+   #38bdf8) rather than Menu's green. */
+.price-advisor-programme-toggle {
+  flex-shrink: 0;
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.75rem 1rem 0;
+}
+
+.price-advisor-toggle-btn {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.5rem;
+  color: #a1a1aa;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.price-advisor-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e4e4e7;
+}
+
+.price-advisor-toggle-btn.active {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+}
+
+.price-advisor-toggle-btn.active:hover {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.45);
 }
 
 .price-advisor-modal-body {
@@ -260,6 +319,16 @@
   font-size: 0.75rem;
   color: #71717a;
   font-style: italic;
+}
+
+/* Explains the band thresholds `priceLevel()` actually uses (PRICE_BAND_THRESHOLDS in
+   config/energy.ts) — the modal formats its numbers from that same constant (see PriceAdvisor.tsx)
+   so this text can't drift from the logic it's describing. */
+.price-advisor-legend {
+  margin: 0.75rem 0 0;
+  font-size: 0.72rem;
+  color: #71717a;
+  text-align: center;
 }
 
 .price-advisor-footnote {

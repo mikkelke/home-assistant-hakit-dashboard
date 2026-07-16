@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import type { Area, CallServiceFunction, HassEntities } from '../../types';
 import { ROOM_ORDER } from '../../config/dashboard';
 import { ROOM_LIGHTS } from '../../config/lights';
@@ -21,10 +20,6 @@ interface RoomGridProps {
   onRoomClick: (area: Area) => void;
   hassUrl: string | null;
   callService?: CallServiceFunction | undefined;
-  /** Rendered inside the scroll container, above the grid — .rooms-container is the dashboard's
-   * single scroll area (see its CSS), so this is the slot for content that should scroll away with
-   * the rooms instead of staying pinned above them (Dashboard passes the HomeActivity card). */
-  header?: ReactNode;
 }
 
 type IndicatorKey =
@@ -184,7 +179,7 @@ function getIndicatorCounts(areas: Area[], entities: HassEntities): IndicatorCou
   return counts;
 }
 
-export function RoomGrid({ areas, entities, selectedAreaId, onRoomClick, hassUrl, header }: RoomGridProps) {
+export function RoomGrid({ areas, entities, selectedAreaId, onRoomClick, hassUrl }: RoomGridProps) {
   const allowedAreas = new Set(ROOM_ORDER);
 
   const filteredAreas = areas.filter(area => {
@@ -199,7 +194,6 @@ export function RoomGrid({ areas, entities, selectedAreaId, onRoomClick, hassUrl
 
   return (
     <main className='rooms-container'>
-      {header}
       <div className='rooms-grid'>
         {sortedAreas.map(area => (
           <RoomCard

@@ -6,7 +6,6 @@ import type { Area, HassEntities } from '../../types';
 import { buildHistoryUrlWithHash, getAccessibleHistoryWindow, getViewFromHistoryHash } from '../../utils/navigation';
 import { StatusBar } from '../StatusBar';
 import { HomePulse } from '../HomePulse';
-import { HomeActivity } from '../HomeActivity';
 import { QuickAccess } from '../QuickAccess/QuickAccess';
 import { RoomGrid } from '../RoomGrid';
 import { RoomDetail } from '../RoomDetail';
@@ -550,7 +549,6 @@ export function Dashboard() {
             selectedAreaId={selectedRoom?.area_id || null}
             onRoomClick={handleRoomClick}
             hassUrl={hassUrl}
-            header={<HomeActivity entities={displayEntities} />}
           />
           {/* Fixed bar at z-index 1000 — would float above the Energy page (z-index 90), so it
               unmounts while that view is open. */}

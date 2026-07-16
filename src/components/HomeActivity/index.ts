@@ -1,1 +1,1 @@
-export { HomeActivity } from './HomeActivity';
+export { HouseEventsModal } from './HomeActivity';

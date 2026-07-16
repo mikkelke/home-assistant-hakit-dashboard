@@ -12,7 +12,7 @@ import {
   type PriceWindow,
 } from '../../energy';
 import { parseRawPoints } from '../../energy/useEnergyView';
-import { PRICE_ADVICE } from '../../config/energy';
+import { PRICE_ADVICE, PRICE_BAND_THRESHOLDS } from '../../config/energy';
 import { useModalBackButton, useSwipeToClose } from '../../hooks';
 import { formatClockHour, formatKr, formatKWh } from '../../utils/format';
 import './PriceAdvisor.css';
@@ -58,13 +58,15 @@ function delayLabel(prefix: string, startMs: number, nowMs: number): string {
   return hours <= 0 ? 'now' : `${prefix} ${hours} h`;
 }
 
-/** A window's cost for one typical full-cycle run — `avgPrice` (kr/kWh) × the appliance's own
- * `typicalKwh` (kr), not the kr/kWh rate itself: a per-appliance rate reads as nonsense to a
- * non-technical housemate ("why is the dishwasher's rate different from the washer's?") when it's
- * really just each machine averaging a different span of hours. Always prefixed "≈" — even a
- * settled hour's exact price times an estimated typical draw is itself an estimate, never a bill. */
-function formatRunCost(window: PriceWindow, typicalKwh: number): string {
-  return `≈ ${formatKr(window.avgPrice * typicalKwh)}`;
+/** A window's cost for one run — `avgPrice` (kr/kWh) × the appliance's own per-run kWh estimate
+ * (`typicalKwh` for a full cycle, `quickKwh` for the modal's "Quick (~1 h)" toggle — see
+ * `PriceAdvisor`'s own `applianceAdvice` memo for which one a call site resolves), not the kr/kWh
+ * rate itself: a per-appliance rate reads as nonsense to a non-technical housemate ("why is the
+ * dishwasher's rate different from the washer's?") when it's really just each machine averaging a
+ * different span of hours. Always prefixed "≈" — even a settled hour's exact price times an
+ * estimated draw is itself an estimate, never a bill. */
+function formatRunCost(window: PriceWindow, kwh: number): string {
+  return `≈ ${formatKr(window.avgPrice * kwh)}`;
 }
 
 /** Muted "est." suffix for a window that leans on the Carnot forecast — appended next to its cost,
@@ -76,7 +78,7 @@ function ForecastMark({ window }: { window: PriceWindow }) {
 interface ApplianceColumnProps {
   heading: string;
   window: PriceWindow | null;
-  typicalKwh: number;
+  kwh: number;
   delayPrefix: string;
   nowMs: number;
 }
@@ -85,7 +87,7 @@ interface ApplianceColumnProps {
  * and how many hours from now to dial into the machine's delay-start knob (or "now" once that
  * window has already begun). Whether this window is actually worth waiting for is judged once per
  * row, not per column — see `ApplianceRow`'s own verdict line. */
-function ApplianceColumn({ heading, window, typicalKwh, delayPrefix, nowMs }: ApplianceColumnProps) {
+function ApplianceColumn({ heading, window, kwh, delayPrefix, nowMs }: ApplianceColumnProps) {
   if (!window) {
     return (
       <div className='price-advisor-column'>
@@ -99,7 +101,7 @@ function ApplianceColumn({ heading, window, typicalKwh, delayPrefix, nowMs }: Ap
     <div className='price-advisor-column'>
       <span className='price-advisor-column-heading'>{heading}</span>
       <span className='price-advisor-column-time'>
-        {formatClockHour(window.startMs)} · {formatRunCost(window, typicalKwh)}
+        {formatClockHour(window.startMs)} · {formatRunCost(window, kwh)}
         <ForecastMark window={window} />
       </span>
       <span className='price-advisor-column-delay'>{delayLabel(delayPrefix, window.startMs, nowMs)}</span>
@@ -110,13 +112,18 @@ function ApplianceColumn({ heading, window, typicalKwh, delayPrefix, nowMs }: Ap
 interface ApplianceRowProps {
   appliance: Appliance;
   advice: ApplianceAdvice;
+  /** Full-cycle `typicalKwh` or the quick-programme `quickKwh`, whichever the modal's toggle
+   * currently selects — resolved once by the caller (see `PriceAdvisor`'s own `applianceAdvice`
+   * memo) rather than re-read from `appliance` here, so this row never has to know the toggle
+   * exists. */
+  kwh: number;
   nowMs: number;
 }
 
 /** One appliance's full "Best time to run" row: its Now/Today/Overnight columns plus a single
  * verdict line — "save ~X% by waiting" when the better of Today/Overnight actually clears the
  * savings threshold, otherwise a muted "now is fine". */
-function ApplianceRow({ appliance, advice, nowMs }: ApplianceRowProps) {
+function ApplianceRow({ appliance, advice, kwh, nowMs }: ApplianceRowProps) {
   const nowLevel: PriceLevel = advice.nowWindow ? priceLevel(advice.nowWindow.avgPrice) : 'unknown';
   const bestOption = cheaperOf(advice.bestDay, advice.bestNight);
   const overallPct = savingsPct(bestOption, advice.nowWindow);
@@ -128,7 +135,7 @@ function ApplianceRow({ appliance, advice, nowMs }: ApplianceRowProps) {
         <Icon icon={appliance.icon} className='price-advisor-row-icon' />
         <span className='price-advisor-row-label'>{appliance.label}</span>
         <span className='price-advisor-row-cycle'>~{appliance.hours} h cycle</span>
-        <span className='price-advisor-row-kwh'>~{formatKWh(appliance.typicalKwh)}</span>
+        <span className='price-advisor-row-kwh'>~{formatKWh(kwh)}</span>
       </div>
 
       <div className='price-advisor-columns'>
@@ -137,7 +144,7 @@ function ApplianceRow({ appliance, advice, nowMs }: ApplianceRowProps) {
           {advice.nowWindow ? (
             <span className='price-advisor-column-price'>
               <span className={`price-advisor-dot price-advisor-dot--${nowLevel}`} aria-hidden='true' />
-              {formatRunCost(advice.nowWindow, appliance.typicalKwh)}
+              {formatRunCost(advice.nowWindow, kwh)}
               <ForecastMark window={advice.nowWindow} />
             </span>
           ) : (
@@ -145,15 +152,9 @@ function ApplianceRow({ appliance, advice, nowMs }: ApplianceRowProps) {
           )}
         </div>
 
-        <ApplianceColumn heading='Today' window={advice.bestDay} typicalKwh={appliance.typicalKwh} delayPrefix='in' nowMs={nowMs} />
+        <ApplianceColumn heading='Today' window={advice.bestDay} kwh={kwh} delayPrefix='in' nowMs={nowMs} />
 
-        <ApplianceColumn
-          heading='Overnight'
-          window={advice.bestNight}
-          typicalKwh={appliance.typicalKwh}
-          delayPrefix='delay ≈'
-          nowMs={nowMs}
-        />
+        <ApplianceColumn heading='Overnight' window={advice.bestNight} kwh={kwh} delayPrefix='delay ≈' nowMs={nowMs} />
       </div>
 
       {showSavings ? (
@@ -211,9 +212,19 @@ export function PriceAdvisor() {
   );
 
   const bandEndMs = useMemo(() => currentBandEndMs(timeline, nowMs), [timeline, nowMs]);
+
+  // 'quick' prices a short (~1 h) programme instead of the appliance's usual full cycle — see
+  // config/energy.ts's own `quickProfile`/`quickKwh` doc. Modal-only: the status-bar segment below
+  // always reflects the current hour's actual price, regardless of this toggle.
+  const [programme, setProgramme] = useState<'full' | 'quick'>('full');
   const applianceAdvice = useMemo(
-    () => PRICE_ADVICE.appliances.map(appliance => ({ appliance, advice: adviseAppliance(timeline, nowMs, appliance.profile) })),
-    [timeline, nowMs]
+    () =>
+      PRICE_ADVICE.appliances.map(appliance => {
+        const weights = programme === 'quick' ? appliance.quickProfile : appliance.profile;
+        const kwh = programme === 'quick' ? appliance.quickKwh : appliance.typicalKwh;
+        return { appliance, advice: adviseAppliance(timeline, nowMs, weights), kwh };
+      }),
+    [timeline, nowMs, programme]
   );
 
   const [isOpen, setIsOpen] = useState(false);
@@ -236,6 +247,14 @@ export function PriceAdvisor() {
     <>
       <button type='button' className='price-advisor-segment' onClick={() => setIsOpen(true)} aria-label='Best time to run appliances'>
         <Icon icon='mdi:flash' className={`price-advisor-icon price-advisor-icon--${currentLevel}`} aria-hidden='true' />
+        {priceAttrs.currentPrice != null && (
+          <>
+            <span className='price-advisor-price'>{formatKr(priceAttrs.currentPrice)}</span>
+            <span className='price-advisor-sep' aria-hidden='true'>
+              ·
+            </span>
+          </>
+        )}
         <span className='price-advisor-band'>{PRICE_LEVEL_WORD[currentLevel]}</span>
         {bandEndMs != null && <span className='price-advisor-until'> until {formatClockHour(bandEndMs)}</span>}
       </button>
@@ -261,10 +280,32 @@ export function PriceAdvisor() {
               </button>
             </div>
 
+            <div className='price-advisor-programme-toggle' role='group' aria-label='Programme length'>
+              <button
+                type='button'
+                className={`price-advisor-toggle-btn ${programme === 'full' ? 'active' : ''}`}
+                onClick={() => setProgramme('full')}
+              >
+                Full programme
+              </button>
+              <button
+                type='button'
+                className={`price-advisor-toggle-btn ${programme === 'quick' ? 'active' : ''}`}
+                onClick={() => setProgramme('quick')}
+              >
+                Quick (~1 h)
+              </button>
+            </div>
+
             <div className='price-advisor-modal-body'>
-              {applianceAdvice.map(({ appliance, advice }) => (
-                <ApplianceRow key={appliance.key} appliance={appliance} advice={advice} nowMs={nowMs} />
+              {applianceAdvice.map(({ appliance, advice, kwh }) => (
+                <ApplianceRow key={appliance.key} appliance={appliance} advice={advice} kwh={kwh} nowMs={nowMs} />
               ))}
+
+              <p className='price-advisor-legend'>
+                Cheap under {formatKr(PRICE_BAND_THRESHOLDS.lowMaxKrPerKWh)} · Normal to {formatKr(PRICE_BAND_THRESHOLDS.midMaxKrPerKWh)} ·
+                Expensive above — per kWh, all charges included
+              </p>
 
               {anyForecastUsed && <p className='price-advisor-footnote'>Some prices are Carnot forecasts (estimates)</p>}
               {anyNightHorizonIncomplete && <p className='price-advisor-footnote'>Tomorrow's prices arrive ~13:35</p>}

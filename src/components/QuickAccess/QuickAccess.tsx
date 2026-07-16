@@ -10,6 +10,7 @@ import { getTransitLineDisplayStatus, minsFromNow, TRANSIT_UPCOMING_MIN_MINS } f
 import { isMediaPlayerOutOfSync, resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { SONOS_SPEAKERS } from '../../config/speakers';
 import { useModalBackButton, useSwipeToClose } from '../../hooks';
+import { HouseEventsModal } from '../HomeActivity';
 import './QuickAccess.css';
 
 interface QuickAccessProps {
@@ -18,7 +19,7 @@ interface QuickAccessProps {
   callService: CallServiceFunction | undefined;
 }
 
-type ModalType = 'intercom' | 'media' | 'weather' | 'transit' | null;
+type ModalType = 'intercom' | 'media' | 'weather' | 'transit' | 'activity' | null;
 
 interface TransitLine {
   name: string;
@@ -435,6 +436,9 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
           <Icon icon='mdi:train' />
           {hasTransitAlert && <span className='qa-badge qa-badge--alert' />}
         </button>
+        <button className='qa-button' onClick={() => openQuickAccess('activity')} title='House activity'>
+          <Icon icon='mdi:history' />
+        </button>
         <button
           className='qa-button'
           onClick={() => openQuickAccess('weather')}
@@ -445,7 +449,7 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
         </button>
       </div>
 
-      {openModal && (
+      {openModal && openModal !== 'activity' && (
         <div
           className='qa-overlay'
           onClick={e => {
@@ -752,6 +756,11 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
           </div>
         </div>
       )}
+
+      {/* Owns its own overlay/modal chrome rather than plugging into the shared .qa-modal above
+          (see HouseEventsModal's own doc) — open/close/back are still driven by this same
+          openModal state and requestCloseQuickAccess, so it behaves like every other QA modal. */}
+      {openModal === 'activity' && <HouseEventsModal entities={entities} onClose={requestCloseQuickAccess} />}
     </>
   );
 }
