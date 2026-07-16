@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
+import { useHass } from '@hakit/core';
+import { getUser, type Connection } from 'home-assistant-js-websocket';
 import type { HassEntities } from '../../types';
 import { HOUSE_EVENTS_ENTITY } from '../../config/entities';
 import { useSwipeToClose } from '../../hooks';
@@ -22,6 +24,11 @@ interface HouseEvent {
   cause?: string;
   effect?: string;
   by?: string;
+  /** 'admin' = shown only to HA admin viewers (Mikkel) — plumbing-level entries (override
+   * expiries, self-heals, his own room's automations) the housemates shouldn't wade through.
+   * Absent = everyone. Mirrors the backend's v5 `audience` field; any other value is dropped
+   * at parse time so a future backend change can't accidentally hide rows from admins. */
+  audience?: 'admin';
 }
 
 // Mirrors the backend's own documented cap (AppDaemon HouseEvents keeps at most 40) — re-applied
@@ -61,10 +68,35 @@ function parseHouseEvents(value: unknown): HouseEvent[] {
       cause: hasCauseEffect ? cause : undefined,
       effect: hasCauseEffect ? effect : undefined,
       by: by.length > 0 ? by : undefined,
+      audience: item.audience === 'admin' ? 'admin' : undefined,
     });
     if (events.length >= MAX_EVENTS) break;
   }
   return events;
+}
+
+/** Whether the logged-in HA user is an admin — the feed's audience gate (see HouseEvent.audience).
+ * `null` while resolving, and on failure it stays `false`: the restricted view is the safe
+ * default, so a slow user fetch briefly hides admin rows from Mikkel rather than ever flashing
+ * them at a housemate. */
+function useIsAdminViewer(): boolean | null {
+  const connection = useHass(s => s.connection);
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!connection) return;
+    let cancelled = false;
+    getUser(connection as Connection)
+      .then(user => {
+        if (!cancelled) setIsAdmin(user.is_admin === true);
+      })
+      .catch(() => {
+        if (!cancelled) setIsAdmin(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connection]);
+  return isAdmin;
 }
 
 function sameLocalDay(a: Date, b: Date): boolean {
@@ -149,6 +181,14 @@ function EventRow({ event }: EventRowProps) {
     <div className='home-activity-row'>
       <span className='home-activity-row-time' title={date.toLocaleString('en-GB')}>
         {formatHHMM(date)}
+        {/* Rows carrying audience:'admin' only ever render for admin viewers (filtered out for
+            everyone else in HouseEventsModal), so this marker tells Mikkel "the housemates don't
+            see this one" rather than announcing anything to them. */}
+        {event.audience === 'admin' && (
+          <span title='Only visible to you' aria-label='Only visible to you'>
+            <Icon icon='mdi:eye-off-outline' className='home-activity-row-adminmark' aria-hidden='true' />
+          </span>
+        )}
       </span>
       <div className='home-activity-row-rail'>
         <span className={`home-activity-row-icon-circle home-activity-tone-${eventTone(event.icon)}`}>
@@ -183,7 +223,13 @@ export function HouseEventsModal({ entities, onClose }: HouseEventsModalProps) {
   // Depends on the whole `entities` map, matching HomePulse's own `deriveHomePulseSummary` memo —
   // this component is handed the whole map as a prop (not a scoped `useHass` selector), so that's
   // the granularity sibling code already re-derives at.
-  const events = useMemo(() => parseHouseEvents(entities?.[HOUSE_EVENTS_ENTITY]?.attributes?.events), [entities]);
+  const allEvents = useMemo(() => parseHouseEvents(entities?.[HOUSE_EVENTS_ENTITY]?.attributes?.events), [entities]);
+
+  // Audience gate: admin viewers (Mikkel) get the full feed incl. plumbing-level entries; everyone
+  // else — including the brief null while the user lookup resolves — gets only the shared-space
+  // events. See useIsAdminViewer/HouseEvent.audience.
+  const isAdmin = useIsAdminViewer();
+  const events = useMemo(() => (isAdmin ? allEvents : allEvents.filter(e => e.audience !== 'admin')), [allEvents, isAdmin]);
 
   // Same now-tick pattern as PriceAdvisor.tsx: state + a 60s interval, so nothing else in this
   // component reads Date.now()/new Date() during render — only the interval callback (an

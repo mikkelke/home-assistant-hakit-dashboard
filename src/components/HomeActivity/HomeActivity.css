@@ -39,6 +39,15 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* "Only visible to you" marker on admin-audience rows (admin viewers are the only ones these
+   rows render for at all — see HouseEventsModal's audience gate). */
+.home-activity-row-adminmark {
+  margin-left: 0.25rem;
+  font-size: 0.7rem;
+  color: #52525b;
+  vertical-align: -0.05em;
+}
+
 /* The rail: icon-in-a-circle plus a hairline connector down to the next row's own circle. The line
    is a single ::before on the rail wrapper (not the circle) so it can run underneath the circle
    without a stacking-order fight; it's suppressed on each group's last row (nothing to connect to
