@@ -304,38 +304,6 @@ body.modal-open .room-card {
   flex-shrink: 0;
 }
 
-/* Energy shortcut — text-sized, sits beside the burger toggle */
-.energy-btn {
-  height: 40px;
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0 0.7rem;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.5rem;
-  color: #a1a1aa;
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
-}
-
-.energy-btn:hover {
-  color: #f4f4f5;
-  border-color: rgba(255, 255, 255, 0.18);
-}
-
-.energy-btn:active {
-  transform: scale(0.95);
-}
-
-.energy-btn svg {
-  font-size: 1.1rem;
-  color: #fbbf24;
-}
-
 /* Sidebar Toggle Button */
 .sidebar-toggle-btn {
   width: 40px;
@@ -446,17 +414,6 @@ body.modal-open .room-card {
   .status-section {
     flex-shrink: 0;
     gap: 0.35rem;
-  }
-
-  /* Phone: icon-only, square like the burger */
-  .energy-btn {
-    padding: 0;
-    width: 40px;
-    justify-content: center;
-  }
-
-  .energy-btn-label {
-    display: none;
   }
 
   .status-item {

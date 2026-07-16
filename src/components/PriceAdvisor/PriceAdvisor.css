@@ -6,12 +6,17 @@
    this segment used before — StatusBar.css's .person-name (0.75rem, the people section's own
    primary label) is the reference, and the padding shrinks to match .status-item's own compact
    mobile padding (its `@media (max-width: 500px)` rule below) so the segment reads as one status
-   pill among others instead of a dominant, oversized one. */
+   pill among others instead of a dominant, oversized one. Content-sized, not stretched (user
+   2026-07-16: "can the price advisor bar be smaller") — `margin-left: auto` hands the leftover
+   header space to its own left edge, so the pill hugs the burger button instead of spanning the
+   bar; `min-width: 0` + `overflow: hidden` still guard the squeeze between avatars and burger on
+   narrow screens (the "until HH" half also drops below 480px, see .price-advisor-until). */
 .price-advisor-segment {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  flex: 1;
+  flex: 0 1 auto;
+  margin-left: auto;
   min-width: 0;
   overflow: hidden;
   padding: 0.4rem 0.5rem;

@@ -8,10 +8,9 @@ interface StatusBarProps {
   entities: HassEntities;
   hassUrl: string | null;
   onMenuToggle: () => void;
-  onOpenEnergy?: () => void;
 }
 
-export function StatusBar({ entities, hassUrl, onMenuToggle, onOpenEnergy }: StatusBarProps) {
+export function StatusBar({ entities, hassUrl, onMenuToggle }: StatusBarProps) {
   const entityKeys = Object.keys(entities || {});
   const personEntities = entityKeys.filter(key => key.startsWith('person.'));
 
@@ -25,12 +24,6 @@ export function StatusBar({ entities, hassUrl, onMenuToggle, onOpenEnergy }: Sta
         </div>
         <PriceAdvisor />
         <div className='status-section'>
-          {onOpenEnergy && (
-            <button className='energy-btn' onClick={onOpenEnergy} title='Open energy' aria-label='Open energy'>
-              <Icon icon='mdi:lightning-bolt' />
-              <span className='energy-btn-label'>Energy</span>
-            </button>
-          )}
           <button className='sidebar-toggle-btn' onClick={onMenuToggle} title='Open menu' aria-label='Open menu'>
             <Icon icon='mdi:menu' />
           </button>
