@@ -16,7 +16,6 @@ interface MenuProps {
     target?: { entity_id: string | string[] };
     serviceData?: Record<string, unknown>;
   }) => Promise<unknown>;
-  onOpenEnergy?: () => void;
 }
 
 const KIOSK_TOGGLE_ENTITY = 'input_boolean.kiosk_mode';
@@ -39,7 +38,7 @@ function getBatteryColor(value: number): string {
   return '#22c55e';
 }
 
-export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy }: MenuProps) {
+export function Menu({ isOpen, onClose, entities, callService }: MenuProps) {
   const [isKioskActive, setIsKioskActive] = useState(false);
   const [isBatteryOverviewOpen, setIsBatteryOverviewOpen] = useState(false);
   const batteryItems = useMemo(() => deriveBatteryItems(entities), [entities]);
@@ -97,11 +96,6 @@ export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy }: M
   const handleOpenBatteryOverview = () => {
     onClose();
     setIsBatteryOverviewOpen(true);
-  };
-
-  const handleOpenEnergy = () => {
-    onClose();
-    onOpenEnergy?.();
   };
 
   const batteryOverviewContent = isBatteryOverviewOpen ? (
@@ -168,13 +162,6 @@ export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy }: M
           </button>
         </div>
         <nav className='menu-nav'>
-          <button className='menu-item menu-item-energy' onClick={handleOpenEnergy}>
-            <Icon icon='mdi:lightning-bolt' />
-            <span>Energy</span>
-          </button>
-
-          <div className='menu-divider' />
-
           <button className='menu-item menu-item-battery' onClick={handleOpenBatteryOverview}>
             <Icon icon='mdi:battery-outline' />
             <span>Batteries</span>

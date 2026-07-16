@@ -537,11 +537,15 @@ export function Dashboard() {
         onClose={() => setIsMenuOpen(false)}
         entities={displayEntities}
         callService={callService}
-        onOpenEnergy={handleOpenEnergy}
       />
       <div className='dashboard-main'>
         <div className='dashboard-content'>
-          <StatusBar entities={displayEntities} hassUrl={hassUrl} onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
+          <StatusBar
+            entities={displayEntities}
+            hassUrl={hassUrl}
+            onMenuToggle={() => setIsMenuOpen(!isMenuOpen)}
+            onOpenEnergy={handleOpenEnergy}
+          />
           <HomePulse areas={areaList} entities={displayEntities} hassUrl={hassUrl} onRoomSelect={handlePulseRoomSelect} />
           <RoomGrid
             areas={areaList}
