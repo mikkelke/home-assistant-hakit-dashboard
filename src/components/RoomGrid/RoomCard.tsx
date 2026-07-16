@@ -184,6 +184,15 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
         }).length;
   const hasLightsOn = lightsOn > 0;
 
+  // Manual-override "hold" flag for this room's lighting automation. AppDaemon's
+  // manual_override_timeout app is the authority that sets/clears this boolean whenever
+  // someone adjusts the lights by hand; the entity id is pure convention (no shared config
+  // module for it): input_boolean.<areaNameNormalized>_lights_manual, e.g.
+  // input_boolean.bathroom_lights_manual. Rooms the automation doesn't cover (e.g. rooftop)
+  // simply have no such entity, so this stays false.
+  const lightsManualOverrideId = `input_boolean.${areaNameNormalized}_lights_manual`;
+  const lightsManualOverrideOn = entities?.[lightsManualOverrideId]?.state === 'on';
+
   // Hallway: door access only (lock control stays in room detail / Intercom)
   const isHallway = areaNameNormalized === 'hallway';
   const hallwayDoorId = isHallway ? resolveHallwayDoorSensorId(entities) : null;
@@ -708,15 +717,22 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
           make(
             'lights',
             availableLights.length > 0 && (
-              <MultiEntitySelector
-                entityIds={availableLights}
-                entities={entities}
-                hassUrl={hassUrl}
-                className={`indicator light ${hasLightsOn ? 'active' : 'inactive'}`}
-                title={`${lightsOn} light${lightsOn > 1 ? 's' : ''} ${hasLightsOn ? 'on' : 'off'} - click to ${availableLights.length > 1 ? 'select' : 'view timeline'}`}
-                icon='mdi:lightbulb'
-                entityType='light'
-              />
+              <div className='indicator-hold-anchor'>
+                <MultiEntitySelector
+                  entityIds={availableLights}
+                  entities={entities}
+                  hassUrl={hassUrl}
+                  className={`indicator light ${hasLightsOn ? 'active' : 'inactive'}`}
+                  title={`${lightsOn} light${lightsOn > 1 ? 's' : ''} ${hasLightsOn ? 'on' : 'off'} - click to ${availableLights.length > 1 ? 'select' : 'view timeline'}${lightsManualOverrideOn ? ' - manual override' : ''}`}
+                  icon='mdi:lightbulb'
+                  entityType='light'
+                />
+                {lightsManualOverrideOn && (
+                  <span className='indicator-hold-badge' title='Manual override active'>
+                    <Icon icon='mdi:hand-back-right' />
+                  </span>
+                )}
+              </div>
             ),
             availableLights.length > 0,
             hasLightsOn ? 1 : 0 // Other active state
@@ -1163,15 +1179,22 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
             make(
               'lights',
               availableLights.length > 0 && (
-                <MultiEntitySelector
-                  entityIds={availableLights}
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator light ${hasLightsOn ? 'active' : 'inactive'}`}
-                  title={`${lightsOn} light${lightsOn > 1 ? 's' : ''} ${hasLightsOn ? 'on' : 'off'} - click to ${availableLights.length > 1 ? 'select' : 'view timeline'}`}
-                  icon='mdi:lightbulb'
-                  entityType='light'
-                />
+                <div className='indicator-hold-anchor'>
+                  <MultiEntitySelector
+                    entityIds={availableLights}
+                    entities={entities}
+                    hassUrl={hassUrl}
+                    className={`indicator light ${hasLightsOn ? 'active' : 'inactive'}`}
+                    title={`${lightsOn} light${lightsOn > 1 ? 's' : ''} ${hasLightsOn ? 'on' : 'off'} - click to ${availableLights.length > 1 ? 'select' : 'view timeline'}${lightsManualOverrideOn ? ' - manual override' : ''}`}
+                    icon='mdi:lightbulb'
+                    entityType='light'
+                  />
+                  {lightsManualOverrideOn && (
+                    <span className='indicator-hold-badge' title='Manual override active'>
+                      <Icon icon='mdi:hand-back-right' />
+                    </span>
+                  )}
+                </div>
               ),
               availableLights.length > 0,
               hasLightsOn ? 1 : 0

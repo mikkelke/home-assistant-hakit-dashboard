@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { attrNum, attrStr } from '../../types';
@@ -33,6 +33,8 @@ const STATUS_META: Record<string, { label: string; icon: string; cls: string }> 
 };
 
 export function SmartCoolingCard({ entities, callService }: SmartCoolingCardProps) {
+  const [expanded, setExpanded] = useState(false);
+
   const call = useCallback(
     (domain: string, service: string, entityId: string, serviceData?: Record<string, unknown>) => {
       callService?.({ domain, service, target: { entity_id: entityId }, serviceData });
@@ -71,6 +73,7 @@ export function SmartCoolingCard({ entities, callService }: SmartCoolingCardProp
   const outdoor = attrNum(ca.outdoor_temperature, NaN);
   const windowOpen = a.window_open === true || attrStr(a.window_open) === 'true';
   const isActive = state.startsWith('cooling') || state.startsWith('comfort');
+  const showVentReminder = masterOn && isActive && !windowOpen;
 
   const toggleBool = (entityId: string, on: boolean) => call('input_boolean', on ? 'turn_off' : 'turn_on', entityId);
 
@@ -83,121 +86,115 @@ export function SmartCoolingCard({ entities, callService }: SmartCoolingCardProp
     subtitle = `zone ${zoneNow.toFixed(1)}° → ${floorTarget.toFixed(1)}°${nextStart ? ` · starts ${nextStart}` : ''}`;
   else subtitle = meta.label;
 
+  // Collapsed strip line: status label, "· sim" in dry-run, then the subtitle unless it just repeats the label.
+  const stripBits = [meta.label];
+  if (dryRun && masterOn && state !== 'off' && state !== 'disabled') stripBits.push('sim');
+  if (subtitle && subtitle !== meta.label) stripBits.push(subtitle);
+  const stripText = stripBits.join(' · ');
+
+  // Expanded stats line: plan figures + the three ambient temps, skipping anything not finite.
+  const statBits: React.ReactNode[] = [];
+  if (Number.isFinite(floorTarget))
+    statBits.push(
+      <span key='target'>
+        → {floorTarget.toFixed(1)}°{floorLimited ? ' · floor-limited' : ''}
+      </span>
+    );
+  statBits.push(<span key='start'>starts {nextStart || 'now'}</span>);
+  if (Number.isFinite(minutes)) statBits.push(<span key='minutes'>{minutes} min</span>);
+  if (Number.isFinite(estCost)) statBits.push(<span key='cost'>≈ {estCost.toFixed(1)} kr tonight</span>);
+  if (Number.isFinite(priceNow)) statBits.push(<span key='price'>now {priceNow.toFixed(2)}</span>);
+  if (Number.isFinite(zoneNow))
+    statBits.push(
+      <span key='bed'>
+        <Icon icon='mdi:bed' /> {zoneNow.toFixed(1)}°
+      </span>
+    );
+  if (Number.isFinite(kitchenT))
+    statBits.push(
+      <span key='home'>
+        <Icon icon='mdi:home' /> {kitchenT.toFixed(1)}°
+      </span>
+    );
+  if (Number.isFinite(outdoor))
+    statBits.push(
+      <span key='outdoor'>
+        <Icon icon='mdi:weather-partly-cloudy' /> {outdoor.toFixed(1)}°
+      </span>
+    );
+
   return (
     <div className={`sc-card ${isActive ? 'active' : ''} ${!masterOn ? 'disabled' : ''}`}>
-      <div className='sc-header'>
-        <div className='sc-head-info'>
-          <Icon icon='mdi:snowflake-thermometer' className='sc-icon' />
-          <div className='sc-head-text'>
-            <span className='sc-title'>Smart cooling</span>
-            <span className='sc-subtitle'>{subtitle}</span>
-          </div>
-        </div>
-        <div className='sc-head-right'>
-          <span className={`sc-status ${meta.cls}`}>
-            <Icon icon={meta.icon} className='sc-status-icon' />
-            {meta.label}
-            {dryRun && masterOn && state !== 'off' && state !== 'disabled' ? ' · sim' : ''}
+      <button type='button' className='sc-strip' onClick={() => setExpanded(v => !v)} aria-expanded={expanded}>
+        <Icon icon='mdi:snowflake-thermometer' className={`sc-strip-icon ${meta.cls}`} />
+        <span className='sc-strip-text'>{stripText}</span>
+        <span className='sc-strip-right'>
+          <span
+            className={`sc-pill ${masterOn ? 'on' : ''}`}
+            title={masterOn ? 'Cool night: on' : 'Cool night: off'}
+            onClick={e => {
+              e.stopPropagation();
+              toggleBool(SMART_COOLING_ENABLE, masterOn);
+            }}
+          >
+            <Icon icon='mdi:power' />
           </span>
-        </div>
-      </div>
+          <Icon icon={expanded ? 'mdi:chevron-up' : 'mdi:chevron-down'} className='sc-chevron' />
+        </span>
+      </button>
 
-      {masterOn && isActive && !windowOpen && (
+      {showVentReminder && (
         <div className='sc-reminder'>
           <Icon icon='mdi:window-closed-variant' />
           <span>Open the bathroom window so the condenser can vent.</span>
         </div>
       )}
 
-      <div className='sc-content'>
-        <button type='button' className={`sc-toggle ${masterOn ? 'on' : ''}`} onClick={() => toggleBool(SMART_COOLING_ENABLE, masterOn)}>
-          <Icon icon='mdi:power' />
-          <div className='sc-toggle-text'>
-            <span>Cool night</span>
-            <small>{masterOn ? 'On — takes care of tonight, humidity included' : 'Off — you control the AC yourself'}</small>
-          </div>
-          <div className={`sc-switch ${masterOn ? 'on' : ''}`}>
-            <div className='sc-knob' />
-          </div>
-        </button>
-
-        {masterOn && (
-          <button type='button' className='sc-toggle' onClick={() => call('input_boolean', 'turn_on', SMART_COOLING_AC_REMOVED)}>
-            <Icon icon='mdi:air-conditioner' />
+      {expanded && (
+        <div className='sc-content'>
+          <button type='button' className={`sc-toggle ${masterOn ? 'on' : ''}`} onClick={() => toggleBool(SMART_COOLING_ENABLE, masterOn)}>
+            <Icon icon='mdi:power' />
             <div className='sc-toggle-text'>
-              <span>Remove AC</span>
-              <small>Tap right before you take the unit out — seals the room now, whatever time it is</small>
+              <span>Cool night</span>
+              <small>{masterOn ? 'On — takes care of tonight, humidity included' : 'Off — you control the AC yourself'}</small>
             </div>
-          </button>
-        )}
-
-        {hasShade && (
-          <button
-            type='button'
-            className={`sc-toggle ${shadeOn ? 'on' : ''}`}
-            onClick={() => toggleBool(BEDROOM_SOLAR_SHADE_ENABLE, shadeOn)}
-          >
-            <Icon icon='mdi:blinds-horizontal' />
-            <div className='sc-toggle-text'>
-              <span>Sun shade</span>
-              <small>{shadeReason || 'Blocks morning sun, keeps it bright'}</small>
-            </div>
-            <div className={`sc-switch ${shadeOn ? 'on' : ''}`}>
+            <div className={`sc-switch ${masterOn ? 'on' : ''}`}>
               <div className='sc-knob' />
             </div>
           </button>
-        )}
 
-        {/* Comfort/humidity display lives in the CoolingModule wrapper - not repeated here. */}
-        {masterOn && (
-          <>
-            <div className='sc-plan'>
-              <div className='sc-tile'>
-                <span className='sc-tile-label'>Bed target</span>
-                <span className='sc-tile-value'>{Number.isFinite(floorTarget) ? `${floorTarget.toFixed(1)}°` : '—'}</span>
-                <span className='sc-tile-sub'>
-                  {Number.isFinite(zoneNow) ? `zone ${zoneNow.toFixed(1)}°` : '—'}
-                  {floorLimited ? ' · floor-limited' : ''}
-                </span>
+          {masterOn && (
+            <button type='button' className='sc-toggle' onClick={() => call('input_boolean', 'turn_on', SMART_COOLING_AC_REMOVED)}>
+              <Icon icon='mdi:air-conditioner' />
+              <div className='sc-toggle-text'>
+                <span>Remove AC</span>
+                <small>Tap right before you take the unit out — seals the room now, whatever time it is</small>
               </div>
-              <div className='sc-tile'>
-                <span className='sc-tile-label'>Starts</span>
-                <span className='sc-tile-value'>{nextStart || (isActive ? 'now' : '—')}</span>
-                <span className='sc-tile-sub'>{Number.isFinite(minutes) && minutes > 0 ? `${minutes} min` : 'no run'}</span>
-              </div>
-              <div className='sc-tile'>
-                <span className='sc-tile-value'>
-                  {Number.isFinite(estCost) ? estCost.toFixed(1) : '—'}
-                  <small> kr</small>
-                </span>
-                <span className='sc-tile-label'>tonight</span>
-                <span className='sc-tile-sub'>now {Number.isFinite(priceNow) ? priceNow.toFixed(2) : '—'}</span>
-              </div>
-            </div>
-            {reason && <div className='sc-reason'>{reason}</div>}
-          </>
-        )}
+            </button>
+          )}
 
-        {(Number.isFinite(zoneNow) || Number.isFinite(kitchenT) || Number.isFinite(outdoor)) && (
-          <div className='sc-foot'>
-            {Number.isFinite(zoneNow) && (
-              <span>
-                <Icon icon='mdi:bed' /> {zoneNow.toFixed(1)}°
-              </span>
-            )}
-            {Number.isFinite(kitchenT) && (
-              <span>
-                <Icon icon='mdi:home' /> {kitchenT.toFixed(1)}°
-              </span>
-            )}
-            {Number.isFinite(outdoor) && (
-              <span>
-                <Icon icon='mdi:weather-partly-cloudy' /> {outdoor.toFixed(1)}°
-              </span>
-            )}
-          </div>
-        )}
-      </div>
+          {hasShade && (
+            <button
+              type='button'
+              className={`sc-toggle ${shadeOn ? 'on' : ''}`}
+              onClick={() => toggleBool(BEDROOM_SOLAR_SHADE_ENABLE, shadeOn)}
+            >
+              <Icon icon='mdi:blinds-horizontal' />
+              <div className='sc-toggle-text'>
+                <span>Sun shade</span>
+                <small>{shadeReason || 'Blocks morning sun, keeps it bright'}</small>
+              </div>
+              <div className={`sc-switch ${shadeOn ? 'on' : ''}`}>
+                <div className='sc-knob' />
+              </div>
+            </button>
+          )}
+
+          {/* Comfort/humidity display lives in the CoolingModule wrapper - not repeated here. */}
+          {masterOn && <div className='sc-stats'>{statBits}</div>}
+          {masterOn && reason && <div className='sc-reason'>{reason}</div>}
+        </div>
+      )}
     </div>
   );
 }

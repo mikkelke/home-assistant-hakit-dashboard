@@ -48,6 +48,39 @@
   line-height: 1;
 }
 
+/* Anchors the manual-override "hold" badge over the lights indicator without changing its
+   footprint: shrink-wraps to the indicator it contains (no explicit size of its own), it just
+   gives the badge something positioned to hang off. */
+.indicator-hold-anchor {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+
+/* Manual-override "hold" badge - mirrors .indicator-label's corner-badge sizing/border, but
+   sits on the opposite corner (bottom-left vs top-right) so it never collides with a count
+   badge, and stays amber regardless of the light indicator's active/inactive state. */
+.indicator-hold-badge {
+  position: absolute;
+  bottom: -4px;
+  left: -4px;
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f59e0b;
+  color: #1a1206;
+  border-radius: 50%;
+  border: 1px solid #0f1117;
+  pointer-events: none;
+}
+
+.indicator-hold-badge svg {
+  font-size: 9px;
+}
+
 .indicator svg {
   font-size: 14px;
 }
