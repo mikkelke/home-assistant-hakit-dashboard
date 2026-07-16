@@ -29,6 +29,10 @@ interface HouseEvent {
    * Absent = everyone. Mirrors the backend's v5 `audience` field; any other value is dropped
    * at parse time so a future backend change can't accidentally hide rows from admins. */
   audience?: 'admin';
+  /** v5.1 — HA user display names (matched case-insensitively against the logged-in user) who
+   * see this entry besides admins: room-scoped entries like Claudia's room's overrides carry
+   * ['Claudia']. Never set together with `audience: 'admin'` (admin-only outranks). */
+  audienceUsers?: string[];
 }
 
 // Mirrors the backend's own documented cap (AppDaemon HouseEvents keeps at most 40) — re-applied
@@ -61,6 +65,16 @@ function parseHouseEvents(value: unknown): HouseEvent[] {
 
     const by = typeof item.by === 'string' ? item.by.trim() : '';
 
+    // Kept only when non-empty: an empty (or fully-junk) list must degrade to "everyone",
+    // never to "admins only" — same fail-open stance as the backend's own validation.
+    const audienceUsers =
+      item.audience !== 'admin' && Array.isArray(item.audience_users)
+        ? item.audience_users
+            .filter((u): u is string => typeof u === 'string' && u.trim().length > 0)
+            .map(u => u.trim())
+            .slice(0, 8)
+        : [];
+
     events.push({
       tsMs,
       text: item.text,
@@ -69,34 +83,42 @@ function parseHouseEvents(value: unknown): HouseEvent[] {
       effect: hasCauseEffect ? effect : undefined,
       by: by.length > 0 ? by : undefined,
       audience: item.audience === 'admin' ? 'admin' : undefined,
+      audienceUsers: audienceUsers.length > 0 ? audienceUsers : undefined,
     });
     if (events.length >= MAX_EVENTS) break;
   }
   return events;
 }
 
-/** Whether the logged-in HA user is an admin — the feed's audience gate (see HouseEvent.audience).
- * `null` while resolving, and on failure it stays `false`: the restricted view is the safe
+interface Viewer {
+  /** null while the user lookup resolves (or if the connection isn't up yet). */
+  isAdmin: boolean | null;
+  /** The HA user's display name, for matching `audienceUsers` (case-insensitive). */
+  name: string | null;
+}
+
+/** Who is looking at the feed — the audience gate's input (see HouseEvent.audience/audienceUsers).
+ * `isAdmin` stays `null` while resolving and `false` on failure: the restricted view is the safe
  * default, so a slow user fetch briefly hides admin rows from Mikkel rather than ever flashing
  * them at a housemate. */
-function useIsAdminViewer(): boolean | null {
+function useViewer(): Viewer {
   const connection = useHass(s => s.connection);
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [viewer, setViewer] = useState<Viewer>({ isAdmin: null, name: null });
   useEffect(() => {
     if (!connection) return;
     let cancelled = false;
     getUser(connection as Connection)
       .then(user => {
-        if (!cancelled) setIsAdmin(user.is_admin === true);
+        if (!cancelled) setViewer({ isAdmin: user.is_admin === true, name: typeof user.name === 'string' ? user.name : null });
       })
       .catch(() => {
-        if (!cancelled) setIsAdmin(false);
+        if (!cancelled) setViewer({ isAdmin: false, name: null });
       });
     return () => {
       cancelled = true;
     };
   }, [connection]);
-  return isAdmin;
+  return viewer;
 }
 
 function sameLocalDay(a: Date, b: Date): boolean {
@@ -181,11 +203,14 @@ function EventRow({ event }: EventRowProps) {
     <div className='home-activity-row'>
       <span className='home-activity-row-time' title={date.toLocaleString('en-GB')}>
         {formatHHMM(date)}
-        {/* Rows carrying audience:'admin' only ever render for admin viewers (filtered out for
-            everyone else in HouseEventsModal), so this marker tells Mikkel "the housemates don't
-            see this one" rather than announcing anything to them. */}
-        {event.audience === 'admin' && (
-          <span title='Only visible to you' aria-label='Only visible to you'>
+        {/* Restricted rows only ever render for viewers allowed to see them (HouseEventsModal's
+            audience gate), so the marker explains restriction to the included — "the others don't
+            see this one" — rather than announcing anything to the excluded. */}
+        {(event.audience === 'admin' || event.audienceUsers) && (
+          <span
+            title={event.audienceUsers ? `Visible only to ${event.audienceUsers.join(', ')} and admins` : 'Only visible to you'}
+            aria-label='Restricted visibility'
+          >
             <Icon icon='mdi:eye-off-outline' className='home-activity-row-adminmark' aria-hidden='true' />
           </span>
         )}
@@ -225,11 +250,20 @@ export function HouseEventsModal({ entities, onClose }: HouseEventsModalProps) {
   // the granularity sibling code already re-derives at.
   const allEvents = useMemo(() => parseHouseEvents(entities?.[HOUSE_EVENTS_ENTITY]?.attributes?.events), [entities]);
 
-  // Audience gate: admin viewers (Mikkel) get the full feed incl. plumbing-level entries; everyone
-  // else — including the brief null while the user lookup resolves — gets only the shared-space
-  // events. See useIsAdminViewer/HouseEvent.audience.
-  const isAdmin = useIsAdminViewer();
-  const events = useMemo(() => (isAdmin ? allEvents : allEvents.filter(e => e.audience !== 'admin')), [allEvents, isAdmin]);
+  // Audience gate: admin viewers (Mikkel) get the full feed incl. plumbing-level entries. Everyone
+  // else — including the brief null while the user lookup resolves — gets the shared-space events
+  // plus any rows naming them in audienceUsers (e.g. Claudia sees her own room's overrides). See
+  // useViewer/HouseEvent.audience/audienceUsers.
+  const viewer = useViewer();
+  const events = useMemo(() => {
+    if (viewer.isAdmin) return allEvents;
+    const name = viewer.name?.trim().toLowerCase();
+    return allEvents.filter(e => {
+      if (e.audience === 'admin') return false;
+      if (e.audienceUsers) return name != null && e.audienceUsers.some(u => u.toLowerCase() === name);
+      return true;
+    });
+  }, [allEvents, viewer]);
 
   // Same now-tick pattern as PriceAdvisor.tsx: state + a 60s interval, so nothing else in this
   // component reads Date.now()/new Date() during render — only the interval callback (an
