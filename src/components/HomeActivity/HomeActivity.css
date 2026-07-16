@@ -1,61 +1,125 @@
+/* Day-group header (see HomeActivity.tsx's `formatDayHeader`/`groupEventsByDay`) — small, muted,
+   uppercase, same "section label" treatment as .alarm-label/.ac-mode elsewhere in the app. The
+   first group's header sits directly under the modal's own top padding, so it gets less of its own
+   top gap than the ones that follow. */
+.home-activity-day-header {
+  padding: 0.6rem 0 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #71717a;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.home-activity-group:first-child .home-activity-day-header {
+  padding-top: 0.1rem;
+}
+
+/* One timeline row: fixed-width time, an icon-on-a-rail, then flexible content. Children stretch to
+   the row's full height (flex's own default), which is what lets .home-activity-row-rail's
+   connector line reach all the way to the row's bottom edge — see its own comment below. Padding
+   lives only on the bottom so the connector line loses as little of that gap as possible. */
 .home-activity-row {
   display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0.32rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  gap: 0.6rem;
+  padding-bottom: 0.75rem;
 }
 
-.home-activity-row:last-child {
-  border-bottom: none;
-}
-
-.home-activity-row-icon {
-  flex-shrink: 0;
-  margin-top: 0.1rem;
-  font-size: 0.95rem;
-  color: #e4e4e7;
-}
-
-.home-activity-row-text {
-  flex: 1;
-  min-width: 0;
-  font-size: 0.8rem;
-  line-height: 1.3;
-  color: #e4e4e7;
-}
-
-/* Cause/effect two-line layout (see HomeActivity.tsx's EventRow) — replaces .home-activity-row-text
-   in the same flex slot, so the icon still sits to its left, spanning both lines, without any extra
-   markup of its own. */
-.home-activity-row-lines {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Muted line on top — reuses the same muted color as .home-activity-row-time. */
-.home-activity-row-cause {
-  font-size: 0.7rem;
-  line-height: 1.3;
-  color: #71717a;
-}
-
-/* Normal-weight line below — same size/color as the plain .home-activity-row-text it replaces here. */
-.home-activity-row-effect {
-  font-size: 0.8rem;
-  line-height: 1.3;
-  color: #e4e4e7;
+.home-activity-group .home-activity-row:last-child {
+  padding-bottom: 0;
 }
 
 .home-activity-row-time {
   flex-shrink: 0;
+  width: 3.2rem;
   padding-top: 0.05rem;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   color: #71717a;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+
+/* The rail: icon-in-a-circle plus a hairline connector down to the next row's own circle. The line
+   is a single ::before on the rail wrapper (not the circle) so it can run underneath the circle
+   without a stacking-order fight; it's suppressed on each group's last row (nothing to connect to
+   below the group's final event) via :last-child, scoped by .home-activity-group so it only ever
+   hits that group's own trailing row, never bridging across a day boundary. */
+.home-activity-row-rail {
+  position: relative;
+  flex-shrink: 0;
+  width: 28px;
+}
+
+.home-activity-row-rail::before {
+  content: '';
+  position: absolute;
+  top: 28px;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.home-activity-group .home-activity-row:last-child .home-activity-row-rail::before {
+  display: none;
+}
+
+.home-activity-row-icon-circle {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.home-activity-row-icon {
+  font-size: 16px;
+  color: #f5c66d;
+}
+
+.home-activity-row-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+/* Headline — effect, or plain text for events the backend hasn't upgraded to publish cause/effect
+   for yet (see HomeActivity.tsx's EventRow). */
+.home-activity-row-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.3;
+  color: #e4e4e7;
+}
+
+/* Muted "why" line under the headline. */
+.home-activity-row-cause {
+  font-size: 0.75rem;
+  line-height: 1.3;
+  color: #8b8b93;
+}
+
+/* Still-more-muted "By {name}" credit line, under cause (or directly under the headline when the
+   event has no cause). */
+.home-activity-row-by {
+  font-size: 0.7rem;
+  line-height: 1.3;
+  color: #71717a;
+}
+
+/* Zero-events placeholder. */
+.home-activity-empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #71717a;
 }
 
 /* Modal — same overlay/panel/header pattern as PriceAdvisor.css's own .price-advisor-overlay/
@@ -104,8 +168,4 @@
 
 .home-activity-modal-body {
   padding: 0.25rem 1rem 1rem;
-}
-
-.home-activity-modal-body .home-activity-row {
-  padding: 0.4rem 0;
 }
