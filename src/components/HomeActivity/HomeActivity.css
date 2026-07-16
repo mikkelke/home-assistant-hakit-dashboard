@@ -79,7 +79,46 @@
 
 .home-activity-row-icon {
   font-size: 16px;
+  color: #94a3b8; /* neutral fallback; category tones below override */
+}
+
+/* Category tones (picked by HomeActivity.tsx's eventTone from the event's own mdi icon) — one
+   hue per activity family, icon solid + same-hue soft circle, HA-Activity style. */
+.home-activity-tone-appliance {
+  background: rgba(56, 189, 248, 0.14);
+}
+.home-activity-tone-appliance .home-activity-row-icon {
+  color: #38bdf8;
+}
+.home-activity-tone-media {
+  background: rgba(167, 139, 250, 0.14);
+}
+.home-activity-tone-media .home-activity-row-icon {
+  color: #a78bfa;
+}
+.home-activity-tone-lock {
+  background: rgba(251, 113, 133, 0.14);
+}
+.home-activity-tone-lock .home-activity-row-icon {
+  color: #fb7185;
+}
+.home-activity-tone-door {
+  background: rgba(52, 211, 153, 0.14);
+}
+.home-activity-tone-door .home-activity-row-icon {
+  color: #34d399;
+}
+.home-activity-tone-light {
+  background: rgba(245, 198, 109, 0.14);
+}
+.home-activity-tone-light .home-activity-row-icon {
   color: #f5c66d;
+}
+.home-activity-tone-sun {
+  background: rgba(251, 146, 60, 0.14);
+}
+.home-activity-tone-sun .home-activity-row-icon {
+  color: #fb923c;
 }
 
 .home-activity-row-content {

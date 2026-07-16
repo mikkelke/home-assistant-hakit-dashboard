@@ -122,11 +122,27 @@ interface EventRowProps {
   event: HouseEvent;
 }
 
+/** Color tone for an event's rail circle, derived from the mdi icon the feed already carries —
+ * the icon IS the backend's category signal, so no schema change is needed and every entry
+ * (old or new) gets a tone. Prefix matching keeps this robust to icon variants (mdi:lock vs
+ * mdi:lock-open-variant). Unknown icons fall back to the neutral slate tone. Tones map to
+ * .home-activity-tone-* rules in HomeActivity.css. */
+function eventTone(icon: string): string {
+  const name = icon.startsWith('mdi:') ? icon.slice(4) : icon;
+  if (/^(washing-machine|dishwasher|tumble-dryer|basket)/.test(name)) return 'appliance';
+  if (/^(television|radio|cast|speaker)/.test(name)) return 'media';
+  if (/^lock/.test(name)) return 'lock';
+  if (/^(bell|doorbell|door)/.test(name)) return 'door';
+  if (/^(hand-back|lightbulb|white-balance-sunny|ceiling-light)/.test(name)) return 'light';
+  if (/^(blinds|weather)/.test(name)) return 'sun';
+  return 'neutral';
+}
+
 /** One timeline row: an absolute HH:MM on the left, the event's icon on the rail (see
- * HomeActivity.css for the connecting line), and up to three content lines — `effect` (or plain
- * `text`, for events the backend hasn't upgraded to publish cause/effect for yet) as the headline,
- * `cause` underneath as the muted "why", and `by` underneath that as a still-more-muted "By {name}"
- * credit. */
+ * HomeActivity.css for the connecting line) in a category-toned circle, and up to three content
+ * lines — `effect` (or plain `text`, for events the backend hasn't upgraded to publish
+ * cause/effect for yet) as the headline, `cause` underneath as the muted "why", and `by`
+ * underneath that as a still-more-muted "By {name}" credit. */
 function EventRow({ event }: EventRowProps) {
   const date = new Date(event.tsMs);
   return (
@@ -135,7 +151,7 @@ function EventRow({ event }: EventRowProps) {
         {formatHHMM(date)}
       </span>
       <div className='home-activity-row-rail'>
-        <span className='home-activity-row-icon-circle'>
+        <span className={`home-activity-row-icon-circle home-activity-tone-${eventTone(event.icon)}`}>
           <Icon icon={event.icon} className='home-activity-row-icon' aria-hidden='true' />
         </span>
       </div>
