@@ -44,7 +44,7 @@ interface ConnectionWithAuth {
  */
 const SENSOR_IDS = {
   outdoorTemp: 'sensor.gw2000a_outdoor_temperature',
-  seaTemperature: 'sensor.seatemperatures_copenhagen_today',
+  seaTemperature: 'sensor.kobenhavns_havn_ii_water_temperature',
   feelsLike: 'sensor.gw2000a_feels_like_temperature',
   humidity: 'sensor.gw2000a_humidity',
   dewpoint: 'sensor.gw2000a_dewpoint',
