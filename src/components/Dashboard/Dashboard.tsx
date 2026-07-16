@@ -544,13 +544,13 @@ export function Dashboard() {
         <div className='dashboard-content'>
           <StatusBar entities={displayEntities} hassUrl={hassUrl} onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
           <HomePulse areas={areaList} entities={displayEntities} hassUrl={hassUrl} onRoomSelect={handlePulseRoomSelect} />
-          <HomeActivity entities={displayEntities} />
           <RoomGrid
             areas={areaList}
             entities={displayEntities}
             selectedAreaId={selectedRoom?.area_id || null}
             onRoomClick={handleRoomClick}
             hassUrl={hassUrl}
+            header={<HomeActivity entities={displayEntities} />}
           />
           {/* Fixed bar at z-index 1000 — would float above the Energy page (z-index 90), so it
               unmounts while that view is open. */}

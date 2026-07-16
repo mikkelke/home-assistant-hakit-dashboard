@@ -2,9 +2,14 @@
    kept as its own copy rather than a shared class (matches how this app duplicates small bits of
    chrome per component; see PriceAdvisor.tsx's top comment). */
 .home-activity {
-  padding: 0 0.75rem 0.45rem;
+  /* Lives inside .rooms-container (RoomGrid's header slot), whose own 1rem padding provides the
+     horizontal inset — only the gap down to the rooms grid is needed here. */
+  padding: 0 0 0.75rem;
   display: flex;
   justify-content: center;
+  /* .rooms-container is a column-flex scroller — without this the card gets compressed to fit
+     before the container starts scrolling, instead of scrolling away intact. */
+  flex-shrink: 0;
 }
 
 .home-activity-card {
