@@ -1,12 +1,13 @@
 /** Pure view-model assembly for the Energy page — no React, no clock reads; every function takes
  * explicit ms args (or nullable data), so it stays independently testable. */
 import { LIVE_POWER_MIN_WATTS, PRICE_BAND_THRESHOLDS } from '../config/energy';
-import { addDays } from './period';
+import { addDays, bucketPeriodFor } from './period';
 import type {
   DevicePref,
   DeviceUsage,
   EnergyBar,
   EnergyDevices,
+  EnergyView,
   Period,
   PricePoint,
   PriceSeries,
@@ -331,4 +332,55 @@ export function assembleLivePower(devicePrefs: DevicePref[], powerByStatId: Reco
   const untrackedWatts = gridW != null ? Math.max(0, gridW - totalTopLevelWatts) : null;
 
   return { devices: topLevel, totalTopLevelWatts, untrackedWatts };
+}
+
+/** One priced bucket's rate for the Bill card's price-spread row — the bar's own `startMs` (for a
+ * WHEN label) and `level` (for tinting) kept alongside `price`, rather than reduced to a bare
+ * number. */
+export interface BillPriceStatsExtreme {
+  startMs: number;
+  price: number;
+  level: EnergyBar['level'];
+}
+
+/** Cheapest/priciest bucket plus the price actually paid on average, for the Bill card's
+ * price-spread row. `bucket` names what `min`/`max` refer to — the same statistics granularity
+ * `bucketPeriodFor` already requests for the view's own bars (day → hour, week/month → day, year →
+ * month) — so for week+ periods `min`/`max` are each bucket's own effective rate (`bar.price`,
+ * which `assembleBars` already falls back to cost÷kWh outside the day view), i.e. "the
+ * cheapest/priciest day you actually paid for", NOT an hourly market price. `avgPaidKrPerKwh` is
+ * Σcost ÷ Σkwh over every bar (`computePeriodEffectivePrice`) — deliberately consumption-weighted,
+ * since an unweighted mean of bar prices would misstate the bill by over/under-counting buckets
+ * with little or no draw. */
+export interface BillPriceStats {
+  bucket: 'hour' | 'day' | 'month';
+  min: BillPriceStatsExtreme;
+  max: BillPriceStatsExtreme;
+  avgPaidKrPerKwh: number;
+}
+
+/** Derives `BillPriceStats` from a view's bars — null when there's no priced bar at all, or the
+ * period's total kWh is ≤ 0 (nothing was actually consumed to average a paid rate from), so the
+ * Bill card can omit the row entirely rather than render a zeroed-out stat. Ties for min/max keep
+ * the earliest bar. */
+export function assembleBillPriceStats(view: EnergyView): BillPriceStats | null {
+  const pricedBars = view.bars.filter((bar): bar is EnergyBar & { price: number } => bar.price != null);
+  if (pricedBars.length === 0) return null;
+
+  const avgPaidKrPerKwh = computePeriodEffectivePrice(view.bars);
+  if (avgPaidKrPerKwh == null) return null; // total kWh ≤ 0 — nothing was actually consumed
+
+  const min = pricedBars.reduce((lowest, bar) =>
+    bar.price < lowest.price || (bar.price === lowest.price && bar.startMs < lowest.startMs) ? bar : lowest
+  );
+  const max = pricedBars.reduce((highest, bar) =>
+    bar.price > highest.price || (bar.price === highest.price && bar.startMs < highest.startMs) ? bar : highest
+  );
+
+  return {
+    bucket: bucketPeriodFor(view.period),
+    min: { startMs: min.startMs, price: min.price, level: min.level },
+    max: { startMs: max.startMs, price: max.price, level: max.level },
+    avgPaidKrPerKwh,
+  };
 }

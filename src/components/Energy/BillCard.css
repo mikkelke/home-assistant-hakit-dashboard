@@ -71,3 +71,69 @@
   font-size: 0.7rem;
   color: #71717a;
 }
+
+/* Price-spread row: cheapest/priciest bucket + the average rate actually paid — its own top
+   border stands in for `.bill-card-divider`, since this block sits outside `.bill-card-rows`. */
+.bill-card-price-stats {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bill-card-price-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.bill-card-price-stat:last-child {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.bill-card-price-stat:nth-child(2) {
+  align-items: center;
+  text-align: center;
+}
+
+.bill-card-price-stat-label {
+  font-size: 0.7rem;
+  color: #71717a;
+  white-space: nowrap;
+}
+
+.bill-card-price-stat-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #e4e4e7;
+  white-space: nowrap;
+}
+
+.bill-card-price-stat-sub {
+  font-size: 0.7rem;
+  color: #71717a;
+  white-space: nowrap;
+}
+
+/* Same 4 colors as EnergyChart.css's own .energy-chart-bar--low/--mid/--high ramp (also mirrored
+   by PriceTab.css/ChartCallout.css/PriceAdvisor.css) — keep all in sync if that ramp ever changes. */
+.bill-card-price-stat-value--low {
+  color: #9a3412;
+}
+
+.bill-card-price-stat-value--mid {
+  color: #ea580c;
+}
+
+.bill-card-price-stat-value--high {
+  color: #fdba74;
+}
+
+.bill-card-price-stat-value--unknown {
+  color: #3f3f46;
+}
