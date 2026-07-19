@@ -75,8 +75,18 @@ function projectionNights(attrs: Record<string, unknown>): ProjectedNight[] {
   );
 }
 
-function nightLabel(date: string, index: number): string {
-  if (index === 0) return 'Tonight';
+/** Local calendar date as YYYY-MM-DD — comparable to the sensor's ISO night dates. */
+function localToday(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Label by the night's ACTUAL date, never by array position: the advisor evaluates on a
+ * sparse schedule, so overnight its nights[0] is still YESTERDAY's night — index-based
+ * labeling showed that stale entry as "Tonight" and shifted every weekday by one
+ * (user report 2026-07-19: "Tonight, Sun, Mon — tonight IS Sunday"). */
+function nightLabel(date: string, today: string): string {
+  if (date === today) return 'Tonight';
   return new Date(`${date}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short' });
 }
 
@@ -90,12 +100,19 @@ export function CoolingModule({ entities, callService }: CoolingModuleProps) {
   const acState = entities?.[AC_THERMOSTAT_ENTITY]?.state;
   const comfort = entities?.[BEDROOM_COMFORT_SENSOR];
   const projection = entities?.[BEDROOM_NIGHT_PROJECTION_SENSOR];
-  const projNights = projection ? projectionNights(projection.attributes as Record<string, unknown>).slice(0, 3) : [];
+  // Drop nights already behind us (the advisor's sparse eval schedule leaves yesterday's
+  // night in the sensor until its next morning run) before taking the display window.
+  const today = localToday();
+  const projNights = projection
+    ? projectionNights(projection.attributes as Record<string, unknown>)
+        .filter(n => n.date >= today)
+        .slice(0, 3)
+    : [];
 
   if (!deployed && !comfort && projNights.length === 0) return null;
 
   const comfortState = comfort?.state ?? '';
-  const tonight = projNights[0];
+  const tonight = projNights[0]?.date === today ? projNights[0] : undefined;
   const anyOver = projNights.some(nightIsOver);
 
   const subtitleParts: string[] = [];
@@ -154,9 +171,9 @@ export function CoolingModule({ entities, callService }: CoolingModuleProps) {
             <div className='night-projection-row' title={String((projection?.attributes as Record<string, unknown>)?.reason ?? '')}>
               <Icon icon='mdi:weather-night' />
               <div className='projection-nights'>
-                {projNights.map((n, i) => (
+                {projNights.map(n => (
                   <div key={n.date} className={`projection-night ${nightIsOver(n) ? 'over' : ''}`}>
-                    <span className='pn-day'>{nightLabel(n.date, i)}</span>
+                    <span className='pn-day'>{nightLabel(n.date, today)}</span>
                     <span className='pn-peak'>{n.peak.toFixed(1)}°</span>
                   </div>
                 ))}
