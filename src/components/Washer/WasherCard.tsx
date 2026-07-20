@@ -13,8 +13,9 @@ const SPIN_SELECT_ID = 'input_select.washer_spin_speed';
 const TEMPERATURE_SELECT_ID = 'input_select.washer_temperature';
 
 const SPIN_OPTIONS_ORDER = ['—', '1400 rpm', '1200 rpm', '900 rpm', '700 rpm', 'No spin'];
-/** Matches `input_select.washer_temperature` (same order as HA; stable — no flash from delayed `options`). */
-const WASHER_TEMPERATURE_OPTIONS = ['-', 'Cold', '20°C', '30°C', '40°C', '60°C', '90°C'] as const;
+/** Union of every programme's allowed_temperatures (washer_monitor.py _DEFAULT_PROFILES) - stable,
+ * no flash from delayed `options`. Must be updated if a programme profile adds a new temperature. */
+const WASHER_TEMPERATURE_OPTIONS = ['-', 'Cold', '20°C', '30°C', '40-60°C', '40°C', '60°C', '90°C'] as const;
 
 /** Programme keys in JSON; display labels for cycle history. Extend to match your washer programmes. */
 // eslint-disable-next-line react-refresh/only-export-components -- shared constant for cycle history
