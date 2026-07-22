@@ -97,11 +97,17 @@ function ApplianceColumn({ heading, window, kwh, delayPrefix, nowMs }: Appliance
     );
   }
 
+  // Once this window's own start has already arrived (delayHours <= 0 — it's the current hour),
+  // pairing its clock-hour label with "now" below reads like a contradiction ("15:00 · now" at
+  // 15:40) even though nothing is actually being asked to happen in the past — the whole hour's
+  // price is still live. Drop the redundant clock time in that case; the cost stands alone.
+  const isNow = delayHours(window.startMs, nowMs) <= 0;
+
   return (
     <div className='price-advisor-column'>
       <span className='price-advisor-column-heading'>{heading}</span>
       <span className='price-advisor-column-time'>
-        {formatClockHour(window.startMs)} · {formatRunCost(window, kwh)}
+        {isNow ? formatRunCost(window, kwh) : `${formatClockHour(window.startMs)} · ${formatRunCost(window, kwh)}`}
         <ForecastMark window={window} />
       </span>
       <span className='price-advisor-column-delay'>{delayLabel(delayPrefix, window.startMs, nowMs)}</span>
