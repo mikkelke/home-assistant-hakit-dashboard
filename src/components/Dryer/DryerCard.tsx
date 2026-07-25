@@ -261,6 +261,9 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
   const lockSkaneOn = PROGRAMMES_SKANE_LOCKED_ON.includes(programmeValue);
   const remainingMin = attrs.estimated_remaining_min != null ? Number(attrs.estimated_remaining_min) : undefined;
   const totalMin = attrs.programme_duration_min != null ? Number(attrs.programme_duration_min) : undefined;
+  // Overrun: cycle ran past its expected duration (attr absent when not overrunning - the
+  // monitor only publishes it when > 0). Remaining is then a floor ("still drying"), not a countdown.
+  const overrunMin = attrs.overrun_min != null ? Number(attrs.overrun_min) : 0;
   const cycleStartTime = attrs.cycle_start_time as string | undefined;
   const startedAtDisplay = attrs.started_at_display as string | undefined;
   const estimatedEndTime = attrs.estimated_end_time as string | undefined;
@@ -282,7 +285,14 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
       : totalMin != null && totalMin > 0
         ? Math.min(100, (elapsedMin / totalMin) * 100)
         : 0;
-  const countdownLabel = remainingMin == null ? null : remainingMin <= 0 ? 'Almost done' : `${formatDuration(remainingMin)} left`;
+  const countdownLabel =
+    remainingMin == null
+      ? null
+      : remainingMin <= 2
+        ? 'Almost done'
+        : overrunMin > 0
+          ? `+${Math.round(overrunMin)} min over usual — still drying`
+          : `${formatDuration(remainingMin)} left`;
 
   // "Started HH:MM": prefer started_at_display if time-only (HH:MM); if ISO datetime, format to time; else use cycle_start_time
   const startedDisplay = (() => {
