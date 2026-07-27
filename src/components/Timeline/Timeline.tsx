@@ -613,6 +613,8 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
   const isTemperatureSensor = entityId.includes('temperature') || entityId.includes('temp');
   const isHumiditySensor = entityId.includes('humidity');
   const isWindSensor = entityId.includes('wind');
+  // Wind direction is a compass bearing in degrees, not a speed — must not get the km/h→m/s treatment
+  const isWindDirectionSensor = isWindSensor && entityId.includes('direction');
   const isRainSensor = entityId.includes('rain');
   const isPressureSensor = entityId.includes('pressure');
   const isUvSensor = entityId.includes('uv_index') || entityId.includes('uv');
@@ -759,6 +761,11 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
           if (isTemperatureSensor || isDewpointSensor) return `${numValue.toFixed(1)}°C`;
           if (isHumiditySensor) return `${numValue.toFixed(0)}%`;
           if (isWindSensor) {
+            if (isWindDirectionSensor) {
+              const dir = ((numValue % 360) + 360) % 360;
+              const labels = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+              return `${labels[Math.round(dir / 45) % 8]} (${dir.toFixed(0)}°)`;
+            }
             // Convert km/h to m/s if needed (assuming km/h input)
             const ms = numValue / 3.6;
             return `${ms.toFixed(1)} m/s`;
@@ -1012,6 +1019,7 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
           return '#3b82f6'; // Blue for humid
         }
         if (isWindSensor) {
+          if (isWindDirectionSensor) return '#60a5fa'; // Direction has no intensity — neutral blue
           // Wind speed (km/h): calm → breezy → windy → strong
           const ms = numValue / 3.6;
           if (ms < 3) return '#71717a'; // Gray for calm
