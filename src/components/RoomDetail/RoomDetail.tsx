@@ -56,6 +56,12 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
   // (TonightCard, which self-gates further) — the bedroom never shows both.
   const familyRoomThermostatState = entities?.['climate.family_room_thermostat']?.state;
   const heatingSeason = !!familyRoomThermostatState && !HEATING_SEASON_OFF_STATES.has(familyRoomThermostatState);
+  // Out of season an all-off HeatCard is wasted space (user 2026-07-29) -> hide it entirely.
+  // Safety valve: a zone someone turned on individually stays visible even off-season --
+  // a card must never be hidden while its own heat is running.
+  const zoneState = climate?.state;
+  const zoneOn = !!zoneState && !HEATING_SEASON_OFF_STATES.has(zoneState);
+  const showHeat = heatingSeason || zoneOn;
   const isHallway = area.name.toLowerCase() === 'hallway';
   const isRooftop = area.area_id === 'rooftop' || area.name.toLowerCase().replace(/\s+/g, '_') === 'rooftop';
   const isLivingRoom = area.name.toLowerCase() === 'living room' || area.name.toLowerCase() === 'living_room';
@@ -238,7 +244,9 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
           ))}
 
         {/* Heat Card (floor heating) */}
-        {climate && !isBedroom && <HeatCard areaName={area.name} entities={entities} callService={callService} />}
+        {climate && !isBedroom && showHeat && (
+          <HeatCard areaName={area.name} entities={entities} callService={callService} />
+        )}
 
         {/* Cover/Blinds Card */}
         {cover && <CoverCard areaName={area.name} entities={entities} callService={callService} />}
