@@ -9,7 +9,9 @@ export const ROOM_LIGHTS: Record<string, string[]> = {
   bathroom: ['light.bathroom_lights'],
   guest_bathroom: ['light.guest_bathroom_lights'],
   hallway: ['light.hallway_lights'],
-  claudias_room: ['light.claudias_room_ceiling_lights', 'light.claudias_room_floor_light'],
+  // Floor lamp physically removed from the room (user 2026-07-29) — re-add
+  // light.claudias_room_floor_light here if it ever returns.
+  claudias_room: ['light.claudias_room_ceiling_lights'],
   kristines_room: ['light.floor_lamp', 'light.small_lamp'],
 };
 
