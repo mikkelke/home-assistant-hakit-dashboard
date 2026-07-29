@@ -5,7 +5,7 @@ export * from './StatusBar';
 export * from './RoomGrid';
 export * from './RoomDetail';
 export * from './MediaPlayer';
-export * from './Climate';
+export * from './Heating';
 export * from './AC';
 export * from './Cover';
 export * from './Vacuum';

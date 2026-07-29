@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
 import type { RoomDetailProps } from '../../types';
 import { SonosPlayer, TVCard } from '../MediaPlayer';
-import { ClimateCard } from '../Climate';
+import { HeatCard } from '../Heating';
 import { TonightCard } from '../AC';
 import { CoverCard } from '../Cover';
 import { VacuumCard, RoomCleaningToggle } from '../Vacuum';
@@ -18,6 +18,9 @@ import { ROOM_LIGHT_MANUAL_OVERRIDE, ROOM_LIGHT_MANUAL_OVERRIDE_TIMEOUT_HOURS } 
 import { resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { useSwipeToClose } from '../../hooks';
 import './RoomDetail.css';
+
+/** hvac_mode values that mean the whole-apartment thermostat isn't calling for heat at all. */
+const HEATING_SEASON_OFF_STATES = new Set(['off', 'unavailable', 'unknown']);
 
 export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMobile }: RoomDetailProps) {
   const [showRoomInfo, setShowRoomInfo] = useState(false);
@@ -48,6 +51,11 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
   const cleaningToggle = entities?.[cleaningToggleId];
 
   const isBedroom = area.name.toLowerCase() === 'bedroom';
+  // Winter/summer gate for the bedroom's climate-card slot: the whole-apartment thermostat
+  // calling for heat means floor heating (HeatCard); otherwise it's AC-advisory season
+  // (TonightCard, which self-gates further) — the bedroom never shows both.
+  const familyRoomThermostatState = entities?.['climate.family_room_thermostat']?.state;
+  const heatingSeason = !!familyRoomThermostatState && !HEATING_SEASON_OFF_STATES.has(familyRoomThermostatState);
   const isHallway = area.name.toLowerCase() === 'hallway';
   const isRooftop = area.area_id === 'rooftop' || area.name.toLowerCase().replace(/\s+/g, '_') === 'rooftop';
   const isLivingRoom = area.name.toLowerCase() === 'living room' || area.name.toLowerCase() === 'living_room';
@@ -195,8 +203,8 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
         {/* Wake-up Alarm (Bedroom) */}
         <WakeupAlarm areaName={area.name} entities={entities} callService={callService} />
 
-        {/* Light Controls */}
-        <LightCard areaName={area.name} entities={entities} callService={callService} />
+        {/* Light Controls (bedroom moves this below the blind - see the Light Controls line after Cover) */}
+        {!isBedroom && <LightCard areaName={area.name} entities={entities} callService={callService} />}
 
         {/* Weather (Rooftop) */}
         {isRooftop && <WeatherCard entities={entities} callService={callService} hassUrl={hassUrl} />}
@@ -220,15 +228,23 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
           </button>
         )}
 
-        {/* Tonight — Apple-style card covering tonight's cooling plan (wake projection, night
-            bar, three-day strip, and the single Cool Tonight / Going to Bed control surface). */}
-        {isBedroom && <TonightCard entities={entities} callService={callService} />}
+        {/* Bedroom seasonal combo slot: floor heating in winter, the Tonight cooling card once AC
+            season starts (heatingSeason gates on the whole-apartment thermostat) - never both. */}
+        {isBedroom &&
+          (heatingSeason ? (
+            <HeatCard areaName={area.name} entities={entities} callService={callService} />
+          ) : (
+            <TonightCard entities={entities} callService={callService} />
+          ))}
 
-        {/* Climate Card */}
-        {climate && <ClimateCard areaName={area.name} entities={entities} callService={callService} />}
+        {/* Heat Card (floor heating) */}
+        {climate && !isBedroom && <HeatCard areaName={area.name} entities={entities} callService={callService} />}
 
         {/* Cover/Blinds Card */}
         {cover && <CoverCard areaName={area.name} entities={entities} callService={callService} />}
+
+        {/* Light Controls (Bedroom only - below the blind) */}
+        {isBedroom && <LightCard areaName={area.name} entities={entities} callService={callService} />}
 
         {/* Vacuum Card - only in Kitchen where it lives */}
         {isKitchen && vacuum && <VacuumCard entities={entities} callService={callService} />}

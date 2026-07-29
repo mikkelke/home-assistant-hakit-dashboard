@@ -17,11 +17,14 @@
   border-color: rgba(255, 69, 58, 0.4);
 }
 
-/* Top row */
+/* Top row - also the collapse/expand tap target (collapsed by default) */
 .tonight-top {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .tonight-glyph {
@@ -62,6 +65,26 @@
 }
 .tonight-state.alert {
   color: #ff453a;
+}
+
+.tonight-top-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.tonight-top-wake {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  font-variant-numeric: tabular-nums;
+}
+
+.tonight-chevron {
+  font-size: 1.1rem;
+  color: rgba(235, 235, 245, 0.4);
+  flex-shrink: 0;
 }
 
 /* Hero */

@@ -1,0 +1,189 @@
+/* Heat card — per-room floor-heating card (interim design, ships ahead of winter's full pass).
+   Same iOS-styled shell as TonightCard.css (System Gray6 dark, 24px radius); collapsed-by-default
+   header + expandable content borrows its toggle mechanics from ClimateCard/CoverCard. */
+
+.heat-card {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  background: #1c1c1e; /* iOS systemGray6 dark */
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* Header — always visible; the whole row is the tap target */
+.heat-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.25rem;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background 0.15s;
+}
+.heat-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.heat-header:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.heat-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  background: rgba(255, 159, 10, 0.15);
+  color: #ff9f0a;
+}
+.heat-glyph svg {
+  font-size: 1rem;
+}
+
+.heat-title {
+  flex: 1;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.heat-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.heat-current {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  font-variant-numeric: tabular-nums;
+}
+
+.heat-state {
+  font-size: 0.9rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.heat-state.tint {
+  color: #ff9f0a;
+}
+.heat-state.muted {
+  color: rgba(235, 235, 245, 0.5);
+}
+
+.heat-chevron {
+  font-size: 1.1rem;
+  color: rgba(235, 235, 245, 0.4);
+  flex-shrink: 0;
+}
+
+/* Expanded content */
+.heat-content {
+  padding: 0 1.25rem 1.25rem;
+}
+
+.heat-hero {
+  margin-top: -0.25rem;
+}
+
+.heat-hero-value {
+  font-size: clamp(3.5rem, 14vw, 3.9rem);
+  font-weight: 200;
+  line-height: 0.92;
+  letter-spacing: -0.01em;
+}
+
+.heat-hero-deg {
+  font-size: 1.4rem;
+  font-weight: 300;
+  vertical-align: top;
+  margin-left: 0.1rem;
+}
+
+.heat-hero-sub {
+  margin-top: 0.3rem;
+  font-size: 0.82rem;
+  color: rgba(235, 235, 245, 0.3);
+}
+
+/* Alert row - window open while the zone is calling for heat */
+.heat-alert {
+  margin-top: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 14px;
+  background: rgba(255, 69, 58, 0.12);
+  border: 1px solid rgba(255, 69, 58, 0.3);
+  color: #ff6961;
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+.heat-alert svg {
+  font-size: 1.05rem;
+  flex-shrink: 0;
+  color: #ff453a;
+}
+
+/* Target stepper - the card's one real control */
+.heat-stepper {
+  margin-top: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+}
+
+.heat-stepper-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #3a3a3c; /* iOS systemGray4 dark */
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+}
+.heat-stepper-btn svg {
+  font-size: 1.15rem;
+}
+
+.heat-stepper-value {
+  min-width: 3.5rem;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Footer - no explanatory text, just the on/off action, right-aligned */
+.heat-footer {
+  margin-top: 1.1rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.heat-footer-action {
+  background: none;
+  border: none;
+  padding: 0.2rem;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  color: #ff9f0a;
+  text-decoration: underline;
+  cursor: pointer;
+}

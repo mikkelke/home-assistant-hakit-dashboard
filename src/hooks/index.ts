@@ -2,3 +2,4 @@ export { useMediaQuery, useIsMobile, useIsTablet, useIsDesktop } from './useMedi
 export { useModalBackButton } from './useModalBackButton';
 export { useSwipeToClose } from './useSwipeToClose';
 export { useTouchScrollSlopGuard } from './useTouchScrollSlopGuard';
+export { useLocalStorageBoolean } from './useLocalStorageBoolean';

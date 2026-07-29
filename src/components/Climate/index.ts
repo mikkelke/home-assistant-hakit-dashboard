@@ -1,1 +1,0 @@
-export { ClimateCard } from './ClimateCard';

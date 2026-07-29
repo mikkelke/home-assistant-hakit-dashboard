@@ -13,6 +13,7 @@ import {
   SLEEP_PLAN_SENSOR,
   isAcDeployed,
 } from '../../config/entities';
+import { useLocalStorageBoolean, useTouchScrollSlopGuard } from '../../hooks';
 import './TonightCard.css';
 
 // Apple-style "Tonight" card - replaces the old manual AC control surface (AcCard + the
@@ -198,6 +199,9 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
     return () => clearInterval(id);
   }, []);
   const [sheetOpen, setSheetOpen] = useState(false);
+  // Collapsed by default (this card was flagged as too big) - same toggle-row pattern as HeatCard.
+  const [collapsed, setCollapsed] = useLocalStorageBoolean('tonightcard-collapsed', true);
+  const topSlop = useTouchScrollSlopGuard();
 
   const call = useCallback(
     (domain: string, service: string, entityId: string, serviceData?: Record<string, unknown>) => {
@@ -311,182 +315,216 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
 
   return (
     <div className={`tonight-card ${viewState === 'paused' ? 'is-alert' : ''}`}>
-      <div className='tonight-top'>
+      <div
+        className='tonight-top'
+        onClick={() => {
+          if (topSlop.consumeBlockClick()) return;
+          setCollapsed(v => !v);
+        }}
+        onTouchStart={topSlop.onTouchStart}
+        onTouchMove={topSlop.onTouchMove}
+        onTouchEnd={topSlop.onTouchEnd}
+        onTouchCancel={topSlop.onTouchCancel}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setCollapsed(v => !v);
+          }
+        }}
+        role='button'
+        tabIndex={0}
+        aria-expanded={!collapsed}
+      >
         <span className={`tonight-glyph ${viewState === 'paused' ? 'alert' : ''}`}>
           <Icon icon={GLYPH_ICON[viewState]} aria-hidden='true' />
         </span>
         <span className='tonight-title'>Tonight</span>
-        {stateWord && (
-          <span className={`tonight-state ${viewState === 'paused' ? 'alert' : MUTED_STATES.has(viewState) ? 'muted' : 'tint'}`}>
-            {stateWord}
-          </span>
-        )}
+        <span className='tonight-top-right'>
+          <span className='tonight-top-wake'>{Number.isFinite(wakeProjection) ? `${wakeProjection.toFixed(1)}°` : '--°'}</span>
+          {stateWord && (
+            <span className={`tonight-state ${viewState === 'paused' ? 'alert' : MUTED_STATES.has(viewState) ? 'muted' : 'tint'}`}>
+              {stateWord}
+            </span>
+          )}
+          <Icon icon={collapsed ? 'mdi:chevron-down' : 'mdi:chevron-up'} aria-hidden='true' className='tonight-chevron' />
+        </span>
       </div>
 
-      {Number.isFinite(wakeProjection) && (
-        <div className='tonight-hero'>
-          <div className='tonight-hero-value'>
-            {wakeProjection.toFixed(1)}
-            <sup className='tonight-hero-deg'>°</sup>
-          </div>
-          {heroSubParts.length > 0 && <div className='tonight-hero-sub'>{heroSubParts.join(' · ')}</div>}
-        </div>
-      )}
-
-      {ventAlert ? (
-        <div className='tonight-alert'>
-          <Icon icon='mdi:alert' aria-hidden='true' />
-          <span>Open the bathroom window — the condenser can't vent.</span>
-        </div>
-      ) : waitingForUnit ? (
-        <p className='tonight-verdict tonight-verdict--neutral'>Waiting for the unit — is it plugged in?</p>
-      ) : sessionLive ? (
-        <p className='tonight-verdict'>
-          {withMoneyHighlight(
-            `Tonight so far · ${Number.isFinite(sessionKwh) ? `${sessionKwh.toFixed(1)} kWh · ` : ''}${sessionCostKr.toFixed(1)} kr`
-          )}
-        </p>
-      ) : (
-        (verdictTitle || verdictText) && (
-          <p className='tonight-verdict'>
-            {verdictTitle && <strong>{verdictTitle}.</strong>}
-            {verdictTitle && verdictText ? ' ' : ''}
-            {verdictText && withMoneyHighlight(verdictText)}
-          </p>
-        )
-      )}
-
-      {barEndMs != null && nowPct != null && (
-        <div className='tonight-bar-section'>
-          <div className='tonight-bar-track'>
-            {windowsSpan && windowsSpan.width > 0 && (
-              <div
-                className='tonight-bar-segment tonight-bar-segment--windows'
-                style={{ left: `${windowsSpan.left}%`, width: `${windowsSpan.width}%` }}
-              />
-            )}
-            {bedtimeSpan && bedtimeSpan.width > 0 && (
-              <div
-                className='tonight-bar-segment tonight-bar-segment--bedtime'
-                style={{ left: `${bedtimeSpan.left}%`, width: `${bedtimeSpan.width}%` }}
-              />
-            )}
-            {coolSpan && coolSpan.width > 0 && (
-              <div
-                className={`tonight-bar-segment tonight-bar-segment--cool ${coolRunning ? 'is-running' : 'is-future'}`}
-                style={{ left: `${coolSpan.left}%`, width: `${coolSpan.width}%` }}
-              >
-                <span className='tonight-bar-segment-label'>cool</span>
+      {!collapsed && (
+        <>
+          {Number.isFinite(wakeProjection) && (
+            <div className='tonight-hero'>
+              <div className='tonight-hero-value'>
+                {wakeProjection.toFixed(1)}
+                <sup className='tonight-hero-deg'>°</sup>
               </div>
-            )}
-            {dryingSpan && dryingSpan.width > 0 && (
-              <div
-                className='tonight-bar-segment tonight-bar-segment--drying'
-                style={{ left: `${dryingSpan.left}%`, width: `${dryingSpan.width}%` }}
-              />
-            )}
-            <div className='tonight-bar-now-line' style={{ left: `${nowPct}%` }} />
-            <div className='tonight-bar-now-dot' style={{ left: `${nowPct}%` }} />
-          </div>
-          <div className='tonight-bar-ticks'>
-            {coolStartMs != null && (
-              <span className='tonight-bar-tick' style={{ left: `${pctOf(coolStartMs, barStartMs, barEndMs)}%` }}>
-                {formatHHMM(new Date(coolStartMs))}
-              </span>
-            )}
-            {coolEndMs != null && (
-              <span className='tonight-bar-tick' style={{ left: `${pctOf(coolEndMs, barStartMs, barEndMs)}%` }}>
-                {formatHHMM(new Date(coolEndMs))}
-              </span>
-            )}
-            <span className='tonight-bar-tick' style={{ left: `${pctOf(bedtimeStartMs, barStartMs, barEndMs)}%` }}>
-              bed
-            </span>
-            {wakeDate && (
-              <span className='tonight-bar-tick' style={{ left: `${pctOf(wakeDate.getTime(), barStartMs, barEndMs)}%` }}>
-                {formatHHMM(wakeDate)}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
+              {heroSubParts.length > 0 && <div className='tonight-hero-sub'>{heroSubParts.join(' · ')}</div>}
+            </div>
+          )}
 
-      {projNights.length > 0 && (
-        <div className='tonight-strip'>
-          {projNights.map(n => (
-            <div key={n.date} className='tonight-strip-tile'>
-              <span className='tonight-strip-day'>{nightLabel(n.date, today)}</span>
-              <span className='tonight-strip-peak'>{n.peak.toFixed(1)}°</span>
-              {nightIsOver(n) ? (
-                <span className='tonight-strip-tag tonight-strip-tag--ac'>
-                  <Icon icon='mdi:snowflake' aria-hidden='true' /> AC
+          {ventAlert ? (
+            <div className='tonight-alert'>
+              <Icon icon='mdi:alert' aria-hidden='true' />
+              <span>Open the bathroom window — the condenser can't vent.</span>
+            </div>
+          ) : waitingForUnit ? (
+            <p className='tonight-verdict tonight-verdict--neutral'>Waiting for the unit — is it plugged in?</p>
+          ) : sessionLive ? (
+            <p className='tonight-verdict'>
+              {withMoneyHighlight(
+                `Tonight so far · ${Number.isFinite(sessionKwh) ? `${sessionKwh.toFixed(1)} kWh · ` : ''}${sessionCostKr.toFixed(1)} kr`
+              )}
+            </p>
+          ) : (
+            (verdictTitle || verdictText) && (
+              <p className='tonight-verdict'>
+                {verdictTitle && <strong>{verdictTitle}.</strong>}
+                {verdictTitle && verdictText ? ' ' : ''}
+                {verdictText && withMoneyHighlight(verdictText)}
+              </p>
+            )
+          )}
+
+          {barEndMs != null && nowPct != null && (
+            <div className='tonight-bar-section'>
+              <div className='tonight-bar-track'>
+                {windowsSpan && windowsSpan.width > 0 && (
+                  <div
+                    className='tonight-bar-segment tonight-bar-segment--windows'
+                    style={{ left: `${windowsSpan.left}%`, width: `${windowsSpan.width}%` }}
+                  />
+                )}
+                {bedtimeSpan && bedtimeSpan.width > 0 && (
+                  <div
+                    className='tonight-bar-segment tonight-bar-segment--bedtime'
+                    style={{ left: `${bedtimeSpan.left}%`, width: `${bedtimeSpan.width}%` }}
+                  />
+                )}
+                {coolSpan && coolSpan.width > 0 && (
+                  <div
+                    className={`tonight-bar-segment tonight-bar-segment--cool ${coolRunning ? 'is-running' : 'is-future'}`}
+                    style={{ left: `${coolSpan.left}%`, width: `${coolSpan.width}%` }}
+                  >
+                    <span className='tonight-bar-segment-label'>cool</span>
+                  </div>
+                )}
+                {dryingSpan && dryingSpan.width > 0 && (
+                  <div
+                    className='tonight-bar-segment tonight-bar-segment--drying'
+                    style={{ left: `${dryingSpan.left}%`, width: `${dryingSpan.width}%` }}
+                  />
+                )}
+                <div className='tonight-bar-now-line' style={{ left: `${nowPct}%` }} />
+                <div className='tonight-bar-now-dot' style={{ left: `${nowPct}%` }} />
+              </div>
+              <div className='tonight-bar-ticks'>
+                {coolStartMs != null && (
+                  <span className='tonight-bar-tick' style={{ left: `${pctOf(coolStartMs, barStartMs, barEndMs)}%` }}>
+                    {formatHHMM(new Date(coolStartMs))}
+                  </span>
+                )}
+                {coolEndMs != null && (
+                  <span className='tonight-bar-tick' style={{ left: `${pctOf(coolEndMs, barStartMs, barEndMs)}%` }}>
+                    {formatHHMM(new Date(coolEndMs))}
+                  </span>
+                )}
+                <span className='tonight-bar-tick' style={{ left: `${pctOf(bedtimeStartMs, barStartMs, barEndMs)}%` }}>
+                  bed
                 </span>
-              ) : (
-                <span className='tonight-strip-tag tonight-strip-tag--windows'>
-                  <Icon icon='mdi:window-open-variant' aria-hidden='true' /> windows
-                </span>
+                {wakeDate && (
+                  <span className='tonight-bar-tick' style={{ left: `${pctOf(wakeDate.getTime(), barStartMs, barEndMs)}%` }}>
+                    {formatHHMM(wakeDate)}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {projNights.length > 0 && (
+            <div className='tonight-strip'>
+              {projNights.map(n => (
+                <div key={n.date} className='tonight-strip-tile'>
+                  <span className='tonight-strip-day'>{nightLabel(n.date, today)}</span>
+                  <span className='tonight-strip-peak'>{n.peak.toFixed(1)}°</span>
+                  {nightIsOver(n) ? (
+                    <span className='tonight-strip-tag tonight-strip-tag--ac'>
+                      <Icon icon='mdi:snowflake' aria-hidden='true' /> AC
+                    </span>
+                  ) : (
+                    <span className='tonight-strip-tag tonight-strip-tag--windows'>
+                      <Icon icon='mdi:window-open-variant' aria-hidden='true' /> windows
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {buttonKind === 'cool_tonight' && (
+            <button
+              type='button'
+              className='tonight-button tonight-button--tint'
+              onClick={() => call('input_boolean', 'turn_on', SMART_COOLING_ENABLE)}
+            >
+              Cool Tonight
+            </button>
+          )}
+          {buttonKind === 'going_to_bed' && (
+            <button
+              type='button'
+              className='tonight-button tonight-button--indigo'
+              onClick={() => call('input_boolean', 'turn_on', SMART_COOLING_AC_REMOVED)}
+            >
+              <span>Going to Bed</span>
+              <small>stops the AC — unplug after</small>
+            </button>
+          )}
+          {buttonKind === 'nothing_to_do' && (
+            <div className='tonight-quiet-row'>
+              <span>Nothing to do — it runs itself.</span>
+              <button
+                type='button'
+                className='tonight-quiet-action'
+                onClick={() => call('input_boolean', 'turn_off', SMART_COOLING_ENABLE)}
+              >
+                Turn Off
+              </button>
+            </div>
+          )}
+
+          {hasLastNight && <div className='tonight-footer'>{withMoneyHighlight(lastNightParts.join(' · '))}</div>}
+
+          <button type='button' className='tonight-sheet-toggle' onClick={() => setSheetOpen(v => !v)} aria-expanded={sheetOpen}>
+            <span>How tonight works</span>
+            <Icon icon={sheetOpen ? 'mdi:chevron-up' : 'mdi:chevron-down'} aria-hidden='true' />
+          </button>
+
+          {sheetOpen && (
+            <div className='tonight-sheet'>
+              <SheetRow label='Cools about' value={`${Number.isFinite(coolCph) ? coolCph.toFixed(1) : '1.9'}° per hour`} />
+              {Number.isFinite(feasibleFloor) && <SheetRow label='Floor bottoms out' value={`~${feasibleFloor.toFixed(1)}°`} />}
+              <SheetRow label='A degree deeper at bedtime' value='0.73° cooler wake' />
+              <SheetRow
+                label='Draws'
+                value={`${Number.isFinite(coolPower) ? coolPower.toFixed(2) : '0.87'} kW · costs from your plug meter`}
+              />
+              {ceilingEntity && (
+                <div className='tonight-sheet-row'>
+                  <span className='tonight-sheet-row-label'>Warmest wake-up you'll accept</span>
+                  <div className='tonight-stepper'>
+                    <button type='button' className='tonight-stepper-btn' onClick={() => adjustCeiling(-0.5)} aria-label='Lower ceiling'>
+                      <Icon icon='mdi:minus' />
+                    </button>
+                    <span className='tonight-stepper-value'>{Number.isFinite(ceilingValue) ? `${ceilingValue.toFixed(1)}°` : '--'}</span>
+                    <button type='button' className='tonight-stepper-btn' onClick={() => adjustCeiling(0.5)} aria-label='Raise ceiling'>
+                      <Icon icon='mdi:plus' />
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
-          ))}
-        </div>
-      )}
-
-      {buttonKind === 'cool_tonight' && (
-        <button
-          type='button'
-          className='tonight-button tonight-button--tint'
-          onClick={() => call('input_boolean', 'turn_on', SMART_COOLING_ENABLE)}
-        >
-          Cool Tonight
-        </button>
-      )}
-      {buttonKind === 'going_to_bed' && (
-        <button
-          type='button'
-          className='tonight-button tonight-button--indigo'
-          onClick={() => call('input_boolean', 'turn_on', SMART_COOLING_AC_REMOVED)}
-        >
-          <span>Going to Bed</span>
-          <small>stops the AC — unplug after</small>
-        </button>
-      )}
-      {buttonKind === 'nothing_to_do' && (
-        <div className='tonight-quiet-row'>
-          <span>Nothing to do — it runs itself.</span>
-          <button type='button' className='tonight-quiet-action' onClick={() => call('input_boolean', 'turn_off', SMART_COOLING_ENABLE)}>
-            Turn Off
-          </button>
-        </div>
-      )}
-
-      {hasLastNight && <div className='tonight-footer'>{withMoneyHighlight(lastNightParts.join(' · '))}</div>}
-
-      <button type='button' className='tonight-sheet-toggle' onClick={() => setSheetOpen(v => !v)} aria-expanded={sheetOpen}>
-        <span>How tonight works</span>
-        <Icon icon={sheetOpen ? 'mdi:chevron-up' : 'mdi:chevron-down'} aria-hidden='true' />
-      </button>
-
-      {sheetOpen && (
-        <div className='tonight-sheet'>
-          <SheetRow label='Cools about' value={`${Number.isFinite(coolCph) ? coolCph.toFixed(1) : '1.9'}° per hour`} />
-          {Number.isFinite(feasibleFloor) && <SheetRow label='Floor bottoms out' value={`~${feasibleFloor.toFixed(1)}°`} />}
-          <SheetRow label='A degree deeper at bedtime' value='0.73° cooler wake' />
-          <SheetRow label='Draws' value={`${Number.isFinite(coolPower) ? coolPower.toFixed(2) : '0.87'} kW · costs from your plug meter`} />
-          {ceilingEntity && (
-            <div className='tonight-sheet-row'>
-              <span className='tonight-sheet-row-label'>Warmest wake-up you'll accept</span>
-              <div className='tonight-stepper'>
-                <button type='button' className='tonight-stepper-btn' onClick={() => adjustCeiling(-0.5)} aria-label='Lower ceiling'>
-                  <Icon icon='mdi:minus' />
-                </button>
-                <span className='tonight-stepper-value'>{Number.isFinite(ceilingValue) ? `${ceilingValue.toFixed(1)}°` : '--'}</span>
-                <button type='button' className='tonight-stepper-btn' onClick={() => adjustCeiling(0.5)} aria-label='Raise ceiling'>
-                  <Icon icon='mdi:plus' />
-                </button>
-              </div>
-            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );
