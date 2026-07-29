@@ -132,10 +132,8 @@ export const DRYER_ANNOUNCE_BOOLEAN = 'input_boolean.dryer_announce';
 export const AC_THERMOSTAT_ENTITY = 'climate.air_conditioner_thermostat';
 
 /** Rich device status; attributes expose outdoor_temperature (bathroom/condenser side) and pmv (comfort). */
-export const AC_DEVICE_STATUS_ENTITY = 'binary_sensor.air_conditioner_device_status';
 
 /** Live power draw in W. */
-export const AC_POWER_SENSOR = 'sensor.air_conditioner_real_time_power';
 
 /** Window that must be OPEN while cooling, so the condenser (in the bathroom) can vent its heat. */
 export const AC_VENT_WINDOW_SENSOR = 'binary_sensor.bathroom_window_contact';
@@ -145,7 +143,6 @@ export const AC_VENT_WINDOW_SENSOR = 'binary_sensor.bathroom_window_contact';
  * see if the bathroom is overheating. (Use this real room temp, NOT the AC's `outdoor_temperature`
  * attribute, which is the condenser unit's own sensor and reads hotter than the room.)
  */
-export const AC_VENT_ROOM_CLIMATE = 'climate.bathroom_thermostat';
 
 /**
  * Room temperature shown on the card. The AC's own `current_temperature` is its intake-air
@@ -184,6 +181,15 @@ export const BEDROOM_COMFORT_SENSOR = 'sensor.bedroom_comfort';
 
 /** AC deploy advisor (AppDaemon DeployAdvisor): projected sleeping-zone night peaks without cooling. */
 export const BEDROOM_NIGHT_PROJECTION_SENSOR = 'sensor.bedroom_night_projection';
+
+/** Warmest wake-up temperature (°C) the SmartCooling automation is allowed to settle for. The
+ * Tonight card's only interactive control besides the master on/off (input_number, 20-26, 0.5 step). */
+export const SMART_COOLING_NIGHT_CEILING = 'input_number.smart_cooling_night_ceiling';
+
+/** Tonight's recommendation (state: windows/hybrid/ac/nothing) + wake projection/time + the
+ * one-voice verdict (verdict_title/verdict_text) shared by the Tonight card, push notifications,
+ * and the rescue flow - so they never say three different things about the same night. */
+export const SLEEP_PLAN_SENSOR = 'sensor.sleep_plan';
 
 /** Entry arbitration middle layer (AppDaemon EntryTruth): BLE-authoritative lock + door fused, cloud_agrees flag. */
 export const APARTMENT_ENTRY_SECURE_ENTITY = 'binary_sensor.apartment_entry_secure';

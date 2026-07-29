@@ -3,7 +3,7 @@ import { Icon } from '@iconify/react';
 import type { RoomDetailProps } from '../../types';
 import { SonosPlayer, TVCard } from '../MediaPlayer';
 import { ClimateCard } from '../Climate';
-import { CoolingModule } from '../AC';
+import { TonightCard } from '../AC';
 import { CoverCard } from '../Cover';
 import { VacuumCard, RoomCleaningToggle } from '../Vacuum';
 import { LightCard } from '../Light';
@@ -220,9 +220,9 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
           </button>
         )}
 
-        {/* Cooling — one fold-out module: comfort layer + night projection (always)
-            plus the AC + SmartCooling cards while the unit is deployed. */}
-        {isBedroom && <CoolingModule entities={entities} callService={callService} />}
+        {/* Tonight — Apple-style card covering tonight's cooling plan (wake projection, night
+            bar, three-day strip, and the single Cool Tonight / Going to Bed control surface). */}
+        {isBedroom && <TonightCard entities={entities} callService={callService} />}
 
         {/* Climate Card */}
         {climate && <ClimateCard areaName={area.name} entities={entities} callService={callService} />}

@@ -79,6 +79,20 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
     [hours, minutes, handleTimeChange]
   );
 
+  // "Wake up now": starts the whole wake sequence immediately (lights ramp, covers,
+  // radio) and counts as the wake moment for the morning briefing. Backed by
+  // input_button.wake_up_now -- only rendered where that helper exists.
+  const wakeNowId = 'input_button.wake_up_now';
+  const wakeNowEntity = entities?.[wakeNowId];
+  const handleWakeNow = useCallback(() => {
+    if (!callService || !wakeNowEntity) return;
+    callService({
+      domain: 'input_button',
+      service: 'press',
+      target: { entity_id: wakeNowId },
+    });
+  }, [callService, wakeNowEntity]);
+
   if (!hasAlarmEntities) return null;
 
   return (
@@ -104,6 +118,13 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
       </div>
 
       {/* Time Editor */}
+      {wakeNowEntity && !isEditing && (
+        <button className='wake-now-btn' onClick={handleWakeNow}>
+          <Icon icon='mdi:weather-sunset-up' />
+          Wake up now
+        </button>
+      )}
+
       {isEditing && (
         <div className='alarm-editor'>
           <div className='time-picker'>

@@ -1,0 +1,406 @@
+/* Tonight card - deliberately Apple-styled (iOS grouped look), distinct from the rest of this
+   app's palette on purpose: system font stack, one cyan tint, real iOS dark System Gray surfaces.
+   Dark-only - this app has no light theme (see index.css: color-scheme: dark). */
+
+.tonight-card {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  background: #1c1c1e; /* iOS systemGray6 dark */
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+  padding: 1.25rem;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.tonight-card.is-alert {
+  border-color: rgba(255, 69, 58, 0.4);
+}
+
+/* Top row */
+.tonight-top {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.tonight-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  background: rgba(100, 210, 255, 0.15);
+  color: #64d2ff;
+}
+.tonight-glyph svg {
+  font-size: 1rem;
+}
+.tonight-glyph.alert {
+  background: rgba(255, 69, 58, 0.15);
+  color: #ff453a;
+}
+
+.tonight-title {
+  flex: 1;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.tonight-state {
+  font-size: 0.9rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.tonight-state.tint {
+  color: #64d2ff;
+}
+.tonight-state.muted {
+  color: rgba(235, 235, 245, 0.5);
+}
+.tonight-state.alert {
+  color: #ff453a;
+}
+
+/* Hero */
+.tonight-hero {
+  margin-top: 0.9rem;
+}
+
+.tonight-hero-value {
+  font-size: clamp(3.5rem, 14vw, 3.9rem);
+  font-weight: 200;
+  line-height: 0.92;
+  letter-spacing: -0.01em;
+}
+
+.tonight-hero-deg {
+  font-size: 1.4rem;
+  font-weight: 300;
+  vertical-align: top;
+  margin-left: 0.1rem;
+}
+
+.tonight-hero-sub {
+  margin-top: 0.3rem;
+  font-size: 0.82rem;
+  color: rgba(235, 235, 245, 0.3);
+}
+
+/* Verdict sentence */
+.tonight-verdict {
+  margin-top: 0.85rem;
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  color: rgba(235, 235, 245, 0.6);
+}
+.tonight-verdict strong {
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 600;
+}
+.tonight-verdict--neutral {
+  color: rgba(235, 235, 245, 0.6);
+}
+
+.tonight-money {
+  color: #ff9f0a;
+  font-weight: 600;
+}
+
+/* Alert row - replaces the verdict sentence when relevant */
+.tonight-alert {
+  margin-top: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 14px;
+  background: rgba(255, 69, 58, 0.12);
+  border: 1px solid rgba(255, 69, 58, 0.3);
+  color: #ff6961;
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+.tonight-alert svg {
+  font-size: 1.05rem;
+  flex-shrink: 0;
+  color: #ff453a;
+}
+
+/* Night bar */
+.tonight-bar-section {
+  margin-top: 1.1rem;
+}
+
+.tonight-bar-track {
+  position: relative;
+  height: 36px;
+  border-radius: 18px;
+  background: #2c2c2e; /* iOS systemGray5 dark */
+}
+
+.tonight-bar-segment {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.tonight-bar-segment--windows {
+  background: rgba(48, 209, 88, 0.28);
+}
+
+.tonight-bar-segment--bedtime {
+  background: rgba(125, 122, 255, 0.32);
+}
+
+.tonight-bar-segment--drying {
+  background: rgba(100, 210, 255, 0.35);
+}
+
+.tonight-bar-segment--cool {
+  background: linear-gradient(90deg, #2f9bc9, #64d2ff);
+  transition: opacity 0.2s;
+}
+.tonight-bar-segment--cool.is-future {
+  opacity: 0.45;
+}
+.tonight-bar-segment--cool.is-running {
+  opacity: 1;
+}
+
+.tonight-bar-segment-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: rgba(0, 0, 0, 0.55);
+  white-space: nowrap;
+}
+
+.tonight-bar-now-line {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+.tonight-bar-now-dot {
+  position: absolute;
+  top: -4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  box-shadow: 0 0 0 2px #1c1c1e;
+}
+
+.tonight-bar-ticks {
+  position: relative;
+  height: 0.9rem;
+  margin-top: 0.4rem;
+}
+
+.tonight-bar-tick {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 0.6875rem;
+  color: rgba(235, 235, 245, 0.3);
+  white-space: nowrap;
+}
+
+/* Three-day strip */
+.tonight-strip {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.1rem;
+}
+
+.tonight-strip-tile {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.6rem 0.4rem;
+  background: #2c2c2e;
+  border-radius: 14px;
+}
+
+.tonight-strip-day {
+  font-size: 0.75rem;
+  color: rgba(235, 235, 245, 0.6);
+}
+
+.tonight-strip-peak {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.tonight-strip-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+.tonight-strip-tag svg {
+  font-size: 0.75rem;
+}
+.tonight-strip-tag--ac {
+  background: rgba(100, 210, 255, 0.18);
+  color: #64d2ff;
+}
+.tonight-strip-tag--windows {
+  background: rgba(48, 209, 88, 0.18);
+  color: #30d158;
+}
+
+/* Buttons - the whole control surface, at most one shown at a time */
+.tonight-button {
+  width: 100%;
+  margin-top: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.85rem 1rem;
+  border: none;
+  border-radius: 16px;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ffffff;
+  cursor: pointer;
+}
+.tonight-button--tint {
+  background: #64d2ff;
+}
+.tonight-button--indigo {
+  background: #7d7aff;
+}
+.tonight-button small {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.tonight-quiet-row {
+  margin-top: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.6rem 0.1rem;
+  font-size: 0.875rem;
+  color: rgba(235, 235, 245, 0.6);
+}
+
+.tonight-quiet-action {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 0.2rem;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  color: #64d2ff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Footer receipt */
+.tonight-footer {
+  margin-top: 1.1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.8125rem;
+  color: rgba(235, 235, 245, 0.6);
+}
+
+/* Collapsible "How tonight works" sheet */
+.tonight-sheet-toggle {
+  width: 100%;
+  margin-top: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: none;
+  border: none;
+  padding: 0.6rem 0.1rem 0;
+  font-family: inherit;
+  font-size: 0.875rem;
+  color: rgba(235, 235, 245, 0.6);
+  cursor: pointer;
+}
+
+.tonight-sheet {
+  display: flex;
+  flex-direction: column;
+}
+
+.tonight-sheet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tonight-sheet-row-label {
+  font-size: 0.875rem;
+  color: rgba(235, 235, 245, 0.6);
+}
+
+.tonight-sheet-row-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.tonight-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.tonight-stepper-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: #3a3a3c; /* iOS systemGray4 dark */
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+}
+.tonight-stepper-btn svg {
+  font-size: 0.85rem;
+}
+
+.tonight-stepper-value {
+  min-width: 2.75rem;
+  text-align: center;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
