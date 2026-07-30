@@ -311,16 +311,10 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   // Running on commit-margin outside any planned window ends the block at the now-line -
   // the plan's own windows carry the rest of the story.
   const runEndMs =
-    runStartMs != null
-      ? Math.max(planWindows.length ? (nowPlanWindow?.endMs ?? nowMs) : nowMs + remainMs, runStartMs)
-      : null;
+    runStartMs != null ? Math.max(planWindows.length ? (nowPlanWindow?.endMs ?? nowMs) : nowMs + remainMs, runStartMs) : null;
   const fallbackFutureDate = !coolRunning && planWindows.length === 0 ? parseTimeAttr(statusAttrs.next_start, barStartMs) : null;
   const fallbackFutureMs = fallbackFutureDate ? fallbackFutureDate.getTime() : null;
   const fallbackFutureEndMs = fallbackFutureMs != null && remainMs > 0 ? fallbackFutureMs + remainMs : null;
-  // Hold anchors at the end of the FIRST cool stretch still relevant tonight - planned
-  // pauses between windows then read as hold underlay, which is exactly what they are.
-  const coolEndMs = runEndMs ?? futureWindows[0]?.endMs ?? fallbackFutureEndMs ?? null;
-
   const coolSegs: { span: Span; cls: string; key: string }[] =
     barEndMs == null
       ? []
@@ -334,9 +328,9 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
           ...futureWindows
             .map((w, i) => ({ span: spanPct(w.startMs, w.endMs, barStartMs, barEndMs), cls: 'is-future', key: `future-${i}` }))
             .filter((s): s is { span: Span; cls: string; key: string } => s.span != null && s.span.width > 0),
-          ...[{ span: spanPct(fallbackFutureMs, fallbackFutureEndMs, barStartMs, barEndMs), cls: 'is-future', key: 'future-fallback' }].filter(
-            (s): s is { span: Span; cls: string; key: string } => s.span != null && s.span.width > 0
-          ),
+          ...[
+            { span: spanPct(fallbackFutureMs, fallbackFutureEndMs, barStartMs, barEndMs), cls: 'is-future', key: 'future-fallback' },
+          ].filter((s): s is { span: Span; cls: string; key: string } => s.span != null && s.span.width > 0),
         ];
   // One "cool" label on the widest segment - three labelled slivers would just collide.
   const coolLabelKey = coolSegs.length ? coolSegs.reduce((a, b) => (b.span.width > a.span.width ? b : a)).key : null;
@@ -370,21 +364,38 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
 
   // Hold phase (user 2026-07-30): after the main pull the room re-warms (~1.5°/h against a
   // summer-warm apartment), so the AC keeps topping up until bedtime -- without drawing it
-  // the bar implies "done" at the cool block's end. Starts where the cool block ends (or now,
-  // when armed and already at target with nothing booked), ends at bedtime. Display only:
-  // the top-ups are the planner's normal re-evaluations, not a separate program.
+  // the bar implies "done" at the cool block's end. Rendered as EXPLICIT gap pills between
+  // the cool blocks (never one faint underlay painted over: its centered "hold" label
+  // landed on top of the second planned run, and its 0.16-alpha wings vanished on the dark
+  // card -- user 2026-07-30: "the hold still looks like it is in the wrong time"). Only
+  // cool blocks INSIDE the bar anchor the first gap (a pre-bar morning burp must not drag
+  // hold to the left edge); armed-idle with nothing booked holds from now.
   const armedHolding = armed && (statusState === 'idle' || statusState === 'drying');
-  // With history, hold anchors where the day's first pull-down finished (top-up bursts paint
-  // over it) - but only cool blocks INSIDE the bar may anchor it: a pre-bar morning burp
-  // would drag the segment (and its "hold" label) to the left edge, buried under the cool
-  // block (user 2026-07-30: "cannot see holding anymore"). While the main run is still
-  // going, hold starts at its projected end, exactly like the pre-history bar.
   const firstDoneEndInBarMs = doneIntervals.find(iv => iv.endMs > barStartMs)?.endMs ?? null;
-  const holdStartMs = firstDoneEndInBarMs ?? coolEndMs ?? (armedHolding ? nowMs : null);
-  const holdSpan =
-    barEndMs != null && holdStartMs != null && holdStartMs < bedtimeStartMs
-      ? spanPct(holdStartMs, bedtimeStartMs, barStartMs, barEndMs)
-      : null;
+  const orderedCoolBlocks = [
+    ...(runStartMs != null && runEndMs != null ? [{ s: runStartMs, e: runEndMs }] : []),
+    ...futureWindows.map(w => ({ s: w.startMs, e: w.endMs })),
+    ...(fallbackFutureMs != null && fallbackFutureEndMs != null ? [{ s: fallbackFutureMs, e: fallbackFutureEndMs }] : []),
+  ].sort((a, b) => a.s - b.s);
+  const holdAnchorMs = firstDoneEndInBarMs ?? orderedCoolBlocks[0]?.e ?? (armedHolding ? nowMs : null);
+  const holdSpans: Span[] = [];
+  if (barEndMs != null && holdAnchorMs != null) {
+    let cur = holdAnchorMs;
+    for (const blk of orderedCoolBlocks) {
+      if (blk.e <= cur) continue;
+      if (blk.s > cur && cur < bedtimeStartMs) {
+        const s = spanPct(cur, Math.min(blk.s, bedtimeStartMs), barStartMs, barEndMs);
+        if (s && s.width > 0) holdSpans.push(s);
+      }
+      cur = Math.max(cur, blk.e);
+    }
+    if (cur < bedtimeStartMs) {
+      const s = spanPct(cur, bedtimeStartMs, barStartMs, barEndMs);
+      if (s && s.width > 0) holdSpans.push(s);
+    }
+  }
+  // Label the widest gap only - a 15-min sliver can't fit the word anyway.
+  const holdLabelIdx = holdSpans.length ? holdSpans.reduce((bi, s, i, arr) => (s.width > arr[bi].width ? i : bi), 0) : -1;
 
   // Three-day strip - same stale-night guard as the retired CoolingModule (the advisor's sparse
   // eval schedule can leave yesterday's night in the sensor until its next morning run).
@@ -503,14 +514,15 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
                     <span className='tonight-bar-segment-label'>bedtime</span>
                   </div>
                 )}
-                {holdSpan && holdSpan.width > 0 && (
+                {holdSpans.map((s, i) => (
                   <div
+                    key={`hold-${i}`}
                     className='tonight-bar-segment tonight-bar-segment--hold'
-                    style={{ left: `${holdSpan.left}%`, width: `${holdSpan.width}%` }}
+                    style={{ left: `${s.left}%`, width: `${s.width}%` }}
                   >
-                    <span className='tonight-bar-segment-label'>hold</span>
+                    {i === holdLabelIdx && <span className='tonight-bar-segment-label'>hold</span>}
                   </div>
-                )}
+                ))}
                 {coolSegs.map(seg => (
                   <div
                     key={seg.key}
