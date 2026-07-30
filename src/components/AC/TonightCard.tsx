@@ -264,7 +264,18 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   // Hero: wake projection + wake time (both new sleep_plan attrs) - hide the whole hero line
   // gracefully if the headline number isn't published yet.
   const wakeProjection = attrNum(sleepPlanAttrs.wake_projection, NaN);
-  const barStartMs = atHour(now, BAR_START_HOUR).getTime();
+  const nowMs = now.getTime();
+  // Day history (user 2026-07-30: "keep the history ... how the day have been"), filtered to
+  // TODAY - the backend prunes at 24h, so yesterday's evening runs linger until tonight; the
+  // bar and its schedule are a today story.
+  const dayStartMs = atHour(now, 0).getTime();
+  const coolIntervals = parseCoolIntervals(statusAttrs.cool_intervals_today).filter(iv => iv.startMs >= dayStartMs);
+  const doneIntervals = coolIntervals.filter((iv): iv is { startMs: number; endMs: number } => iv.endMs != null && iv.endMs > iv.startMs);
+  const openInterval = coolIntervals.find(iv => iv.endMs == null) ?? null;
+  // The bar's left edge adapts: normally 10:00, earlier when the unit already ran before
+  // that (user 2026-07-30: the 08:37 morning run sat in the schedule but off the bar -
+  // everything in the schedule must be ON the bar).
+  const barStartMs = Math.min(atHour(now, BAR_START_HOUR).getTime(), ...coolIntervals.map(iv => iv.startMs));
   const wakeDate = parseTimeAttr(sleepPlanAttrs.wake_at, barStartMs);
   const wakeMs = wakeDate ? wakeDate.getTime() : null;
   const roomNowTemp = attrNum(entities?.[AC_ROOM_TEMP_SENSOR]?.state, NaN);
@@ -285,16 +296,7 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   // Night bar - needs a real wake time to anchor its right edge; the whole section is omitted
   // without one (never guess a fallback end time - that's scheduling, not a published number).
   const barEndMs = wakeMs != null ? wakeMs + BAR_END_PADDING_MS : null;
-  const nowMs = now.getTime();
   const nowPct = barEndMs != null ? pctOf(nowMs, barStartMs, barEndMs) : null;
-
-  // Day history (user 2026-07-30: "keep the history ... so we can see how the day have been"):
-  // closed intervals stay on the bar as done segments, the open one anchors the running block
-  // at its REAL start instead of `now`, and only the not-yet-started plan renders as future -
-  // so finishing a phase no longer erases it from the day.
-  const coolIntervals = parseCoolIntervals(statusAttrs.cool_intervals_today);
-  const doneIntervals = coolIntervals.filter((iv): iv is { startMs: number; endMs: number } => iv.endMs != null && iv.endMs > iv.startMs);
-  const openInterval = coolIntervals.find(iv => iv.endMs == null) ?? null;
 
   const coolRunning = ACTIVE_COOLING_STATES.has(statusState);
   const minutesNeeded = attrNum(statusAttrs.minutes_needed, NaN);
@@ -317,49 +319,83 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   const fallbackFutureDate = !coolRunning && planWindows.length === 0 ? parseTimeAttr(statusAttrs.next_start, barStartMs) : null;
   const fallbackFutureMs = fallbackFutureDate ? fallbackFutureDate.getTime() : null;
   const fallbackFutureEndMs = fallbackFutureMs != null && remainMs > 0 ? fallbackFutureMs + remainMs : null;
-  // ONE program envelope instead of per-fragment pills (user 2026-07-30 "why is it three
-  // bubbles": sub-hour fragments each drawn as a full pill read as noise at ~18px/hour).
-  // Everything the AC did or will do today merges into one cool pill, first start to last
-  // planned end; deliberate pauses >= 30 min render as quiet notches INSIDE it. Exact
-  // times live in the tap-open schedule under the bar.
-  const MIN_PAUSE_MS = 30 * 60_000;
-  const rawBlocks = [
-    ...doneIntervals.map(iv => ({ s: iv.startMs, e: iv.endMs })),
-    ...(runStartMs != null && runEndMs != null ? [{ s: runStartMs, e: runEndMs }] : []),
-    ...futureWindows.map(w => ({ s: w.startMs, e: w.endMs })),
-    ...(fallbackFutureMs != null && fallbackFutureEndMs != null ? [{ s: fallbackFutureMs, e: fallbackFutureEndMs }] : []),
+  // THE BAR = ONE continuous strip of flat-joined sections (Apple sleep-stages grammar;
+  // user 2026-07-30, after three rounds of pill artifacts: "think Apple"). Phases butt each
+  // other, the rounded track clips the outer ends, tiny stretches degrade to thin stripes
+  // instead of bubbles - and the tap-open schedule is generated FROM these same sections,
+  // so the bar and the schedule can never disagree again.
+  const MIN_GAP_MS = 10 * 60_000; // off-gaps shorter than this merge into the cool around them
+  type SectionKind = 'cool-done' | 'cool-running' | 'cool-future' | 'hold' | 'bedtime' | 'windows';
+  const blocks: { s: number; e: number; kind: SectionKind }[] = [
+    ...doneIntervals.map(iv => ({ s: iv.startMs, e: iv.endMs, kind: 'cool-done' as const })),
+    ...(runStartMs != null && runEndMs != null && runEndMs > runStartMs
+      ? [{ s: runStartMs, e: runEndMs, kind: 'cool-running' as const }]
+      : []),
+    ...futureWindows.map(w => ({ s: w.startMs, e: w.endMs, kind: 'cool-future' as const })),
+    ...(fallbackFutureMs != null && fallbackFutureEndMs != null
+      ? [{ s: fallbackFutureMs, e: fallbackFutureEndMs, kind: 'cool-future' as const }]
+      : []),
   ].sort((a, b) => a.s - b.s);
-  const coolBlocks: { s: number; e: number }[] = [];
-  for (const b of rawBlocks) {
-    const last = coolBlocks[coolBlocks.length - 1];
-    if (last && b.s <= last.e + 60_000) last.e = Math.max(last.e, b.e);
-    else coolBlocks.push({ ...b });
+  // Butt sliver gaps closed (a 2-min compressor transition must not fragment the story) and
+  // clamp overlaps so consecutive blocks always tile.
+  for (let i = 1; i < blocks.length; i++) {
+    const gap = blocks[i].s - blocks[i - 1].e;
+    if (gap > 0 && gap < MIN_GAP_MS) blocks[i - 1].e = blocks[i].s;
+    else if (gap < 0) blocks[i].s = Math.min(blocks[i - 1].e, blocks[i].e);
   }
-  const progStartMs = coolBlocks.length ? coolBlocks[0].s : null;
-  const progEndMs = coolBlocks.length ? coolBlocks[coolBlocks.length - 1].e : null;
-  const progSpan = barEndMs != null ? spanPct(progStartMs, progEndMs, barStartMs, barEndMs) : null;
-  const progCls = coolRunning ? 'is-running' : progEndMs != null && progEndMs <= nowMs ? 'is-done' : 'is-future';
-  const pauseTimes: { s: number; e: number }[] = [];
-  for (let i = 0; i + 1 < coolBlocks.length; i++) {
-    if (coolBlocks[i + 1].s - coolBlocks[i].e >= MIN_PAUSE_MS) pauseTimes.push({ s: coolBlocks[i].e, e: coolBlocks[i + 1].s });
-  }
-  const pauseSpans =
-    barEndMs == null ? [] : pauseTimes.map(p => spanPct(p.s, p.e, barStartMs, barEndMs)).filter((s): s is Span => s != null && s.width > 0);
+  const dayBlocks = blocks.filter(b => b.e > b.s);
+  const progStartMs = dayBlocks.length ? dayBlocks[0].s : null;
+  const progEndMs = dayBlocks.length ? dayBlocks[dayBlocks.length - 1].e : null;
 
-  const dryingNowPct = barEndMs != null && statusState === 'drying' ? pctOf(nowMs, barStartMs, barEndMs) : null;
-  const dryingSpan: Span | null = dryingNowPct != null ? { left: dryingNowPct, width: Math.min(4, 100 - dryingNowPct) } : null;
-
+  const armedHolding = armed && (statusState === 'idle' || statusState === 'drying');
   const openWindows = attrStringArray(sleepPlanAttrs.open_windows);
   const isWindowDay = (rec === 'windows' || rec === 'nothing') && openWindows.length > 0;
   const windowsCutoffMs = atHour(now, WINDOWS_CUTOFF_HOUR).getTime();
-  const windowsSpan = barEndMs != null && isWindowDay ? spanPct(barStartMs, windowsCutoffMs, barStartMs, barEndMs) : null;
-
   // Bedtime boundary comes from the backend (sleep_plan bedtime_at = wake minus the sleep
   // window the plan protects); the card-side 23:00 constant is only the degrade for a
   // pre-attr backend (user 2026-07-30: the bar's invented bedtime and the plan drifted).
   const bedtimeDate = parseTimeAttr(sleepPlanAttrs.bedtime_at, barStartMs);
   const bedtimeStartMs = bedtimeDate ? bedtimeDate.getTime() : atHour(now, BEDTIME_HOUR).getTime();
-  const bedtimeSpan = barEndMs != null ? spanPct(bedtimeStartMs, wakeMs, barStartMs, barEndMs) : null;
+
+  const sections: { s: number; e: number; kind: SectionKind }[] = [];
+  if (isWindowDay && dayBlocks.length === 0) {
+    sections.push({ s: barStartMs, e: Math.min(windowsCutoffMs, bedtimeStartMs), kind: 'windows' });
+  }
+  for (let i = 0; i < dayBlocks.length; i++) {
+    sections.push(dayBlocks[i]);
+    const next = dayBlocks[i + 1];
+    if (next && next.s > dayBlocks[i].e) sections.push({ s: dayBlocks[i].e, e: next.s, kind: 'hold' });
+  }
+  // Tail: last cool -> bedtime is hold; a sub-threshold tail rounds into the last cool.
+  if (progEndMs != null && progEndMs < bedtimeStartMs) {
+    if (bedtimeStartMs - progEndMs >= MIN_GAP_MS) sections.push({ s: progEndMs, e: bedtimeStartMs, kind: 'hold' });
+    else sections[sections.length - 1].e = bedtimeStartMs;
+  } else if (dayBlocks.length === 0 && armedHolding && nowMs < bedtimeStartMs) {
+    sections.push({ s: nowMs, e: bedtimeStartMs, kind: 'hold' });
+  }
+  if (wakeMs != null && wakeMs > bedtimeStartMs) sections.push({ s: bedtimeStartMs, e: wakeMs, kind: 'bedtime' });
+
+  const LABEL_MIN_PCT = 6;
+  const secSpans =
+    barEndMs == null
+      ? []
+      : sections
+          .map(sec => ({ ...sec, span: spanPct(sec.s, sec.e, barStartMs, barEndMs) }))
+          .filter((x): x is { s: number; e: number; kind: SectionKind; span: Span } => x.span != null && x.span.width > 0);
+  // One word per phase family, on its widest section that can actually fit it.
+  const widestIdx = (match: (k: SectionKind) => boolean) => {
+    let best = -1;
+    secSpans.forEach((x, i) => {
+      if (match(x.kind) && x.span.width >= LABEL_MIN_PCT && (best === -1 || x.span.width > secSpans[best].span.width)) best = i;
+    });
+    return best;
+  };
+  const coolLabelIdx = widestIdx(k => k.startsWith('cool'));
+  const holdLabelIdx = widestIdx(k => k === 'hold');
+
+  const dryingNowPct = barEndMs != null && statusState === 'drying' ? pctOf(nowMs, barStartMs, barEndMs) : null;
+  const dryingSpan: Span | null = dryingNowPct != null ? { left: dryingNowPct, width: Math.min(4, 100 - dryingNowPct) } : null;
+
   // Ticks: program start, program end, bedtime, wake - all TIMES, never words (user: "why is
   // bed written where time goes"). A program-end tick that would collide with any neighbour
   // is dropped rather than squeezed.
@@ -376,57 +412,22 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
       ? progEndPctRaw
       : null;
 
-  // Hold = the quiet stretches: the pauses inside the program (drawn as notches above) and
-  // the tail from the last planned cool to bedtime. One "hold" label total, on the widest
-  // stretch that can actually fit the word.
-  const armedHolding = armed && (statusState === 'idle' || statusState === 'drying');
-  const holdTailStartMs = progEndMs ?? (armedHolding ? nowMs : null);
-  const LABEL_MIN_PCT = 6;
-  const holdTailSpanRaw =
-    barEndMs != null && holdTailStartMs != null && holdTailStartMs < bedtimeStartMs
-      ? spanPct(holdTailStartMs, bedtimeStartMs, barStartMs, barEndMs)
-      : null;
-  // A tail too narrow to carry its word renders as clean empty track, not a mystery bubble
-  // (user 2026-07-30) - the tap-open schedule still lists it exactly.
-  const holdTailSpan = holdTailSpanRaw && holdTailSpanRaw.width >= LABEL_MIN_PCT ? holdTailSpanRaw : null;
-  const holdFeatures = [
-    ...pauseSpans.map((span, i) => ({ span, key: `pause-${i}` })),
-    ...(holdTailSpan && holdTailSpan.width > 0 ? [{ span: holdTailSpan, key: 'tail' }] : []),
-  ].filter(f => f.span.width >= LABEL_MIN_PCT);
-  const holdLabelKey = holdFeatures.length ? holdFeatures.reduce((a, b) => (b.span.width > a.span.width ? b : a)).key : null;
-
-  // Tap-open exact schedule (user 2026-07-30: when the bar can't fit the times, a tap must
-  // show them). Chronological, bar vocabulary only.
-  const schedRows: { t: number; time: string; what: string }[] = [];
-  for (const iv of doneIntervals) {
-    schedRows.push({ t: iv.startMs, time: `${formatHHMM(new Date(iv.startMs))}–${formatHHMM(new Date(iv.endMs))}`, what: 'cooled' });
-  }
-  if (runStartMs != null && runEndMs != null) {
-    schedRows.push({ t: runStartMs, time: `${formatHHMM(new Date(runStartMs))}–${formatHHMM(new Date(runEndMs))}`, what: 'cooling' });
-  }
-  for (const p of pauseTimes) {
-    schedRows.push({ t: p.s, time: `${formatHHMM(new Date(p.s))}–${formatHHMM(new Date(p.e))}`, what: 'hold' });
-  }
-  for (const w of futureWindows) {
-    schedRows.push({ t: w.startMs, time: `${formatHHMM(new Date(w.startMs))}–${formatHHMM(new Date(w.endMs))}`, what: 'cool' });
-  }
-  if (fallbackFutureMs != null && fallbackFutureEndMs != null) {
-    schedRows.push({
-      t: fallbackFutureMs,
-      time: `${formatHHMM(new Date(fallbackFutureMs))}–${formatHHMM(new Date(fallbackFutureEndMs))}`,
-      what: 'cool',
-    });
-  }
-  if (holdTailStartMs != null && holdTailStartMs < bedtimeStartMs) {
-    schedRows.push({
-      t: holdTailStartMs,
-      time: `${formatHHMM(new Date(holdTailStartMs))}–${formatHHMM(new Date(bedtimeStartMs))}`,
-      what: 'hold',
-    });
-  }
-  schedRows.push({ t: bedtimeStartMs, time: formatHHMM(new Date(bedtimeStartMs)), what: 'bedtime' });
-  if (wakeDate) schedRows.push({ t: wakeDate.getTime(), time: formatHHMM(wakeDate), what: 'wake' });
-  schedRows.sort((a, b) => a.t - b.t);
+  // The tap-open schedule IS the section list in words - one source, zero drift.
+  const KIND_WORD: Record<SectionKind, string> = {
+    'cool-done': 'cooled',
+    'cool-running': 'cooling',
+    'cool-future': 'cool',
+    hold: 'hold',
+    bedtime: 'bedtime',
+    windows: 'windows open',
+  };
+  const schedRows: { t: number; time: string; what: string }[] = [
+    ...sections
+      .filter(sec => sec.kind !== 'bedtime')
+      .map(sec => ({ t: sec.s, time: `${formatHHMM(new Date(sec.s))}–${formatHHMM(new Date(sec.e))}`, what: KIND_WORD[sec.kind] })),
+    { t: bedtimeStartMs, time: formatHHMM(new Date(bedtimeStartMs)), what: 'bedtime' },
+    ...(wakeDate ? [{ t: wakeDate.getTime(), time: formatHHMM(wakeDate), what: 'wake' }] : []),
+  ].sort((a, b) => a.t - b.t);
 
   // Three-day strip - same stale-night guard as the retired CoolingModule (the advisor's sparse
   // eval schedule can leave yesterday's night in the sensor until its next morning run).
@@ -542,47 +543,35 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
               aria-label='Show exact times'
             >
               <div className='tonight-bar-track'>
-                {windowsSpan && windowsSpan.width > 0 && (
-                  <div
-                    className='tonight-bar-segment tonight-bar-segment--windows'
-                    style={{ left: `${windowsSpan.left}%`, width: `${windowsSpan.width}%` }}
-                  >
-                    <span className='tonight-bar-segment-label'>windows open</span>
-                  </div>
-                )}
-                {bedtimeSpan && bedtimeSpan.width > 0 && (
-                  <div
-                    className='tonight-bar-segment tonight-bar-segment--bedtime'
-                    style={{ left: `${bedtimeSpan.left}%`, width: `${bedtimeSpan.width}%` }}
-                  >
-                    <span className='tonight-bar-segment-label'>bedtime</span>
-                  </div>
-                )}
-                {holdTailSpan && holdTailSpan.width > 0 && (
-                  <div
-                    className='tonight-bar-segment tonight-bar-segment--hold'
-                    style={{ left: `${holdTailSpan.left}%`, width: `${holdTailSpan.width}%` }}
-                  >
-                    {holdLabelKey === 'tail' && <span className='tonight-bar-segment-label'>hold</span>}
-                  </div>
-                )}
-                {progSpan && progSpan.width > 0 && (
-                  <div
-                    className={`tonight-bar-segment tonight-bar-segment--cool ${progCls}`}
-                    style={{ left: `${progSpan.left}%`, width: `${progSpan.width}%` }}
-                  >
-                    {progSpan.width >= LABEL_MIN_PCT && <span className='tonight-bar-segment-label'>cool</span>}
-                  </div>
-                )}
-                {pauseSpans.map((s, i) => (
-                  <div
-                    key={`pause-${i}`}
-                    className='tonight-bar-segment tonight-bar-segment--pause'
-                    style={{ left: `${s.left}%`, width: `${s.width}%` }}
-                  >
-                    {holdLabelKey === `pause-${i}` && <span className='tonight-bar-segment-label'>hold</span>}
-                  </div>
-                ))}
+                {secSpans.map((x, i) => {
+                  const cls =
+                    x.kind === 'hold'
+                      ? 'tonight-bar-segment--hold'
+                      : x.kind === 'bedtime'
+                        ? 'tonight-bar-segment--bedtime'
+                        : x.kind === 'windows'
+                          ? 'tonight-bar-segment--windows'
+                          : `tonight-bar-segment--cool ${x.kind === 'cool-running' ? 'is-running' : x.kind === 'cool-done' ? 'is-done' : 'is-future'}`;
+                  const label =
+                    x.kind === 'bedtime' || x.kind === 'windows'
+                      ? x.span.width >= LABEL_MIN_PCT
+                        ? KIND_WORD[x.kind]
+                        : null
+                      : i === coolLabelIdx
+                        ? 'cool'
+                        : i === holdLabelIdx
+                          ? 'hold'
+                          : null;
+                  return (
+                    <div
+                      key={`${x.kind}-${x.s}`}
+                      className={`tonight-bar-segment ${cls}`}
+                      style={{ left: `${x.span.left}%`, width: `${x.span.width}%` }}
+                    >
+                      {label && <span className='tonight-bar-segment-label'>{label}</span>}
+                    </div>
+                  );
+                })}
                 {dryingSpan && dryingSpan.width > 0 && (
                   <div
                     className='tonight-bar-segment tonight-bar-segment--drying'

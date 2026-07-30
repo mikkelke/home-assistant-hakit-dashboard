@@ -162,13 +162,13 @@
   height: 36px;
   border-radius: 18px;
   background: #2c2c2e; /* iOS systemGray5 dark */
+  overflow: hidden; /* sections are flat-joined; the track's radius rounds the outer ends */
 }
 
 .tonight-bar-segment {
   position: absolute;
-  top: 4px;
-  bottom: 4px;
-  border-radius: 14px;
+  top: 0;
+  bottom: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -188,22 +188,10 @@
 }
 
 .tonight-bar-segment--hold {
-  background: rgba(100, 210, 255, 0.24);
-  color: #64d2ff;
+  background: rgba(100, 210, 255, 0.3);
 }
-
-/* Planned pause inside the cool program - a striped quiet stretch of the pill itself
-   (full height, no box: an inset block read as a "strange mark", user 2026-07-30) */
-.tonight-bar-segment--pause {
-  border-radius: 0;
-  background: repeating-linear-gradient(
-    -55deg,
-    rgba(10, 14, 22, 0.4) 0 5px,
-    rgba(10, 14, 22, 0.08) 5px 10px
-  );
-}
-.tonight-bar-segment--pause .tonight-bar-segment-label {
-  color: rgba(235, 245, 255, 0.85);
+.tonight-bar-segment--hold .tonight-bar-segment-label {
+  color: rgba(220, 242, 255, 0.9);
 }
 
 /* The whole bar is tappable - it opens the exact-times schedule */
