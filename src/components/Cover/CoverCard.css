@@ -25,13 +25,6 @@
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition: background 0.15s;
-}
-.cover-header:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-.cover-header:active {
-  background: rgba(255, 255, 255, 0.1);
 }
 
 .cover-glyph {
