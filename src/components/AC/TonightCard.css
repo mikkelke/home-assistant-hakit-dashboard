@@ -165,9 +165,30 @@
   overflow: hidden; /* sections are flat-joined; the track's radius rounds the outer ends */
 }
 
-/* Activity-ribbon grammar: tall soft blocks = something happening (cool/bedtime/windows),
-   the thin centered ribbon = holding/waiting between them. Height carries the state change,
-   so section joins never look like hard color cuts. */
+/* The timeline is ONE gradient fill - state colors cross-fade at every boundary (built in
+   TSX from the section list). Words float over the color field; no per-section shapes. */
+.tonight-bar-fill {
+  position: absolute;
+  inset: 0;
+}
+
+.tonight-bar-word {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: rgba(0, 0, 0, 0.55);
+  white-space: nowrap;
+  z-index: 1;
+}
+.tonight-bar-word--light {
+  color: rgba(220, 242, 255, 0.85);
+}
+
+/* Only the drying sliver still renders as a discrete segment */
 .tonight-bar-segment {
   position: absolute;
   top: 3px;

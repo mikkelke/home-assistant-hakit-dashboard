@@ -391,6 +391,37 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
     return best;
   };
   const coolLabelIdx = widestIdx(k => k.startsWith('cool'));
+  const holdLabelIdx = widestIdx(k => k === 'hold');
+
+  // ONE gradient fill for the whole strip - state colors cross-fade into each other over a
+  // small zone at every boundary (user 2026-07-30: "color overlap ... smooth fading", after
+  // both pills and flat cuts felt wrong). No shapes, no edges - the timeline is color.
+  const TRACK_COLOR = '#2c2c2e';
+  const KIND_COLOR: Record<SectionKind, string> = {
+    'cool-done': '#3f97c4',
+    'cool-running': '#5fc9f8',
+    'cool-future': '#2f6580',
+    hold: '#31505f',
+    bedtime: '#47468c',
+    windows: '#2e8f57',
+  };
+  const FADE_PCT = 1.4;
+  const gradStops: string[] = [];
+  const pushStop = (color: string, from: number, to: number) => {
+    if (to <= from) return;
+    const f = Math.min(FADE_PCT, (to - from) / 2);
+    gradStops.push(`${color} ${(from + f).toFixed(2)}%`, `${color} ${(to - f).toFixed(2)}%`);
+  };
+  let gradCursor = 0;
+  for (const x of secSpans) {
+    const l = x.span.left;
+    const r = x.span.left + x.span.width;
+    if (l > gradCursor + 0.01) pushStop(TRACK_COLOR, gradCursor, l);
+    pushStop(KIND_COLOR[x.kind], Math.max(l, gradCursor), Math.max(r, gradCursor));
+    gradCursor = Math.max(gradCursor, r);
+  }
+  if (gradCursor < 100) pushStop(TRACK_COLOR, gradCursor, 100);
+  const barGradient = gradStops.length ? `linear-gradient(90deg, ${gradStops.join(', ')})` : TRACK_COLOR;
 
   const dryingNowPct = barEndMs != null && statusState === 'drying' ? pctOf(nowMs, barStartMs, barEndMs) : null;
   const dryingSpan: Span | null = dryingNowPct != null ? { left: dryingNowPct, width: Math.min(4, 100 - dryingNowPct) } : null;
@@ -545,18 +576,13 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
               aria-label='Show exact times'
             >
               <div className='tonight-bar-track'>
+                <div className='tonight-bar-fill' style={{ background: barGradient }} />
                 {secSpans.map((x, i) => {
-                  const cls =
-                    x.kind === 'hold'
-                      ? 'tonight-bar-segment--hold'
-                      : x.kind === 'bedtime'
-                        ? 'tonight-bar-segment--bedtime'
-                        : x.kind === 'windows'
-                          ? 'tonight-bar-segment--windows'
-                          : `tonight-bar-segment--cool ${x.kind === 'cool-running' ? 'is-running' : x.kind === 'cool-done' ? 'is-done' : 'is-future'}`;
                   const label =
                     x.kind === 'hold'
-                      ? null // the thin ribbon IS the meaning; its words live in the tap list
+                      ? i === holdLabelIdx
+                        ? 'hold'
+                        : null
                       : x.kind === 'bedtime' || x.kind === 'windows'
                         ? x.span.width >= LABEL_MIN_PCT
                           ? KIND_WORD[x.kind]
@@ -564,14 +590,15 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
                         : i === coolLabelIdx
                           ? 'cool'
                           : null;
+                  if (!label) return null;
                   return (
-                    <div
+                    <span
                       key={`${x.kind}-${x.s}`}
-                      className={`tonight-bar-segment ${cls}`}
-                      style={{ left: `${x.span.left}%`, width: `${x.span.width}%` }}
+                      className={`tonight-bar-word${x.kind === 'hold' ? ' tonight-bar-word--light' : ''}`}
+                      style={{ left: `${x.span.left + x.span.width / 2}%` }}
                     >
-                      {label && <span className='tonight-bar-segment-label'>{label}</span>}
-                    </div>
+                      {label}
+                    </span>
                   );
                 })}
                 {dryingSpan && dryingSpan.width > 0 && (
