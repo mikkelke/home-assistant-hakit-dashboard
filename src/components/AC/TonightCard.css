@@ -268,16 +268,17 @@
   white-space: nowrap;
 }
 
-/* "Now" is not an object - the past rests under a gentle veil that fades out exactly at
-   the present, so the strip turning vivid IS the marker; the bold live time tick below
-   anchors it. */
-.tonight-bar-past {
+/* "Now" - a see-through ghost line on the color field; its bold live time tick sits
+   below the bar. Color never changes with time - the line is the only clock. */
+.tonight-bar-now-line {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 0;
-  background: linear-gradient(90deg, rgba(18, 20, 24, 0.45) 0%, rgba(18, 20, 24, 0.45) calc(100% - 16px), rgba(18, 20, 24, 0) 100%);
-  z-index: 1;
+  width: 3px;
+  border-radius: 1.5px;
+  background: rgba(255, 255, 255, 0.38);
+  transform: translateX(-50%);
+  z-index: 2;
 }
 
 .tonight-bar-tick--now {

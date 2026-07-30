@@ -397,12 +397,13 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   // small zone at every boundary (user 2026-07-30: "color overlap ... smooth fading", after
   // both pills and flat cuts felt wrong). No shapes, no edges - the timeline is color.
   const TRACK_COLOR = '#2c2c2e';
-  // Done cooling shares the running color - the past-veil (below) is what says "already
-  // happened", so time-depth never needs its own shade.
+  // Color = STATE, everywhere (user 2026-07-30): cooling is one blue whether it already
+  // ran, runs now, or is planned - the see-through now-line is what splits past from
+  // future, never the palette.
   const KIND_COLOR: Record<SectionKind, string> = {
     'cool-done': '#5fc9f8',
     'cool-running': '#5fc9f8',
-    'cool-future': '#2f6580',
+    'cool-future': '#5fc9f8',
     hold: '#31505f',
     bedtime: '#47468c',
     windows: '#2e8f57',
@@ -609,7 +610,7 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
                     style={{ left: `${dryingSpan.left}%`, width: `${dryingSpan.width}%` }}
                   />
                 )}
-                {nowPct != null && nowPct > 0 && <div className='tonight-bar-past' style={{ width: `${nowPct}%` }} />}
+                <div className='tonight-bar-now-line' style={{ left: `${nowPct}%` }} />
               </div>
               <div className='tonight-bar-ticks'>
                 {progStartPct != null && progStartMs != null && !nearNow(progStartPct) && (
