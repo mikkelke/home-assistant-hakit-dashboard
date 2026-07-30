@@ -500,7 +500,6 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
           )}
           {buttonKind === 'nothing_to_do' && (
             <div className='tonight-quiet-row'>
-              <span>Nothing to do — it runs itself.</span>
               <button
                 type='button'
                 className='tonight-quiet-action'
