@@ -249,7 +249,8 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   if (Number.isFinite(roomNowTemp)) heroSubParts.push(`room is ${roomNowTemp.toFixed(1)}° now`);
 
   // Verdict / sentence area - priority order: vent alert (red) > waiting-for-unit (neutral) >
-  // live session recap > the backend's own one-voice verdict.
+  // the backend's own one-voice verdict. The live session meter is NOT a sentence: runs often
+  // start mid-morning, so "Tonight so far" read as a lie - it renders as footer status icons.
   const verdictTitle = attrStr(sleepPlanAttrs.verdict_title);
   const verdictText = attrStr(sleepPlanAttrs.verdict_text);
   const sessionCostKr = attrNum(statusAttrs.session_cost_kr, NaN);
@@ -381,12 +382,6 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
             </div>
           ) : waitingForUnit ? (
             <p className='tonight-verdict tonight-verdict--neutral'>Waiting for the unit — is it plugged in?</p>
-          ) : sessionLive ? (
-            <p className='tonight-verdict'>
-              {withMoneyHighlight(
-                `Tonight so far · ${Number.isFinite(sessionKwh) ? `${sessionKwh.toFixed(1)} kWh · ` : ''}${sessionCostKr.toFixed(1)} kr`
-              )}
-            </p>
           ) : (
             (verdictTitle || verdictText) && (
               <p className='tonight-verdict'>
@@ -516,6 +511,20 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
             </div>
           )}
 
+          {sessionLive && (
+            <div className='tonight-footer tonight-status' aria-label='Used today so far'>
+              {Number.isFinite(sessionKwh) && (
+                <span className='tonight-status-item'>
+                  <Icon icon='mdi:flash' aria-hidden='true' />
+                  {sessionKwh.toFixed(1)} kWh
+                </span>
+              )}
+              <span className='tonight-status-item'>
+                <Icon icon='mdi:cash' aria-hidden='true' />
+                {withMoneyHighlight(`${sessionCostKr.toFixed(1)} kr`)}
+              </span>
+            </div>
+          )}
           {hasLastNight && <div className='tonight-footer'>{withMoneyHighlight(lastNightParts.join(' · '))}</div>}
 
           <button type='button' className='tonight-sheet-toggle' onClick={() => setSheetOpen(v => !v)} aria-expanded={sheetOpen}>

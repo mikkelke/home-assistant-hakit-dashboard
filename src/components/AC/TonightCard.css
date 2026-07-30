@@ -360,6 +360,31 @@
   color: rgba(235, 235, 245, 0.6);
 }
 
+/* Two footer rows (live meter + last-night receipt) share one hairline */
+.tonight-footer + .tonight-footer {
+  margin-top: 0.45rem;
+  padding-top: 0;
+  border-top: none;
+}
+
+.tonight-status {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.tonight-status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.tonight-status-item svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0.7;
+}
+
 /* Collapsible "How tonight works" sheet */
 .tonight-sheet-toggle {
   width: 100%;
