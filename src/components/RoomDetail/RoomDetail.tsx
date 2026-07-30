@@ -176,8 +176,6 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
             entities={entities}
             hassUrl={hassUrl}
             callService={callService}
-            showTvLift={true}
-            tvLiftSelectEntityId='input_select.bedroom_tv_lift_position'
             appleRemoteEntityId='remote.bedroom_apple_tv'
             appleMediaPlayerEntityId='media_player.bedroom_apple_tv'
           />
@@ -244,9 +242,7 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
           ))}
 
         {/* Heat Card (floor heating) */}
-        {climate && !isBedroom && showHeat && (
-          <HeatCard areaName={area.name} entities={entities} callService={callService} />
-        )}
+        {climate && !isBedroom && showHeat && <HeatCard areaName={area.name} entities={entities} callService={callService} />}
 
         {/* Cover/Blinds Card */}
         {cover && <CoverCard areaName={area.name} entities={entities} callService={callService} />}

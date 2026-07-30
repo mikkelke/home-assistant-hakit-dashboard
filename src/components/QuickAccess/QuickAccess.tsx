@@ -578,8 +578,6 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
                                   entities={entities}
                                   hassUrl={hassUrl}
                                   callService={callService}
-                                  showTvLift={true}
-                                  tvLiftSelectEntityId='input_select.bedroom_tv_lift_position'
                                   appleRemoteEntityId='remote.bedroom_apple_tv'
                                   appleMediaPlayerEntityId='media_player.bedroom_apple_tv'
                                 />
