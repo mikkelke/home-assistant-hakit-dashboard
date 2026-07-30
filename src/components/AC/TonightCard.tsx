@@ -345,19 +345,6 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   }
   const pauseSpans =
     barEndMs == null ? [] : pauseTimes.map(p => spanPct(p.s, p.e, barStartMs, barEndMs)).filter((s): s is Span => s != null && s.width > 0);
-  // Ticks: program start, program end, wake. NO "bed" tick - the bedtime pill already names
-  // itself (user 2026-07-30: "why is bed written where time goes"); a program-end tick that
-  // would collide with a neighbour is dropped rather than squeezed.
-  const TICK_MIN_GAP_PCT = 7;
-  const wakeTickPct = barEndMs != null && wakeDate ? pctOf(wakeDate.getTime(), barStartMs, barEndMs) : null;
-  const progStartPct = barEndMs != null && progStartMs != null ? pctOf(progStartMs, barStartMs, barEndMs) : null;
-  const progEndPctRaw = barEndMs != null && progEndMs != null ? pctOf(progEndMs, barStartMs, barEndMs) : null;
-  const progEndPct =
-    progEndPctRaw != null &&
-    (progStartPct == null || progEndPctRaw - progStartPct >= TICK_MIN_GAP_PCT) &&
-    (wakeTickPct == null || wakeTickPct - progEndPctRaw >= TICK_MIN_GAP_PCT)
-      ? progEndPctRaw
-      : null;
 
   const dryingNowPct = barEndMs != null && statusState === 'drying' ? pctOf(nowMs, barStartMs, barEndMs) : null;
   const dryingSpan: Span | null = dryingNowPct != null ? { left: dryingNowPct, width: Math.min(4, 100 - dryingNowPct) } : null;
@@ -367,19 +354,41 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   const windowsCutoffMs = atHour(now, WINDOWS_CUTOFF_HOUR).getTime();
   const windowsSpan = barEndMs != null && isWindowDay ? spanPct(barStartMs, windowsCutoffMs, barStartMs, barEndMs) : null;
 
-  const bedtimeStartMs = atHour(now, BEDTIME_HOUR).getTime();
+  // Bedtime boundary comes from the backend (sleep_plan bedtime_at = wake minus the sleep
+  // window the plan protects); the card-side 23:00 constant is only the degrade for a
+  // pre-attr backend (user 2026-07-30: the bar's invented bedtime and the plan drifted).
+  const bedtimeDate = parseTimeAttr(sleepPlanAttrs.bedtime_at, barStartMs);
+  const bedtimeStartMs = bedtimeDate ? bedtimeDate.getTime() : atHour(now, BEDTIME_HOUR).getTime();
   const bedtimeSpan = barEndMs != null ? spanPct(bedtimeStartMs, wakeMs, barStartMs, barEndMs) : null;
+  // Ticks: program start, program end, bedtime, wake - all TIMES, never words (user: "why is
+  // bed written where time goes"). A program-end tick that would collide with any neighbour
+  // is dropped rather than squeezed.
+  const TICK_MIN_GAP_PCT = 7;
+  const wakeTickPct = barEndMs != null && wakeDate ? pctOf(wakeDate.getTime(), barStartMs, barEndMs) : null;
+  const progStartPct = barEndMs != null && progStartMs != null ? pctOf(progStartMs, barStartMs, barEndMs) : null;
+  const bedtimeTickPct = barEndMs != null ? pctOf(bedtimeStartMs, barStartMs, barEndMs) : null;
+  const progEndPctRaw = barEndMs != null && progEndMs != null ? pctOf(progEndMs, barStartMs, barEndMs) : null;
+  const progEndPct =
+    progEndPctRaw != null &&
+    (progStartPct == null || progEndPctRaw - progStartPct >= TICK_MIN_GAP_PCT) &&
+    (bedtimeTickPct == null || Math.abs(bedtimeTickPct - progEndPctRaw) >= TICK_MIN_GAP_PCT) &&
+    (wakeTickPct == null || wakeTickPct - progEndPctRaw >= TICK_MIN_GAP_PCT)
+      ? progEndPctRaw
+      : null;
 
   // Hold = the quiet stretches: the pauses inside the program (drawn as notches above) and
   // the tail from the last planned cool to bedtime. One "hold" label total, on the widest
   // stretch that can actually fit the word.
   const armedHolding = armed && (statusState === 'idle' || statusState === 'drying');
   const holdTailStartMs = progEndMs ?? (armedHolding ? nowMs : null);
-  const holdTailSpan =
+  const LABEL_MIN_PCT = 6;
+  const holdTailSpanRaw =
     barEndMs != null && holdTailStartMs != null && holdTailStartMs < bedtimeStartMs
       ? spanPct(holdTailStartMs, bedtimeStartMs, barStartMs, barEndMs)
       : null;
-  const LABEL_MIN_PCT = 6;
+  // A tail too narrow to carry its word renders as clean empty track, not a mystery bubble
+  // (user 2026-07-30) - the tap-open schedule still lists it exactly.
+  const holdTailSpan = holdTailSpanRaw && holdTailSpanRaw.width >= LABEL_MIN_PCT ? holdTailSpanRaw : null;
   const holdFeatures = [
     ...pauseSpans.map((span, i) => ({ span, key: `pause-${i}` })),
     ...(holdTailSpan && holdTailSpan.width > 0 ? [{ span: holdTailSpan, key: 'tail' }] : []),
@@ -402,10 +411,18 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
     schedRows.push({ t: w.startMs, time: `${formatHHMM(new Date(w.startMs))}–${formatHHMM(new Date(w.endMs))}`, what: 'cool' });
   }
   if (fallbackFutureMs != null && fallbackFutureEndMs != null) {
-    schedRows.push({ t: fallbackFutureMs, time: `${formatHHMM(new Date(fallbackFutureMs))}–${formatHHMM(new Date(fallbackFutureEndMs))}`, what: 'cool' });
+    schedRows.push({
+      t: fallbackFutureMs,
+      time: `${formatHHMM(new Date(fallbackFutureMs))}–${formatHHMM(new Date(fallbackFutureEndMs))}`,
+      what: 'cool',
+    });
   }
   if (holdTailStartMs != null && holdTailStartMs < bedtimeStartMs) {
-    schedRows.push({ t: holdTailStartMs, time: `${formatHHMM(new Date(holdTailStartMs))}–${formatHHMM(new Date(bedtimeStartMs))}`, what: 'hold' });
+    schedRows.push({
+      t: holdTailStartMs,
+      time: `${formatHHMM(new Date(holdTailStartMs))}–${formatHHMM(new Date(bedtimeStartMs))}`,
+      what: 'hold',
+    });
   }
   schedRows.push({ t: bedtimeStartMs, time: formatHHMM(new Date(bedtimeStartMs)), what: 'bedtime' });
   if (wakeDate) schedRows.push({ t: wakeDate.getTime(), time: formatHHMM(wakeDate), what: 'wake' });
@@ -584,6 +601,11 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
                 {progEndPct != null && progEndMs != null && (
                   <span className='tonight-bar-tick' style={{ left: `${progEndPct}%` }}>
                     {formatHHMM(new Date(progEndMs))}
+                  </span>
+                )}
+                {bedtimeTickPct != null && (
+                  <span className='tonight-bar-tick' style={{ left: `${bedtimeTickPct}%` }}>
+                    {formatHHMM(new Date(bedtimeStartMs))}
                   </span>
                 )}
                 {wakeTickPct != null && wakeDate && (
