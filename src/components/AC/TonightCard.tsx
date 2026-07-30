@@ -291,9 +291,7 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   // at its REAL start instead of `now`, and only the not-yet-started plan renders as future -
   // so finishing a phase no longer erases it from the day.
   const coolIntervals = parseCoolIntervals(statusAttrs.cool_intervals_today);
-  const doneIntervals = coolIntervals.filter(
-    (iv): iv is { startMs: number; endMs: number } => iv.endMs != null && iv.endMs > iv.startMs
-  );
+  const doneIntervals = coolIntervals.filter((iv): iv is { startMs: number; endMs: number } => iv.endMs != null && iv.endMs > iv.startMs);
   const openInterval = coolIntervals.find(iv => iv.endMs == null) ?? null;
 
   const coolRunning = ACTIVE_COOLING_STATES.has(statusState);
@@ -306,23 +304,34 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   const futureEndMs = futureStartMs != null && remainMs > 0 ? futureStartMs + remainMs : null;
   const coolEndMs = runEndMs ?? futureEndMs;
 
-  const coolSegs: { span: Span; cls: string; key: string }[] = barEndMs == null ? [] : [
-    ...doneIntervals
-      .map((iv, i) => ({ span: spanPct(iv.startMs, iv.endMs, barStartMs, barEndMs), cls: 'is-done', key: `done-${i}` }))
-      .filter((s): s is { span: Span; cls: string; key: string } => s.span != null && s.span.width > 0),
-    ...[{ span: spanPct(runStartMs, runEndMs, barStartMs, barEndMs), cls: 'is-running', key: 'run' }].filter(
-      (s): s is { span: Span; cls: string; key: string } => s.span != null && s.span.width > 0
-    ),
-    ...[{ span: spanPct(futureStartMs, futureEndMs, barStartMs, barEndMs), cls: 'is-future', key: 'future' }].filter(
-      (s): s is { span: Span; cls: string; key: string } => s.span != null && s.span.width > 0
-    ),
-  ];
+  const coolSegs: { span: Span; cls: string; key: string }[] =
+    barEndMs == null
+      ? []
+      : [
+          ...doneIntervals
+            .map((iv, i) => ({ span: spanPct(iv.startMs, iv.endMs, barStartMs, barEndMs), cls: 'is-done', key: `done-${i}` }))
+            .filter((s): s is { span: Span; cls: string; key: string } => s.span != null && s.span.width > 0),
+          ...[{ span: spanPct(runStartMs, runEndMs, barStartMs, barEndMs), cls: 'is-running', key: 'run' }].filter(
+            (s): s is { span: Span; cls: string; key: string } => s.span != null && s.span.width > 0
+          ),
+          ...[{ span: spanPct(futureStartMs, futureEndMs, barStartMs, barEndMs), cls: 'is-future', key: 'future' }].filter(
+            (s): s is { span: Span; cls: string; key: string } => s.span != null && s.span.width > 0
+          ),
+        ];
   // One "cool" label on the widest segment - three labelled slivers would just collide.
   const coolLabelKey = coolSegs.length ? coolSegs.reduce((a, b) => (b.span.width > a.span.width ? b : a)).key : null;
   // The two time ticks bracket the whole cooling day: first start (history included) to last
   // projected end - not just the currently-relevant block.
-  const coolStartsMs = [...doneIntervals.map(iv => iv.startMs), ...(runStartMs != null ? [runStartMs] : []), ...(futureStartMs != null ? [futureStartMs] : [])];
-  const coolEndsMs = [...doneIntervals.map(iv => iv.endMs), ...(runEndMs != null ? [runEndMs] : []), ...(futureEndMs != null ? [futureEndMs] : [])];
+  const coolStartsMs = [
+    ...doneIntervals.map(iv => iv.startMs),
+    ...(runStartMs != null ? [runStartMs] : []),
+    ...(futureStartMs != null ? [futureStartMs] : []),
+  ];
+  const coolEndsMs = [
+    ...doneIntervals.map(iv => iv.endMs),
+    ...(runEndMs != null ? [runEndMs] : []),
+    ...(futureEndMs != null ? [futureEndMs] : []),
+  ];
   const coolTickStartMs = coolStartsMs.length ? Math.min(...coolStartsMs) : null;
   const coolTickEndMs = coolEndsMs.length ? Math.max(...coolEndsMs) : null;
 
@@ -343,10 +352,13 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   // when armed and already at target with nothing booked), ends at bedtime. Display only:
   // the top-ups are the planner's normal re-evaluations, not a separate program.
   const armedHolding = armed && (statusState === 'idle' || statusState === 'drying');
-  // With history, hold anchors where the day's FIRST pull-down finished (top-up bursts paint
-  // over it) - the old projected-end / now fallbacks only apply before anything has completed.
-  const firstDoneEndMs = doneIntervals.length ? doneIntervals[0].endMs : null;
-  const holdStartMs = firstDoneEndMs ?? coolEndMs ?? (armedHolding ? nowMs : null);
+  // With history, hold anchors where the day's first pull-down finished (top-up bursts paint
+  // over it) - but only cool blocks INSIDE the bar may anchor it: a pre-bar morning burp
+  // would drag the segment (and its "hold" label) to the left edge, buried under the cool
+  // block (user 2026-07-30: "cannot see holding anymore"). While the main run is still
+  // going, hold starts at its projected end, exactly like the pre-history bar.
+  const firstDoneEndInBarMs = doneIntervals.find(iv => iv.endMs > barStartMs)?.endMs ?? null;
+  const holdStartMs = firstDoneEndInBarMs ?? coolEndMs ?? (armedHolding ? nowMs : null);
   const holdSpan =
     barEndMs != null && holdStartMs != null && holdStartMs < bedtimeStartMs
       ? spanPct(holdStartMs, bedtimeStartMs, barStartMs, barEndMs)
