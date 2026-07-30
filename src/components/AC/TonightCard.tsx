@@ -297,12 +297,29 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   const coolRunning = ACTIVE_COOLING_STATES.has(statusState);
   const minutesNeeded = attrNum(statusAttrs.minutes_needed, NaN);
   const remainMs = Number.isFinite(minutesNeeded) && minutesNeeded > 0 ? minutesNeeded * 60_000 : 0;
+  // The scheduler's actual chosen stretches (planned_cool_windows, closed ISO pairs). When
+  // published, the future blocks and the running block's end come from the REAL plan - the
+  // old now+remaining projection painted cooling straight through the 19-21 price peak the
+  // plan was in fact holding out (user 2026-07-30). Projection stays as the no-attr fallback.
+  const planWindows = parseCoolIntervals(statusAttrs.planned_cool_windows).filter(
+    (iv): iv is { startMs: number; endMs: number } => iv.endMs != null && iv.endMs > iv.startMs
+  );
+  const nowPlanWindow = planWindows.find(w => w.startMs <= nowMs && w.endMs > nowMs) ?? null;
+  const futureWindows = planWindows.filter(w => w.startMs > nowMs);
+
   const runStartMs = coolRunning ? (openInterval?.startMs ?? nowMs) : null;
-  const runEndMs = runStartMs != null ? Math.max(nowMs + remainMs, runStartMs) : null;
-  const futureStartDate = !coolRunning ? parseTimeAttr(statusAttrs.next_start, barStartMs) : null;
-  const futureStartMs = futureStartDate ? futureStartDate.getTime() : null;
-  const futureEndMs = futureStartMs != null && remainMs > 0 ? futureStartMs + remainMs : null;
-  const coolEndMs = runEndMs ?? futureEndMs;
+  // Running on commit-margin outside any planned window ends the block at the now-line -
+  // the plan's own windows carry the rest of the story.
+  const runEndMs =
+    runStartMs != null
+      ? Math.max(planWindows.length ? (nowPlanWindow?.endMs ?? nowMs) : nowMs + remainMs, runStartMs)
+      : null;
+  const fallbackFutureDate = !coolRunning && planWindows.length === 0 ? parseTimeAttr(statusAttrs.next_start, barStartMs) : null;
+  const fallbackFutureMs = fallbackFutureDate ? fallbackFutureDate.getTime() : null;
+  const fallbackFutureEndMs = fallbackFutureMs != null && remainMs > 0 ? fallbackFutureMs + remainMs : null;
+  // Hold anchors at the end of the FIRST cool stretch still relevant tonight - planned
+  // pauses between windows then read as hold underlay, which is exactly what they are.
+  const coolEndMs = runEndMs ?? futureWindows[0]?.endMs ?? fallbackFutureEndMs ?? null;
 
   const coolSegs: { span: Span; cls: string; key: string }[] =
     barEndMs == null
@@ -314,23 +331,28 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
           ...[{ span: spanPct(runStartMs, runEndMs, barStartMs, barEndMs), cls: 'is-running', key: 'run' }].filter(
             (s): s is { span: Span; cls: string; key: string } => s.span != null && s.span.width > 0
           ),
-          ...[{ span: spanPct(futureStartMs, futureEndMs, barStartMs, barEndMs), cls: 'is-future', key: 'future' }].filter(
+          ...futureWindows
+            .map((w, i) => ({ span: spanPct(w.startMs, w.endMs, barStartMs, barEndMs), cls: 'is-future', key: `future-${i}` }))
+            .filter((s): s is { span: Span; cls: string; key: string } => s.span != null && s.span.width > 0),
+          ...[{ span: spanPct(fallbackFutureMs, fallbackFutureEndMs, barStartMs, barEndMs), cls: 'is-future', key: 'future-fallback' }].filter(
             (s): s is { span: Span; cls: string; key: string } => s.span != null && s.span.width > 0
           ),
         ];
   // One "cool" label on the widest segment - three labelled slivers would just collide.
   const coolLabelKey = coolSegs.length ? coolSegs.reduce((a, b) => (b.span.width > a.span.width ? b : a)).key : null;
-  // The two time ticks bracket the whole cooling day: first start (history included) to last
-  // projected end - not just the currently-relevant block.
+  // The two time ticks bracket the whole cooling day: first start (history included) to the
+  // last planned end - not just the currently-relevant block.
   const coolStartsMs = [
     ...doneIntervals.map(iv => iv.startMs),
     ...(runStartMs != null ? [runStartMs] : []),
-    ...(futureStartMs != null ? [futureStartMs] : []),
+    ...futureWindows.map(w => w.startMs),
+    ...(fallbackFutureMs != null ? [fallbackFutureMs] : []),
   ];
   const coolEndsMs = [
     ...doneIntervals.map(iv => iv.endMs),
     ...(runEndMs != null ? [runEndMs] : []),
-    ...(futureEndMs != null ? [futureEndMs] : []),
+    ...futureWindows.map(w => w.endMs),
+    ...(fallbackFutureEndMs != null ? [fallbackFutureEndMs] : []),
   ];
   const coolTickStartMs = coolStartsMs.length ? Math.min(...coolStartsMs) : null;
   const coolTickEndMs = coolEndsMs.length ? Math.max(...coolEndsMs) : null;
