@@ -192,15 +192,18 @@
   color: #64d2ff;
 }
 
-/* Planned pause inside the cool program - a quiet inset notch, not another pill */
+/* Planned pause inside the cool program - a striped quiet stretch of the pill itself
+   (full height, no box: an inset block read as a "strange mark", user 2026-07-30) */
 .tonight-bar-segment--pause {
-  top: 9px;
-  bottom: 9px;
-  border-radius: 7px;
-  background: rgba(28, 28, 30, 0.82);
+  border-radius: 0;
+  background: repeating-linear-gradient(
+    -55deg,
+    rgba(10, 14, 22, 0.4) 0 5px,
+    rgba(10, 14, 22, 0.08) 5px 10px
+  );
 }
 .tonight-bar-segment--pause .tonight-bar-segment-label {
-  color: #64d2ff;
+  color: rgba(235, 245, 255, 0.85);
 }
 
 /* The whole bar is tappable - it opens the exact-times schedule */
