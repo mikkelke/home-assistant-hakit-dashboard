@@ -607,7 +607,7 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
                     style={{ left: `${dryingSpan.left}%`, width: `${dryingSpan.width}%` }}
                   />
                 )}
-                <div className='tonight-bar-now-line' style={{ left: `${nowPct}%` }} />
+                <div className='tonight-bar-now-dot' style={{ left: `${nowPct}%` }} />
               </div>
               <div className='tonight-bar-ticks'>
                 {progStartPct != null && progStartMs != null && !nearNow(progStartPct) && (

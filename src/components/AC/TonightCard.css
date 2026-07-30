@@ -268,15 +268,17 @@
   white-space: nowrap;
 }
 
-/* "Now" - a full-height hairline whose live time tick sits right below it */
-.tonight-bar-now-line {
+/* "Now" - the iOS-Weather range-bar dot: white with a dark ring so it reads on any color
+   of the gradient; its live time tick sits right below the bar */
+.tonight-bar-now-dot {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  border-radius: 1px;
-  background: rgba(255, 255, 255, 0.9);
-  transform: translateX(-50%);
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ffffff;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 3px rgba(28, 28, 30, 0.85);
   z-index: 2;
 }
 
