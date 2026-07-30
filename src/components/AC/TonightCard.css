@@ -192,6 +192,42 @@
   color: #64d2ff;
 }
 
+/* Planned pause inside the cool program - a quiet inset notch, not another pill */
+.tonight-bar-segment--pause {
+  top: 9px;
+  bottom: 9px;
+  border-radius: 7px;
+  background: rgba(28, 28, 30, 0.82);
+}
+.tonight-bar-segment--pause .tonight-bar-segment-label {
+  color: #64d2ff;
+}
+
+/* The whole bar is tappable - it opens the exact-times schedule */
+.tonight-bar-section {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tonight-sched {
+  margin-top: 0.55rem;
+  display: flex;
+  flex-direction: column;
+}
+.tonight-sched-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.16rem 0.1rem;
+  font-size: 0.8125rem;
+  color: rgba(235, 235, 245, 0.6);
+}
+.tonight-sched-time {
+  font-variant-numeric: tabular-nums;
+}
+.tonight-sched-what {
+  color: rgba(235, 235, 245, 0.85);
+}
+
 .tonight-bar-segment--cool {
   background: linear-gradient(90deg, #2f9bc9, #64d2ff);
   transition: opacity 0.2s;

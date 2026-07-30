@@ -222,6 +222,8 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
     return () => clearInterval(id);
   }, []);
   const [sheetOpen, setSheetOpen] = useState(false);
+  // Bar tap -> exact schedule list (times the bar itself can't fit without colliding).
+  const [schedOpen, setSchedOpen] = useState(false);
   // Collapsed by default (this card was flagged as too big) - same toggle-row pattern as HeatCard.
   const [collapsed, setCollapsed] = useLocalStorageBoolean('tonightcard-collapsed', true);
   const topSlop = useTouchScrollSlopGuard();
@@ -315,41 +317,47 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   const fallbackFutureDate = !coolRunning && planWindows.length === 0 ? parseTimeAttr(statusAttrs.next_start, barStartMs) : null;
   const fallbackFutureMs = fallbackFutureDate ? fallbackFutureDate.getTime() : null;
   const fallbackFutureEndMs = fallbackFutureMs != null && remainMs > 0 ? fallbackFutureMs + remainMs : null;
-  const coolSegs: { span: Span; cls: string; key: string }[] =
-    barEndMs == null
-      ? []
-      : [
-          ...doneIntervals
-            .map((iv, i) => ({ span: spanPct(iv.startMs, iv.endMs, barStartMs, barEndMs), cls: 'is-done', key: `done-${i}` }))
-            .filter((s): s is { span: Span; cls: string; key: string } => s.span != null && s.span.width > 0),
-          ...[{ span: spanPct(runStartMs, runEndMs, barStartMs, barEndMs), cls: 'is-running', key: 'run' }].filter(
-            (s): s is { span: Span; cls: string; key: string } => s.span != null && s.span.width > 0
-          ),
-          ...futureWindows
-            .map((w, i) => ({ span: spanPct(w.startMs, w.endMs, barStartMs, barEndMs), cls: 'is-future', key: `future-${i}` }))
-            .filter((s): s is { span: Span; cls: string; key: string } => s.span != null && s.span.width > 0),
-          ...[
-            { span: spanPct(fallbackFutureMs, fallbackFutureEndMs, barStartMs, barEndMs), cls: 'is-future', key: 'future-fallback' },
-          ].filter((s): s is { span: Span; cls: string; key: string } => s.span != null && s.span.width > 0),
-        ];
-  // One "cool" label on the widest segment - three labelled slivers would just collide.
-  const coolLabelKey = coolSegs.length ? coolSegs.reduce((a, b) => (b.span.width > a.span.width ? b : a)).key : null;
-  // The two time ticks bracket the whole cooling day: first start (history included) to the
-  // last planned end - not just the currently-relevant block.
-  const coolStartsMs = [
-    ...doneIntervals.map(iv => iv.startMs),
-    ...(runStartMs != null ? [runStartMs] : []),
-    ...futureWindows.map(w => w.startMs),
-    ...(fallbackFutureMs != null ? [fallbackFutureMs] : []),
-  ];
-  const coolEndsMs = [
-    ...doneIntervals.map(iv => iv.endMs),
-    ...(runEndMs != null ? [runEndMs] : []),
-    ...futureWindows.map(w => w.endMs),
-    ...(fallbackFutureEndMs != null ? [fallbackFutureEndMs] : []),
-  ];
-  const coolTickStartMs = coolStartsMs.length ? Math.min(...coolStartsMs) : null;
-  const coolTickEndMs = coolEndsMs.length ? Math.max(...coolEndsMs) : null;
+  // ONE program envelope instead of per-fragment pills (user 2026-07-30 "why is it three
+  // bubbles": sub-hour fragments each drawn as a full pill read as noise at ~18px/hour).
+  // Everything the AC did or will do today merges into one cool pill, first start to last
+  // planned end; deliberate pauses >= 30 min render as quiet notches INSIDE it. Exact
+  // times live in the tap-open schedule under the bar.
+  const MIN_PAUSE_MS = 30 * 60_000;
+  const rawBlocks = [
+    ...doneIntervals.map(iv => ({ s: iv.startMs, e: iv.endMs })),
+    ...(runStartMs != null && runEndMs != null ? [{ s: runStartMs, e: runEndMs }] : []),
+    ...futureWindows.map(w => ({ s: w.startMs, e: w.endMs })),
+    ...(fallbackFutureMs != null && fallbackFutureEndMs != null ? [{ s: fallbackFutureMs, e: fallbackFutureEndMs }] : []),
+  ].sort((a, b) => a.s - b.s);
+  const coolBlocks: { s: number; e: number }[] = [];
+  for (const b of rawBlocks) {
+    const last = coolBlocks[coolBlocks.length - 1];
+    if (last && b.s <= last.e + 60_000) last.e = Math.max(last.e, b.e);
+    else coolBlocks.push({ ...b });
+  }
+  const progStartMs = coolBlocks.length ? coolBlocks[0].s : null;
+  const progEndMs = coolBlocks.length ? coolBlocks[coolBlocks.length - 1].e : null;
+  const progSpan = barEndMs != null ? spanPct(progStartMs, progEndMs, barStartMs, barEndMs) : null;
+  const progCls = coolRunning ? 'is-running' : progEndMs != null && progEndMs <= nowMs ? 'is-done' : 'is-future';
+  const pauseTimes: { s: number; e: number }[] = [];
+  for (let i = 0; i + 1 < coolBlocks.length; i++) {
+    if (coolBlocks[i + 1].s - coolBlocks[i].e >= MIN_PAUSE_MS) pauseTimes.push({ s: coolBlocks[i].e, e: coolBlocks[i + 1].s });
+  }
+  const pauseSpans =
+    barEndMs == null ? [] : pauseTimes.map(p => spanPct(p.s, p.e, barStartMs, barEndMs)).filter((s): s is Span => s != null && s.width > 0);
+  // Ticks: program start, program end, wake. NO "bed" tick - the bedtime pill already names
+  // itself (user 2026-07-30: "why is bed written where time goes"); a program-end tick that
+  // would collide with a neighbour is dropped rather than squeezed.
+  const TICK_MIN_GAP_PCT = 7;
+  const wakeTickPct = barEndMs != null && wakeDate ? pctOf(wakeDate.getTime(), barStartMs, barEndMs) : null;
+  const progStartPct = barEndMs != null && progStartMs != null ? pctOf(progStartMs, barStartMs, barEndMs) : null;
+  const progEndPctRaw = barEndMs != null && progEndMs != null ? pctOf(progEndMs, barStartMs, barEndMs) : null;
+  const progEndPct =
+    progEndPctRaw != null &&
+    (progStartPct == null || progEndPctRaw - progStartPct >= TICK_MIN_GAP_PCT) &&
+    (wakeTickPct == null || wakeTickPct - progEndPctRaw >= TICK_MIN_GAP_PCT)
+      ? progEndPctRaw
+      : null;
 
   const dryingNowPct = barEndMs != null && statusState === 'drying' ? pctOf(nowMs, barStartMs, barEndMs) : null;
   const dryingSpan: Span | null = dryingNowPct != null ? { left: dryingNowPct, width: Math.min(4, 100 - dryingNowPct) } : null;
@@ -362,40 +370,46 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   const bedtimeStartMs = atHour(now, BEDTIME_HOUR).getTime();
   const bedtimeSpan = barEndMs != null ? spanPct(bedtimeStartMs, wakeMs, barStartMs, barEndMs) : null;
 
-  // Hold phase (user 2026-07-30): after the main pull the room re-warms (~1.5°/h against a
-  // summer-warm apartment), so the AC keeps topping up until bedtime -- without drawing it
-  // the bar implies "done" at the cool block's end. Rendered as EXPLICIT gap pills between
-  // the cool blocks (never one faint underlay painted over: its centered "hold" label
-  // landed on top of the second planned run, and its 0.16-alpha wings vanished on the dark
-  // card -- user 2026-07-30: "the hold still looks like it is in the wrong time"). Only
-  // cool blocks INSIDE the bar anchor the first gap (a pre-bar morning burp must not drag
-  // hold to the left edge); armed-idle with nothing booked holds from now.
+  // Hold = the quiet stretches: the pauses inside the program (drawn as notches above) and
+  // the tail from the last planned cool to bedtime. One "hold" label total, on the widest
+  // stretch that can actually fit the word.
   const armedHolding = armed && (statusState === 'idle' || statusState === 'drying');
-  const firstDoneEndInBarMs = doneIntervals.find(iv => iv.endMs > barStartMs)?.endMs ?? null;
-  const orderedCoolBlocks = [
-    ...(runStartMs != null && runEndMs != null ? [{ s: runStartMs, e: runEndMs }] : []),
-    ...futureWindows.map(w => ({ s: w.startMs, e: w.endMs })),
-    ...(fallbackFutureMs != null && fallbackFutureEndMs != null ? [{ s: fallbackFutureMs, e: fallbackFutureEndMs }] : []),
-  ].sort((a, b) => a.s - b.s);
-  const holdAnchorMs = firstDoneEndInBarMs ?? orderedCoolBlocks[0]?.e ?? (armedHolding ? nowMs : null);
-  const holdSpans: Span[] = [];
-  if (barEndMs != null && holdAnchorMs != null) {
-    let cur = holdAnchorMs;
-    for (const blk of orderedCoolBlocks) {
-      if (blk.e <= cur) continue;
-      if (blk.s > cur && cur < bedtimeStartMs) {
-        const s = spanPct(cur, Math.min(blk.s, bedtimeStartMs), barStartMs, barEndMs);
-        if (s && s.width > 0) holdSpans.push(s);
-      }
-      cur = Math.max(cur, blk.e);
-    }
-    if (cur < bedtimeStartMs) {
-      const s = spanPct(cur, bedtimeStartMs, barStartMs, barEndMs);
-      if (s && s.width > 0) holdSpans.push(s);
-    }
+  const holdTailStartMs = progEndMs ?? (armedHolding ? nowMs : null);
+  const holdTailSpan =
+    barEndMs != null && holdTailStartMs != null && holdTailStartMs < bedtimeStartMs
+      ? spanPct(holdTailStartMs, bedtimeStartMs, barStartMs, barEndMs)
+      : null;
+  const LABEL_MIN_PCT = 6;
+  const holdFeatures = [
+    ...pauseSpans.map((span, i) => ({ span, key: `pause-${i}` })),
+    ...(holdTailSpan && holdTailSpan.width > 0 ? [{ span: holdTailSpan, key: 'tail' }] : []),
+  ].filter(f => f.span.width >= LABEL_MIN_PCT);
+  const holdLabelKey = holdFeatures.length ? holdFeatures.reduce((a, b) => (b.span.width > a.span.width ? b : a)).key : null;
+
+  // Tap-open exact schedule (user 2026-07-30: when the bar can't fit the times, a tap must
+  // show them). Chronological, bar vocabulary only.
+  const schedRows: { t: number; time: string; what: string }[] = [];
+  for (const iv of doneIntervals) {
+    schedRows.push({ t: iv.startMs, time: `${formatHHMM(new Date(iv.startMs))}–${formatHHMM(new Date(iv.endMs))}`, what: 'cooled' });
   }
-  // Label the widest gap only - a 15-min sliver can't fit the word anyway.
-  const holdLabelIdx = holdSpans.length ? holdSpans.reduce((bi, s, i, arr) => (s.width > arr[bi].width ? i : bi), 0) : -1;
+  if (runStartMs != null && runEndMs != null) {
+    schedRows.push({ t: runStartMs, time: `${formatHHMM(new Date(runStartMs))}–${formatHHMM(new Date(runEndMs))}`, what: 'cooling' });
+  }
+  for (const p of pauseTimes) {
+    schedRows.push({ t: p.s, time: `${formatHHMM(new Date(p.s))}–${formatHHMM(new Date(p.e))}`, what: 'hold' });
+  }
+  for (const w of futureWindows) {
+    schedRows.push({ t: w.startMs, time: `${formatHHMM(new Date(w.startMs))}–${formatHHMM(new Date(w.endMs))}`, what: 'cool' });
+  }
+  if (fallbackFutureMs != null && fallbackFutureEndMs != null) {
+    schedRows.push({ t: fallbackFutureMs, time: `${formatHHMM(new Date(fallbackFutureMs))}–${formatHHMM(new Date(fallbackFutureEndMs))}`, what: 'cool' });
+  }
+  if (holdTailStartMs != null && holdTailStartMs < bedtimeStartMs) {
+    schedRows.push({ t: holdTailStartMs, time: `${formatHHMM(new Date(holdTailStartMs))}–${formatHHMM(new Date(bedtimeStartMs))}`, what: 'hold' });
+  }
+  schedRows.push({ t: bedtimeStartMs, time: formatHHMM(new Date(bedtimeStartMs)), what: 'bedtime' });
+  if (wakeDate) schedRows.push({ t: wakeDate.getTime(), time: formatHHMM(wakeDate), what: 'wake' });
+  schedRows.sort((a, b) => a.t - b.t);
 
   // Three-day strip - same stale-night guard as the retired CoolingModule (the advisor's sparse
   // eval schedule can leave yesterday's night in the sensor until its next morning run).
@@ -496,7 +510,20 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
           )}
 
           {barEndMs != null && nowPct != null && (
-            <div className='tonight-bar-section'>
+            <div
+              className='tonight-bar-section'
+              onClick={() => setSchedOpen(v => !v)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setSchedOpen(v => !v);
+                }
+              }}
+              role='button'
+              tabIndex={0}
+              aria-expanded={schedOpen}
+              aria-label='Show exact times'
+            >
               <div className='tonight-bar-track'>
                 {windowsSpan && windowsSpan.width > 0 && (
                   <div
@@ -514,22 +541,29 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
                     <span className='tonight-bar-segment-label'>bedtime</span>
                   </div>
                 )}
-                {holdSpans.map((s, i) => (
+                {holdTailSpan && holdTailSpan.width > 0 && (
                   <div
-                    key={`hold-${i}`}
                     className='tonight-bar-segment tonight-bar-segment--hold'
+                    style={{ left: `${holdTailSpan.left}%`, width: `${holdTailSpan.width}%` }}
+                  >
+                    {holdLabelKey === 'tail' && <span className='tonight-bar-segment-label'>hold</span>}
+                  </div>
+                )}
+                {progSpan && progSpan.width > 0 && (
+                  <div
+                    className={`tonight-bar-segment tonight-bar-segment--cool ${progCls}`}
+                    style={{ left: `${progSpan.left}%`, width: `${progSpan.width}%` }}
+                  >
+                    {progSpan.width >= LABEL_MIN_PCT && <span className='tonight-bar-segment-label'>cool</span>}
+                  </div>
+                )}
+                {pauseSpans.map((s, i) => (
+                  <div
+                    key={`pause-${i}`}
+                    className='tonight-bar-segment tonight-bar-segment--pause'
                     style={{ left: `${s.left}%`, width: `${s.width}%` }}
                   >
-                    {i === holdLabelIdx && <span className='tonight-bar-segment-label'>hold</span>}
-                  </div>
-                ))}
-                {coolSegs.map(seg => (
-                  <div
-                    key={seg.key}
-                    className={`tonight-bar-segment tonight-bar-segment--cool ${seg.cls}`}
-                    style={{ left: `${seg.span.left}%`, width: `${seg.span.width}%` }}
-                  >
-                    {seg.key === coolLabelKey && <span className='tonight-bar-segment-label'>cool</span>}
+                    {holdLabelKey === `pause-${i}` && <span className='tonight-bar-segment-label'>hold</span>}
                   </div>
                 ))}
                 {dryingSpan && dryingSpan.width > 0 && (
@@ -542,25 +576,32 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
                 <div className='tonight-bar-now-dot' style={{ left: `${nowPct}%` }} />
               </div>
               <div className='tonight-bar-ticks'>
-                {coolTickStartMs != null && (
-                  <span className='tonight-bar-tick' style={{ left: `${pctOf(coolTickStartMs, barStartMs, barEndMs)}%` }}>
-                    {formatHHMM(new Date(coolTickStartMs))}
+                {progStartPct != null && progStartMs != null && (
+                  <span className='tonight-bar-tick' style={{ left: `${progStartPct}%` }}>
+                    {formatHHMM(new Date(progStartMs))}
                   </span>
                 )}
-                {coolTickEndMs != null && (
-                  <span className='tonight-bar-tick' style={{ left: `${pctOf(coolTickEndMs, barStartMs, barEndMs)}%` }}>
-                    {formatHHMM(new Date(coolTickEndMs))}
+                {progEndPct != null && progEndMs != null && (
+                  <span className='tonight-bar-tick' style={{ left: `${progEndPct}%` }}>
+                    {formatHHMM(new Date(progEndMs))}
                   </span>
                 )}
-                <span className='tonight-bar-tick' style={{ left: `${pctOf(bedtimeStartMs, barStartMs, barEndMs)}%` }}>
-                  bed
-                </span>
-                {wakeDate && (
-                  <span className='tonight-bar-tick' style={{ left: `${pctOf(wakeDate.getTime(), barStartMs, barEndMs)}%` }}>
+                {wakeTickPct != null && wakeDate && (
+                  <span className='tonight-bar-tick' style={{ left: `${wakeTickPct}%` }}>
                     {formatHHMM(wakeDate)}
                   </span>
                 )}
               </div>
+              {schedOpen && (
+                <div className='tonight-sched'>
+                  {schedRows.map((r, i) => (
+                    <div key={`${r.t}-${i}`} className='tonight-sched-row'>
+                      <span className='tonight-sched-time'>{r.time}</span>
+                      <span className='tonight-sched-what'>{r.what}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
