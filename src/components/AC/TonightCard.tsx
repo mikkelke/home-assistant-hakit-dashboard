@@ -350,7 +350,7 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
         <span className={`tonight-glyph ${viewState === 'paused' ? 'alert' : ''}`}>
           <Icon icon={GLYPH_ICON[viewState]} aria-hidden='true' />
         </span>
-        <span className='tonight-title'>Tonight</span>
+        <span className='tonight-title'>Climate</span>
         <span className='tonight-top-right'>
           <span className='tonight-top-wake'>{Number.isFinite(wakeProjection) ? `${wakeProjection.toFixed(1)}°` : '--°'}</span>
           {stateWord && (

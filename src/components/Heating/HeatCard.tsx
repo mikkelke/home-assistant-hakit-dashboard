@@ -111,7 +111,7 @@ export function HeatCard({ areaName, entities, callService }: HeatCardProps) {
         <span className='heat-glyph'>
           <Icon icon='mdi:radiator' aria-hidden='true' />
         </span>
-        <span className='heat-title'>Heating</span>
+        <span className='heat-title'>Climate</span>
         <span className='heat-header-right'>
           <span className='heat-current'>{Number.isFinite(roomTemp) ? `${roomTemp.toFixed(1)}°` : '--°'}</span>
           <span className={`heat-state ${stateTone}`}>{stateWord}</span>
