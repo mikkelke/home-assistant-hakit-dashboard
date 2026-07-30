@@ -133,6 +133,29 @@ function spanPct(startMs: number | null, endMs: number | null, barStartMs: numbe
   return { left, width };
 }
 
+type CoolInterval = { startMs: number; endMs: number | null };
+
+/** Backend-published day history: cool_intervals_today = [[startIso, endIso|null], ...] - the
+ * stretches the AC actually spent cooling (open interval = running right now). AppDaemon's
+ * publish path strips None INSIDE list values (verified 4.5.13 remove_literals recurses), so
+ * the open interval actually arrives as a 1-element [startIso] - a missing/null end means
+ * "still running". Parsed defensively and sorted; anything malformed is dropped rather than
+ * guessed. Absent attr (older backend) degrades to the previous future-only bar. */
+function parseCoolIntervals(raw: unknown): CoolInterval[] {
+  if (!Array.isArray(raw)) return [];
+  const out: CoolInterval[] = [];
+  for (const item of raw) {
+    if (!Array.isArray(item) || item.length < 1) continue;
+    const startMs = Date.parse(String(item[0]));
+    if (!Number.isFinite(startMs)) continue;
+    const endRaw = item.length > 1 ? item[1] : null;
+    const endMs = endRaw == null ? null : Date.parse(String(endRaw));
+    if (endMs !== null && !Number.isFinite(endMs)) continue;
+    out.push({ startMs, endMs });
+  }
+  return out.sort((a, b) => a.startMs - b.startMs);
+}
+
 /** Wraps "1.7 kr"-style money substrings in the orange money span. Shared by every sentence this
  * card renders (verdict, tonight-so-far, last-night receipt) so figures read consistently. */
 function withMoneyHighlight(text: string): React.ReactNode[] {
@@ -263,13 +286,45 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   const nowMs = now.getTime();
   const nowPct = barEndMs != null ? pctOf(nowMs, barStartMs, barEndMs) : null;
 
-  const coolRunning = statusState === 'cooling' || statusState === 'burping';
-  const coolStartDate = coolRunning ? new Date(nowMs) : parseTimeAttr(statusAttrs.next_start, barStartMs);
-  const coolStartMs = coolStartDate ? coolStartDate.getTime() : null;
+  // Day history (user 2026-07-30: "keep the history ... so we can see how the day have been"):
+  // closed intervals stay on the bar as done segments, the open one anchors the running block
+  // at its REAL start instead of `now`, and only the not-yet-started plan renders as future -
+  // so finishing a phase no longer erases it from the day.
+  const coolIntervals = parseCoolIntervals(statusAttrs.cool_intervals_today);
+  const doneIntervals = coolIntervals.filter(
+    (iv): iv is { startMs: number; endMs: number } => iv.endMs != null && iv.endMs > iv.startMs
+  );
+  const openInterval = coolIntervals.find(iv => iv.endMs == null) ?? null;
+
+  const coolRunning = ACTIVE_COOLING_STATES.has(statusState);
   const minutesNeeded = attrNum(statusAttrs.minutes_needed, NaN);
-  const coolEndMs =
-    coolStartMs != null && Number.isFinite(minutesNeeded) && minutesNeeded > 0 ? coolStartMs + minutesNeeded * 60_000 : null;
-  const coolSpan = barEndMs != null ? spanPct(coolStartMs, coolEndMs, barStartMs, barEndMs) : null;
+  const remainMs = Number.isFinite(minutesNeeded) && minutesNeeded > 0 ? minutesNeeded * 60_000 : 0;
+  const runStartMs = coolRunning ? (openInterval?.startMs ?? nowMs) : null;
+  const runEndMs = runStartMs != null ? Math.max(nowMs + remainMs, runStartMs) : null;
+  const futureStartDate = !coolRunning ? parseTimeAttr(statusAttrs.next_start, barStartMs) : null;
+  const futureStartMs = futureStartDate ? futureStartDate.getTime() : null;
+  const futureEndMs = futureStartMs != null && remainMs > 0 ? futureStartMs + remainMs : null;
+  const coolEndMs = runEndMs ?? futureEndMs;
+
+  const coolSegs: { span: Span; cls: string; key: string }[] = barEndMs == null ? [] : [
+    ...doneIntervals
+      .map((iv, i) => ({ span: spanPct(iv.startMs, iv.endMs, barStartMs, barEndMs), cls: 'is-done', key: `done-${i}` }))
+      .filter((s): s is { span: Span; cls: string; key: string } => s.span != null && s.span.width > 0),
+    ...[{ span: spanPct(runStartMs, runEndMs, barStartMs, barEndMs), cls: 'is-running', key: 'run' }].filter(
+      (s): s is { span: Span; cls: string; key: string } => s.span != null && s.span.width > 0
+    ),
+    ...[{ span: spanPct(futureStartMs, futureEndMs, barStartMs, barEndMs), cls: 'is-future', key: 'future' }].filter(
+      (s): s is { span: Span; cls: string; key: string } => s.span != null && s.span.width > 0
+    ),
+  ];
+  // One "cool" label on the widest segment - three labelled slivers would just collide.
+  const coolLabelKey = coolSegs.length ? coolSegs.reduce((a, b) => (b.span.width > a.span.width ? b : a)).key : null;
+  // The two time ticks bracket the whole cooling day: first start (history included) to last
+  // projected end - not just the currently-relevant block.
+  const coolStartsMs = [...doneIntervals.map(iv => iv.startMs), ...(runStartMs != null ? [runStartMs] : []), ...(futureStartMs != null ? [futureStartMs] : [])];
+  const coolEndsMs = [...doneIntervals.map(iv => iv.endMs), ...(runEndMs != null ? [runEndMs] : []), ...(futureEndMs != null ? [futureEndMs] : [])];
+  const coolTickStartMs = coolStartsMs.length ? Math.min(...coolStartsMs) : null;
+  const coolTickEndMs = coolEndsMs.length ? Math.max(...coolEndsMs) : null;
 
   const dryingNowPct = barEndMs != null && statusState === 'drying' ? pctOf(nowMs, barStartMs, barEndMs) : null;
   const dryingSpan: Span | null = dryingNowPct != null ? { left: dryingNowPct, width: Math.min(4, 100 - dryingNowPct) } : null;
@@ -288,7 +343,10 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   // when armed and already at target with nothing booked), ends at bedtime. Display only:
   // the top-ups are the planner's normal re-evaluations, not a separate program.
   const armedHolding = armed && (statusState === 'idle' || statusState === 'drying');
-  const holdStartMs = coolEndMs ?? (armedHolding ? nowMs : null);
+  // With history, hold anchors where the day's FIRST pull-down finished (top-up bursts paint
+  // over it) - the old projected-end / now fallbacks only apply before anything has completed.
+  const firstDoneEndMs = doneIntervals.length ? doneIntervals[0].endMs : null;
+  const holdStartMs = firstDoneEndMs ?? coolEndMs ?? (armedHolding ? nowMs : null);
   const holdSpan =
     barEndMs != null && holdStartMs != null && holdStartMs < bedtimeStartMs
       ? spanPct(holdStartMs, bedtimeStartMs, barStartMs, barEndMs)
@@ -419,14 +477,15 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
                     <span className='tonight-bar-segment-label'>hold</span>
                   </div>
                 )}
-                {coolSpan && coolSpan.width > 0 && (
+                {coolSegs.map(seg => (
                   <div
-                    className={`tonight-bar-segment tonight-bar-segment--cool ${coolRunning ? 'is-running' : 'is-future'}`}
-                    style={{ left: `${coolSpan.left}%`, width: `${coolSpan.width}%` }}
+                    key={seg.key}
+                    className={`tonight-bar-segment tonight-bar-segment--cool ${seg.cls}`}
+                    style={{ left: `${seg.span.left}%`, width: `${seg.span.width}%` }}
                   >
-                    <span className='tonight-bar-segment-label'>cool</span>
+                    {seg.key === coolLabelKey && <span className='tonight-bar-segment-label'>cool</span>}
                   </div>
-                )}
+                ))}
                 {dryingSpan && dryingSpan.width > 0 && (
                   <div
                     className='tonight-bar-segment tonight-bar-segment--drying'
@@ -437,14 +496,14 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
                 <div className='tonight-bar-now-dot' style={{ left: `${nowPct}%` }} />
               </div>
               <div className='tonight-bar-ticks'>
-                {coolStartMs != null && (
-                  <span className='tonight-bar-tick' style={{ left: `${pctOf(coolStartMs, barStartMs, barEndMs)}%` }}>
-                    {formatHHMM(new Date(coolStartMs))}
+                {coolTickStartMs != null && (
+                  <span className='tonight-bar-tick' style={{ left: `${pctOf(coolTickStartMs, barStartMs, barEndMs)}%` }}>
+                    {formatHHMM(new Date(coolTickStartMs))}
                   </span>
                 )}
-                {coolEndMs != null && (
-                  <span className='tonight-bar-tick' style={{ left: `${pctOf(coolEndMs, barStartMs, barEndMs)}%` }}>
-                    {formatHHMM(new Date(coolEndMs))}
+                {coolTickEndMs != null && (
+                  <span className='tonight-bar-tick' style={{ left: `${pctOf(coolTickEndMs, barStartMs, barEndMs)}%` }}>
+                    {formatHHMM(new Date(coolTickEndMs))}
                   </span>
                 )}
                 <span className='tonight-bar-tick' style={{ left: `${pctOf(bedtimeStartMs, barStartMs, barEndMs)}%` }}>
@@ -537,8 +596,8 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
               {Number.isFinite(feasibleFloor) && <SheetRow label='Floor bottoms out' value={`~${feasibleFloor.toFixed(1)}°`} />}
               <SheetRow label='A degree deeper at bedtime' value='0.73° cooler wake' />
               <SheetRow
-                label='Draws'
-                value={`${Number.isFinite(coolPower) ? coolPower.toFixed(2) : '0.87'} kW · costs from your plug meter`}
+                label='Draws while cooling'
+                value={`~${Number.isFinite(coolPower) ? coolPower.toFixed(2) : '0.87'} kW · learned average, not live`}
               />
               {ceilingEntity && (
                 <div className='tonight-sheet-row'>

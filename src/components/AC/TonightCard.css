@@ -202,6 +202,10 @@
 .tonight-bar-segment--cool.is-running {
   opacity: 1;
 }
+/* Completed stretches of the day: solid history, calmer than the live block */
+.tonight-bar-segment--cool.is-done {
+  opacity: 0.75;
+}
 
 .tonight-bar-segment-label {
   font-size: 0.6rem;
