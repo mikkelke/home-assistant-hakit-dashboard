@@ -205,10 +205,12 @@ function EventRow({ event }: EventRowProps) {
         {formatHHMM(date)}
         {/* Restricted rows only ever render for viewers allowed to see them (HouseEventsModal's
             audience gate), so the marker explains restriction to the included — "the others don't
-            see this one" — rather than announcing anything to the excluded. */}
+            see this one" — rather than announcing anything to the excluded. Named, not "you"
+            (user 2026-07-30): whoever is looking at the screen reads the same words. Mikkel is
+            the admin, so "admin rows" read as his. */}
         {(event.audience === 'admin' || event.audienceUsers) && (
           <span
-            title={event.audienceUsers ? `Visible only to ${event.audienceUsers.join(', ')} and admins` : 'Only visible to you'}
+            title={event.audienceUsers ? `Visible only to ${event.audienceUsers.join(', ')} and Mikkel` : 'Visible only to Mikkel'}
             aria-label='Restricted visibility'
           >
             <Icon icon='mdi:eye-off-outline' className='home-activity-row-adminmark' aria-hidden='true' />
