@@ -182,7 +182,7 @@
   letter-spacing: 0.03em;
   color: rgba(0, 0, 0, 0.55);
   white-space: nowrap;
-  z-index: 1;
+  z-index: 2;
 }
 .tonight-bar-word--light {
   color: rgba(220, 242, 255, 0.85);
@@ -268,18 +268,16 @@
   white-space: nowrap;
 }
 
-/* "Now" - the iOS-Weather range-bar dot: white with a dark ring so it reads on any color
-   of the gradient; its live time tick sits right below the bar */
-.tonight-bar-now-dot {
+/* "Now" is not an object - the past rests under a gentle veil that fades out exactly at
+   the present, so the strip turning vivid IS the marker; the bold live time tick below
+   anchors it. */
+.tonight-bar-past {
   position: absolute;
-  top: 50%;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #ffffff;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 0 3px rgba(28, 28, 30, 0.85);
-  z-index: 2;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: linear-gradient(90deg, rgba(18, 20, 24, 0.45) 0%, rgba(18, 20, 24, 0.45) calc(100% - 16px), rgba(18, 20, 24, 0) 100%);
+  z-index: 1;
 }
 
 .tonight-bar-tick--now {
