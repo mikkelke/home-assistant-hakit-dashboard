@@ -281,6 +281,18 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   const bedtimeStartMs = atHour(now, BEDTIME_HOUR).getTime();
   const bedtimeSpan = barEndMs != null ? spanPct(bedtimeStartMs, wakeMs, barStartMs, barEndMs) : null;
 
+  // Hold phase (user 2026-07-30): after the main pull the room re-warms (~1.5°/h against a
+  // summer-warm apartment), so the AC keeps topping up until bedtime -- without drawing it
+  // the bar implies "done" at the cool block's end. Starts where the cool block ends (or now,
+  // when armed and already at target with nothing booked), ends at bedtime. Display only:
+  // the top-ups are the planner's normal re-evaluations, not a separate program.
+  const armedHolding = armed && (statusState === 'idle' || statusState === 'drying');
+  const holdStartMs = coolEndMs ?? (armedHolding ? nowMs : null);
+  const holdSpan =
+    barEndMs != null && holdStartMs != null && holdStartMs < bedtimeStartMs
+      ? spanPct(holdStartMs, bedtimeStartMs, barStartMs, barEndMs)
+      : null;
+
   // Three-day strip - same stale-night guard as the retired CoolingModule (the advisor's sparse
   // eval schedule can leave yesterday's night in the sensor until its next morning run).
   const today = localToday();
@@ -392,13 +404,25 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
                   <div
                     className='tonight-bar-segment tonight-bar-segment--windows'
                     style={{ left: `${windowsSpan.left}%`, width: `${windowsSpan.width}%` }}
-                  />
+                  >
+                    <span className='tonight-bar-segment-label'>windows open</span>
+                  </div>
                 )}
                 {bedtimeSpan && bedtimeSpan.width > 0 && (
                   <div
                     className='tonight-bar-segment tonight-bar-segment--bedtime'
                     style={{ left: `${bedtimeSpan.left}%`, width: `${bedtimeSpan.width}%` }}
-                  />
+                  >
+                    <span className='tonight-bar-segment-label'>bedtime</span>
+                  </div>
+                )}
+                {holdSpan && holdSpan.width > 0 && (
+                  <div
+                    className='tonight-bar-segment tonight-bar-segment--hold'
+                    style={{ left: `${holdSpan.left}%`, width: `${holdSpan.width}%` }}
+                  >
+                    <span className='tonight-bar-segment-label'>hold</span>
+                  </div>
                 )}
                 {coolSpan && coolSpan.width > 0 && (
                   <div
