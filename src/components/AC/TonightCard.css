@@ -165,10 +165,14 @@
   overflow: hidden; /* sections are flat-joined; the track's radius rounds the outer ends */
 }
 
+/* Activity-ribbon grammar: tall soft blocks = something happening (cool/bedtime/windows),
+   the thin centered ribbon = holding/waiting between them. Height carries the state change,
+   so section joins never look like hard color cuts. */
 .tonight-bar-segment {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: 3px;
+  bottom: 3px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -188,10 +192,10 @@
 }
 
 .tonight-bar-segment--hold {
-  background: rgba(100, 210, 255, 0.3);
-}
-.tonight-bar-segment--hold .tonight-bar-segment-label {
-  color: rgba(220, 242, 255, 0.9);
+  top: 14px;
+  bottom: 14px;
+  border-radius: 4px;
+  background: rgba(100, 210, 255, 0.42);
 }
 
 /* The whole bar is tappable - it opens the exact-times schedule */
@@ -243,26 +247,21 @@
   white-space: nowrap;
 }
 
+/* "Now" - a full-height hairline whose live time tick sits right below it */
 .tonight-bar-now-line {
   position: absolute;
-  top: -4px;
-  bottom: -4px;
+  top: 0;
+  bottom: 0;
   width: 2px;
+  border-radius: 1px;
   background: rgba(255, 255, 255, 0.9);
   transform: translateX(-50%);
   z-index: 2;
 }
 
-.tonight-bar-now-dot {
-  position: absolute;
-  top: -4px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #ffffff;
-  transform: translate(-50%, -50%);
-  z-index: 3;
-  box-shadow: 0 0 0 2px #1c1c1e;
+.tonight-bar-tick--now {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
 }
 
 .tonight-bar-ticks {

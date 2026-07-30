@@ -33,7 +33,6 @@ type ButtonKind = 'cool_tonight' | 'going_to_bed' | 'nothing_to_do' | 'none';
 const BAR_START_HOUR = 10;
 const WINDOWS_CUTOFF_HOUR = 22;
 const BEDTIME_HOUR = 23;
-const BAR_END_PADDING_MS = 60 * 60 * 1000; // ~1h past wake, per design
 
 /** States where the compressor is genuinely doing something (a dry-run/off/idle isn't "cooling"). */
 const ACTIVE_COOLING_STATES = new Set(['cooling', 'burping']);
@@ -293,9 +292,10 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   const sessionKwh = attrNum(statusAttrs.session_kwh, NaN);
   const sessionLive = Number.isFinite(sessionCostKr) && SESSION_LIVE_STATES.has(statusState);
 
-  // Night bar - needs a real wake time to anchor its right edge; the whole section is omitted
-  // without one (never guess a fallback end time - that's scheduling, not a published number).
-  const barEndMs = wakeMs != null ? wakeMs + BAR_END_PADDING_MS : null;
+  // Night bar - first activity of the day on the left, wake EXACTLY on the right (user
+  // 2026-07-30: "why do we not end the bar at 07:00"). Omitted entirely without a real wake
+  // time (never guess a fallback end - that's scheduling, not a published number).
+  const barEndMs = wakeMs;
   const nowPct = barEndMs != null ? pctOf(nowMs, barStartMs, barEndMs) : null;
 
   const coolRunning = ACTIVE_COOLING_STATES.has(statusState);
@@ -391,7 +391,6 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
     return best;
   };
   const coolLabelIdx = widestIdx(k => k.startsWith('cool'));
-  const holdLabelIdx = widestIdx(k => k === 'hold');
 
   const dryingNowPct = barEndMs != null && statusState === 'drying' ? pctOf(nowMs, barStartMs, barEndMs) : null;
   const dryingSpan: Span | null = dryingNowPct != null ? { left: dryingNowPct, width: Math.min(4, 100 - dryingNowPct) } : null;
@@ -411,6 +410,9 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
     (wakeTickPct == null || wakeTickPct - progEndPctRaw >= TICK_MIN_GAP_PCT)
       ? progEndPctRaw
       : null;
+  // The white line is "now" - it labels itself with a live time tick, which outranks any
+  // static tick it would collide with (user 2026-07-30: "what is the white marker?").
+  const nearNow = (pct: number | null) => pct != null && nowPct != null && Math.abs(pct - nowPct) < TICK_MIN_GAP_PCT;
 
   // The tap-open schedule IS the section list in words - one source, zero drift.
   const KIND_WORD: Record<SectionKind, string> = {
@@ -553,14 +555,14 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
                           ? 'tonight-bar-segment--windows'
                           : `tonight-bar-segment--cool ${x.kind === 'cool-running' ? 'is-running' : x.kind === 'cool-done' ? 'is-done' : 'is-future'}`;
                   const label =
-                    x.kind === 'bedtime' || x.kind === 'windows'
-                      ? x.span.width >= LABEL_MIN_PCT
-                        ? KIND_WORD[x.kind]
-                        : null
-                      : i === coolLabelIdx
-                        ? 'cool'
-                        : i === holdLabelIdx
-                          ? 'hold'
+                    x.kind === 'hold'
+                      ? null // the thin ribbon IS the meaning; its words live in the tap list
+                      : x.kind === 'bedtime' || x.kind === 'windows'
+                        ? x.span.width >= LABEL_MIN_PCT
+                          ? KIND_WORD[x.kind]
+                          : null
+                        : i === coolLabelIdx
+                          ? 'cool'
                           : null;
                   return (
                     <div
@@ -579,27 +581,31 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
                   />
                 )}
                 <div className='tonight-bar-now-line' style={{ left: `${nowPct}%` }} />
-                <div className='tonight-bar-now-dot' style={{ left: `${nowPct}%` }} />
               </div>
               <div className='tonight-bar-ticks'>
-                {progStartPct != null && progStartMs != null && (
+                {progStartPct != null && progStartMs != null && !nearNow(progStartPct) && (
                   <span className='tonight-bar-tick' style={{ left: `${progStartPct}%` }}>
                     {formatHHMM(new Date(progStartMs))}
                   </span>
                 )}
-                {progEndPct != null && progEndMs != null && (
+                {progEndPct != null && progEndMs != null && !nearNow(progEndPct) && (
                   <span className='tonight-bar-tick' style={{ left: `${progEndPct}%` }}>
                     {formatHHMM(new Date(progEndMs))}
                   </span>
                 )}
-                {bedtimeTickPct != null && (
+                {bedtimeTickPct != null && !nearNow(bedtimeTickPct) && (
                   <span className='tonight-bar-tick' style={{ left: `${bedtimeTickPct}%` }}>
                     {formatHHMM(new Date(bedtimeStartMs))}
                   </span>
                 )}
-                {wakeTickPct != null && wakeDate && (
+                {wakeTickPct != null && wakeDate && !nearNow(wakeTickPct) && (
                   <span className='tonight-bar-tick' style={{ left: `${wakeTickPct}%` }}>
                     {formatHHMM(wakeDate)}
+                  </span>
+                )}
+                {nowPct != null && (
+                  <span className='tonight-bar-tick tonight-bar-tick--now' style={{ left: `${nowPct}%` }}>
+                    {formatHHMM(now)}
                   </span>
                 )}
               </div>
