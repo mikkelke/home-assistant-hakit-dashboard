@@ -1,285 +1,190 @@
-/* Wakeup Alarm Card */
-.wakeup-alarm {
-  background: rgba(30, 30, 50, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.75rem;
-  padding: 0.75rem;
-  margin-bottom: 0.75rem;
-  transition: all 0.2s;
+/* Wake-up card — bedroom alarm: enable state, wake time, and "Wake up now". Same iOS-styled shell
+   as HeatCard.css/TonightCard.css (System Gray6 dark, 24px radius); collapsed-by-default header +
+   expandable content, same toggle mechanics. */
+
+.wakeup-card {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  background: #1c1c1e; /* iOS systemGray6 dark */
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.92);
 }
 
-.wakeup-alarm.enabled {
-  border-color: rgba(251, 191, 36, 0.3);
-  background: rgba(251, 191, 36, 0.05);
-}
-
-/* Main Row */
-.alarm-main {
+/* Header — always visible; the whole row is the tap target */
+.wakeup-header {
+  width: 100%;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.6rem;
+  padding: 1.25rem;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background 0.15s;
+}
+.wakeup-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.wakeup-header:active {
+  background: rgba(255, 255, 255, 0.1);
 }
 
-.alarm-toggle {
+.wakeup-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  background: rgba(100, 210, 255, 0.15);
+  color: #64d2ff;
+}
+.wakeup-glyph svg {
+  font-size: 1rem;
+}
+
+.wakeup-title {
+  flex: 1;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.wakeup-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.wakeup-current {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  font-variant-numeric: tabular-nums;
+}
+
+.wakeup-state {
+  font-size: 0.9rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.wakeup-state.tint {
+  color: #64d2ff;
+}
+.wakeup-state.muted {
+  color: rgba(235, 235, 245, 0.5);
+}
+
+.wakeup-chevron {
+  font-size: 1.1rem;
+  color: rgba(235, 235, 245, 0.4);
+  flex-shrink: 0;
+}
+
+/* Expanded content */
+.wakeup-content {
+  padding: 0 1.25rem 1.25rem;
+}
+
+.wakeup-hero {
+  margin-top: -0.25rem;
+}
+
+.wakeup-hero-value {
+  font-size: clamp(3.5rem, 14vw, 3.9rem);
+  font-weight: 200;
+  line-height: 0.92;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.wakeup-hero-sub {
+  margin-top: 0.3rem;
+  font-size: 0.82rem;
+  color: rgba(235, 235, 245, 0.3);
+}
+
+/* Time stepper - the card's one real control */
+.wakeup-time-row {
+  margin-top: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.wakeup-time-group {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.wakeup-time-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 44px;
   height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(40, 40, 60, 0.6);
-  border: none;
+  flex-shrink: 0;
   border-radius: 50%;
+  background: #3a3a3c; /* iOS systemGray4 dark */
+  border: none;
+  color: #ffffff;
   cursor: pointer;
-  transition: all 0.2s;
+}
+.wakeup-time-btn svg {
+  font-size: 1.15rem;
 }
 
-.alarm-toggle svg {
+.wakeup-time-value {
+  min-width: 2.75rem;
+  text-align: center;
   font-size: 1.5rem;
-  color: #71717a;
-  transition: all 0.2s;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
-.alarm-toggle.on {
-  background: rgba(251, 191, 36, 0.2);
+.wakeup-time-sep {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: rgba(235, 235, 245, 0.3);
 }
 
-.alarm-toggle.on svg {
-  color: #fbbf24;
+/* Primary action - filled tint pill, same shape as TonightCard's */
+.wakeup-action {
+  width: 100%;
+  margin-top: 1.1rem;
+  padding: 0.85rem 1rem;
+  border: none;
+  border-radius: 16px;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: #64d2ff;
+  cursor: pointer;
 }
 
-.alarm-toggle:hover {
-  transform: scale(1.05);
-}
-
-/* Alarm Info */
-.alarm-info {
-  flex: 1;
+/* Footer - no explanatory text, just the on/off action, right-aligned */
+.wakeup-footer {
+  margin-top: 1.1rem;
   display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+  justify-content: flex-end;
 }
 
-.alarm-label {
-  font-size: 0.7rem;
-  color: #71717a;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.alarm-time {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
+.wakeup-footer-action {
   background: none;
   border: none;
-  padding: 0;
+  padding: 0.2rem;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  color: #64d2ff;
+  text-decoration: underline;
   cursor: pointer;
-}
-
-.time-display {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #e4e4e7;
-  font-variant-numeric: tabular-nums;
-}
-
-.wakeup-alarm.enabled .time-display {
-  color: #fbbf24;
-}
-
-.wakeup-alarm.disabled .time-display {
-  opacity: 0.5;
-}
-
-.edit-icon {
-  font-size: 0.9rem;
-  color: #71717a;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-.alarm-time:hover .edit-icon {
-  opacity: 1;
-}
-
-/* Toggle Switch */
-.alarm-switch {
-  cursor: pointer;
-  padding: 0.25rem;
-}
-
-.switch-track {
-  width: 44px;
-  height: 24px;
-  background: rgba(100, 100, 120, 0.4);
-  border-radius: 12px;
-  position: relative;
-  transition: background 0.2s;
-}
-
-.alarm-switch.on .switch-track {
-  background: rgba(251, 191, 36, 0.4);
-}
-
-.switch-thumb {
-  width: 20px;
-  height: 20px;
-  background: #71717a;
-  border-radius: 50%;
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  transition: all 0.2s;
-}
-
-.alarm-switch.on .switch-thumb {
-  left: 22px;
-  background: #fbbf24;
-}
-
-/* Time Editor */
-.alarm-editor {
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.time-picker {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
-
-.time-column {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.time-btn {
-  width: 40px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.08);
-  border: none;
-  border-radius: 0.35rem;
-  color: #a1a1aa;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.time-btn:hover {
-  background: rgba(251, 191, 36, 0.2);
-  color: #fbbf24;
-}
-
-.time-btn svg {
-  font-size: 1.25rem;
-}
-
-.time-value {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #fbbf24;
-  font-variant-numeric: tabular-nums;
-  min-width: 56px;
-  text-align: center;
-}
-
-.time-separator {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #fbbf24;
-  margin: 0 0.25rem;
-}
-
-/* Presets */
-.alarm-presets {
-  display: flex;
-  justify-content: center;
-  gap: 0.35rem;
-  margin-bottom: 0.75rem;
-}
-
-.preset-btn {
-  padding: 0.35rem 0.6rem;
-  background: rgba(40, 40, 60, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.35rem;
-  color: #a1a1aa;
-  font-size: 0.75rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.preset-btn:hover {
-  background: rgba(251, 191, 36, 0.15);
-  border-color: rgba(251, 191, 36, 0.3);
-  color: #fbbf24;
-}
-
-.preset-btn.active {
-  background: rgba(251, 191, 36, 0.2);
-  border-color: rgba(251, 191, 36, 0.5);
-  color: #fbbf24;
-}
-
-/* Done Button */
-.done-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.6rem;
-  background: rgba(251, 191, 36, 0.15);
-  border: 1px solid rgba(251, 191, 36, 0.3);
-  border-radius: 0.5rem;
-  color: #fbbf24;
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.done-btn:hover {
-  background: rgba(251, 191, 36, 0.25);
-}
-
-.done-btn svg {
-  font-size: 1.1rem;
-}
-
-
-/* "Wake up now" -- fire the wake sequence immediately (2026-07-29) */
-.wake-now-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.6rem;
-  margin-top: 0.5rem;
-  background: rgba(251, 191, 36, 0.15);
-  border: 1px solid rgba(251, 191, 36, 0.3);
-  border-radius: 0.5rem;
-  color: #fbbf24;
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.wake-now-btn:hover {
-  background: rgba(251, 191, 36, 0.25);
-}
-
-.wake-now-btn:active {
-  transform: scale(0.98);
 }

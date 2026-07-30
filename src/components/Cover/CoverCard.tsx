@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useTouchScrollSlopGuard } from '../../hooks';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { attrNum } from '../../types';
+import { useLocalStorageBoolean, useTouchScrollSlopGuard } from '../../hooks';
 import './CoverCard.css';
+
+// Blind card — same collapsed-by-default iOS shell as HeatCard/TonightCard. Presentation only:
+// every value here comes straight off the cover entity, this component never computes anything
+// beyond the open/closed word derived from its own reported position.
 
 interface CoverCardProps {
   areaName: string;
@@ -12,9 +16,9 @@ interface CoverCardProps {
 }
 
 export function CoverCard({ areaName, entities, callService }: CoverCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const coverHeaderSlop = useTouchScrollSlopGuard();
+  const headerSlop = useTouchScrollSlopGuard();
   const areaNameNormalized = areaName.toLowerCase().replace(/\s+/g, '_');
+  const [collapsed, setCollapsed] = useLocalStorageBoolean(`covercard-collapsed-${areaNameNormalized}`, true);
 
   // Entity ID
   const coverId = `cover.${areaNameNormalized}_blind`;
@@ -25,7 +29,6 @@ export function CoverCard({ areaName, entities, callService }: CoverCardProps) {
   const uiPosition = devicePosition; // UI matches HA: 0 open, 100 closed
   const isBathroom = areaNameNormalized === 'bathroom';
   const isBedroom = areaNameNormalized === 'bedroom';
-  const dayPreset = isBathroom ? 40 : 38;
   const [sliderValue, setSliderValue] = useState(uiPosition);
 
   // keep slider in sync with HA updates (defer to avoid sync setState in effect)
@@ -43,11 +46,8 @@ export function CoverCard({ areaName, entities, callService }: CoverCardProps) {
   const isClosed = state === 'closed';
   const isMoving = state === 'opening' || state === 'closing';
 
-  // Highlight buttons based on current position
-  // Down arrow (dayPreset) highlighted when position is 38% (bedroom) or 40% (bathroom)
-  const isDownHighlighted = Math.abs(sliderValue - dayPreset) <= 1; // Allow 1% tolerance
-  // Up arrow (100%) highlighted when position is 99-100%
-  const isUpHighlighted = sliderValue >= 99;
+  const positionWord = sliderValue <= 0 ? 'Open' : sliderValue >= 100 ? 'Closed' : `${sliderValue}%`;
+  const movingWord = state === 'opening' ? 'Opening…' : 'Closing…';
 
   const handleOpen = () => {
     if (!callService) return;
@@ -94,122 +94,80 @@ export function CoverCard({ areaName, entities, callService }: CoverCardProps) {
     });
   };
 
-  const handlePositionCommit = (uiPos: number) => {
+  // The household's one meaningful preset: ~38-40% blocks direct sun while keeping
+  // daylight — the same position the solar-shade routine drives to. "Default" where
+  // the motor runs inverted (bathroom/bedroom), "Day" elsewhere.
+  const dayPreset = isBathroom ? 40 : 38;
+  const dayLabel = isBathroom || isBedroom ? 'Default' : 'Day';
+  const isAtDay = !isMoving && Math.abs(sliderValue - dayPreset) <= 2;
+
+  const handleDay = () => {
     if (!callService) return;
-    const devicePos = Math.max(0, Math.min(100, uiPos));
     callService({
       domain: 'cover',
       service: 'set_cover_position',
       target: { entity_id: coverId },
-      serviceData: { position: devicePos },
+      serviceData: { position: dayPreset },
     });
   };
 
   return (
-    <div className={`cover-card ${isExpanded ? 'expanded' : ''}`}>
-      {/* Header - Collapsed View */}
+    <div className='cover-card'>
+      {/* Header - collapsed view */}
       <div
         className='cover-header'
         onClick={() => {
-          if (coverHeaderSlop.consumeBlockClick()) return;
-          setIsExpanded(!isExpanded);
+          if (headerSlop.consumeBlockClick()) return;
+          setCollapsed(v => !v);
         }}
-        onTouchStart={coverHeaderSlop.onTouchStart}
-        onTouchMove={coverHeaderSlop.onTouchMove}
-        onTouchEnd={coverHeaderSlop.onTouchEnd}
-        onTouchCancel={coverHeaderSlop.onTouchCancel}
+        onTouchStart={headerSlop.onTouchStart}
+        onTouchMove={headerSlop.onTouchMove}
+        onTouchEnd={headerSlop.onTouchEnd}
+        onTouchCancel={headerSlop.onTouchCancel}
         onKeyDown={e => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            setIsExpanded(!isExpanded);
+            setCollapsed(v => !v);
           }
         }}
         role='button'
         tabIndex={0}
-        aria-expanded={isExpanded}
+        aria-expanded={!collapsed}
       >
-        <div className='cover-header-info'>
-          <Icon icon='mdi:blinds' className='cover-icon' />
-          <div className='cover-status'>
-            <span className='cover-name'>Blinds</span>
-            <span className='cover-position'>{sliderValue}% closed</span>
-          </div>
-        </div>
-        <div className='cover-header-right'>
-          <div className='cover-quick-actions'>
-            <button
-              className={`cover-quick-btn ${isUpHighlighted ? 'active' : ''}`}
-              onClick={e => {
-                e.stopPropagation();
-                handlePositionCommit(100);
-              }}
-              title='Close (100%)'
-            >
-              <Icon icon='mdi:arrow-up-bold' />
-            </button>
-            <button
-              className={`cover-quick-btn ${isDownHighlighted ? 'active' : ''}`}
-              onClick={e => {
-                e.stopPropagation();
-                handlePositionCommit(dayPreset);
-              }}
-              title={`Open (${dayPreset}%)`}
-            >
-              <Icon icon='mdi:arrow-down-bold' />
-            </button>
-          </div>
-          <span className={`cover-state ${state}`}>
-            {isMoving && <Icon icon='mdi:loading' className='spinning' />}
-            {state}
-          </span>
-          <Icon icon={isExpanded ? 'mdi:chevron-up' : 'mdi:chevron-down'} />
-        </div>
+        <span className='cover-glyph'>
+          <Icon icon='mdi:blinds' aria-hidden='true' />
+        </span>
+        <span className='cover-title'>Blind</span>
+        <span className='cover-header-right'>
+          <span className={`cover-word ${isMoving ? 'tint' : 'muted'}`}>{isMoving ? movingWord : positionWord}</span>
+          <Icon icon={collapsed ? 'mdi:chevron-down' : 'mdi:chevron-up'} aria-hidden='true' className='cover-chevron' />
+        </span>
       </div>
 
-      {/* Expanded view */}
-      {isExpanded && (
+      {/* Expanded content */}
+      {!collapsed && (
         <div className='cover-content'>
-          {/* Visual representation - blinds open from top (retract upward) */}
-          <div className='cover-visual'>
-            <div className='cover-window'>
-              <div className='cover-blind' style={{ height: `${sliderValue}%` }} />
-            </div>
-            <span className='cover-percent'>{sliderValue}% closed</span>
+          <div className='cover-hero'>
+            <div className='cover-hero-value'>{positionWord}</div>
           </div>
 
-          {/* Control buttons */}
           <div className='cover-controls'>
-            <button className={`cover-btn ${isOpen ? 'active' : ''}`} onClick={handleOpen}>
+            <button type='button' className={`cover-btn ${isOpen ? 'active' : ''}`} onClick={handleOpen}>
               <Icon icon='mdi:arrow-down-bold' />
               <span>Open</span>
             </button>
-            <button className='cover-btn stop' onClick={handleStop}>
+            <button type='button' className={`cover-btn ${isAtDay ? 'active' : ''}`} onClick={handleDay}>
+              <Icon icon='mdi:blinds-horizontal' />
+              <span>{dayLabel}</span>
+            </button>
+            <button type='button' className='cover-btn stop' onClick={handleStop}>
               <Icon icon='mdi:stop' />
               <span>Stop</span>
             </button>
-            <button className={`cover-btn ${isClosed ? 'active' : ''}`} onClick={handleClose}>
+            <button type='button' className={`cover-btn ${isClosed ? 'active' : ''}`} onClick={handleClose}>
               <Icon icon='mdi:arrow-up-bold' />
               <span>Close</span>
             </button>
-          </div>
-
-          {/* Quick positions */}
-          <div className='cover-presets'>
-            {[
-              { label: 'Open (0%)', value: 0 },
-              { label: `${isBathroom || isBedroom ? 'Default' : 'Day'} (${dayPreset}%)`, value: dayPreset },
-              ...(isBathroom || isBedroom
-                ? []
-                : [
-                    { label: '50%', value: 50 },
-                    { label: '75%', value: 75 },
-                  ]),
-              { label: 'Closed (100%)', value: 100 },
-            ].map(preset => (
-              <button key={`${preset.label}-${preset.value}`} className='preset-btn' onClick={() => handlePositionCommit(preset.value)}>
-                {preset.label}
-              </button>
-            ))}
           </div>
         </div>
       )}

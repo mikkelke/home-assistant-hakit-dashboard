@@ -1,7 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
+import { useLocalStorageBoolean, useTouchScrollSlopGuard } from '../../hooks';
 import './WakeupAlarm.css';
+
+// Wake-up alarm card — same collapsed-by-default iOS shell as HeatCard/TonightCard. Presentation
+// only: every value here comes straight off input_boolean.wakeup_<room> / input_datetime.wakeup_
+// <room>, this component never computes anything beyond hour/minute arithmetic for the stepper.
 
 interface WakeupAlarmProps {
   areaName: string;
@@ -10,9 +15,9 @@ interface WakeupAlarmProps {
 }
 
 export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProps) {
-  const [isEditing, setIsEditing] = useState(false);
-
   const areaNameNormalized = areaName.toLowerCase().replace(/\s+/g, '_');
+  const headerSlop = useTouchScrollSlopGuard();
+  const [collapsed, setCollapsed] = useLocalStorageBoolean(`wakeupalarm-collapsed-${areaNameNormalized}`, true);
 
   const toggleId = `input_boolean.wakeup_${areaNameNormalized}`;
   const timeId = `input_datetime.wakeup_${areaNameNormalized}`;
@@ -27,7 +32,7 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
   // Format time for display (HH:MM)
   const displayTime = alarmTime.slice(0, 5);
 
-  // Parse hours and minutes for the time input
+  // Parse hours and minutes for the time control
   const [hours, minutes] = alarmTime.split(':').map(Number);
 
   const handleToggle = useCallback(() => {
@@ -79,9 +84,9 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
     [hours, minutes, handleTimeChange]
   );
 
-  // "Wake up now": starts the whole wake sequence immediately (lights ramp, covers,
-  // radio) and counts as the wake moment for the morning briefing. Backed by
-  // input_button.wake_up_now -- only rendered where that helper exists.
+  // "Wake up now": starts the whole wake sequence immediately (lights ramp, covers, radio) and
+  // counts as the wake moment for the morning briefing. Backed by input_button.wake_up_now --
+  // only rendered where that helper exists.
   const wakeNowId = 'input_button.wake_up_now';
   const wakeNowEntity = entities?.[wakeNowId];
   const handleWakeNow = useCallback(() => {
@@ -96,79 +101,78 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
   if (!hasAlarmEntities) return null;
 
   return (
-    <div className={`wakeup-alarm ${isEnabled ? 'enabled' : 'disabled'}`}>
-      <div className='alarm-main'>
-        <button className={`alarm-toggle ${isEnabled ? 'on' : 'off'}`} onClick={handleToggle}>
-          <Icon icon={isEnabled ? 'mdi:alarm' : 'mdi:alarm-off'} />
-        </button>
-
-        <div className='alarm-info'>
-          <span className='alarm-label'>Wake-up Alarm</span>
-          <button className='alarm-time' onClick={() => setIsEditing(!isEditing)}>
-            <span className='time-display'>{displayTime}</span>
-            <Icon icon='mdi:pencil' className='edit-icon' />
-          </button>
-        </div>
-
-        <div className={`alarm-switch ${isEnabled ? 'on' : ''}`} onClick={handleToggle}>
-          <div className='switch-track'>
-            <div className='switch-thumb' />
-          </div>
-        </div>
+    <div className='wakeup-card'>
+      <div
+        className='wakeup-header'
+        onClick={() => {
+          if (headerSlop.consumeBlockClick()) return;
+          setCollapsed(v => !v);
+        }}
+        onTouchStart={headerSlop.onTouchStart}
+        onTouchMove={headerSlop.onTouchMove}
+        onTouchEnd={headerSlop.onTouchEnd}
+        onTouchCancel={headerSlop.onTouchCancel}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setCollapsed(v => !v);
+          }
+        }}
+        role='button'
+        tabIndex={0}
+        aria-expanded={!collapsed}
+      >
+        <span className='wakeup-glyph'>
+          <Icon icon='mdi:alarm' aria-hidden='true' />
+        </span>
+        <span className='wakeup-title'>Wake-up</span>
+        <span className='wakeup-header-right'>
+          <span className='wakeup-current'>{displayTime}</span>
+          <span className={`wakeup-state ${isEnabled ? 'tint' : 'muted'}`}>{isEnabled ? 'On' : 'Off'}</span>
+          <Icon icon={collapsed ? 'mdi:chevron-down' : 'mdi:chevron-up'} aria-hidden='true' className='wakeup-chevron' />
+        </span>
       </div>
 
-      {/* Time Editor */}
-      {wakeNowEntity && !isEditing && (
-        <button className='wake-now-btn' onClick={handleWakeNow}>
-          <Icon icon='mdi:weather-sunset-up' />
-          Wake up now
-        </button>
-      )}
+      {!collapsed && (
+        <div className='wakeup-content'>
+          <div className='wakeup-hero'>
+            <div className='wakeup-hero-value'>{displayTime}</div>
+            {isEnabled && <div className='wakeup-hero-sub'>light and radio ramp up first</div>}
+          </div>
 
-      {isEditing && (
-        <div className='alarm-editor'>
-          <div className='time-picker'>
-            <div className='time-column'>
-              <button className='time-btn' onClick={() => adjustHours(1)}>
-                <Icon icon='mdi:chevron-up' />
+          <div className='wakeup-time-row'>
+            <div className='wakeup-time-group'>
+              <button type='button' className='wakeup-time-btn' onClick={() => adjustHours(-1)} aria-label='Lower hour'>
+                <Icon icon='mdi:minus' />
               </button>
-              <span className='time-value'>{String(hours).padStart(2, '0')}</span>
-              <button className='time-btn' onClick={() => adjustHours(-1)}>
-                <Icon icon='mdi:chevron-down' />
+              <span className='wakeup-time-value'>{String(hours).padStart(2, '0')}</span>
+              <button type='button' className='wakeup-time-btn' onClick={() => adjustHours(1)} aria-label='Raise hour'>
+                <Icon icon='mdi:plus' />
               </button>
             </div>
-            <span className='time-separator'>:</span>
-            <div className='time-column'>
-              <button className='time-btn' onClick={() => adjustTime(5)}>
-                <Icon icon='mdi:chevron-up' />
+            <span className='wakeup-time-sep'>:</span>
+            <div className='wakeup-time-group'>
+              <button type='button' className='wakeup-time-btn' onClick={() => adjustTime(-5)} aria-label='Lower minute'>
+                <Icon icon='mdi:minus' />
               </button>
-              <span className='time-value'>{String(minutes).padStart(2, '0')}</span>
-              <button className='time-btn' onClick={() => adjustTime(-5)}>
-                <Icon icon='mdi:chevron-down' />
+              <span className='wakeup-time-value'>{String(minutes).padStart(2, '0')}</span>
+              <button type='button' className='wakeup-time-btn' onClick={() => adjustTime(5)} aria-label='Raise minute'>
+                <Icon icon='mdi:plus' />
               </button>
             </div>
           </div>
 
-          {/* Quick presets */}
-          <div className='alarm-presets'>
-            {['06:00', '06:30', '07:00', '07:30', '08:00'].map(preset => (
-              <button
-                key={preset}
-                className={`preset-btn ${displayTime === preset ? 'active' : ''}`}
-                onClick={() => {
-                  const [h, m] = preset.split(':').map(Number);
-                  handleTimeChange(h, m);
-                }}
-              >
-                {preset}
-              </button>
-            ))}
-          </div>
+          {wakeNowEntity && (
+            <button type='button' className='wakeup-action' onClick={handleWakeNow}>
+              Wake up now
+            </button>
+          )}
 
-          <button className='done-btn' onClick={() => setIsEditing(false)}>
-            <Icon icon='mdi:check' />
-            Done
-          </button>
+          <div className='wakeup-footer'>
+            <button type='button' className='wakeup-footer-action' onClick={handleToggle}>
+              {isEnabled ? 'Turn off' : 'Turn on'}
+            </button>
+          </div>
         </div>
       )}
     </div>
