@@ -220,12 +220,12 @@ export function OfficeVacuumIndicator({ entities, hassUrl, cleaningToggleId, las
       <div
         className='person-info-modal person-timeline-modal office-vacuum-modal'
         role='dialog'
-        aria-label='Robot vacuum'
+        aria-label='Rober2 vacuum'
         onClick={handleModalClick}
         onMouseDown={e => e.stopPropagation()}
       >
         <div className='modal-header office-vacuum-modal__header'>
-          <span className='modal-title'>Robot</span>
+          <span className='modal-title'>Rober2</span>
           <button type='button' className='modal-close' onClick={handleClose} onMouseDown={e => e.stopPropagation()}>
             <Icon icon='mdi:close' />
           </button>
@@ -272,12 +272,12 @@ export function OfficeVacuumIndicator({ entities, hassUrl, cleaningToggleId, las
       <div
         className='person-info-modal person-timeline-modal office-vacuum-modal'
         role='dialog'
-        aria-label='Robot vacuum'
+        aria-label='Rober2 vacuum'
         onClick={handleModalClick}
         onMouseDown={e => e.stopPropagation()}
       >
         <div className='modal-header'>
-          <span className='modal-title'>Robot</span>
+          <span className='modal-title'>Rober2</span>
           <button type='button' className='modal-close' onClick={handleClose} onMouseDown={e => e.stopPropagation()}>
             <Icon icon='mdi:close' />
           </button>

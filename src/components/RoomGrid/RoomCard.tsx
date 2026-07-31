@@ -595,7 +595,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                 className={`indicator vacuum ${
                   isVacuumActive ? 'working' : isVacuumError || isVacuumOffline ? 'error' : isVacuumIdle ? 'idle' : 'inactive'
                 }`}
-                title={`Robot: ${vacuumState || 'unknown'}${isRobotEnabled ? '' : ' - disabled'}`}
+                title={`Rober2: ${vacuumState || 'unknown'}${isRobotEnabled ? '' : ' - disabled'}`}
               />
             ) : null,
             isKitchen && !!vacuum,
@@ -1057,7 +1057,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                   className={`indicator vacuum ${
                     isVacuumActive ? 'working' : isVacuumError || isVacuumOffline ? 'error' : isVacuumIdle ? 'idle' : 'inactive'
                   }`}
-                  title={`Robot: ${vacuumState || 'unknown'}${isRobotEnabled ? '' : ' - disabled'}`}
+                  title={`Rober2: ${vacuumState || 'unknown'}${isRobotEnabled ? '' : ' - disabled'}`}
                 />
               ) : null,
               isKitchen && !!vacuum,

@@ -653,7 +653,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
               className={`vacuum-icon ${isActive ? 'working' : isError || isOffline ? 'error' : isIdle ? 'idle' : ''}`}
             />
             <div className='vacuum-status'>
-              <span className='vacuum-name'>Robot</span>
+              <span className='vacuum-name'>Rober2</span>
               <span className='vacuum-state-text'>{stateLabel}</span>
             </div>
           </div>
