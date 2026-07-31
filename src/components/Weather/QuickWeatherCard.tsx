@@ -235,7 +235,6 @@ function ribbonGradient(stops: { pct: number; color: string }[]): string {
   return `linear-gradient(90deg, ${parts.join(', ')})`;
 }
 
-
 interface TickCandidate {
   pct: number;
   label: string;
@@ -836,9 +835,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   for (let t = windowStartMs; t <= windowEndMs; t += TICK_STEP_MS) {
     roundTicks.push({ pct: pctOf(t, windowStartMs, windowEndMs), label: formatHHMM(new Date(t)), priority: 2 });
   }
-  const tickCandidates: TickCandidate[] = showRibbon
-    ? [{ pct: nowRibbonPct, label: formatHHMM(now), priority: 3 }, ...roundTicks]
-    : [];
+  const tickCandidates: TickCandidate[] = showRibbon ? [{ pct: nowRibbonPct, label: formatHHMM(now), priority: 3 }, ...roundTicks] : [];
   const ticks = pickTicks(tickCandidates, 7);
 
   // Week rows - up to 4 days, today excluded (the ribbon already tells today's story).
@@ -1069,9 +1066,28 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
                       {entry.precipitation_probability != null && entry.precipitation_probability > 0 && (
                         <span className='quick-weather-card__hour-pop'>
                           <Icon icon='mdi:weather-rainy' aria-hidden />
-                          {entry.precipitation_probability}%
+                          {Math.round(entry.precipitation_probability)}%
                         </span>
                       )}
+                      {(() => {
+                        // Wind per hour (user 2026-07-31) - sustained, then the gust when it is
+                        // meaningfully stronger. Gusts are what the terrace cares about, and on the
+                        // ribbon they only draw a band above 14 m/s, so this is where you see them.
+                        const wMs = toMetersPerSecond(entry.wind_speed, forecastWindUnit);
+                        const gMs = toMetersPerSecond(entry.wind_gust_speed, forecastWindUnit);
+                        if (wMs == null && gMs == null) return null;
+                        const strong = gMs != null && gMs >= 14;
+                        const fmt = (ms: number) => (showMsUnit ? `${ms.toFixed(0)} m/s` : `${Math.round(ms * 3.6)} km/h`);
+                        return (
+                          <span className={`quick-weather-card__hour-wind${strong ? ' is-strong' : ''}`}>
+                            <Icon icon='mdi:weather-windy' aria-hidden />
+                            {wMs != null ? fmt(wMs) : '—'}
+                            {gMs != null && wMs != null && gMs > wMs * 1.05 && (
+                              <span className='quick-weather-card__hour-gust'>{fmt(gMs)}</span>
+                            )}
+                          </span>
+                        );
+                      })()}
                     </li>
                   ))}
                 </ul>

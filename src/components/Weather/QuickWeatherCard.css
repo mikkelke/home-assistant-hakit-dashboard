@@ -588,3 +588,30 @@
 .quick-weather-ribbon-condition.is-light {
   color: rgba(255, 255, 255, 0.72);
 }
+
+/* Per-hour wind in the day popup: sustained, with the gust after it when it's stronger.
+   Amber once the gust passes the 14 m/s the ribbon bands at. */
+.quick-weather-card__hour-wind {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: rgba(235, 235, 245, 0.55);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.quick-weather-card__hour-wind svg {
+  font-size: 0.95rem;
+  opacity: 0.8;
+}
+.quick-weather-card__hour-wind.is-strong {
+  color: #f59e0b;
+  font-weight: 600;
+}
+.quick-weather-card__hour-gust {
+  color: rgba(235, 235, 245, 0.35);
+}
+.quick-weather-card__hour-wind.is-strong .quick-weather-card__hour-gust {
+  color: #f59e0b;
+}
