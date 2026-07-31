@@ -1,284 +1,236 @@
-/* Intercom Card */
-.intercom-card {
-  background: rgba(18, 19, 22, 0.92);
+/* Access card - the Climate-card grammar (see AC/TonightCard.css): iOS grouped dark surfaces,
+   a function-colored glyph disc (brass #f59e0b), state words right, actions as icon buttons.
+   Dark-only, like the rest of this app (index.css: color-scheme: dark). */
+
+.access-card {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  background: #1c1c1e; /* iOS systemGray6 dark */
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.75rem;
-  padding: 0.75rem;
+  border-radius: 24px;
+  padding: 1.25rem;
   margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.92);
 }
 
-.intercom-card.no-inner-header .intercom-header {
-  display: none;
+.access-card.is-alert {
+  border-color: rgba(255, 69, 58, 0.4);
 }
 
-
-.intercom-header {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+/* Headerless home: the QuickAccess modal already carries the title, the chrome and the padding
+   (this mirrors what .qa-modal-body.intercom used to flatten the old card down to). */
+.access-card.is-embedded {
   background: transparent;
   border: none;
-  color: #e4e4e7;
-  cursor: pointer;
+  border-radius: 0;
   padding: 0;
+  margin: 0;
 }
 
-.intercom-header-left {
+/* Top row - also the collapse/expand tap target (collapsed by default) */
+.access-top {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
-.intercom-header-left svg {
-  font-size: 1.25rem;
-  color: #22c55e;
+.access-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  background: rgba(245, 158, 11, 0.16);
+  color: #f59e0b;
+}
+.access-glyph svg {
+  font-size: 1rem;
+}
+.access-glyph.alert {
+  background: rgba(255, 69, 58, 0.15);
+  color: #ff453a;
 }
 
-.intercom-title {
-  font-size: 0.95rem;
+.access-title {
+  flex: 1;
+  font-size: 1.05rem;
   font-weight: 600;
 }
 
-.intercom-sub {
-  font-size: 0.75rem;
-  color: #71717a;
-}
-
-.intercom-sub.on {
-  color: #22c55e;
-}
-
-.intercom-content {
+.access-top-right {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 0.6rem;
-  background: rgba(24, 25, 28, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.6rem;
-  padding: 0.6rem;
+  flex-shrink: 0;
 }
 
-.intercom-card:not(.no-inner-header) .intercom-content {
-  margin-top: 0.75rem;
+.access-state {
+  font-size: 0.9rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.access-state.muted {
+  color: rgba(235, 235, 245, 0.5);
+}
+.access-state.unlocked,
+.access-state.alert {
+  color: #ff453a;
 }
 
-.intercom-toggle {
-  width: 100%;
+.access-chevron {
+  font-size: 1.1rem;
+  color: rgba(235, 235, 245, 0.4);
+  flex-shrink: 0;
+}
+
+/* The one prose row this card is allowed - copied from .tonight-alert */
+.access-alert {
+  margin-top: 0.9rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.6rem 0.75rem;
-  background: rgba(24, 25, 28, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.5rem;
-  color: #e4e4e7;
+  border-radius: 14px;
+  background: rgba(255, 69, 58, 0.12);
+  border: 1px solid rgba(255, 69, 58, 0.3);
+  color: #ff6961;
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+.access-alert svg {
+  font-size: 1.05rem;
+  flex-shrink: 0;
+  color: #ff453a;
+}
+
+/* Three rows: Apartment, Building, Open on next ring */
+.access-rows {
+  margin-top: 1.05rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.access-card.is-embedded .access-rows {
+  margin-top: 0;
+}
+.access-alert + .access-rows {
+  margin-top: 0.9rem;
+}
+
+.access-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+  min-height: 34px;
+}
+
+.access-row-name {
+  flex: 0 0 6.4rem;
+}
+.access-row--wide {
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.access-row--wide .access-row-name {
+  flex: 0 0 11rem;
 }
 
-.intercom-toggle.on {
-  border-color: rgba(34, 197, 94, 0.4);
-  background: rgba(34, 197, 94, 0.12);
+/* Words are states */
+.access-pill {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #2c2c2e; /* iOS systemGray5 dark */
+  color: rgba(235, 235, 245, 0.6);
+}
+.access-pill.warn {
+  background: rgba(245, 158, 11, 0.18);
+  color: #f59e0b;
+}
+.access-pill.bad {
+  background: rgba(255, 69, 58, 0.15);
+  color: #ff453a;
 }
 
-.toggle-indicator {
-  margin-left: auto;
-  width: 38px;
-  height: 20px;
-  border-radius: 10px;
-  background: rgba(100, 100, 120, 0.4);
+/* Actions are icons */
+.access-ibtn {
   position: relative;
-  transition: all 0.2s;
-}
-
-.toggle-indicator::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #a1a1aa;
-  transition: all 0.2s;
-}
-
-.toggle-indicator.on {
-  background: rgba(34, 197, 94, 0.5);
-}
-
-.toggle-indicator.on::after {
-  left: 20px;
-  background: #22c55e;
-}
-
-.intercom-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
-}
-
-.intercom-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  padding: 0.65rem 0.5rem;
-  background: rgba(24, 25, 28, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.5rem;
-  color: #e4e4e7;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: #2c2c2e;
+  color: #f59e0b;
   cursor: pointer;
-  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
 }
-
-.intercom-btn:hover {
-  background: rgba(59, 130, 246, 0.12);
-  border-color: rgba(59, 130, 246, 0.35);
+.access-ibtn svg {
+  width: 17px;
+  height: 17px;
 }
-
-.intercom-btn svg {
-  font-size: 1.1rem;
-  color: #60a5fa;
+.access-ibtn--sm {
+  width: 34px;
+  height: 34px;
 }
-
-.intercom-apt {
-  margin-top: 0.25rem;
-  padding: 0.65rem;
-  background: rgba(24, 25, 28, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.5rem;
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.apt-status {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  flex: 1;
-}
-
-.apt-line {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.85rem;
-  color: #d4d4d8;
-}
-
-.apt-line svg {
-  font-size: 1rem;
-  color: #60a5fa;
-}
-
-.apt-pill {
+.access-row > .access-ibtn {
   margin-left: auto;
-  padding: 0.1rem 0.5rem;
-  border-radius: 0.75rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
 }
 
-.apt-pill.locked {
-  background: rgba(59, 130, 246, 0.18);
-  color: #60a5fa;
-}
-
-.apt-pill.unlocked {
-  background: rgba(239, 68, 68, 0.18);
-  color: #ef4444;
-}
-
-.apt-pill.open {
-  background: rgba(239, 68, 68, 0.18);
-  color: #ef4444;
-}
-
-.apt-pill.closed {
-  background: rgba(34, 197, 94, 0.18);
-  color: #22c55e;
-}
-
-.apt-lock-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.55rem 0.85rem;
-  background: rgba(24, 25, 28, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.5rem;
-  color: #e4e4e7;
-  cursor: pointer;
-}
-
-.apt-lock-btn.locked:hover {
-  border-color: rgba(34, 197, 94, 0.4);
-}
-
-.apt-lock-btn.unlocked:hover {
-  border-color: rgba(59, 130, 246, 0.35);
-}
-
-.apt-lock-btn svg {
-  font-size: 1rem;
-}
-
-.intercom-last-ring {
-  padding: 0.45rem 0.55rem;
-  background: rgba(24, 25, 28, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.last-ring-header {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.75rem;
-  color: #d4d4d8;
-  flex-wrap: wrap;
-}
-
-.last-ring-header svg {
-  font-size: 0.85rem;
-  color: #60a5fa;
-}
-
-.last-ring-door {
+.access-doors {
   margin-left: auto;
-  font-size: 0.7rem;
-  color: #a1a1aa;
-  font-weight: 500;
+  display: flex;
+  gap: 0.8rem;
 }
 
-.last-ring-time {
+.access-door {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 0.15rem;
 }
 
-.last-ring-relative {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #e4e4e7;
+.access-door-label {
+  font-size: 0.58rem;
+  color: rgba(235, 235, 245, 0.3);
 }
 
-.last-ring-exact {
-  font-size: 0.65rem;
-  color: #a1a1aa;
+/* Auto-open knob */
+.access-knob {
+  margin-left: auto;
+  position: relative;
+  flex-shrink: 0;
+  width: 40px;
+  height: 24px;
+  border-radius: 12px;
+  background: #3a3a3c; /* iOS systemGray4 dark */
+  transition: background 0.2s;
 }
-
-
-/* Cloud twin disagrees with the BLE lock (entry truth middle layer) */
-.apt-pill.stale {
-  background: rgba(245, 158, 11, 0.15);
-  color: #f59e0b;
-  border: 1px solid rgba(245, 158, 11, 0.35);
+.access-knob.on {
+  background: rgba(245, 158, 11, 0.55);
+}
+.access-knob::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.2s;
+}
+.access-knob.on::after {
+  left: 19px;
 }

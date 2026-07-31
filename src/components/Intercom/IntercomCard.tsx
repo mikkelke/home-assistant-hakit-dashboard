@@ -1,15 +1,35 @@
+import { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { APARTMENT_DOOR_OPEN_ENTITY, APARTMENT_ENTRY_SECURE_ENTITY, resolveHallwayDoorSensorId } from '../../config/entities';
+import { useLocalStorageBoolean, useTouchScrollSlopGuard } from '../../hooks';
 import './IntercomCard.css';
+
+// "Access" card - the apartment lock, the two building doors, and the auto-open ritual, in the
+// Climate-card grammar (see AC/TonightCard). Two homes, one component: the Hallway room detail
+// gets the collapsible card (showHeader), the QuickAccess "Apartment access" modal renders the
+// same body headerless. House rule: actions are icons, words are states.
 
 interface IntercomCardProps {
   entities: HassEntities;
   callService: CallServiceFunction | undefined;
-  showHeader?: boolean; // Show header/title (for hallway room detail)
+  showHeader?: boolean; // Show the collapse header (hallway room detail); the modal renders headerless
 }
 
+/** How long the apartment may sit unlocked before the card says so out loud. */
+const UNLOCKED_ALERT_MINUTES = 10;
+
 export function IntercomCard({ entities, callService, showHeader = false }: IntercomCardProps) {
+  // Now-tick: the unlocked-too-long alert is the only thing here that changes with time
+  // (same pattern as TonightCard - lazy initializer for the first render, interval after).
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const [collapsed, setCollapsed] = useLocalStorageBoolean('accesscard-collapsed', true);
+  const topSlop = useTouchScrollSlopGuard();
+
   const autoOpenId = 'input_boolean.auto_open_intercom';
   const frontLockId = 'lock.intercomproxy_front_door';
   const backLockId = 'lock.intercomproxy_back_door';
@@ -35,6 +55,14 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
 
   // Show only if we have any relevant entity
   if (!autoOpen && !frontLock && !backLock && !aptLock) return null;
+
+  // Unlocked for longer than the grace window -> the one red row this card is allowed.
+  // Measured from the BLE lock's own last_changed (the entity the unlock button drives).
+  const unlockedSinceMs = !aptLocked && aptLock?.last_changed ? Date.parse(aptLock.last_changed) : NaN;
+  const unlockedMinutes = Number.isFinite(unlockedSinceMs) ? Math.floor((now - unlockedSinceMs) / 60_000) : 0;
+  const unlockedTooLong = Number.isFinite(unlockedSinceMs) && unlockedMinutes >= UNLOCKED_ALERT_MINUTES;
+
+  const stateWord = `${aptLocked ? 'Locked' : 'Unlocked'} · ${aptDoorOpen ? 'Open' : 'Closed'}`;
 
   const toggleAutoOpen = () => {
     if (!callService || !autoOpen) return;
@@ -67,74 +95,142 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
     });
   };
 
-  return (
-    <div className={`intercom-card ${!showHeader ? 'no-inner-header' : ''}`}>
-      {showHeader && (
-        <div className='intercom-header'>
-          <div className='intercom-header-left'>
-            <Icon icon='mdi:door' />
-            <div className='intercom-titles'>
-              <span className='intercom-title'>Apartment access</span>
-            </div>
-          </div>
-        </div>
-      )}
-      <div className='intercom-content'>
-        {/* Intercom doors */}
-        <div className='intercom-row'>
-          {frontLock && (
-            <button className='intercom-btn' onClick={() => pulseUnlock(frontLockId, frontLock)}>
-              <Icon icon='mdi:door-open' />
-              <span>Open Front</span>
-            </button>
-          )}
-          {backLock && (
-            <button className='intercom-btn' onClick={() => pulseUnlock(backLockId, backLock)}>
-              <Icon icon='mdi:door-open' />
-              <span>Open Back</span>
-            </button>
-          )}
-        </div>
+  // The alert row is loud on purpose: it sits under the header whether or not the card is
+  // expanded (a collapsed card must not be able to hide an unlocked door).
+  const alertRow = unlockedTooLong ? (
+    <div className='access-alert'>
+      <Icon icon='mdi:alert' aria-hidden='true' />
+      <span>Apartment door has been unlocked for {unlockedMinutes} min.</span>
+    </div>
+  ) : null;
 
-        {/* Apartment door lock/status */}
+  const body = (
+    <>
+      <div className='access-rows'>
         {aptLock && (
-          <div className='intercom-apt'>
-            <div className='apt-status'>
-              <div className='apt-line'>
-                <Icon icon={aptLocked ? 'mdi:lock' : 'mdi:lock-open-variant'} />
-                <span>Apartment lock</span>
-                <span className={`apt-pill ${aptLocked ? 'locked' : 'unlocked'}`}>{aptLocked ? 'Locked' : 'Unlocked'}</span>
-                {cloudStale && (
-                  <span
-                    className='apt-pill stale'
-                    title={String(entryAttrs.reason ?? 'Yale cloud out of sync — the lock itself is authoritative')}
-                  >
-                    Yale app stale
-                  </span>
-                )}
-              </div>
-              <div className='apt-line'>
-                <Icon icon={aptDoorOpen ? 'mdi:door-open' : 'mdi:door-closed'} />
-                <span>Apartment door</span>
-                <span className={`apt-pill ${aptDoorOpen ? 'open' : 'closed'}`}>{aptDoorOpen ? 'Open' : 'Closed'}</span>
-              </div>
-            </div>
-            <button className={`apt-lock-btn ${aptLocked ? 'locked' : 'unlocked'}`} onClick={handleAptLockToggle}>
-              <Icon icon={aptLocked ? 'mdi:lock-open-variant' : 'mdi:lock'} />
-              <span>{aptLocked ? 'Unlock' : 'Lock'}</span>
+          <div className='access-row'>
+            <span className='access-row-name'>Apartment</span>
+            <span className={`access-pill ${aptLocked ? '' : 'bad'}`}>{aptLocked ? 'Locked' : 'Unlocked'}</span>
+            <span className={`access-pill ${aptDoorOpen ? 'warn' : ''}`}>{aptDoorOpen ? 'Open' : 'Closed'}</span>
+            {cloudStale && (
+              <span
+                className='access-pill warn'
+                title={String(entryAttrs.reason ?? 'Yale cloud out of sync — the lock itself is authoritative')}
+              >
+                Yale app stale
+              </span>
+            )}
+            <button
+              type='button'
+              className='access-ibtn access-ibtn--sm'
+              onClick={handleAptLockToggle}
+              aria-label={aptLocked ? 'Unlock the apartment' : 'Lock the apartment'}
+              title={aptLocked ? 'Unlock' : 'Lock'}
+            >
+              <Icon icon={aptLocked ? 'mdi:lock-open-outline' : 'mdi:lock-outline'} aria-hidden='true' />
             </button>
           </div>
         )}
 
-        {/* Auto-open toggle - shown at bottom */}
+        {(frontLock || backLock) && (
+          <div className='access-row'>
+            <span className='access-row-name'>Building</span>
+            <div className='access-doors'>
+              {frontLock && (
+                <div className='access-door'>
+                  <button
+                    type='button'
+                    className='access-ibtn access-ibtn--sm'
+                    onClick={() => pulseUnlock(frontLockId, frontLock)}
+                    aria-label='Open the front building door'
+                  >
+                    <Icon icon='mdi:door-open' aria-hidden='true' />
+                  </button>
+                  <span className='access-door-label'>front</span>
+                </div>
+              )}
+              {backLock && (
+                <div className='access-door'>
+                  <button
+                    type='button'
+                    className='access-ibtn access-ibtn--sm'
+                    onClick={() => pulseUnlock(backLockId, backLock)}
+                    aria-label='Open the back building door'
+                  >
+                    <Icon icon='mdi:door-open' aria-hidden='true' />
+                  </button>
+                  <span className='access-door-label'>back</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {autoOpen && (
-          <button className={`intercom-toggle ${autoOpenEnabled ? 'on' : ''}`} onClick={toggleAutoOpen}>
-            <Icon icon={autoOpenEnabled ? 'mdi:lock-open-variant' : 'mdi:lock'} />
-            <span>Auto open on ring</span>
-            <div className={`toggle-indicator ${autoOpenEnabled ? 'on' : ''}`} />
-          </button>
+          <div
+            className='access-row access-row--wide'
+            onClick={toggleAutoOpen}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggleAutoOpen();
+              }
+            }}
+            role='switch'
+            tabIndex={0}
+            aria-checked={autoOpenEnabled}
+          >
+            <span className='access-row-name'>Open on next ring</span>
+            <span className={`access-knob ${autoOpenEnabled ? 'on' : ''}`} aria-hidden='true' />
+          </div>
         )}
       </div>
+    </>
+  );
+
+  if (!showHeader) {
+    return (
+      <div className='access-card is-embedded'>
+        {alertRow}
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`access-card ${unlockedTooLong ? 'is-alert' : ''}`}>
+      <div
+        className='access-top'
+        onClick={() => {
+          if (topSlop.consumeBlockClick()) return;
+          setCollapsed(v => !v);
+        }}
+        onTouchStart={topSlop.onTouchStart}
+        onTouchMove={topSlop.onTouchMove}
+        onTouchEnd={topSlop.onTouchEnd}
+        onTouchCancel={topSlop.onTouchCancel}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setCollapsed(v => !v);
+          }
+        }}
+        role='button'
+        tabIndex={0}
+        aria-expanded={!collapsed}
+      >
+        <span className={`access-glyph ${unlockedTooLong ? 'alert' : ''}`}>
+          <Icon icon='mdi:key-variant' aria-hidden='true' />
+        </span>
+        <span className='access-title'>Access</span>
+        <span className='access-top-right'>
+          <span className={`access-state ${unlockedTooLong ? 'alert' : aptLocked ? 'muted' : 'unlocked'}`}>{stateWord}</span>
+          <Icon icon={collapsed ? 'mdi:chevron-down' : 'mdi:chevron-up'} aria-hidden='true' className='access-chevron' />
+        </span>
+      </div>
+
+      {alertRow}
+      {!collapsed && body}
     </div>
   );
 }
