@@ -1124,12 +1124,11 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
         </div>
       )}
 
-      {stationAgeMin != null && (
+      {/* Station health only when there IS a problem - "roof live" was a whole line saying
+          nothing (user 2026-07-31). Silence means the roof is reporting. */}
+      {stationQuiet && stationAgeMin != null && (
         <div className='quick-weather-footer'>
-          <span className='quick-weather-footer-sea' />
-          <span className={`quick-weather-footer-station${stationQuiet ? ' is-quiet' : ''}`}>
-            {stationQuiet ? `roof quiet ${stationAgeMin} min` : 'roof live'}
-          </span>
+          <span className='quick-weather-footer-station is-quiet'>roof quiet {stationAgeMin} min</span>
         </div>
       )}
 
