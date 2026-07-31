@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { APARTMENT_DOOR_OPEN_ENTITY, APARTMENT_ENTRY_SECURE_ENTITY, resolveHallwayDoorSensorId } from '../../config/entities';
@@ -18,6 +18,11 @@ interface IntercomCardProps {
 
 /** How long the apartment may sit unlocked before the card says so out loud. */
 const UNLOCKED_ALERT_MINUTES = 10;
+/** How long a fired door shows its green check instead of its own icon. */
+const FIRED_FLASH_MS = 2000;
+
+const DOORBELL_FRONT = 'binary_sensor.intercomproxy_doorbell_front_door';
+const DOORBELL_BACK = 'binary_sensor.intercomproxy_doorbell_back_door';
 
 export function IntercomCard({ entities, callService, showHeader = false }: IntercomCardProps) {
   // Now-tick: the unlocked-too-long alert is the only thing here that changes with time
@@ -29,6 +34,16 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
   }, []);
   const [collapsed, setCollapsed] = useLocalStorageBoolean('accesscard-collapsed', true);
   const topSlop = useTouchScrollSlopGuard();
+  // Which door just fired - shows a green check for FIRED_FLASH_MS so a tap answers itself
+  // without a toast (user 2026-07-31: the doors must work from the collapsed row).
+  const [fired, setFired] = useState<string | null>(null);
+  const firedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (firedTimer.current) clearTimeout(firedTimer.current); }, []);
+  const flashFired = (id: string) => {
+    setFired(id);
+    if (firedTimer.current) clearTimeout(firedTimer.current);
+    firedTimer.current = setTimeout(() => setFired(null), FIRED_FLASH_MS);
+  };
 
   const autoOpenId = 'input_boolean.auto_open_intercom';
   const frontLockId = 'lock.intercomproxy_front_door';
@@ -63,6 +78,20 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
   const unlockedTooLong = Number.isFinite(unlockedSinceMs) && unlockedMinutes >= UNLOCKED_ALERT_MINUTES;
 
   const stateWord = `${aptLocked ? 'Locked' : 'Unlocked'} · ${aptDoorOpen ? 'Open' : 'Closed'}`;
+  // Calm is the default, so it doesn't need saying: the closed padlock in the quick row IS
+  // "locked". The word only appears when something is off-normal, freeing the header space
+  // the doors now use.
+  const showStateWord = !aptLocked || aptDoorOpen;
+
+  // A ring is the one moment this card gets loud on its own: the proxy exposes a doorbell
+  // sensor per door, so the row can name the door that actually rang.
+  const ringingFront = entities?.[DOORBELL_FRONT]?.state === 'on';
+  const ringingBack = entities?.[DOORBELL_BACK]?.state === 'on';
+  const ringing = ringingFront
+    ? { id: frontLockId, lock: frontLock, name: 'front' }
+    : ringingBack
+      ? { id: backLockId, lock: backLock, name: 'back' }
+      : null;
 
   const toggleAutoOpen = () => {
     if (!callService || !autoOpen) return;
@@ -103,6 +132,73 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
       <span>Apartment door has been unlocked for {unlockedMinutes} min.</span>
     </div>
   ) : null;
+
+  const ringRow = ringing?.lock ? (
+    <div className='access-ring'>
+      <Icon icon='mdi:bell-ring' aria-hidden='true' />
+      <span>Someone at the {ringing.name} door</span>
+      <button
+        type='button'
+        className='access-ring-btn'
+        onClick={e => {
+          e.stopPropagation();
+          pulseUnlock(ringing.id, ringing.lock);
+          flashFired(ringing.id);
+        }}
+      >
+        Let them in
+      </button>
+    </div>
+  ) : null;
+
+  // Quick doors: the whole point of the collapsed row. All three are a single tap - tap/hold
+  // must not be mixed (user 2026-07-31) - and the row stops its own clicks from collapsing
+  // the card. The lock's icon carries the lock state; the building doors carry F/B tags.
+  const quickDoor = (id: string, lock: typeof frontLock, letter: string, label: string) => (
+    <button
+      type='button'
+      className={`access-quick-btn ${fired === id ? 'is-done' : ''}`}
+      onClick={() => {
+        pulseUnlock(id, lock);
+        flashFired(id);
+      }}
+      aria-label={label}
+      title={label}
+    >
+      <Icon icon={fired === id ? 'mdi:check' : 'mdi:door-open'} aria-hidden='true' />
+      {fired !== id && <span className='access-quick-tag'>{letter}</span>}
+    </button>
+  );
+
+  const quickDoors = (
+    <span
+      className='access-quick'
+      onClick={e => e.stopPropagation()}
+      onKeyDown={e => e.stopPropagation()}
+      role='presentation'
+    >
+      {frontLock && quickDoor(frontLockId, frontLock, 'F', 'Open the front building door')}
+      {backLock && quickDoor(backLockId, backLock, 'B', 'Open the back building door')}
+      {aptLock && (frontLock || backLock) && <span className='access-quick-div' aria-hidden='true' />}
+      {aptLock && (
+        <button
+          type='button'
+          className={`access-quick-btn is-lock ${aptLocked ? '' : 'is-unlocked'} ${fired === aptLockId ? 'is-done' : ''}`}
+          onClick={() => {
+            handleAptLockToggle();
+            flashFired(aptLockId);
+          }}
+          aria-label={aptLocked ? 'Unlock the apartment' : 'Lock the apartment'}
+          title={aptLocked ? 'Unlock the apartment' : 'Lock the apartment'}
+        >
+          <Icon
+            icon={fired === aptLockId ? 'mdi:check' : aptLocked ? 'mdi:lock' : 'mdi:lock-open-variant'}
+            aria-hidden='true'
+          />
+        </button>
+      )}
+    </span>
+  );
 
   const body = (
     <>
@@ -191,6 +287,7 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
   if (!showHeader) {
     return (
       <div className='access-card is-embedded'>
+        {ringRow}
         {alertRow}
         {body}
       </div>
@@ -198,7 +295,7 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
   }
 
   return (
-    <div className={`access-card ${unlockedTooLong ? 'is-alert' : ''}`}>
+    <div className={`access-card ${unlockedTooLong ? 'is-alert' : ''} ${ringing ? 'is-ringing' : ''}`}>
       <div
         className='access-top'
         onClick={() => {
@@ -224,11 +321,15 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
         </span>
         <span className='access-title'>Access</span>
         <span className='access-top-right'>
-          <span className={`access-state ${unlockedTooLong ? 'alert' : aptLocked ? 'muted' : 'unlocked'}`}>{stateWord}</span>
+          {showStateWord && (
+            <span className={`access-state ${unlockedTooLong ? 'alert' : aptLocked ? 'muted' : 'unlocked'}`}>{stateWord}</span>
+          )}
+          {quickDoors}
           <Icon icon={collapsed ? 'mdi:chevron-down' : 'mdi:chevron-up'} aria-hidden='true' className='access-chevron' />
         </span>
       </div>
 
+      {ringRow}
       {alertRow}
       {!collapsed && body}
     </div>
