@@ -35,7 +35,7 @@
   width: 2.1rem;
   height: 2.1rem;
   border-radius: 50%;
-  background: rgba(100, 210, 255, 0.15);
+  background: rgba(167, 139, 250, 0.16);
   color: #a78bfa;
 }
 .cover-glyph svg {
@@ -121,7 +121,7 @@
   font-weight: 600;
 }
 .cover-btn.active {
-  background: rgba(100, 210, 255, 0.15);
+  background: rgba(167, 139, 250, 0.16);
   color: #64d2ff;
 }
 .cover-btn.stop {
