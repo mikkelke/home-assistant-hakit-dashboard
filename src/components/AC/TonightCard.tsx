@@ -361,6 +361,12 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   if (isWindowDay && dayBlocks.length === 0) {
     sections.push({ s: barStartMs, e: Math.min(windowsCutoffMs, bedtimeStartMs), kind: 'windows' });
   }
+  // Leading hold (user 2026-07-30): a plugged-in, armed system waiting for its first cheap
+  // slot is HOLDING from the bar's start - on-duty quiet, not absence. Unarmed mornings
+  // stay bare track: nothing is on duty yet.
+  if (armed && deployed && dayBlocks.length > 0 && dayBlocks[0].s - barStartMs >= MIN_GAP_MS) {
+    sections.push({ s: barStartMs, e: dayBlocks[0].s, kind: 'hold' });
+  }
   for (let i = 0; i < dayBlocks.length; i++) {
     sections.push(dayBlocks[i]);
     const next = dayBlocks[i + 1];
