@@ -271,10 +271,16 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   const coolIntervals = parseCoolIntervals(statusAttrs.cool_intervals_today).filter(iv => iv.startMs >= dayStartMs);
   const doneIntervals = coolIntervals.filter((iv): iv is { startMs: number; endMs: number } => iv.endMs != null && iv.endMs > iv.startMs);
   const openInterval = coolIntervals.find(iv => iv.endMs == null) ?? null;
-  // The bar's left edge adapts: normally 10:00, earlier when the unit already ran before
-  // that (user 2026-07-30: the 08:37 morning run sat in the schedule but off the bar -
-  // everything in the schedule must be ON the bar).
-  const barStartMs = Math.min(atHour(now, BAR_START_HOUR).getTime(), ...coolIntervals.map(iv => iv.startMs));
+  // The bar's left edge adapts: normally 10:00, earlier when the unit already ran - or was
+  // PLUGGED IN - before that (user 2026-07-31: "on duty" starts at the plug, so the morning
+  // wait draws as hold from the session's real start, not from the first compressor run).
+  const sessionStartRaw = Date.parse(attrStr(statusAttrs.session_started_at) ?? '');
+  const sessionStartMs = deployed && Number.isFinite(sessionStartRaw) && sessionStartRaw >= dayStartMs ? sessionStartRaw : null;
+  const barStartMs = Math.min(
+    atHour(now, BAR_START_HOUR).getTime(),
+    ...coolIntervals.map(iv => iv.startMs),
+    ...(sessionStartMs != null ? [sessionStartMs] : [])
+  );
   const wakeDate = parseTimeAttr(sleepPlanAttrs.wake_at, barStartMs);
   const wakeMs = wakeDate ? wakeDate.getTime() : null;
   const roomNowTemp = attrNum(entities?.[AC_ROOM_TEMP_SENSOR]?.state, NaN);
