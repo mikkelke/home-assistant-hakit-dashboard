@@ -207,7 +207,6 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
             <span className='stat-label'>Humidity</span>
           </div>
         )}
-
       </div>
     </div>
   );
