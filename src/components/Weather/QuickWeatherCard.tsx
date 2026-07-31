@@ -67,8 +67,7 @@ const HISTORY_LABELS: Record<string, string> = {
   [SENSOR_IDS.windSpeed]: 'Wind',
   [SENSOR_IDS.rainDaily]: 'Rain today',
   [SENSOR_IDS.uv]: 'UV',
-  [SENSOR_IDS.pressureRelative]: 'Pressure',
-  [SENSOR_IDS.pressureAbsolute]: 'Pressure',
+  [SENSOR_IDS.seaTemperature]: 'Sea temperature',
 };
 
 const getEntity = (entities: HassEntities, entityId: string) => entities?.[entityId] as EntityLike | undefined;
@@ -777,6 +776,32 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   const widestGustIdx = gustBandSpans.length ? gustBandSpans.reduce((best, s, i, arr) => (s.width > arr[best].width ? i : best), 0) : -1;
   const nowRibbonPct = pctOf(nowMs, windowStartMs, windowEndMs);
 
+  // Condition words ON the strip. Without them the ribbon carries no text at all on a dry,
+  // calm evening (user 2026-07-31: "I do not see any text in the time line") - rain and gust
+  // labels only exist when there is rain or gust. Runs of one condition get named, widest
+  // first, and the word takes black or white depending on how dark that stretch is.
+  const conditionRuns = (() => {
+    const runs: Array<{ from: number; to: number; condition?: string; night: boolean }> = [];
+    for (const h of ribbonHours) {
+      const t = Date.parse(h.datetime);
+      if (!Number.isFinite(t)) continue;
+      const end = t + (h.bucketHours ?? 1) * 3600_000;
+      const last = runs[runs.length - 1];
+      if (last && last.condition === h.condition) last.to = end;
+      else runs.push({ from: t, to: end, condition: h.condition, night: isNightHour(h) });
+    }
+    return runs
+      .map(r => ({ ...r, span: spanPct(r.from, r.to, windowStartMs, windowEndMs) }))
+      .filter(r => r.span.width >= 14)
+      .sort((a, b) => b.span.width - a.span.width)
+      .slice(0, 2);
+  })();
+  /** Dark stretches need a light word; bright ones (sunny amber) need a dark one. */
+  const wordIsLight = (hex: string) => {
+    const n = parseInt(hex.slice(1), 16);
+    return (0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255 < 0.5;
+  };
+
   // Rain/gust said in WORDS under the bar. Colour alone wasn't readable (user 2026-07-31:
   // "I see just color"), and a narrow band - which is what a two-hour shower looks like on an
   // 18 h bar - is too thin to carry its own label. Each run becomes "02:00-05:00".
@@ -898,6 +923,18 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
         <div className='quick-weather-ribbon'>
           <div className='quick-weather-ribbon-track'>
             <div className='quick-weather-ribbon-fill' style={{ background: ribbonGradientCss }} />
+            {conditionRuns.map(r => {
+              const color = r.night ? darkenHex(conditionBaseColor(r.condition), 0.55) : conditionBaseColor(r.condition);
+              return (
+                <span
+                  key={`cond-${r.from}`}
+                  className={`quick-weather-ribbon-condition${wordIsLight(color) ? ' is-light' : ''}`}
+                  style={{ left: `${r.span.left + r.span.width / 2}%` }}
+                >
+                  {lowerCondition(r.condition)}
+                </span>
+              );
+            })}
             {rainBandSpans.map((s, i) => (
               <div
                 key={`rain-${i}`}
@@ -1071,30 +1108,22 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
               <span className='quick-weather-fact-sub'>{uvWord(uvIndex)}</span>
             </button>
           )}
-          {pressure !== undefined && (
-            <button type='button' className='quick-weather-fact' onClick={() => setHistoryEntityId(pressureEntityId)}>
-              <span className='quick-weather-fact-label'>Pressure</span>
-              <span className='quick-weather-fact-value'>{Math.round(pressure)} hPa</span>
+          {seaTemperature !== undefined && (
+            <button type='button' className='quick-weather-fact' onClick={() => setHistoryEntityId(SENSOR_IDS.seaTemperature)}>
+              <span className='quick-weather-fact-label'>Sea</span>
+              <span className='quick-weather-fact-value'>{Math.round(seaTemperature)}°</span>
+              {seaTemperatureFeel && <span className='quick-weather-fact-sub'>{seaTemperatureFeel.toLowerCase()}</span>}
             </button>
           )}
         </div>
       )}
 
-      {(seaTemperature !== undefined || stationAgeMin != null) && (
+      {stationAgeMin != null && (
         <div className='quick-weather-footer'>
-          <span className='quick-weather-footer-sea'>
-            {seaTemperature !== undefined && (
-              <>
-                <Icon icon='mdi:waves' aria-hidden='true' /> Sea {Math.round(seaTemperature)}°
-                {seaTemperatureFeel ? ` · ${seaTemperatureFeel}` : ''}
-              </>
-            )}
+          <span className='quick-weather-footer-sea' />
+          <span className={`quick-weather-footer-station${stationQuiet ? ' is-quiet' : ''}`}>
+            {stationQuiet ? `roof quiet ${stationAgeMin} min` : 'roof live'}
           </span>
-          {stationAgeMin != null && (
-            <span className={`quick-weather-footer-station${stationQuiet ? ' is-quiet' : ''}`}>
-              {stationQuiet ? `roof quiet ${stationAgeMin} min` : 'roof live'}
-            </span>
-          )}
         </div>
       )}
 

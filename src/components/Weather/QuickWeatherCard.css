@@ -570,3 +570,21 @@
 .quick-weather-ribbon-note.is-dry {
   color: rgba(235, 235, 245, 0.45);
 }
+
+/* Condition words sitting on the strip - the ribbon must read as something even on a dry,
+   calm evening when there are no rain or gust bands to label. */
+.quick-weather-ribbon-condition {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.quick-weather-ribbon-condition.is-light {
+  color: rgba(255, 255, 255, 0.72);
+}
