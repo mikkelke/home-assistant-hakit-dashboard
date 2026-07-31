@@ -441,6 +441,17 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   const TICK_MIN_GAP_PCT = 7;
   const wakeTickPct = barEndMs != null && wakeDate ? pctOf(wakeDate.getTime(), barStartMs, barEndMs) : null;
   const progStartPct = barEndMs != null && progStartMs != null ? pctOf(progStartMs, barStartMs, barEndMs) : null;
+  // The bar's left edge carries its own time whenever the day opens with a non-cool section
+  // (leading hold / windows, user 2026-07-31) - otherwise the first tick is the cool start.
+  const firstSectionStartMs = sections.length ? sections[0].s : null;
+  const barStartTickPctRaw =
+    barEndMs != null && firstSectionStartMs != null && (progStartMs == null || firstSectionStartMs < progStartMs)
+      ? pctOf(firstSectionStartMs, barStartMs, barEndMs)
+      : null;
+  const barStartTickPct =
+    barStartTickPctRaw != null && (progStartPct == null || progStartPct - barStartTickPctRaw >= TICK_MIN_GAP_PCT)
+      ? barStartTickPctRaw
+      : null;
   const bedtimeTickPct = barEndMs != null ? pctOf(bedtimeStartMs, barStartMs, barEndMs) : null;
   const progEndPctRaw = barEndMs != null && progEndMs != null ? pctOf(progEndMs, barStartMs, barEndMs) : null;
   const progEndPct =
@@ -619,6 +630,11 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
                 <div className='tonight-bar-now-line' style={{ left: `${nowPct}%` }} />
               </div>
               <div className='tonight-bar-ticks'>
+                {barStartTickPct != null && firstSectionStartMs != null && !nearNow(barStartTickPct) && (
+                  <span className='tonight-bar-tick' style={{ left: `${barStartTickPct}%` }}>
+                    {formatHHMM(new Date(firstSectionStartMs))}
+                  </span>
+                )}
                 {progStartPct != null && progStartMs != null && !nearNow(progStartPct) && (
                   <span className='tonight-bar-tick' style={{ left: `${progStartPct}%` }}>
                     {formatHHMM(new Date(progStartMs))}
