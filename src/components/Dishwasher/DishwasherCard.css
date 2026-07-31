@@ -41,7 +41,7 @@
 }
 
 .dishwasher-card.state-paused .dishwasher-icon {
-  color: #3b82f6;
+  color: #38bdf8;
 }
 
 .dishwasher-card.state-paused .dishwasher-icon-wrap.paused-pulse .dishwasher-icon {
@@ -72,7 +72,7 @@
 }
 
 .dishwasher-card.state-running .dishwasher-icon {
-  color: #3b82f6;
+  color: #38bdf8;
   filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.5));
 }
 

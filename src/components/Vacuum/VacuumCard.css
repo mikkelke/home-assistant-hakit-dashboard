@@ -64,7 +64,7 @@
 }
 
 .vacuum-icon.working {
-  color: #10b981; /* Green when working */
+  color: #34d399; /* Green when working */
   filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.8));
   animation: vacuum-move 1s ease-in-out infinite, vacuum-glow 2s ease-in-out infinite;
 }
