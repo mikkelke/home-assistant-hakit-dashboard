@@ -235,18 +235,6 @@ function ribbonGradient(stops: { pct: number; color: string }[]): string {
   return `linear-gradient(90deg, ${parts.join(', ')})`;
 }
 
-/** Group consecutive hours passing `pred` into runs; returns each run's start time - used to
- * place one tick at the start of each rain/gust stretch, not per hour. */
-function runStarts(hours: WeatherForecastEntry[], pred: (h: WeatherForecastEntry) => boolean): number[] {
-  const starts: number[] = [];
-  let wasIn = false;
-  for (const h of hours) {
-    const isIn = pred(h);
-    if (isIn && !wasIn) starts.push(Date.parse(h.datetime));
-    wasIn = isIn;
-  }
-  return starts;
-}
 
 interface TickCandidate {
   pct: number;
@@ -735,8 +723,9 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
 
   // Ribbon window: a ROLLING 18 h from now-2h (user 2026-07-31 - it used to stop at midnight,
   // so rain during the night was literally off the end of the bar). 18 h always covers tonight
-  // and reaches into tomorrow morning, whatever time of day you look.
-  const windowStartMs = nowMs - 2 * 3600_000;
+  // and reaches into tomorrow morning, whatever time of day you look. SNAPPED to the whole
+  // hour so every tick lands on a round clock time (17:00, 20:00, …) instead of 17:37.
+  const windowStartMs = new Date(nowMs - 2 * 3600_000).setMinutes(0, 0, 0);
   const windowEndMs = windowStartMs + 18 * 3600_000;
   const ribbonHours = hourlyAll.filter(h => {
     const t = Date.parse(h.datetime);
@@ -839,15 +828,16 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
     ribbonNotes.push({ kind: 'gust', text: `Gusts ${gustRanges.slice(0, 2).map(fmtRange).join(', ')}` });
   }
 
+  // A steady 3-hourly ruler, always the same round clock times whether or not the weather does
+  // anything (user 2026-07-31). The rain and gust HOURS are named in words underneath, so the
+  // ticks no longer have to mark events - they just have to make the bar readable as a clock.
+  const TICK_STEP_MS = 3 * 3600_000;
+  const roundTicks: TickCandidate[] = [];
+  for (let t = windowStartMs; t <= windowEndMs; t += TICK_STEP_MS) {
+    roundTicks.push({ pct: pctOf(t, windowStartMs, windowEndMs), label: formatHHMM(new Date(t)), priority: 2 });
+  }
   const tickCandidates: TickCandidate[] = showRibbon
-    ? [
-        { pct: nowRibbonPct, label: formatHHMM(now), priority: 3 },
-        { pct: 0, label: formatHHMM(new Date(windowStartMs)), priority: 2 },
-        { pct: 100, label: formatHHMM(new Date(windowEndMs)), priority: 2 },
-        ...[...runStarts(ribbonHours, isRainHour), ...runStarts(ribbonHours, gustHoursPred)]
-          .sort((a, b) => a - b)
-          .map(ms => ({ pct: pctOf(ms, windowStartMs, windowEndMs), label: formatHHMM(new Date(ms)), priority: 1 })),
-      ]
+    ? [{ pct: nowRibbonPct, label: formatHHMM(now), priority: 3 }, ...roundTicks]
     : [];
   const ticks = pickTicks(tickCandidates, 7);
 
