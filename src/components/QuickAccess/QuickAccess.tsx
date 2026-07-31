@@ -422,17 +422,15 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
   // Use standardized swipe-to-close hook
   const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestCloseQuickAccess);
 
-  // Doors popover: press-and-hold the Access button to get the three doors from any tab
-  // without the full panel (a plain tap still opens the panel, so nothing existing changes).
-  // The doors themselves are one tap each, same rule as the Access card's collapsed row.
+  // Doors popover: TAP the Access button for the three doors from any tab (user 2026-07-31 -
+  // one interaction everywhere, no press-and-hold anywhere in this app). The full panel moved
+  // one step back: the popover's last button opens it, since the doors are what you actually
+  // came for. Doors are one tap each, same rule as the Access card's collapsed row.
   const [doorsOpen, setDoorsOpen] = useState(false);
   const [doorFired, setDoorFired] = useState<string | null>(null);
-  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const heldRef = useRef(false);
   const firedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
-      if (holdTimer.current) clearTimeout(holdTimer.current);
       if (firedTimer.current) clearTimeout(firedTimer.current);
     },
     []
@@ -455,18 +453,6 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
     },
     [callService, aptLocked]
   );
-
-  const startHold = () => {
-    heldRef.current = false;
-    if (holdTimer.current) clearTimeout(holdTimer.current);
-    holdTimer.current = setTimeout(() => {
-      heldRef.current = true;
-      setDoorsOpen(true);
-    }, 450);
-  };
-  const endHold = () => {
-    if (holdTimer.current) clearTimeout(holdTimer.current);
-  };
 
   const qaDoorBtn = (id: string, lock: typeof frontLock, letter: string, label: string) => (
     <button
@@ -501,23 +487,25 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
                 <Icon icon={doorFired === 'lock.yale_bt' ? 'mdi:check' : aptLocked ? 'mdi:lock' : 'mdi:lock-open-variant'} />
               </button>
             )}
+            <span className='qa-door-div' aria-hidden='true' />
+            <button
+              type='button'
+              className='qa-door is-more'
+              onClick={() => {
+                setDoorsOpen(false);
+                openQuickAccess('intercom');
+              }}
+              aria-label='Open the access panel'
+              title='Access panel'
+            >
+              <Icon icon='mdi:dots-horizontal' />
+            </button>
           </div>
         )}
         <button
-          className='qa-button'
-          onClick={() => {
-            if (heldRef.current) {
-              heldRef.current = false;
-              return;
-            }
-            openQuickAccess('intercom');
-          }}
-          onPointerDown={startHold}
-          onPointerUp={endHold}
-          onPointerLeave={endHold}
-          onPointerCancel={endHold}
-          onContextMenu={e => e.preventDefault()}
-          title='Access — hold for doors'
+          className={`qa-button ${doorsOpen ? 'is-active' : ''}`}
+          onClick={() => setDoorsOpen(v => !v)}
+          title='Access'
         >
           <Icon icon='mdi:door' />
         </button>

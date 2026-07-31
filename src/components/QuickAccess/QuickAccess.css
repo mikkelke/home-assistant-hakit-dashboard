@@ -1174,3 +1174,15 @@
   background: rgba(255, 255, 255, 0.12);
   margin: 0 0.1rem;
 }
+
+/* The panel door - last button in the popover, the way to the full Access card */
+.qa-door.is-more {
+  color: rgba(235, 235, 245, 0.55);
+}
+
+/* Access button while its doors are showing */
+.qa-button.is-active {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #f59e0b;
+}
