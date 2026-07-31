@@ -379,29 +379,26 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
           {/* Quick dots (user 2026-07-31, same idea as the Access card's doors): every light
               is one tap from the collapsed row, each wearing its own current color. The dots
               also ARE the "n of m on" count, so the word is gone - lit dots say it better. */}
-          <span
-            className='light-quick'
-            onClick={e => e.stopPropagation()}
-            onKeyDown={e => e.stopPropagation()}
-            role='presentation'
-          >
+          <span className='light-quick' onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} role='presentation'>
             {availableLights.map(lightId => {
               const optimisticState = optimisticStates[lightId];
               const isOn =
-                optimisticState !== null && optimisticState !== undefined
-                  ? optimisticState === 'on'
-                  : entities[lightId]?.state === 'on';
+                optimisticState !== null && optimisticState !== undefined ? optimisticState === 'on' : entities[lightId]?.state === 'on';
               const name = getLightName(lightId);
+              const hex = getLightColor(lightId);
+              const [r, g, b] = hexToRgb(hex);
               return (
                 <button
                   key={lightId}
                   type='button'
                   className={`light-quick-dot ${isOn ? '' : 'is-off'}`}
-                  style={isOn ? { background: getLightColor(lightId) } : undefined}
+                  style={isOn ? { color: hex, background: `rgba(${r}, ${g}, ${b}, 0.18)` } : undefined}
                   onClick={() => handleToggleLight(lightId)}
                   aria-label={`${isOn ? 'Turn off' : 'Turn on'} ${name}`}
                   title={name}
-                />
+                >
+                  <Icon icon={isOn ? 'mdi:lightbulb' : 'mdi:lightbulb-outline'} aria-hidden='true' />
+                </button>
               );
             })}
           </span>
