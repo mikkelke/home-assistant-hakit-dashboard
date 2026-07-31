@@ -73,7 +73,8 @@ function isLightColor(hex: string): boolean {
 
 export function LightCard({ areaName, entities, callService }: LightCardProps) {
   // Collapsed by default, remembered across sessions (same pattern as TonightCard/HeatCard).
-  const [collapsed, setCollapsed] = useLocalStorageBoolean('lightcard-collapsed', true);
+  const areaKey = areaName.toLowerCase().replace(/\s+/g, '_');
+  const [collapsed, setCollapsed] = useLocalStorageBoolean(`lightcard-collapsed-${areaKey}`, true);
   const [sliderValues, setSliderValues] = useState<Record<string, number>>({});
   // "Finger is on this light's strip" - suppresses the entity->slider sync while dragging.
   const [dragging, setDragging] = useState<Record<string, boolean>>({});

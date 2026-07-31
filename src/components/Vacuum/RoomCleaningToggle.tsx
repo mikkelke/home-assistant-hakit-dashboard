@@ -56,10 +56,11 @@ export function RoomCleaningToggle({ areaName, entities, callService }: RoomClea
 
   const vacuum = entities?.[VACUUM_ENTITY];
   const vacuumState = vacuum?.state;
-  const isVacuumActive = vacuumState === 'cleaning' || vacuumState === 'returning';
-  // "Cleaning here" is only true when the robot's live room IS this row's room.
+  // "Cleaning here" is only true while it is actually CLEANING and its live room IS this
+  // row's room - a robot merely returning through the room leaves the request row usable.
+  const isCleaning = vacuumState === 'cleaning';
   const liveRoomName = formatRoberRoomName(entities?.[VACUUM_CURRENT_ROOM_SENSOR]?.state);
-  const cleaningIn = (roomName: string) => isVacuumActive && !!liveRoomName && liveRoomName.toLowerCase() === roomName.toLowerCase();
+  const cleaningIn = (roomName: string) => isCleaning && !!liveRoomName && liveRoomName.toLowerCase() === roomName.toLowerCase();
 
   const isKitchen = areaNameNormalized === 'kitchen';
 

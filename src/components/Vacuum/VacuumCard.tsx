@@ -80,6 +80,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   // Collapsed by default, remembered across sessions (same pattern as TonightCard/HeatCard).
   const [collapsed, setCollapsed] = useLocalStorageBoolean('robercard-collapsed', true);
   const topSlop = useTouchScrollSlopGuard();
+  const barSlop = useTouchScrollSlopGuard();
   // Now-tick: the day strip's right edge is live.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -893,7 +894,14 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
           {showDayStrip && barStartMs != null && (
             <div
               className='rober-bar-section'
-              onClick={handleOpenRoomsSheet}
+              onClick={() => {
+                if (barSlop.consumeBlockClick()) return;
+                handleOpenRoomsSheet();
+              }}
+              onTouchStart={barSlop.onTouchStart}
+              onTouchMove={barSlop.onTouchMove}
+              onTouchEnd={barSlop.onTouchEnd}
+              onTouchCancel={barSlop.onTouchCancel}
               onKeyDown={e => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
@@ -974,6 +982,15 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
             >
               <Icon icon={batteryDoorIcon} aria-hidden='true' />
             </button>
+            <button
+              type='button'
+              className='rober-ibtn rober-ibtn--tint'
+              onClick={handleOpenRoomsSheet}
+              aria-label='Rooms'
+              title='Rooms'
+            >
+              <Icon icon='mdi:map-outline' aria-hidden='true' />
+            </button>
             {isActive && liveMapImage && (
               <button
                 type='button'
@@ -986,7 +1003,13 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
               </button>
             )}
             {enabledEntity && (
-              <button type='button' className='rober-ibtn' onClick={togglePower} aria-label='Turn Rober2 off' title='Turn off'>
+              <button
+                type='button'
+                className='rober-ibtn'
+                onClick={togglePower}
+                aria-label={enabledEntity.state === 'on' ? 'Turn Rober2 off' : 'Turn Rober2 on'}
+                title={enabledEntity.state === 'on' ? 'Turn off' : 'Turn on'}
+              >
                 <Icon icon='mdi:power' aria-hidden='true' />
               </button>
             )}
