@@ -520,6 +520,7 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
                         entities={entities}
                         hassUrl={hassUrl}
                         callService={callService}
+                        embedded
                       />
                     </div>
                   ) : showSpeakerSelector || !hasMediaForModal ? (
@@ -556,7 +557,7 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
                                 </div>
                                 {groupSize > 1 && <span className='qa-media-badge qa-media-badge--group'>{groupSize} speakers</span>}
                               </div>
-                              <SonosPlayer entityId={speaker.entityId} entities={entities} hassUrl={hassUrl} callService={callService} />
+                              <SonosPlayer entityId={speaker.entityId} entities={entities} hassUrl={hassUrl} callService={callService} embedded />
                             </div>
                           );
                         })}

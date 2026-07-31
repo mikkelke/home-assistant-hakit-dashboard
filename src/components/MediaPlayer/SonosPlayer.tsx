@@ -7,7 +7,7 @@ import { PODCAST_FEEDS } from '../../config/podcasts';
 import { AUDIOCAST_STREAM_URI, rawSonosEntityId } from '../../config/audiocast';
 import { isMediaPlayerOutOfSync } from '../../utils/mediaPlayer';
 import { getAccessibleHistoryWindow, getHistoryUrl } from '../../utils/navigation';
-import { useModalBackButton, useSwipeToClose } from '../../hooks';
+import { useLocalStorageBoolean, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
 import './SonosPlayer.css';
 
 type SonosAttributes = {
@@ -81,9 +81,23 @@ function withHistoryWindow(action: (targetWindow: Window) => void) {
   action(targetWindow);
 }
 
-export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosPlayerProps) {
+/** `embedded` = render the expanded face bare (the QuickAccess media modal supplies its own
+ *  chrome and title); the room-detail home gets the collapsible card. */
+interface SonosCardProps extends SonosPlayerProps {
+  embedded?: boolean;
+}
+
+export function SonosPlayer({ entityId, entities, hassUrl, callService, embedded = false }: SonosCardProps) {
+  // Collapsed by default in the room-detail home (same pattern as TonightCard/HeatCard).
+  const [collapsed, setCollapsed] = useLocalStorageBoolean('sonoscard-collapsed', true);
+  const topSlop = useTouchScrollSlopGuard();
   const [showGroupModal, setShowGroupModal] = useState(false);
+  // The Source sheet: one pop-up with three faces - the source grid, the podcast feed list,
+  // and a feed's episodes. Same manual back/history machinery the podcast modal always used.
   const [showSourcePicker, setShowSourcePicker] = useState(false);
+  const sourceSheetOpenedAt = useRef<number>(0);
+  const sourcePendingOpenRef = useRef(false);
+  const showSourcePickerRef = useRef(false);
   const [imageError, setImageError] = useState(false);
   const [volumeUi, setVolumeUi] = useState(0);
   // Apple-style picker: optimistic membership per speaker. Shown while it differs from the
@@ -102,6 +116,7 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
   const viewingEpisodesRef = useRef(false);
   const [selectedPodcastId, setSelectedPodcastId] = useState<string | null>(null);
   const [viewingEpisodes, setViewingEpisodes] = useState(false);
+  const [volumeDragging, setVolumeDragging] = useState(false);
   const [seekerPreview, setSeekerPreview] = useState<number | null>(null); // position in seconds while dragging
   const [, setSeekerTick] = useState(0); // force re-render for live position when playing
   const player = entities?.[entityId];
@@ -406,8 +421,9 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
   }, [groupMembers, entities]);
 
   useEffect(() => {
+    if (volumeDragging) return;
     setVolumeUi(volume);
-  }, [volume]);
+  }, [volume, volumeDragging]);
 
   // Close group modal
   const closeGroupModal = () => {
@@ -418,6 +434,15 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
     isOpen: showGroupModal,
     onRequestClose: closeGroupModal,
     historyKey: 'sonos-group-modal',
+  });
+
+  // Registering the Source sheet on the shared modal stack is what stops an enclosing modal
+  // (QuickAccess Media) from ALSO handling the same back press. The level-flipping itself is
+  // done by the manual modalBackButton listener below, so this close handler is a no-op.
+  useModalBackButton({
+    isOpen: showSourcePicker || showPodcastModal,
+    onRequestClose: () => {},
+    historyKey: 'sonos-source-sheet',
   });
 
   // Use standardized swipe-to-close hook for group modal
@@ -433,6 +458,11 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
   }, [showPodcastModal]);
 
   useEffect(() => {
+    showSourcePickerRef.current = showSourcePicker;
+    if (showSourcePicker) sourcePendingOpenRef.current = false;
+  }, [showSourcePicker]);
+
+  useEffect(() => {
     viewingEpisodesRef.current = viewingEpisodes;
   }, [viewingEpisodes]);
 
@@ -440,13 +470,14 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
   // the room unmounts (feels like the podcast pop-up “closes”). Refs cover the frame before showPodcastModal commits.
   useEffect(() => {
     const handleModalBack = (e: Event) => {
-      const podcastOpen = showPodcastModalRef.current || podcastPendingOpenRef.current;
-      if (!podcastOpen) return;
+      const sheetOpen =
+        showSourcePickerRef.current || sourcePendingOpenRef.current || showPodcastModalRef.current || podcastPendingOpenRef.current;
+      if (!sheetOpen) return;
 
       e.preventDefault();
 
-      const msSinceOpen = Date.now() - podcastModalOpenedAt.current;
-      if (podcastPendingOpenRef.current || msSinceOpen < 500) {
+      const msSinceOpen = Date.now() - Math.max(podcastModalOpenedAt.current, sourceSheetOpenedAt.current);
+      if (podcastPendingOpenRef.current || sourcePendingOpenRef.current || msSinceOpen < 500) {
         return;
       }
 
@@ -459,13 +490,22 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
         } catch {
           /* ignore */
         }
-      } else {
+      } else if (showPodcastModalRef.current) {
+        // Podcasts page flips back to the source grid; the sheet itself stays open.
         setShowPodcastModal(false);
-        setViewingEpisodes(false);
         setSelectedPodcastId(null);
         try {
           withHistoryWindow(targetWindow => {
             targetWindow.history.replaceState({ podcastModal: null }, '', podcastHistoryUrl());
+          });
+        } catch {
+          /* ignore */
+        }
+      } else {
+        setShowSourcePicker(false);
+        try {
+          withHistoryWindow(targetWindow => {
+            targetWindow.history.replaceState({ sourceSheet: null }, '', podcastHistoryUrl());
           });
         } catch {
           /* ignore */
@@ -695,14 +735,6 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
     });
   };
 
-  const clampVolume = (v: number) => Math.max(0, Math.min(100, v));
-
-  const handleVolumeStep = (delta: number) => {
-    const next = clampVolume(volumeUi + delta);
-    setVolumeUi(next);
-    handleVolumeChange(entityId, next);
-  };
-
   const parseRss = (xmlText: string) => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(xmlText, 'text/xml');
@@ -752,37 +784,45 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
     if (!targetWindow) return;
 
     const handlePopState = (event: PopStateEvent) => {
-      if (showPodcastModal) {
-        event.stopImmediatePropagation();
-        if (viewingEpisodes) {
-          // Go back to podcast list
-          setViewingEpisodes(false);
-          try {
-            withHistoryWindow(targetWindow => {
-              targetWindow.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
-            });
-          } catch {
-            /* ignore */
-          }
-        } else {
-          setShowPodcastModal(false);
-          setViewingEpisodes(false);
-          setSelectedPodcastId(null);
-          try {
-            withHistoryWindow(targetWindow => {
-              targetWindow.history.replaceState({ podcastModal: null }, '', podcastHistoryUrl());
-            });
-          } catch {
-            /* ignore */
-          }
+      if (!showPodcastModal && !showSourcePicker) return;
+      event.stopImmediatePropagation();
+      if (showPodcastModal && viewingEpisodes) {
+        // Go back to podcast list
+        setViewingEpisodes(false);
+        try {
+          withHistoryWindow(targetWindow => {
+            targetWindow.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
+          });
+        } catch {
+          /* ignore */
+        }
+      } else if (showPodcastModal) {
+        // Podcasts page flips back to the source grid; the sheet itself stays open.
+        setShowPodcastModal(false);
+        setSelectedPodcastId(null);
+        try {
+          withHistoryWindow(targetWindow => {
+            targetWindow.history.replaceState({ podcastModal: null }, '', podcastHistoryUrl());
+          });
+        } catch {
+          /* ignore */
+        }
+      } else {
+        setShowSourcePicker(false);
+        try {
+          withHistoryWindow(targetWindow => {
+            targetWindow.history.replaceState({ sourceSheet: null }, '', podcastHistoryUrl());
+          });
+        } catch {
+          /* ignore */
         }
       }
     };
     targetWindow.addEventListener('popstate', handlePopState, { capture: true });
     return () => targetWindow.removeEventListener('popstate', handlePopState, { capture: true });
-  }, [showPodcastModal, viewingEpisodes]);
+  }, [showPodcastModal, showSourcePicker, viewingEpisodes]);
 
-  // Custom swipe handler for podcast modal (needs special logic for back navigation)
+  // Custom swipe handler for the source sheet (needs special logic for back navigation)
   const handlePodcastSwipe = () => {
     if (viewingEpisodes) {
       setViewingEpisodes(false);
@@ -793,22 +833,65 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
       } catch {
         /* ignore */
       }
-    } else {
+    } else if (showPodcastModal) {
       handleClosePodcastModal();
+    } else {
+      handleCloseSourceSheet();
     }
   };
 
-  // Use standardized swipe-to-close hook for podcast modal
+  // Use standardized swipe-to-close hook for the source sheet
   const {
     handleTouchStart: handlePodcastTouchStart,
     handleTouchMove: handlePodcastTouchMove,
     handleTouchEnd: handlePodcastTouchEnd,
   } = useSwipeToClose(handlePodcastSwipe);
 
-  const handleClosePodcastModal = () => {
-    // Ignore overlay click right after open (WeatherCard uses 500ms; touch ghost clicks)
-    const now = Date.now();
-    if (now - podcastModalOpenedAt.current < 500) return;
+  const handleOpenSourceSheet = () => {
+    sourceSheetOpenedAt.current = Date.now();
+    sourcePendingOpenRef.current = true;
+    // useModalBackButton pushes the sheet's history entry when isOpen flips.
+    setShowSourcePicker(true);
+  };
+
+  /** Overlay taps only: swallows the ghost click the opening tap can produce (500ms, as elsewhere). */
+  const handleOverlayCloseSourceSheet = () => {
+    if (Date.now() - sourceSheetOpenedAt.current < 500) return;
+    handleCloseSourceSheet();
+  };
+
+  const handleCloseSourceSheet = () => {
+    sourcePendingOpenRef.current = false;
+    setShowSourcePicker(false);
+    setShowPodcastModal(false);
+    setViewingEpisodes(false);
+    setSelectedPodcastId(null);
+    try {
+      withHistoryWindow(targetWindow => {
+        targetWindow.history.replaceState({ sourceSheet: null }, '', podcastHistoryUrl());
+      });
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleOpenPodcastsPage = () => {
+    podcastModalOpenedAt.current = Date.now();
+    podcastPendingOpenRef.current = true;
+    setShowPodcastModal(true);
+    setViewingEpisodes(false);
+    setSelectedPodcastId(null);
+    try {
+      withHistoryWindow(targetWindow => {
+        targetWindow.history.pushState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
+      });
+    } catch {
+      /* ignore */
+    }
+  };
+
+  /** Flips the Podcasts page away; the Source sheet underneath stays open. */
+  const flipBackToSourceGrid = () => {
     podcastPendingOpenRef.current = false;
     setShowPodcastModal(false);
     setViewingEpisodes(false);
@@ -820,6 +903,13 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
     } catch {
       /* ignore */
     }
+  };
+
+  const handleClosePodcastModal = () => {
+    // Ignore overlay click right after open (WeatherCard uses 500ms; touch ghost clicks)
+    const now = Date.now();
+    if (now - podcastModalOpenedAt.current < 500) return;
+    flipBackToSourceGrid();
   };
 
   const handleSelectPodcast = (feedId: string) => {
@@ -949,7 +1039,7 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
         media_content_type: mediaContentType,
       },
     });
-    setShowSourcePicker(false);
+    handleCloseSourceSheet();
   };
 
   const handleSelectSource = (source: string) => {
@@ -974,7 +1064,7 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
         serviceData: { source },
       });
     }
-    setShowSourcePicker(false);
+    handleCloseSourceSheet();
   };
 
   // Apple AirPlay model: ONE list, tap a row to toggle that speaker in/out of THIS group.
@@ -1045,229 +1135,205 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entities, groupMembers, masterId, entityId, idFlavor]);
 
-  if (!player) return <div className='sonos-player'>Speaker not found</div>;
+  if (!player) return <div className='sonos-card'>Speaker not found</div>;
 
-  return (
-    <div className='sonos-player compact'>
-      {/* Now Playing Row */}
-      <div className='sonos-now-playing'>
-        <div className='sonos-artwork'>
+  // The state word compresses the whole card; green while something is actually playing.
+  const stateWord = isPlaying ? `Playing · ${groupMembers.length}` : state === 'paused' ? 'Paused' : 'Quiet';
+  const otherMemberNames = groupedSpeakers.filter(s => !s.isMaster).map(s => s.name);
+  const subtitleParts = [mediaArtist, displaySource !== 'Select source' ? displaySource : ''].filter(Boolean);
+  const volumePct = Math.max(0, Math.min(100, volumeUi));
+  const seekPct = seekDuration > 0 ? Math.max(0, Math.min(100, ((seekerPreview ?? currentPosition) / seekDuration) * 100)) : 0;
+
+  // The source door wears the CURRENT source's mark - brands as logos, everything else as a glyph.
+  const sourceMark = isSpotify ? (
+    <Icon icon='mdi:spotify' className='sonos-mark--spotify' aria-hidden='true' />
+  ) : currentRadio?.logo ? (
+    <img src={currentRadio.logo} alt='' className='sonos-mark-logo' />
+  ) : isTVSource ? (
+    <Icon icon='mdi:television' className='sonos-mark--tv' aria-hidden='true' />
+  ) : isAirPlay ? (
+    <Icon icon='mdi:airplay' aria-hidden='true' />
+  ) : isLineIn(currentSource) ? (
+    <Icon icon='mdi:cast' aria-hidden='true' />
+  ) : isPodcast ? (
+    <Icon icon='mdi:podcast' aria-hidden='true' />
+  ) : (
+    <Icon icon='mdi:music' aria-hidden='true' />
+  );
+
+  // Inputs: the TV tile takes the first TV-ish entry (or the only input there is); everything
+  // else from today's Inputs list survives as a chip under the grid.
+  const tvSource = inputSources.find(isTVSourceName) ?? inputSources[0];
+  const otherInputSources = inputSources.filter(s => s !== tvSource);
+
+  const face = (
+    <>
+      {/* Now playing */}
+      <div className='sonos-now'>
+        <div className='sonos-art'>
           {showImage ? (
             <img src={safeImage || ''} alt='' onError={() => setImageError(true)} />
           ) : (
-            <div className='sonos-artwork-placeholder'>
-              <Icon icon={isLineIn(currentSource) ? 'mdi:cast' : 'mdi:music'} />
+            <div className='sonos-art-placeholder'>
+              <Icon icon={isLineIn(currentSource) ? 'mdi:cast' : 'mdi:music'} aria-hidden='true' />
             </div>
           )}
         </div>
-        <div className='sonos-track-info'>
-          <span className='sonos-title'>{displayTitle}</span>
-          {mediaArtist && <span className='sonos-artist'>{mediaArtist}</span>}
-        </div>
-        <div className='sonos-status-indicators'>
-          {isOutOfSync && (
-            <div
-              className='sonos-sync-warning'
-              title='Music Assistant and Sonos entities are out of sync. Controls may not work correctly.'
-            >
-              <Icon icon='mdi:alert-circle' />
-            </div>
-          )}
+        <div className='sonos-track'>
+          <div className='sonos-track-title'>{displayTitle}</div>
+          {subtitleParts.length > 0 && <div className='sonos-track-sub'>{subtitleParts.join(' · ')}</div>}
           {hasGroup && masterSpeakerName && (
-            <div className='sonos-master-chip' title='Master speaker'>
-              <Icon icon='mdi:crown' />
-              <span>{masterSpeakerName}</span>
+            <div className='sonos-leader'>
+              <Icon icon='mdi:crown' aria-hidden='true' />
+              {[masterSpeakerName, ...otherMemberNames].join(' · ')}
             </div>
           )}
         </div>
-        {/* Inline controls */}
-        <div className='sonos-inline-controls'>
-          <button className='sonos-btn-sm' onClick={handlePrevious}>
-            <Icon icon='mdi:skip-previous' />
-          </button>
-          <button
-            className={`sonos-btn-sm play ${isPlaying ? 'playing' : ''}`}
-            onClick={e => {
-              e.preventDefault();
-              e.stopPropagation();
-              handlePlayPause();
-            }}
-            type='button'
-            aria-label={isPlaying ? 'Pause' : 'Play'}
-          >
-            <Icon icon={isPlaying ? 'mdi:pause' : 'mdi:play'} />
-          </button>
-          <button className='sonos-btn-sm' onClick={handleNext}>
-            <Icon icon='mdi:skip-next' />
-          </button>
-        </div>
       </div>
 
-      {/* Media seeker – only for seekable content (not radio, not audiocast) */}
-      {showSeeker && seekDuration > 0 && (
-        <div className='sonos-seeker'>
-          <span className='sonos-seeker-time' aria-hidden='true'>
-            {formatTime(currentPosition)}
-          </span>
-          <input
-            type='range'
-            className='sonos-seeker-input'
-            min={0}
-            max={seekDuration}
-            step={1}
-            value={seekerPreview ?? currentPosition}
-            onChange={e => setSeekerPreview(Number(e.target.value))}
-            onMouseUp={() => {
-              const pos = seekerPreview ?? currentPosition;
-              handleSeek(pos);
-            }}
-            onTouchEnd={() => {
-              const pos = seekerPreview ?? currentPosition;
-              handleSeek(pos);
-            }}
-            aria-label='Seek position'
-          />
-          <span className='sonos-seeker-time' aria-hidden='true'>
-            {formatTime(seekDuration)}
-          </span>
-        </div>
-      )}
-
-      {/* Volume Row */}
-      <div className='sonos-volume-row'>
-        <button className='sonos-btn-icon' onClick={handleMuteToggle}>
-          <Icon icon={isMuted ? 'mdi:volume-off' : volume > 50 ? 'mdi:volume-high' : 'mdi:volume-medium'} />
+      {/* Transport */}
+      <div className='sonos-transport'>
+        <button type='button' className='sonos-tbtn' onClick={handlePrevious} aria-label='Previous track'>
+          <Icon icon='mdi:skip-previous' aria-hidden='true' />
         </button>
-        <div className='sonos-volume-buttons'>
-          <button className='sonos-btn-sm' onClick={() => handleVolumeStep(-5)} title='Volume down'>
-            <Icon icon='mdi:minus' />
-          </button>
-          <span className='sonos-volume-value'>{volumeUi}%</span>
-          <button className='sonos-btn-sm' onClick={() => handleVolumeStep(5)} title='Volume up'>
-            <Icon icon='mdi:plus' />
-          </button>
-        </div>
-
-        {/* Group button (opens modal) */}
         <button
-          className={`sonos-btn-icon group ${hasGroup ? 'active' : ''}`}
-          onClick={() => setShowGroupModal(true)}
-          title='Group speakers'
+          className='sonos-tbtn sonos-tbtn--main'
+          onClick={e => {
+            e.preventDefault();
+            e.stopPropagation();
+            handlePlayPause();
+          }}
+          type='button'
+          aria-label={isPlaying ? 'Pause' : 'Play'}
         >
-          <Icon icon='mdi:speaker-multiple' />
-          {hasGroup && <span className='group-badge'>{groupMembers.length}</span>}
+          <Icon icon={isPlaying ? 'mdi:pause' : 'mdi:play'} aria-hidden='true' />
+        </button>
+        <button type='button' className='sonos-tbtn' onClick={handleNext} aria-label='Next track'>
+          <Icon icon='mdi:skip-next' aria-hidden='true' />
         </button>
       </div>
 
-      {/* Source Picker Toggle */}
-      <button
-        className={`sonos-source-toggle ${showSourcePicker ? 'active' : ''} ${isSpotify ? 'is-spotify' : ''} ${isAirPlay ? 'is-airplay' : ''} ${isLineIn(currentSource) ? 'is-audiocast' : ''} ${isTVSource ? 'is-tv' : ''}`}
-        onClick={() => setShowSourcePicker(!showSourcePicker)}
-      >
-        <span className='sonos-source-toggle-media' aria-hidden='true'>
-          {isSpotify ? (
-            <Icon icon='mdi:spotify' className='spotify-icon' />
-          ) : isTVSource ? (
-            <Icon icon='mdi:television' />
-          ) : isAirPlay ? (
-            <Icon icon='mdi:airplay' className='airplay-icon' />
-          ) : isLineIn(currentSource) ? (
-            <Icon icon='mdi:cast' className='cast-icon' />
-          ) : currentRadio?.logo ? (
-            <img src={currentRadio.logo} alt='' className='source-logo' />
-          ) : (
-            <Icon icon='mdi:radio' />
-          )}
-        </span>
-        <span className='sonos-source-toggle-label'>{displaySource}</span>
-        <Icon icon={showSourcePicker ? 'mdi:chevron-up' : 'mdi:chevron-down'} />
-      </button>
-
-      {/* Combined Source Picker */}
-      {showSourcePicker && (
-        <div className='sonos-source-panel'>
-          {/* Spotify Link */}
-          <button className={`sonos-source-item spotify ${isSpotify ? 'active' : ''}`} onClick={handleSpotifyClick}>
-            <Icon icon='mdi:spotify' />
-            <span>Open Spotify</span>
-            <Icon icon='mdi:open-in-new' className='external' />
-          </button>
-
-          {/* Radio Stations */}
-          {RADIO_STATIONS.length > 0 && (
-            <div className='source-section'>
-              <span className='source-section-label'>Radio</span>
-              <div className='source-grid'>
-                {RADIO_STATIONS.map(station => (
-                  <button
-                    key={station.id}
-                    className={`source-grid-item ${currentRadio?.id === station.id ? 'active' : ''}`}
-                    onClick={() => handlePlayRadio(station.id)}
-                    style={station.color ? ({ '--station-color': station.color } as React.CSSProperties) : undefined}
-                  >
-                    {station.logo ? <img src={station.logo} alt={station.name} /> : <Icon icon={station.icon || 'mdi:radio'} />}
-                    <span>{station.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Podcasts */}
-          {PODCAST_FEEDS.length > 0 && (
-            <div className='source-section'>
-              <span className='source-section-label'>Podcasts</span>
-              <button
-                className='sonos-source-item'
-                onClick={() => {
-                  podcastModalOpenedAt.current = Date.now();
-                  podcastPendingOpenRef.current = true;
-                  setShowPodcastModal(true);
-                  setViewingEpisodes(false);
-                  setSelectedPodcastId(null);
-                  try {
-                    withHistoryWindow(targetWindow => {
-                      targetWindow.history.pushState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
-                    });
-                  } catch {
-                    /* ignore */
-                  }
-                }}
-              >
-                <Icon icon='mdi:podcast' />
-                <span>Browse podcasts</span>
-                <Icon icon='mdi:chevron-right' />
-              </button>
-            </div>
-          )}
-
-          {/* Input Sources — Audiocast is always offered: any room can pull the cast feed */}
-          <div className='source-section'>
-            <span className='source-section-label'>Inputs</span>
-            <button
-              className={`sonos-source-item audiocast ${isLineIn(currentSource) ? 'active' : ''}`}
-              onClick={() => handleSelectSource('Audiocast')}
-            >
-              <Icon icon='mdi:cast' />
-              <span>Audiocast</span>
-              {isLineIn(currentSource) && <Icon icon='mdi:check' className='check' />}
-            </button>
-            {inputSources.map(source => (
-              <button
-                key={source}
-                className={`sonos-source-item ${source === currentSource ? 'active' : ''}`}
-                onClick={() => handleSelectSource(source)}
-              >
-                <Icon icon={isTVSourceName(source) ? 'mdi:television' : 'mdi:audio-input-stereo-minijack'} />
-                <span>{getSourceDisplayName(source)}</span>
-                {source === currentSource && <Icon icon='mdi:check' className='check' />}
-              </button>
-            ))}
+      {/* Seek – only for seekable content (not radio, not audiocast) */}
+      {showSeeker && seekDuration > 0 && (
+        <div className='sonos-seek'>
+          <div className='sonos-strip sonos-strip--thin'>
+            <div className='sonos-strip-fill' style={{ width: `${seekPct}%` }} />
+            <input
+              type='range'
+              className='sonos-strip-input'
+              min={0}
+              max={seekDuration}
+              step={1}
+              value={seekerPreview ?? currentPosition}
+              onChange={e => setSeekerPreview(Number(e.target.value))}
+              onMouseUp={() => {
+                const pos = seekerPreview ?? currentPosition;
+                handleSeek(pos);
+              }}
+              onTouchEnd={() => {
+                const pos = seekerPreview ?? currentPosition;
+                handleSeek(pos);
+              }}
+              aria-label='Seek position'
+            />
+          </div>
+          <div className='sonos-seek-times'>
+            <span>{formatTime(currentPosition)}</span>
+            <span>{formatTime(seekDuration)}</span>
           </div>
         </div>
       )}
 
-      {/* Group Modal - swipe/tap on overlay closes modal, stopPropagation prevents RoomDetail closing */}
+      {/* Volume */}
+      <div className='sonos-volume'>
+        <button type='button' className='sonos-mute' onClick={handleMuteToggle} aria-label={isMuted ? 'Unmute' : 'Mute'}>
+          <Icon icon={isMuted ? 'mdi:volume-off' : volume > 50 ? 'mdi:volume-high' : 'mdi:volume-medium'} aria-hidden='true' />
+        </button>
+        <div className='sonos-strip'>
+          <div className='sonos-strip-fill' style={{ width: `${volumePct}%` }} />
+          <input
+            type='range'
+            className='sonos-strip-input'
+            min={0}
+            max={100}
+            step={1}
+            value={volumeUi}
+            onChange={e => {
+              setVolumeDragging(true);
+              setVolumeUi(Number(e.target.value));
+            }}
+            onMouseUp={() => {
+              handleVolumeChange(entityId, volumeUi);
+              setVolumeDragging(false);
+            }}
+            onTouchEnd={() => {
+              handleVolumeChange(entityId, volumeUi);
+              setVolumeDragging(false);
+            }}
+            aria-label='Volume'
+          />
+        </div>
+        <span className='sonos-volume-value'>{volumeUi}%</span>
+      </div>
+
+      {/* Doors */}
+      <div className='sonos-doors'>
+        <button type='button' className='sonos-ibtn' onClick={() => setShowGroupModal(true)} aria-label='Speakers' title='Speakers'>
+          <Icon icon='mdi:speaker-multiple' aria-hidden='true' />
+          {hasGroup && <span className='sonos-badge'>{groupMembers.length}</span>}
+        </button>
+        <button type='button' className='sonos-ibtn sonos-ibtn--bare' onClick={handleOpenSourceSheet} aria-label='Source' title={displaySource}>
+          {sourceMark}
+        </button>
+      </div>
+    </>
+  );
+
+  return (
+    <div className={`sonos-card ${embedded ? 'is-embedded' : ''}`}>
+      {!embedded && (
+        <div
+          className='sonos-top'
+          onClick={() => {
+            if (topSlop.consumeBlockClick()) return;
+            setCollapsed(v => !v);
+          }}
+          onTouchStart={topSlop.onTouchStart}
+          onTouchMove={topSlop.onTouchMove}
+          onTouchEnd={topSlop.onTouchEnd}
+          onTouchCancel={topSlop.onTouchCancel}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setCollapsed(v => !v);
+            }
+          }}
+          role='button'
+          tabIndex={0}
+          aria-expanded={!collapsed}
+        >
+          <span className='sonos-glyph'>
+            <Icon icon='mdi:speaker' aria-hidden='true' />
+          </span>
+          <span className='sonos-title'>Sonos</span>
+          {isOutOfSync && (
+            <span
+              className='sonos-sync-warning'
+              title='Music Assistant and Sonos entities are out of sync. Controls may not work correctly.'
+            >
+              <Icon icon='mdi:alert-circle-outline' aria-hidden='true' />
+            </span>
+          )}
+          <span className='sonos-top-right'>
+            <span className={`sonos-state ${isPlaying ? 'tint' : 'muted'}`}>{stateWord}</span>
+            <Icon icon={collapsed ? 'mdi:chevron-down' : 'mdi:chevron-up'} aria-hidden='true' className='sonos-chevron' />
+          </span>
+        </div>
+      )}
+
+      {(embedded || !collapsed) && face}
+
+      {/* Speakers pop-up - swipe/tap on overlay closes, stopPropagation prevents RoomDetail closing */}
       {showGroupModal && (
         <div
           className='sonos-modal-overlay'
@@ -1276,68 +1342,79 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
           onTouchMove={handleModalTouchMove}
           onTouchEnd={handleModalTouchEnd}
         >
-          <div className='sonos-modal sp-modal' onClick={e => e.stopPropagation()}>
-            <div className='sonos-modal-header'>
-              <h3>Speakers</h3>
-              <button className='modal-close modal-close-button' onClick={requestCloseGroupModal}>
+          <div className='sonos-sheet' role='dialog' aria-modal='true' onClick={e => e.stopPropagation()}>
+            <div className='sonos-sheet-top'>
+              <span className='sonos-glyph'>
+                <Icon icon='mdi:speaker-multiple' aria-hidden='true' />
+              </span>
+              <span className='sonos-title'>Speakers</span>
+              <button className='sonos-sheet-close modal-close-button' onClick={requestCloseGroupModal} aria-label='Close'>
                 <Icon icon='mdi:close' />
               </button>
             </div>
 
-            <div className='sonos-modal-content'>
+            <div className='sonos-sheet-body'>
               {/* Apple AirPlay-style picker: one list, one LINE per speaker, tap to toggle */}
-              <div className='sp-picker'>
-                {pickerSpeakers.map(sp => {
-                  // Optimistic display: pending wins until the entity's group state converges.
-                  // shownIn also drives the layout, so joining grows the slider instantly.
-                  const pend = pendingGroup[sp.id];
-                  const inFlight = pend !== undefined && pend !== sp.isMember;
-                  const shownIn = inFlight ? pend : sp.isMember;
+              {pickerSpeakers.map(sp => {
+                // Optimistic display: pending wins until the entity's group state converges.
+                // shownIn also drives the layout, so joining grows the slider instantly.
+                const pend = pendingGroup[sp.id];
+                const inFlight = pend !== undefined && pend !== sp.isMember;
+                const shownIn = inFlight ? pend : sp.isMember;
 
-                  // Members carry no subtitle (check + crown say it) — the line belongs to the slider
-                  let subtitle = '';
-                  if (!sp.available) subtitle = 'Unavailable';
-                  else if (inFlight && !shownIn) subtitle = 'Leaving…';
-                  else if (!shownIn) {
-                    if (sp.otherMasterName) subtitle = `With ${sp.otherMasterName}`;
-                    else if (sp.playingTitle) subtitle = `Playing · ${sp.playingTitle}`;
-                    else subtitle = 'Not playing';
-                  }
+                // Members carry no subtitle (the join circle and crown say it) — the line below is theirs
+                let subtitle = '';
+                if (!sp.available) subtitle = 'Unavailable';
+                else if (inFlight && !shownIn) subtitle = 'Leaving…';
+                else if (!shownIn) {
+                  if (sp.otherMasterName) subtitle = `With ${sp.otherMasterName}`;
+                  else if (sp.playingTitle) subtitle = `Playing · ${sp.playingTitle}`;
+                  else subtitle = 'Not playing';
+                }
 
-                  const sliderValue = pickerVolumes[sp.id] ?? sp.volume;
+                const sliderValue = pickerVolumes[sp.id] ?? sp.volume;
+                const memberPct = Math.max(0, Math.min(100, sliderValue));
 
-                  return (
-                    <div key={sp.id} className={`sp-item ${shownIn ? 'member' : ''} ${!sp.available ? 'unavailable' : ''}`}>
+                return (
+                  <div key={sp.id} className={`sonos-sp ${shownIn ? 'is-member' : ''} ${!sp.available ? 'is-unavailable' : ''}`}>
+                    <div className='sonos-sp-line'>
                       <button
                         type='button'
-                        className='sp-main'
+                        className='sonos-sp-name'
                         onClick={() => sp.available && handleToggleSpeaker(sp.id)}
                         disabled={!sp.available}
                         title={shownIn ? 'Tap to remove from group' : 'Tap to add to group'}
                       >
-                        <Icon
-                          icon={sp.isMaster ? 'mdi:crown' : sp.otherMasterName ? 'mdi:speaker-multiple' : 'mdi:speaker'}
-                          className='sp-icon'
-                        />
-                        <span className='sp-name'>
-                          {sp.name}
-                          {sp.isThis && <span className='sp-this'>*</span>}
-                        </span>
-                        {subtitle && <span className='sp-sub'>{subtitle}</span>}
+                        {sp.isMaster && <Icon icon='mdi:crown' className='sonos-sp-crown' aria-hidden='true' />}
+                        <span>{sp.name}</span>
+                        {sp.isThis && <span className='sonos-sp-this'>*</span>}
                       </button>
-                      {shownIn && sp.available && (
-                        <>
-                          <button
-                            type='button'
-                            className={`sonos-btn-xs sp-vol-mute ${sp.isMuted ? 'muted' : ''}`}
-                            onClick={() => handleSpeakerMuteToggle(sp.actualId)}
-                            title={sp.isMuted ? 'Unmute' : 'Mute'}
-                          >
-                            <Icon icon={sp.isMuted ? 'mdi:volume-off' : 'mdi:volume-high'} />
-                          </button>
+                      {subtitle && <span className='sonos-sp-sub'>{subtitle}</span>}
+                      <button
+                        type='button'
+                        className={`sonos-join ${shownIn ? 'on' : ''} ${inFlight ? 'pending' : ''}`}
+                        onClick={() => sp.available && handleToggleSpeaker(sp.id)}
+                        disabled={!sp.available}
+                        aria-label={shownIn ? `Remove ${sp.name}` : `Add ${sp.name}`}
+                      >
+                        {shownIn && <Icon icon={inFlight ? 'mdi:loading' : 'mdi:check'} aria-hidden='true' />}
+                      </button>
+                    </div>
+                    {shownIn && sp.available && (
+                      <div className='sonos-sp-line sonos-sp-line--vol'>
+                        <button
+                          type='button'
+                          className={`sonos-mute ${sp.isMuted ? 'is-muted' : ''}`}
+                          onClick={() => handleSpeakerMuteToggle(sp.actualId)}
+                          aria-label={sp.isMuted ? `Unmute ${sp.name}` : `Mute ${sp.name}`}
+                        >
+                          <Icon icon={sp.isMuted ? 'mdi:volume-off' : 'mdi:volume-high'} aria-hidden='true' />
+                        </button>
+                        <div className='sonos-strip sonos-strip--mini'>
+                          <div className='sonos-strip-fill' style={{ width: `${memberPct}%` }} />
                           <input
                             type='range'
-                            className='sp-vol-slider'
+                            className='sonos-strip-input'
                             min={0}
                             max={100}
                             step={1}
@@ -1347,80 +1424,179 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
                             onTouchEnd={() => handleVolumeChange(sp.actualId, pickerVolumes[sp.id] ?? sp.volume)}
                             aria-label={`${sp.name} volume`}
                           />
-                        </>
-                      )}
-                      <button
-                        type='button'
-                        className={`sp-check ${shownIn ? 'on' : ''} ${inFlight ? 'pending' : ''}`}
-                        onClick={() => sp.available && handleToggleSpeaker(sp.id)}
-                        disabled={!sp.available}
-                        aria-label={shownIn ? `Remove ${sp.name}` : `Add ${sp.name}`}
-                      >
-                        <Icon icon={inFlight ? 'mdi:loading' : shownIn ? 'mdi:check-circle' : 'mdi:circle-outline'} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
+                        </div>
+                        <span className='sonos-volume-value'>{sliderValue}%</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
       )}
 
-      {/* Podcast Modal */}
-      {showPodcastModal && (
+      {/* Source sheet - one pop-up, three faces: the grid, the podcast feeds, a feed's episodes */}
+      {(showSourcePicker || showPodcastModal) && (
         <div
           className='sonos-modal-overlay'
-          onClick={handleClosePodcastModal}
+          onClick={handleOverlayCloseSourceSheet}
           onMouseDown={e => e.stopPropagation()}
           onTouchStart={handlePodcastTouchStart}
           onTouchMove={handlePodcastTouchMove}
           onTouchEnd={handlePodcastTouchEnd}
         >
-          <div className='sonos-modal large' onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>
-            <div className='sonos-modal-header'>
-              {viewingEpisodes ? (
-                <>
-                  <button className='modal-back' onClick={handleBackToPodcasts}>
-                    <Icon icon='mdi:arrow-left' />
-                  </button>
-                  <h3>{PODCAST_FEEDS.find(f => f.id === selectedPodcastId)?.title || 'Episodes'}</h3>
-                </>
-              ) : (
-                <h3>Podcasts</h3>
+          <div
+            className='sonos-sheet'
+            role='dialog'
+            aria-modal='true'
+            onClick={e => e.stopPropagation()}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <div className='sonos-sheet-top'>
+              {showPodcastModal && (
+                <button
+                  className='sonos-sheet-back'
+                  onClick={viewingEpisodes ? handleBackToPodcasts : flipBackToSourceGrid}
+                  aria-label='Back'
+                >
+                  <Icon icon='mdi:chevron-left' />
+                </button>
               )}
-              <button className='modal-close modal-close-button' onClick={handleClosePodcastModal}>
+              <span className={`sonos-glyph ${showPodcastModal ? 'is-podcast' : ''}`}>
+                <Icon icon={showPodcastModal ? 'mdi:podcast' : 'mdi:speaker'} aria-hidden='true' />
+              </span>
+              <span className='sonos-title'>
+                {viewingEpisodes ? PODCAST_FEEDS.find(f => f.id === selectedPodcastId)?.title || 'Episodes' : showPodcastModal ? 'Podcasts' : 'Source'}
+              </span>
+              <button className='sonos-sheet-close modal-close-button' onClick={handleCloseSourceSheet} aria-label='Close'>
                 <Icon icon='mdi:close' />
               </button>
             </div>
-            <div className='sonos-modal-content'>
-              {!viewingEpisodes ? (
-                // Podcast list view
-                <div className='podcast-modal-list'>
+
+            <div className='sonos-sheet-body'>
+              {!showPodcastModal ? (
+                <>
+                  <div className='sonos-srcgrid'>
+                    <div className='sonos-srctile'>
+                      <button type='button' className='sonos-srcbtn sonos-srcbtn--bare' onClick={handleSpotifyClick} aria-label='Open Spotify'>
+                        <Icon icon='mdi:spotify' className='sonos-mark--spotify' aria-hidden='true' />
+                      </button>
+                      <span>Spotify{isSpotify ? ' · now' : ''}</span>
+                    </div>
+
+                    {RADIO_STATIONS.map(station => (
+                      <div key={station.id} className='sonos-srctile'>
+                        <button
+                          type='button'
+                          className='sonos-srcbtn sonos-srcbtn--logo'
+                          onClick={() => handlePlayRadio(station.id)}
+                          aria-label={station.name}
+                        >
+                          {station.logo ? (
+                            <img src={station.logo} alt='' />
+                          ) : (
+                            <Icon icon={station.icon || 'mdi:radio'} aria-hidden='true' />
+                          )}
+                        </button>
+                        <span>
+                          {station.name}
+                          {currentRadio?.id === station.id ? ' · now' : ''}
+                        </span>
+                      </div>
+                    ))}
+
+                    {PODCAST_FEEDS.length > 0 && (
+                      <div className='sonos-srctile'>
+                        <button
+                          type='button'
+                          className='sonos-srcbtn sonos-srcbtn--podcast'
+                          onClick={handleOpenPodcastsPage}
+                          aria-label='Podcasts'
+                        >
+                          <Icon icon='mdi:podcast' aria-hidden='true' />
+                        </button>
+                        <span>Podcasts{isPodcast ? ' · now' : ' ›'}</span>
+                      </div>
+                    )}
+
+                    <div className='sonos-srctile'>
+                      <button
+                        type='button'
+                        className='sonos-srcbtn'
+                        onClick={() => handleSelectSource('Audiocast')}
+                        aria-label='Audiocast'
+                      >
+                        <Icon icon='mdi:cast' aria-hidden='true' />
+                      </button>
+                      <span>Audiocast{isLineIn(currentSource) ? ' · now' : ''}</span>
+                    </div>
+
+                    {tvSource && (
+                      <div className='sonos-srctile'>
+                        <button
+                          type='button'
+                          className='sonos-srcbtn sonos-srcbtn--tv'
+                          onClick={() => handleSelectSource(tvSource)}
+                          aria-label={getSourceDisplayName(tvSource)}
+                        >
+                          <Icon icon='mdi:television' aria-hidden='true' />
+                        </button>
+                        <span>
+                          {getSourceDisplayName(tvSource)}
+                          {tvSource === currentSource ? ' · now' : ''}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {otherInputSources.length > 0 && (
+                    <div className='sonos-chips'>
+                      {otherInputSources.map(source => (
+                        <button
+                          key={source}
+                          type='button'
+                          className={`sonos-chip ${source === currentSource ? 'on' : ''}`}
+                          onClick={() => handleSelectSource(source)}
+                        >
+                          {getSourceDisplayName(source)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : !viewingEpisodes ? (
+                // Podcast feed list
+                <div className='sonos-rows'>
                   {[...PODCAST_FEEDS]
                     .sort((a, b) => a.title.localeCompare(b.title, 'da'))
                     .map(feed => (
-                      <button key={feed.id} className='podcast-row' onClick={() => handleSelectPodcast(feed.id)}>
-                        {feed.cover ? <img src={feed.cover} alt={feed.title} className='podcast-cover' /> : <Icon icon='mdi:podcast' />}
-                        <div className='podcast-row-text'>
-                          <span className='podcast-row-title'>{feed.title}</span>
-                        </div>
-                        <Icon icon='mdi:chevron-right' />
+                      <button key={feed.id} type='button' className='sonos-row' onClick={() => handleSelectPodcast(feed.id)}>
+                        {feed.cover ? (
+                          <img src={feed.cover} alt='' className='sonos-row-cover' />
+                        ) : (
+                          <span className='sonos-row-cover sonos-row-cover--empty'>
+                            <Icon icon='mdi:podcast' aria-hidden='true' />
+                          </span>
+                        )}
+                        <span className='sonos-row-title'>{feed.title}</span>
+                        <Icon icon='mdi:chevron-right' className='sonos-row-chev' aria-hidden='true' />
                       </button>
                     ))}
                 </div>
               ) : (
-                // Episode list view
+                // Episode list
                 <>
-                  {podcastError && <div className='podcast-error'>{podcastError}</div>}
-                  <div className='podcast-modal-list'>
+                  {podcastError && <div className='sonos-note error'>{podcastError}</div>}
+                  <div className='sonos-rows'>
                     {podcastLoading === selectedPodcastId ? (
-                      <div className='sonos-empty'>Loading episodes...</div>
+                      <div className='sonos-note'>Loading episodes...</div>
                     ) : selectedPodcastId && podcastEpisodes[selectedPodcastId] && podcastEpisodes[selectedPodcastId].length > 0 ? (
                       podcastEpisodes[selectedPodcastId].map((ep: { title: string; url: string; pubDate?: string }) => (
                         <button
                           key={ep.url}
-                          className='podcast-row'
+                          type='button'
+                          className='sonos-row'
                           onClick={() => {
                             if (!callService) return;
                             callService({
@@ -1432,19 +1608,20 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService }: SonosP
                                 media_content_type: 'audio/mpeg',
                               },
                             });
-                            handleClosePodcastModal();
-                            setShowSourcePicker(false);
+                            handleCloseSourceSheet();
                           }}
                         >
-                          <Icon icon='mdi:play-circle' />
-                          <div className='podcast-row-text'>
-                            <span className='podcast-row-title'>{ep.title}</span>
-                            {ep.pubDate && <span className='podcast-row-sub'>{ep.pubDate}</span>}
-                          </div>
+                          <span className='sonos-row-cover sonos-row-cover--empty'>
+                            <Icon icon='mdi:play' aria-hidden='true' />
+                          </span>
+                          <span className='sonos-row-text'>
+                            <span className='sonos-row-title'>{ep.title}</span>
+                            {ep.pubDate && <span className='sonos-row-sub'>{ep.pubDate}</span>}
+                          </span>
                         </button>
                       ))
                     ) : (
-                      <div className='sonos-empty'>No episodes found</div>
+                      <div className='sonos-note'>No episodes found</div>
                     )}
                   </div>
                 </>
