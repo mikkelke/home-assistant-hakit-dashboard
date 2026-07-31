@@ -1,292 +1,210 @@
-/* Light Card */
+/* Lights card - the Climate-card grammar (see AC/TonightCard.css): iOS grouped dark surfaces,
+   an amber glyph disc, state words right, and one row per light where the dot wears the light's
+   own color. Dark-only, like the rest of this app (index.css: color-scheme: dark). */
+
 .light-card {
-  background: rgba(18, 19, 22, 0.92);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  background: #1c1c1e; /* iOS systemGray6 dark */
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.75rem;
-  overflow: hidden;
+  border-radius: 24px;
+  padding: 1.25rem;
   margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.92);
 }
 
-.light-card.expanded {
-  border-color: rgba(59, 130, 246, 0.3);
-}
-
-/* Header */
-.light-header {
-  width: 100%;
+/* Top row - also the collapse/expand tap target (collapsed by default) */
+.light-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 1rem;
-  background: transparent;
-  border: none;
-  color: #e4e4e7;
+  gap: 0.6rem;
   cursor: pointer;
-  transition: background 0.15s;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
-.light-header:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.light-header-info {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  pointer-events: none;
-}
-
-.light-icon {
-  font-size: 1.5rem;
-  color: #71717a;
-  transition: color 0.2s;
-}
-
-.light-icon.on {
-  color: #fbbf24;
-  filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.5));
-}
-
-.light-status {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  pointer-events: none;
-}
-
-.light-title {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #e4e4e7;
-}
-
-.light-count {
-  font-size: 0.75rem;
-  color: #a1a1aa;
-}
-
-.light-header-right {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.light-toggle-all {
-  padding: 0.35rem 0.75rem;
-  background: rgba(24, 25, 28, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.35rem;
-  color: #a1a1aa;
-  font-size: 0.7rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.light-toggle-all:hover {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: rgba(59, 130, 246, 0.4);
-  color: #e4e4e7;
-}
-
-.light-toggle-all.on {
-  background: rgba(59, 130, 246, 0.18);
-  border-color: rgba(59, 130, 246, 0.4);
-  color: #e4e4e7;
-}
-
-.light-header-right > svg:last-child {
-  font-size: 1.25rem;
-  color: #71717a;
-  pointer-events: none;
-}
-
-/* Content */
-.light-content {
-  padding: 0 1rem 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding-top: 0.75rem;
-  background: rgba(18, 19, 22, 0.85);
-}
-
-/* Light Item */
-.light-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  background: rgba(40, 40, 60, 0.5);
-  border-radius: 0.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  transition: background 0.2s ease-out, border-color 0.2s ease-out;
-}
-
-.light-item.on {
-  background: rgba(251, 191, 36, 0.08);
-  border-color: rgba(251, 191, 36, 0.2);
-}
-
-.light-item-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.light-item-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: none;
-  border: none;
-  color: #e4e4e7;
-  cursor: pointer;
-  padding: 0;
-  text-align: left;
-  flex: 1;
-  transition: transform 0.1s ease-out;
-}
-
-.light-item-toggle:active {
-  transform: scale(0.98);
-}
-
-.light-color-btn {
-  width: 32px;
-  height: 32px;
+.light-glyph {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.4rem;
-  color: #71717a;
-  cursor: pointer;
-  transition: all 0.15s;
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  background: rgba(251, 191, 36, 0.16);
+  color: #fbbf24;
+}
+.light-glyph svg {
+  font-size: 1rem;
+}
+.light-glyph.is-off {
+  background: #2c2c2e; /* iOS systemGray5 dark */
+  color: rgba(235, 235, 245, 0.3);
+}
+
+.light-title {
+  flex: 1;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.light-top-right {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   flex-shrink: 0;
 }
 
-.light-color-btn:hover {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: rgba(59, 130, 246, 0.4);
-  color: #3b82f6;
+.light-state {
+  font-size: 0.9rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.light-state.muted {
+  color: rgba(235, 235, 245, 0.5);
 }
 
-.light-color-btn svg {
-  font-size: 1.1rem;
-}
-
-.light-item-icon {
-  font-size: 1.25rem;
-  color: #71717a;
-  transition: color 0.15s ease-out, transform 0.15s ease-out;
-}
-
-.light-item-icon.on {
-  color: #fbbf24;
-  transform: scale(1.1);
-}
-
-.light-item-name {
-  font-size: 0.85rem;
-  font-weight: 500;
-  flex: 1;
-}
-
-/* Brightness Slider */
-.light-brightness {
+/* Display-only: this room's automatic lighting is paused */
+.light-override-header-icon {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  position: relative;
+  flex-shrink: 0;
+  color: #fbbf77;
+}
+.light-override-header-icon svg {
+  font-size: 1rem;
 }
 
-.slider-with-bubble {
-  flex: 1;
+.light-chevron {
+  font-size: 1.1rem;
+  color: rgba(235, 235, 245, 0.4);
+  flex-shrink: 0;
+  margin-left: 0.2rem;
+}
+
+/* One row per light: [color dot] [name] [brightness strip] [%] */
+.light-rows {
+  margin-top: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.light-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 0.9rem;
+}
+
+/* The dot IS the light's current color - and its door to the color sheet */
+.light-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: #2c2c2e;
+  color: rgba(235, 235, 245, 0.3);
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s ease-out;
+}
+.light-dot svg {
+  width: 15px;
+  height: 15px;
+}
+
+.light-name {
+  flex: 0 0 6.6rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.92);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.light-row:not(.is-on) .light-name {
+  color: rgba(235, 235, 245, 0.6);
+}
+
+/* Brightness strip - the native range input still does the dragging (kept for the HA app
+   WebView and for useSwipeToClose's input[type=range] exemption); it just rides invisibly
+   on top of the gradient fill. */
+.light-strip {
   position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  border-radius: 13px;
+  background: #2c2c2e;
+  overflow: hidden;
   touch-action: pan-x;
-  -webkit-user-select: none;
-  user-select: none;
-  /* Ensure slider container doesn't block touch events in HA app WebView */
-  pointer-events: auto;
 }
 
-.brightness-slider {
-  flex: 1;
-  height: 6px;
+.light-strip-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  transition: width 0.15s ease-out;
+}
+
+.light-strip-input {
+  position: absolute;
+  inset: 0;
   width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
   -webkit-appearance: none;
   appearance: none;
-  background: linear-gradient(to right, #3b3b5c, #fbbf24);
-  border-radius: 3px;
-  outline: none;
+  background: transparent;
+  cursor: pointer;
   touch-action: pan-x;
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
-  /* Ensure slider is interactive in HA app WebView */
   pointer-events: auto;
 }
-
-.brightness-slider::-webkit-slider-thumb {
+.light-strip-input::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
-  background: #ffffff;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  transition: transform 0.15s;
+  background: #fff;
 }
-
-.brightness-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
-}
-
-.brightness-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  background: #ffffff;
-  border-radius: 50%;
+.light-strip-input::-moz-range-thumb {
+  width: 26px;
+  height: 26px;
   border: none;
-  cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  border-radius: 50%;
+  background: #fff;
 }
 
-.slider-value-bubble {
-  position: absolute;
-  bottom: 20px;
-  left: 0;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.9);
-  color: #e4e4e7;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.2s;
-  z-index: 10;
-}
-
-.slider-with-bubble.show-bubble .slider-value-bubble {
-  opacity: 1;
-}
-
-.brightness-value {
-  font-size: 0.75rem;
-  color: #a1a1aa;
-  min-width: 35px;
+.light-value {
+  margin-left: auto;
+  flex-shrink: 0;
+  min-width: 2.4rem;
   text-align: right;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: rgba(235, 235, 245, 0.6);
 }
 
-/* Color Picker Modal */
+/* ---- Color sheet ---- */
 .color-picker-overlay {
   position: fixed;
   top: 0;
@@ -302,250 +220,122 @@
 }
 
 .color-picker-modal {
-  background: rgba(18, 19, 22, 0.98);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 1rem;
-  padding: 1.5rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  background: #1c1c1e;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+  padding: 1.25rem;
   max-width: 400px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+  color: rgba(255, 255, 255, 0.92);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
 .color-picker-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.5rem;
+  gap: 0.6rem;
 }
 
 .color-picker-header h3 {
+  flex: 1;
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 600;
-  color: #e4e4e7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .color-picker-close {
-  width: 32px;
-  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  background: none;
   border: none;
   border-radius: 50%;
-  color: #a1a1aa;
+  color: rgba(235, 235, 245, 0.4);
   cursor: pointer;
-  transition: all 0.15s;
 }
-
-.color-picker-close:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: #e4e4e7;
+.color-picker-close svg {
+  font-size: 1.1rem;
 }
 
 .color-picker-tabs {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 0.5rem;
-  padding: 0.25rem;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
 }
 
 .color-picker-tab {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: transparent;
+  padding: 0.3rem 0.75rem;
+  background: none;
   border: none;
-  border-radius: 0.35rem;
-  color: #a1a1aa;
-  font-size: 0.85rem;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(235, 235, 245, 0.6);
   cursor: pointer;
-  transition: all 0.15s;
 }
-
 .color-picker-tab.active {
-  background: rgba(59, 130, 246, 0.2);
-  color: #3b82f6;
-}
-
-.color-picker-tab svg {
-  font-size: 1.1rem;
+  background: #3a3a3c; /* iOS systemGray4 dark */
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .color-picker-content {
-  min-height: 200px;
+  margin-top: 0.7rem;
 }
 
-/* Color Palette */
+/* 12 swatches, six per row */
 .color-palette {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.75rem;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.55rem;
 }
 
 .color-swatch {
   aspect-ratio: 1;
-  border-radius: 0.5rem;
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
   cursor: pointer;
-  transition: all 0.15s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
 }
-
-.color-swatch:hover {
-  transform: scale(1.1);
-  border-color: rgba(255, 255, 255, 0.3);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
 .color-swatch.selected {
-  border-color: #3b82f6;
-  border-width: 3px;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  border-color: rgba(255, 255, 255, 0.85);
 }
 
-.color-swatch svg {
-  font-size: 1.2rem;
-  color: white;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
-}
-
-/* Color Temperature Presets */
+/* Five temperature bars, K labels underneath */
 .color-temp-presets {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.55rem;
+  margin-bottom: 1.2rem;
 }
 
 .color-temp-preset {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.75rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.5rem;
-  color: #e4e4e7;
-  cursor: pointer;
-  transition: all 0.15s;
-  text-align: left;
-}
-
-.color-temp-preset:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.color-temp-preset.selected {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: #3b82f6;
-}
-
-.color-temp-indicator {
-  width: 40px;
+  position: relative;
+  flex: 1;
   height: 40px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  flex-shrink: 0;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+}
+.color-temp-preset.selected {
+  border-color: rgba(255, 255, 255, 0.85);
 }
 
 .color-temp-preset span {
-  flex: 1;
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-.color-temp-preset svg {
-  font-size: 1.2rem;
-  color: #3b82f6;
-}
-
-
-/* Manual override (global mechanism: pauses this room's automatic lighting) */
-.light-override-row {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.55rem 0.7rem;
-  margin-bottom: 0.6rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.5rem;
-  color: #a1a1aa;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.light-override-row.active {
-  background: rgba(245, 158, 11, 0.1);
-  border-color: rgba(245, 158, 11, 0.35);
-}
-.light-override-icon {
-  font-size: 1.1rem;
-  color: #71717a;
-  flex-shrink: 0;
-}
-.light-override-row.active .light-override-icon {
-  color: #fbbf77;
-}
-.light-override-text {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-  flex: 1;
-  min-width: 0;
-}
-.light-override-title {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #e4e4e7;
-}
-.light-override-sub {
-  font-size: 0.7rem;
-  color: #71717a;
-}
-.light-override-row.active .light-override-sub {
-  color: #fbbf77;
-}
-.light-override-switch {
-  width: 38px;
-  height: 21px;
-  border-radius: 11px;
-  background: rgba(255, 255, 255, 0.12);
-  position: relative;
-  transition: background 0.15s;
-  flex-shrink: 0;
-}
-.light-override-switch.on {
-  background: rgba(245, 158, 11, 0.55);
-}
-.light-override-knob {
   position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 17px;
-  height: 17px;
-  border-radius: 50%;
-  background: #d4d4d8;
-  transition: transform 0.15s;
-}
-.light-override-switch.on .light-override-knob {
-  transform: translateX(17px);
-  background: #fff;
-}
-.light-override-header-icon {
-  color: #fbbf77;
-  font-size: 1rem;
+  bottom: -1.15rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.6rem;
+  color: rgba(235, 235, 245, 0.3);
+  white-space: nowrap;
 }

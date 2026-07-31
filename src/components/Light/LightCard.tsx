@@ -2,9 +2,13 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { attrNum, attrStringArray, attrStr } from '../../types';
-import { useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
+import { useLocalStorageBoolean, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
 import './LightCard.css';
 import { ROOM_LIGHTS, ROOM_LIGHT_MANUAL_OVERRIDE } from '../../config/lights';
+
+// "Lights" card in the Climate-card grammar (see AC/TonightCard): amber glyph disc, state word
+// right, one row per light. The row IS the information: the dot wears the light's actual color,
+// the strip is its brightness. Actions are icons/direct touches; words only state things.
 
 interface LightCardProps {
   areaName: string;
@@ -12,10 +16,67 @@ interface LightCardProps {
   callService: CallServiceFunction | undefined;
 }
 
+/** Kelvin -> screen color, anchored on the five presets the picker offers. */
+const TEMP_ANCHORS: Array<{ k: number; hex: string }> = [
+  { k: 2700, hex: '#ff9d45' },
+  { k: 3000, hex: '#ffb46b' },
+  { k: 4000, hex: '#ffd9a3' },
+  { k: 5000, hex: '#f2f0e6' },
+  { k: 6500, hex: '#dbe6ff' },
+];
+
+const DEFAULT_ON_COLOR = '#fbbf24';
+
+function hexToRgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function rgbToHex(rgb: [number, number, number]): string {
+  return `#${rgb
+    .map(c =>
+      Math.max(0, Math.min(255, Math.round(c)))
+        .toString(16)
+        .padStart(2, '0')
+    )
+    .join('')}`;
+}
+
+/** Linear blend between the two anchors that bracket `kelvin` (clamped outside the range). */
+function kelvinToHex(kelvin: number): string {
+  if (!Number.isFinite(kelvin)) return DEFAULT_ON_COLOR;
+  if (kelvin <= TEMP_ANCHORS[0].k) return TEMP_ANCHORS[0].hex;
+  const last = TEMP_ANCHORS[TEMP_ANCHORS.length - 1];
+  if (kelvin >= last.k) return last.hex;
+  for (let i = 1; i < TEMP_ANCHORS.length; i++) {
+    const hi = TEMP_ANCHORS[i];
+    const lo = TEMP_ANCHORS[i - 1];
+    if (kelvin > hi.k) continue;
+    const t = (kelvin - lo.k) / (hi.k - lo.k);
+    const a = hexToRgb(lo.hex);
+    const b = hexToRgb(hi.hex);
+    return rgbToHex([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]);
+  }
+  return DEFAULT_ON_COLOR;
+}
+
+function darken(hex: string, factor: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHex([r * factor, g * factor, b * factor]);
+}
+
+/** Relative luminance, used only to keep the bulb glyph readable on any dot color. */
+function isLightColor(hex: string): boolean {
+  const [r, g, b] = hexToRgb(hex);
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.35;
+}
+
 export function LightCard({ areaName, entities, callService }: LightCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  // Collapsed by default, remembered across sessions (same pattern as TonightCard/HeatCard).
+  const [collapsed, setCollapsed] = useLocalStorageBoolean('lightcard-collapsed', true);
   const [sliderValues, setSliderValues] = useState<Record<string, number>>({});
-  const [showBubbles, setShowBubbles] = useState<Record<string, boolean>>({});
+  // "Finger is on this light's strip" - suppresses the entity->slider sync while dragging.
+  const [dragging, setDragging] = useState<Record<string, boolean>>({});
   const [colorPickerLightId, setColorPickerLightId] = useState<string | null>(null);
   // Optimistic state for immediate UI feedback
   const [optimisticStates, setOptimisticStates] = useState<Record<string, 'on' | 'off' | null>>({});
@@ -88,15 +149,17 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
     [entities]
   );
 
-  // Handle color picker button click
-  const handleColorPickerClick = useCallback(
+  // The dot is the color door for color-capable lights, and a plain switch for the rest.
+  const handleDotClick = useCallback(
     (lightId: string, e: React.MouseEvent) => {
       e.stopPropagation();
       if (supportsColor(lightId)) {
         setColorPickerLightId(lightId);
+      } else {
+        handleToggleLight(lightId);
       }
     },
-    [supportsColor]
+    [supportsColor, handleToggleLight]
   );
 
   const handleColorSelect = useCallback(
@@ -182,9 +245,25 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
     return brightness > 0 ? Math.round((brightness / 255) * 100) : 100;
   };
 
+  /** The light's CURRENT color: reported RGB first, then its white temperature, then plain amber. */
+  const getLightColor = (lightId: string): string => {
+    const entity = entities[lightId];
+    const rawRgb = entity?.attributes?.rgb_color;
+    if (Array.isArray(rawRgb) && rawRgb.length === 3) {
+      const rgb = rawRgb.map(c => attrNum(c, 0)) as [number, number, number];
+      return rgbToHex(rgb);
+    }
+    const kelvinRaw = entity?.attributes?.color_temp_kelvin;
+    if (kelvinRaw != null) {
+      const kelvin = attrNum(kelvinRaw, NaN);
+      if (Number.isFinite(kelvin) && kelvin > 0) return kelvinToHex(kelvin);
+    }
+    return DEFAULT_ON_COLOR;
+  };
+
   // Initialize slider values when expanded
   useEffect(() => {
-    if (isExpanded) {
+    if (!collapsed) {
       availableLights.forEach(lightId => {
         const entity = entities[lightId];
         const entityBrightness =
@@ -203,7 +282,7 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
         });
       });
     }
-  }, [isExpanded, availableLights, entities]);
+  }, [collapsed, availableLights, entities]);
 
   // Clear optimistic state when entity state matches
   useEffect(() => {
@@ -227,7 +306,7 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
   // But keep local value for a short time after commit to prevent UI flicker
   useEffect(() => {
     availableLights.forEach(lightId => {
-      if (!showBubbles[lightId]) {
+      if (!dragging[lightId]) {
         const entity = entities[lightId];
         const entityBrightness =
           entity?.state === 'on'
@@ -264,18 +343,18 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
         }
       }
     });
-  }, [entities, availableLights, showBubbles, sliderValues]);
+  }, [entities, availableLights, dragging, sliderValues]);
 
   if (availableLights.length === 0) return null;
 
   return (
-    <div className={`light-card ${isExpanded ? 'expanded' : ''}`}>
-      {/* Header (use div to avoid nested buttons) */}
+    <div className='light-card'>
+      {/* Top row - also the collapse/expand tap target */}
       <div
-        className='light-header'
+        className='light-top'
         onClick={() => {
           if (lightHeaderSlop.consumeBlockClick()) return;
-          setIsExpanded(!isExpanded);
+          setCollapsed(v => !v);
         }}
         onTouchStart={lightHeaderSlop.onTouchStart}
         onTouchMove={lightHeaderSlop.onTouchMove}
@@ -283,31 +362,34 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
         onTouchCancel={lightHeaderSlop.onTouchCancel}
         role='button'
         tabIndex={0}
+        aria-expanded={!collapsed}
         onKeyDown={e => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            setIsExpanded(!isExpanded);
+            setCollapsed(v => !v);
           }
         }}
       >
-        <div className='light-header-info'>
-          <Icon icon={someOn ? 'mdi:lightbulb-on' : 'mdi:lightbulb-outline'} className={`light-icon ${someOn ? 'on' : ''}`} />
-          <div className='light-status'>
-            <span className='light-title'>Lights</span>
-            <span className='light-count'>
-              {lightsOn} of {availableLights.length} on
+        <span className={`light-glyph ${someOn ? '' : 'is-off'}`}>
+          <Icon icon='mdi:lightbulb-on-outline' aria-hidden='true' />
+        </span>
+        <span className='light-title'>Lights</span>
+        <span className='light-top-right'>
+          <span className='light-state muted'>
+            {lightsOn} of {availableLights.length} on
+          </span>
+          {overrideOn && (
+            <span className='light-override-header-icon' title='Automatic lighting is paused for this room'>
+              <Icon icon='mdi:hand-back-right' aria-hidden='true' />
             </span>
-          </div>
-        </div>
-        <div className='light-header-right'>
-          {overrideOn && <Icon icon='mdi:hand-back-right' className='light-override-header-icon' />}
-          <Icon icon={isExpanded ? 'mdi:chevron-up' : 'mdi:chevron-down'} />
-        </div>
+          )}
+          <Icon icon={collapsed ? 'mdi:chevron-down' : 'mdi:chevron-up'} aria-hidden='true' className='light-chevron' />
+        </span>
       </div>
 
       {/* Expanded content */}
-      {isExpanded && (
-        <div className='light-content'>
+      {!collapsed && (
+        <div className='light-rows'>
           {availableLights.map(lightId => {
             // Use optimistic state if available, otherwise use entity state
             const optimisticState = optimisticStates[lightId];
@@ -320,44 +402,54 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
               : false;
 
             const supportsColorMode = supportsColor(lightId);
+            const value = sliderValues[lightId] ?? brightness;
+            const color = getLightColor(lightId);
 
             return (
-              <div key={lightId} className={`light-item ${isOn ? 'on' : ''}`}>
-                <div className='light-item-header'>
-                  <button className='light-item-toggle' onClick={() => handleToggleLight(lightId)}>
-                    <Icon icon={isOn ? 'mdi:lightbulb-on' : 'mdi:lightbulb-outline'} className={`light-item-icon ${isOn ? 'on' : ''}`} />
-                    <span className='light-item-name'>{getLightName(lightId)}</span>
-                  </button>
-                  {supportsColorMode && (
-                    <button className='light-color-btn' onClick={e => handleColorPickerClick(lightId, e)} title='Select color'>
-                      <Icon icon='mdi:palette' />
-                    </button>
-                  )}
-                </div>
+              <div key={lightId} className={`light-row ${isOn ? 'is-on' : ''}`}>
+                <button
+                  type='button'
+                  className={`light-dot ${isOn ? '' : 'is-off'}`}
+                  style={isOn ? { background: color, color: isLightColor(color) ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)' } : undefined}
+                  onClick={e => handleDotClick(lightId, e)}
+                  aria-label={supportsColorMode ? `Pick a color for ${getLightName(lightId)}` : `Toggle ${getLightName(lightId)}`}
+                  title={supportsColorMode ? 'Color' : 'Toggle'}
+                >
+                  <Icon icon='mdi:lightbulb' aria-hidden='true' />
+                </button>
 
-                {supportsBrightness && (
-                  <div className='light-brightness'>
-                    <div className={`slider-with-bubble ${showBubbles[lightId] ? 'show-bubble' : ''}`}>
+                <button type='button' className='light-name' onClick={() => handleToggleLight(lightId)}>
+                  {getLightName(lightId)}
+                </button>
+
+                {supportsBrightness ? (
+                  <>
+                    <div className='light-strip'>
+                      <div
+                        className='light-strip-fill'
+                        style={{ width: `${value}%`, background: `linear-gradient(90deg, ${darken(color, 0.45)}, ${color})` }}
+                      />
                       <input
                         type='range'
                         min='0'
                         max='100'
-                        value={sliderValues[lightId] ?? brightness}
+                        value={value}
+                        aria-label={`${getLightName(lightId)} brightness`}
                         onChange={e => {
                           const val = parseInt(e.target.value);
                           setSliderValues(prev => ({ ...prev, [lightId]: val }));
-                          setShowBubbles(prev => ({ ...prev, [lightId]: true }));
+                          setDragging(prev => ({ ...prev, [lightId]: true }));
                         }}
                         onInput={e => {
                           // iOS Safari needs onInput for real-time updates while dragging
                           const val = parseInt((e.target as HTMLInputElement).value);
                           setSliderValues(prev => ({ ...prev, [lightId]: val }));
-                          setShowBubbles(prev => ({ ...prev, [lightId]: true }));
+                          setDragging(prev => ({ ...prev, [lightId]: true }));
                         }}
                         onMouseUp={() => {
                           const val = sliderValues[lightId] ?? brightness;
                           handleBrightnessCommit(lightId, val);
-                          setShowBubbles(prev => ({ ...prev, [lightId]: false }));
+                          setDragging(prev => ({ ...prev, [lightId]: false }));
                         }}
                         onTouchStart={e => {
                           // Stop propagation to prevent parent swipe handlers from interfering
@@ -373,16 +465,15 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
                           e.stopPropagation();
                           const val = sliderValues[lightId] ?? brightness;
                           handleBrightnessCommit(lightId, val);
-                          setShowBubbles(prev => ({ ...prev, [lightId]: false }));
+                          setDragging(prev => ({ ...prev, [lightId]: false }));
                         }}
-                        className='brightness-slider'
+                        className='light-strip-input'
                       />
-                      <div className='slider-value-bubble' style={{ left: `${sliderValues[lightId] ?? brightness}%` }}>
-                        {sliderValues[lightId] ?? brightness}%
-                      </div>
                     </div>
-                    <span className='brightness-value'>{sliderValues[lightId] ?? brightness}%</span>
-                  </div>
+                    <span className='light-value'>{value > 0 ? `${value}%` : 'off'}</span>
+                  </>
+                ) : (
+                  <span className='light-value'>{isOn ? 'on' : 'off'}</span>
                 )}
               </div>
             );
@@ -390,7 +481,7 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
         </div>
       )}
 
-      {/* Color Picker Modal */}
+      {/* Color sheet */}
       {colorPickerLightId &&
         (() => {
           const lightEntity = entities[colorPickerLightId];
@@ -422,7 +513,8 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
   );
 }
 
-// Color Picker Modal Component
+// Color sheet - same tabs, same presets, same swatches and selection tolerances as before;
+// only the chrome moved into the card language.
 interface ColorPickerModalProps {
   lightId: string;
   lightName: string;
@@ -492,8 +584,11 @@ function ColorPickerModal({
         onTouchEnd={handleTouchEnd}
       >
         <div className='color-picker-header'>
+          <span className='light-glyph'>
+            <Icon icon='mdi:lightbulb-on-outline' aria-hidden='true' />
+          </span>
           <h3>{lightName}</h3>
-          <button className='color-picker-close modal-close-button' onClick={requestClose}>
+          <button className='color-picker-close modal-close-button' onClick={requestClose} aria-label='Close'>
             <Icon icon='mdi:close' />
           </button>
         </div>
@@ -501,12 +596,10 @@ function ColorPickerModal({
         {supportsRgb && supportsColorTemp && (
           <div className='color-picker-tabs'>
             <button className={`color-picker-tab ${selectedTab === 'temp' ? 'active' : ''}`} onClick={() => setSelectedTab('temp')}>
-              <Icon icon='mdi:thermometer' />
-              <span>Temperature</span>
+              Temperature
             </button>
             <button className={`color-picker-tab ${selectedTab === 'colors' ? 'active' : ''}`} onClick={() => setSelectedTab('colors')}>
-              <Icon icon='mdi:palette' />
-              <span>Colors</span>
+              Colors
             </button>
           </div>
         )}
@@ -529,9 +622,8 @@ function ColorPickerModal({
                     style={{ backgroundColor: rgbString }}
                     onClick={() => onColorSelect(color.rgb)}
                     title={color.name}
-                  >
-                    {isSelected && <Icon icon='mdi:check' />}
-                  </button>
+                    aria-label={color.name}
+                  />
                 );
               })}
             </div>
@@ -545,11 +637,12 @@ function ColorPickerModal({
                   <button
                     key={index}
                     className={`color-temp-preset ${isSelected ? 'selected' : ''}`}
+                    style={{ background: kelvinToHex(preset.kelvin) }}
                     onClick={() => onColorTempSelect(preset.kelvin)}
+                    title={preset.name}
+                    aria-label={`${preset.name}, ${preset.kelvin} kelvin`}
                   >
-                    <div className='color-temp-indicator' style={{ backgroundColor: getColorTempColor(preset.kelvin) }} />
-                    <span>{preset.name}</span>
-                    {isSelected && <Icon icon='mdi:check' />}
+                    <span>{preset.kelvin}K</span>
                   </button>
                 );
               })}
@@ -559,13 +652,4 @@ function ColorPickerModal({
       </div>
     </div>
   );
-}
-
-// Helper to get color for color temperature (approximate)
-function getColorTempColor(kelvin: number): string {
-  if (kelvin <= 2700) return 'rgb(255, 180, 107)'; // Warm
-  if (kelvin <= 3000) return 'rgb(255, 196, 137)'; // Soft
-  if (kelvin <= 4000) return 'rgb(255, 228, 206)'; // Neutral
-  if (kelvin <= 5000) return 'rgb(255, 249, 253)'; // Cool
-  return 'rgb(201, 226, 255)'; // Daylight
 }
