@@ -62,16 +62,36 @@
   font-variant-numeric: tabular-nums;
 }
 
-.wakeup-state {
-  font-size: 0.9rem;
-  font-weight: 600;
+/* iOS-Clock-style switch in the header - flippable even while collapsed; amber = the
+   card's function color, grey = off. Its own tap target (stopPropagation vs collapse). */
+.wakeup-switch {
+  position: relative;
+  width: 42px;
+  height: 26px;
+  border-radius: 13px;
+  background: #3a3a3c;
+  border: none;
+  padding: 0;
   flex-shrink: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
 }
-.wakeup-state.tint {
-  color: #64d2ff;
+.wakeup-switch.on {
+  background: #f59e0b;
 }
-.wakeup-state.muted {
-  color: rgba(235, 235, 245, 0.5);
+.wakeup-switch-dot {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: left 0.15s ease;
+}
+.wakeup-switch.on .wakeup-switch-dot {
+  left: 19px;
 }
 
 .wakeup-chevron {
@@ -162,20 +182,3 @@
   font-size: 1.25rem;
 }
 
-/* Footer - no explanatory text, just the on/off action, right-aligned */
-.wakeup-footer {
-  margin-top: 1.1rem;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.wakeup-footer-action {
-  background: none;
-  border: none;
-  padding: 0.2rem;
-  font-family: inherit;
-  font-size: 0.8125rem;
-  color: #64d2ff;
-  text-decoration: underline;
-  cursor: pointer;
-}

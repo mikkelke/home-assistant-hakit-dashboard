@@ -26,7 +26,16 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
   const timeEntity = entities?.[timeId];
   const hasAlarmEntities = !!(toggleEntity || timeEntity);
 
-  const isEnabled = toggleEntity?.state === 'on';
+  // Optimistic enabled-state, same reset-on-echo pattern as the time below - the switch
+  // must flip under the finger, not after the HA round-trip.
+  const [localEnabled, setLocalEnabled] = useState<boolean | null>(null);
+  const entityEnabled = toggleEntity?.state === 'on';
+  const [lastEntityEnabled, setLastEntityEnabled] = useState(entityEnabled);
+  if (entityEnabled !== lastEntityEnabled) {
+    setLastEntityEnabled(entityEnabled);
+    setLocalEnabled(null);
+  }
+  const isEnabled = localEnabled ?? entityEnabled;
 
   // Optimistic time (user 2026-07-31: "the reaction is very bad"): each press used to wait
   // for the HA round-trip before the display moved, and rapid presses computed from the
@@ -50,6 +59,7 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
 
   const handleToggle = useCallback(() => {
     if (!callService || !toggleEntity) return;
+    setLocalEnabled(!isEnabled);
     callService({
       domain: 'input_boolean',
       service: isEnabled ? 'turn_off' : 'turn_on',
@@ -142,7 +152,20 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
         <span className='wakeup-title'>Wake-up</span>
         <span className='wakeup-header-right'>
           <span className='wakeup-current'>{displayTime}</span>
-          <span className={`wakeup-state ${isEnabled ? 'tint' : 'muted'}`}>{isEnabled ? 'On' : 'Off'}</span>
+          <button
+            type='button'
+            role='switch'
+            aria-checked={isEnabled}
+            aria-label={isEnabled ? 'Turn alarm off' : 'Turn alarm on'}
+            className={`wakeup-switch ${isEnabled ? 'on' : ''}`}
+            onClick={e => {
+              e.stopPropagation();
+              handleToggle();
+            }}
+            onKeyDown={e => e.stopPropagation()}
+          >
+            <span className='wakeup-switch-dot' />
+          </button>
           <Icon icon={collapsed ? 'mdi:chevron-down' : 'mdi:chevron-up'} aria-hidden='true' className='wakeup-chevron' />
         </span>
       </div>
@@ -174,12 +197,6 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
                 <Icon icon='mdi:weather-sunset-up' />
               </button>
             )}
-          </div>
-
-          <div className='wakeup-footer'>
-            <button type='button' className='wakeup-footer-action' onClick={handleToggle}>
-              {isEnabled ? 'Turn off' : 'Turn on'}
-            </button>
           </div>
         </div>
       )}
