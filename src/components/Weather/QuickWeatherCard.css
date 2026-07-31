@@ -566,3 +566,7 @@
 .quick-weather-ribbon-note.is-gust {
   color: #f59e0b;
 }
+
+.quick-weather-ribbon-note.is-dry {
+  color: rgba(235, 235, 245, 0.45);
+}

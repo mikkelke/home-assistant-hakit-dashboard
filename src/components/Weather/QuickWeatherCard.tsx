@@ -214,7 +214,7 @@ function isNightHour(entry: WeatherForecastEntry): boolean {
 
 function hourColor(entry: WeatherForecastEntry): string {
   const base = conditionBaseColor(entry.condition);
-  return isNightHour(entry) ? darkenHex(base, 0.35) : base;
+  return isNightHour(entry) ? darkenHex(base, 0.55) : base;
 }
 
 /** Per-hour gust in m/s - forecasts rarely publish a real gust field, so this is almost always
@@ -695,10 +695,12 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   const downTheTerrace = windDirection != null && isTerraceAxis(windDirection);
 
   const windSubParts: string[] = [];
-  if (gustDisplay !== undefined) windSubParts.push(`gusts ${formatWindValue(gustDisplay, windUnitLabel)}${windUnitLabel}`);
+    // Gusts only when they actually exceed the sustained wind - "9 km/h, gusts 9 km/h" is noise.
+  if (gustDisplay !== undefined && windSpeedMs !== undefined && gustMs !== undefined && gustMs > windSpeedMs * 1.05)
+    windSubParts.push(`gusts ${formatWindValue(gustDisplay, windUnitLabel)} ${windUnitLabel}`);
   if (showPeak && peakGustDisplay !== undefined && peakGustNext12h) {
     windSubParts.push(
-      `reaching ${formatWindValue(peakGustDisplay, windUnitLabel)}${windUnitLabel} at ${formatHHMM(new Date(peakGustNext12h.atIso))}`
+      `reaching ${formatWindValue(peakGustDisplay, windUnitLabel)} ${windUnitLabel} at ${formatHHMM(new Date(peakGustNext12h.atIso))}`
     );
   }
   if (downTheTerrace) windSubParts.push('down the terrace');
@@ -725,7 +727,10 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   })();
   const tonightLow = findTonightLow(hourlyAll, nowMs, tonightEndMs);
   const heroParts: string[] = [];
-  if (todayPeak) heroParts.push(`up to ${Math.round(todayPeak.temp)}° at ${formatHHMM(new Date(todayPeak.atIso))}`);
+  // Only promise a peak that is actually still coming and warmer than right now - it read
+  // "up to 22° at 20:00" while the thermometer said 23° (user 2026-07-31).
+  if (todayPeak && currentTemp !== undefined && todayPeak.temp > currentTemp + 0.5)
+    heroParts.push(`up to ${Math.round(todayPeak.temp)}° at ${formatHHMM(new Date(todayPeak.atIso))}`);
   if (tonightLow != null) heroParts.push(`down to ${Math.round(tonightLow)}° tonight`);
   if (dewpoint !== undefined) heroParts.push(`dew ${Math.round(dewpoint)}°`);
 
@@ -741,7 +746,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   const showRibbon = ribbonHours.length > 0;
 
   const isNightNow = now.getHours() < 6 || now.getHours() > 21;
-  const nowAnchorColor = isNightNow ? darkenHex(conditionBaseColor(condition), 0.35) : conditionBaseColor(condition);
+  const nowAnchorColor = isNightNow ? darkenHex(conditionBaseColor(condition), 0.55) : conditionBaseColor(condition);
   const ribbonStops = showRibbon
     ? [
         { pct: pctOf(nowMs, windowStartMs, windowEndMs), color: nowAnchorColor },
@@ -787,12 +792,17 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   const rainRanges = showRibbon ? runRanges(ribbonHours, h => (h.precipitation ?? 0) > 0) : [];
   const gustRanges = showRibbon ? runRanges(ribbonHours, gustHoursPred) : [];
   const rainTotalMm = rainHours.reduce((sum, h) => sum + (h.precipitation ?? 0), 0);
-  const ribbonNotes: Array<{ kind: 'rain' | 'gust'; text: string }> = [];
+  const ribbonNotes: Array<{ kind: 'rain' | 'gust' | 'dry'; text: string }> = [];
   if (rainRanges.length > 0) {
     const shown = rainRanges.slice(0, 2).map(fmtRange).join(', ');
     const more = rainRanges.length > 2 ? ` +${rainRanges.length - 2}` : '';
     const mm = rainTotalMm >= 0.1 ? ` · ${rainTotalMm.toFixed(1)} mm` : '';
     ribbonNotes.push({ kind: 'rain', text: `Rain ${shown}${more}${mm}` });
+  }
+  else if (showRibbon) {
+    // Saying nothing read as broken (user 2026-07-31: "still not clear") - a dry window is
+    // an answer, and it's the one being asked for.
+    ribbonNotes.push({ kind: 'dry', text: `Dry until ${formatHHMM(new Date(windowEndMs))}` });
   }
   if (gustRanges.length > 0) {
     ribbonNotes.push({ kind: 'gust', text: `Gusts ${gustRanges.slice(0, 2).map(fmtRange).join(', ')}` });
