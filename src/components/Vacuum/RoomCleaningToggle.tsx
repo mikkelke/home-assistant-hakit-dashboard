@@ -20,8 +20,8 @@ interface RoomCleaningToggleProps {
   callService: CallServiceFunction | undefined;
 }
 
-/** "2026-07-31" -> "Cleaned today" / "yesterday" / "3 days ago" / "21-04". Older dates use
- * Danish day-month order (the household reads DD-MM, never MM-DD). Empty for a missing or
+/** "2026-07-31" -> "Cleaned today" / "yesterday" / "3 days ago" / "21/04". Older dates use
+ * Danish day-month order (the household reads DD/MM, never MM/DD). Empty for a missing or
  * unparseable value: a room that has never been cleaned says nothing rather than guessing. */
 function lastCleanLabel(raw: string | undefined, todayMs: number): string | null {
   if (!raw || raw === 'unknown' || raw === 'unavailable') return null;
@@ -34,7 +34,7 @@ function lastCleanLabel(raw: string | undefined, todayMs: number): string | null
   const d = new Date(then);
   const dd = String(d.getDate()).padStart(2, '0');
   const mm = String(d.getMonth() + 1).padStart(2, '0');
-  return `Cleaned ${dd}-${mm}`;
+  return `Cleaned ${dd}/${mm}`;
 }
 
 interface RequestRowProps {
