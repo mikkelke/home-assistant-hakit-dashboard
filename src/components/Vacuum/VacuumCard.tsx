@@ -13,21 +13,85 @@ import {
   VACUUM_MAP_IMAGE_ENTITY,
   ROBOT_MAPS_PATH,
 } from '../../config/entities';
-import { useSwipeToClose } from '../../hooks';
+import { useLocalStorageBoolean, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
+import { formatRoberRoomName } from './rooms';
 import './VacuumCard.css';
 
+// "Rober2" card in the Climate-card grammar (see AC/TonightCard): emerald glyph disc, hero
+// number, a gradient day-strip, and icon doors instead of labelled setting rows. The card is
+// kitchen-only (RoomDetail decides); every other room gets RoomCleaningToggle's request row.
+
 type BatteryHistoryPoint = { t: number; value: number };
+
+/** One stretch of today the robot actually spent driving, with the room that dominated it. */
+type DaySpan = { startMs: number; endMs: number; room?: string };
+
+/** Vacuum states that mean "it is out on the floor" - the day strip paints exactly these. */
+const ACTIVE_STATES = new Set(['cleaning', 'returning']);
+
+/** A span narrower than this can't carry its room name without colliding. */
+const SPAN_LABEL_MIN_PCT = 6;
 
 interface VacuumCardProps {
   entities: HassEntities;
   callService: CallServiceFunction | undefined;
 }
 
+function formatHHMM(ms: number): string {
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/** Clamp a timestamp to 0-100% of [startMs, endMs] so no segment can overflow the track. */
+function pctOf(ms: number, startMs: number, endMs: number): number {
+  if (!Number.isFinite(ms) || endMs <= startMs) return 0;
+  return Math.min(100, Math.max(0, ((ms - startMs) / (endMs - startMs)) * 100));
+}
+
+type HistPoint = { t: number; s: string };
+type HAHistItem = { entity_id?: string; state?: string; last_changed?: string; last_updated?: string };
+
+/** HA /api/history/period rows -> one sorted state series per entity (entity_id rides on item 0). */
+function parseHistorySeries(raw: unknown): Map<string, HistPoint[]> {
+  const out = new Map<string, HistPoint[]>();
+  const rows = Array.isArray(raw) ? raw : [];
+  for (const row of rows) {
+    const list = Array.isArray(row) ? row : [];
+    if (list.length === 0) continue;
+    const id = (list[0] as HAHistItem).entity_id ?? '';
+    if (!id) continue;
+    const pts: HistPoint[] = [];
+    for (const item of list) {
+      const it = item as HAHistItem;
+      const t = Date.parse(it.last_changed ?? it.last_updated ?? '');
+      if (!Number.isFinite(t)) continue;
+      pts.push({ t, s: String(it.state ?? '') });
+    }
+    pts.sort((a, b) => a.t - b.t);
+    out.set(id, pts);
+  }
+  return out;
+}
+
+/** Room values that carry no room. */
+const isRoomValue = (s: string) => !!s && s !== 'unknown' && s !== 'unavailable' && s !== 'none' && s !== '';
+
 export function VacuumCard({ entities, callService }: VacuumCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  // Collapsed by default, remembered across sessions (same pattern as TonightCard/HeatCard).
+  const [collapsed, setCollapsed] = useLocalStorageBoolean('robercard-collapsed', true);
+  const topSlop = useTouchScrollSlopGuard();
+  // Now-tick: the day strip's right edge is live.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   // Entity IDs from config/entities.ts
   const vacuum = entities?.[VACUUM_ENTITY];
+  const vacuumState = vacuum?.state;
+  const enabledEntity = entities?.[ROBOT_ENABLED_BOOLEAN_ENTITY];
+  const roberOff = enabledEntity?.state === 'off';
   const cleaningProgressRaw = entities?.[VACUUM_CLEANING_PROGRESS_SENSOR]?.state;
   const cleaningProgress =
     cleaningProgressRaw !== undefined &&
@@ -39,38 +103,12 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   const targetRoomRaw = entities?.[VACUUM_CURRENT_ROOM_INPUT]?.state; // ordered room
   const liveRoomRaw = entities?.[VACUUM_CURRENT_ROOM_SENSOR]?.state; // currently cleaning room
   const liveMapImage = entities?.[VACUUM_MAP_IMAGE_ENTITY];
-  // Map numeric/string room IDs to display names (customize for your setup)
-  const roomIdToName: Record<string, string> = {
-    '17': 'Hallway',
-    '22': 'Kitchen cook side',
-    '25': 'Kitchen dining side',
-    '18': 'Living room',
-    '21': 'Dining room',
-    '23': 'Claudias Room',
-    '16': 'Kristines room',
-    '20': 'Bedroom',
-    '24': 'Bathroom',
-    '19': 'Guest bathroom',
-  };
-  // Map string room names from map entries to display names
-  const roomNameMap: Record<string, string> = {
-    kitchen: 'Kitchen cook side',
-    kitchen_1: 'Kitchen cook side',
-    kitchen_2: 'Kitchen dining side',
-  };
 
   // Stuck map entries (robot got stuck) – used for call-to-action elsewhere; hide from room maps grid.
   // Keyed "stuck_…" by the rober2 app; prefix match so the dock room can move without breaking this.
   const isStuckMapRoom = (room?: string) => !!room && room.startsWith('stuck');
 
-  const formatRoomName = (room: string | undefined) => {
-    if (!room) return undefined;
-    // First check string name mapping (for map entries)
-    const lowerRoom = room.toLowerCase();
-    if (roomNameMap[lowerRoom]) return roomNameMap[lowerRoom];
-    // Then check numeric ID mapping (for sensor values)
-    return roomIdToName[room] || roomIdToName[lowerRoom] || room[0]?.toUpperCase() + room.slice(1).replace('_', ' ');
-  };
+  const formatRoomName = formatRoberRoomName;
   const targetRoomName =
     (targetRoomRaw && formatRoomName(targetRoomRaw)) ||
     (typeof targetRoomRaw === 'string' && targetRoomRaw.length > 0 ? targetRoomRaw : undefined);
@@ -91,6 +129,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   const [mapsLoading, setMapsLoading] = useState(false);
   const mapsLoadedRef = useRef(false);
   const [selectedMap, setSelectedMap] = useState<MapEntry | null>(null);
+  const [roomsSheetOpen, setRoomsSheetOpen] = useState(false);
   const [showLiveMap, setShowLiveMap] = useState(false);
   const [liveMapRefreshKey, setLiveMapRefreshKey] = useState(0);
   const lastLiveMapTsRef = useRef<string | undefined>(undefined);
@@ -99,8 +138,10 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   const [batteryHistory, setBatteryHistory] = useState<BatteryHistoryPoint[]>([]);
   const [batteryHistoryLoading, setBatteryHistoryLoading] = useState(false);
   const [batteryHistoryError, setBatteryHistoryError] = useState<string | null>(null);
+  const [daySpans, setDaySpans] = useState<DaySpan[]>([]);
   const connection = useHass((s: { connection?: unknown }) => s.connection);
   const selectedMapRef = useRef<MapEntry | null>(null);
+  const roomsSheetOpenRef = useRef(false);
   const showLiveMapRef = useRef(false);
   const batteryGraphOpenRef = useRef(false);
   const getAccessToken = useCallback((): string | null => {
@@ -144,7 +185,8 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     action(targetWindow);
   };
 
-  // Group maps by room and get the latest one for each room, sorted alphabetically
+  // Group maps by room and get the latest one for each room, freshest first (the Rooms sheet
+  // reads as "what has been cleaned lately", not as an index).
   const getLatestMapsByRoom = (entries: MapEntry[]): MapEntry[] => {
     const byRoom = new Map<string, MapEntry>();
     entries.forEach(entry => {
@@ -154,11 +196,8 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
         byRoom.set(roomKey, entry);
       }
     });
-    return Array.from(byRoom.values()).sort((a, b) => {
-      const aName = formatRoomName(a.room || a.room?.toString()) || a.room || 'Unknown room';
-      const bName = formatRoomName(b.room || b.room?.toString()) || b.room || 'Unknown room';
-      return aName.localeCompare(bName); // alphabetical order
-    });
+    const sortKey = (e: MapEntry) => e.datetime || e.timestamp || '';
+    return Array.from(byRoom.values()).sort((a, b) => sortKey(b).localeCompare(sortKey(a)));
   };
 
   // Format time ago for live map
@@ -166,8 +205,8 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     if (!ts) return 'Updating...';
     try {
       const then = new Date(ts).getTime();
-      const now = Date.now();
-      const diffMs = now - then;
+      const nowMs = Date.now();
+      const diffMs = nowMs - then;
       const diffSec = Math.floor(diffMs / 1000);
       if (diffSec < 5) return 'Just now';
       if (diffSec < 60) return `${diffSec}s ago`;
@@ -186,7 +225,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
       const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
       const diffDays = Math.floor((startOfToday.getTime() - startOfDate.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDays === 0) return 'Today';
+      if (diffDays === 0) return `Today ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
       if (diffDays === 1) return 'Yesterday';
       if (diffDays < 7) return `${diffDays}d ago`;
       return date.toLocaleDateString('en-US', {
@@ -244,6 +283,28 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     }
   };
 
+  const handleOpenRoomsSheet = () => {
+    setRoomsSheetOpen(true);
+    try {
+      withHistoryWindow(targetWindow => {
+        targetWindow.history.pushState({ roomsSheet: true }, '', modalHistoryUrl());
+      });
+    } catch {
+      // Silently fail if history API not supported
+    }
+  };
+
+  const handleCloseRoomsSheet = () => {
+    setRoomsSheetOpen(false);
+    try {
+      withHistoryWindow(targetWindow => {
+        targetWindow.history.replaceState({ roomsSheet: null }, '', modalHistoryUrl());
+      });
+    } catch {
+      // Silently fail if history API not supported
+    }
+  };
+
   const handleOpenLiveMap = () => {
     setShowLiveMap(true);
     try {
@@ -294,6 +355,10 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   }, [selectedMap]);
 
   useEffect(() => {
+    roomsSheetOpenRef.current = roomsSheetOpen;
+  }, [roomsSheetOpen]);
+
+  useEffect(() => {
     showLiveMapRef.current = showLiveMap;
   }, [showLiveMap]);
 
@@ -309,6 +374,19 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
         try {
           withHistoryWindow(targetWindow => {
             targetWindow.history.replaceState({ map: null }, '', modalHistoryUrl());
+          });
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+
+      if (roomsSheetOpenRef.current) {
+        event.preventDefault();
+        setRoomsSheetOpen(false);
+        try {
+          withHistoryWindow(targetWindow => {
+            targetWindow.history.replaceState({ roomsSheet: null }, '', modalHistoryUrl());
           });
         } catch {
           /* ignore */
@@ -365,6 +443,19 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
         }
         return;
       }
+      // If the rooms sheet is open, close it and stop further handling
+      if (roomsSheetOpen) {
+        event.stopImmediatePropagation();
+        setRoomsSheetOpen(false);
+        try {
+          withHistoryWindow(targetWindow => {
+            targetWindow.history.replaceState({ roomsSheet: null }, '', modalHistoryUrl());
+          });
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
       // If live map is open, close it and stop further handling
       if (showLiveMap) {
         event.stopImmediatePropagation();
@@ -392,10 +483,17 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     };
     targetWindow.addEventListener('popstate', handlePopState, { capture: true });
     return () => targetWindow.removeEventListener('popstate', handlePopState, { capture: true });
-  }, [selectedMap, showLiveMap, batteryGraphOpen]);
+  }, [selectedMap, roomsSheetOpen, showLiveMap, batteryGraphOpen]);
 
   // Use standardized swipe-to-close hook for map modal
   const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(handleCloseMap);
+
+  // Use standardized swipe-to-close hook for the rooms sheet
+  const {
+    handleTouchStart: handleRoomsTouchStart,
+    handleTouchMove: handleRoomsTouchMove,
+    handleTouchEnd: handleRoomsTouchEnd,
+  } = useSwipeToClose(handleCloseRoomsSheet);
 
   // Use standardized swipe-to-close hook for live map modal
   const {
@@ -411,7 +509,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   } = useSwipeToClose(handleCloseBatteryGraph);
 
   useEffect(() => {
-    if (!isExpanded) return;
+    if (collapsed) return;
     if (mapsLoadedRef.current) return;
     mapsLoadedRef.current = true;
     const load = async () => {
@@ -446,7 +544,80 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     };
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- getHaOrigin/toHaUrl are stable; ROBOT_MAPS_PATH is a constant
-  }, [isExpanded]);
+  }, [collapsed]);
+
+  // Day strip: today's driving stretches, joined to the room sensor for their labels. One
+  // history call, same shape as the battery graph's; re-read whenever the run state changes.
+  useEffect(() => {
+    if (collapsed || roberOff) return;
+    const endTime = new Date();
+    const dayStart = new Date(endTime.getFullYear(), endTime.getMonth(), endTime.getDate());
+    const url = new URL(`/api/history/period/${dayStart.toISOString()}`, window.location.origin);
+    url.searchParams.set('filter_entity_id', `${VACUUM_ENTITY},${VACUUM_CURRENT_ROOM_SENSOR}`);
+    url.searchParams.set('end_time', endTime.toISOString());
+    url.searchParams.set('significant_changes_only', '0');
+    url.searchParams.set('minimal_response', '0');
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    const token = getAccessToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    let cancelled = false;
+    fetch(url.toString(), { method: 'GET', headers, credentials: 'include' })
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data: unknown) => {
+        if (cancelled) return;
+        const series = parseHistorySeries(data);
+        const vacPts = series.get(VACUUM_ENTITY) ?? [];
+        const roomPts = (series.get(VACUUM_CURRENT_ROOM_SENSOR) ?? []).filter(p => isRoomValue(p.s));
+        const dayStartMs = dayStart.getTime();
+        const nowMs = Date.now();
+
+        const spans: DaySpan[] = [];
+        let openStart: number | null = null;
+        for (const p of vacPts) {
+          const active = ACTIVE_STATES.has(p.s);
+          if (active && openStart === null) openStart = Math.max(p.t, dayStartMs);
+          else if (!active && openStart !== null) {
+            if (p.t > openStart) spans.push({ startMs: openStart, endMs: p.t });
+            openStart = null;
+          }
+        }
+        if (openStart !== null && nowMs > openStart) spans.push({ startMs: openStart, endMs: nowMs });
+
+        // Join: the room that owned most of a span names it. A span whose rooms don't add up
+        // to at least half its length stays UNLABELED - a wrong room name is worse than none.
+        for (const span of spans) {
+          if (roomPts.length === 0) continue;
+          const tally = new Map<string, number>();
+          for (let i = 0; i < roomPts.length; i++) {
+            const from = roomPts[i].t;
+            const to = i + 1 < roomPts.length ? roomPts[i + 1].t : nowMs;
+            const overlap = Math.min(to, span.endMs) - Math.max(from, span.startMs);
+            if (overlap > 0) tally.set(roomPts[i].s, (tally.get(roomPts[i].s) ?? 0) + overlap);
+          }
+          let bestRoom = '';
+          let bestMs = 0;
+          tally.forEach((ms, room) => {
+            if (ms > bestMs) {
+              bestMs = ms;
+              bestRoom = room;
+            }
+          });
+          const spanMs = span.endMs - span.startMs;
+          if (bestRoom && spanMs > 0 && bestMs / spanMs >= 0.5) span.room = bestRoom;
+        }
+
+        setDaySpans(spans.filter(s => s.endMs > s.startMs));
+      })
+      .catch(() => {
+        if (!cancelled) setDaySpans([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [collapsed, roberOff, vacuumState, getAccessToken]);
 
   // Live map refresh: react to HA updates only (no fixed polling)
   useEffect(() => {
@@ -621,144 +792,139 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   const stateLabel = formatState(vacuum.state);
 
   const isActive = state === 'cleaning' || state === 'returning';
-  const isIdle = state === 'docked' || state === 'paused' || state === 'idle';
   const isError = state === 'error';
   const isOffline = state === 'unavailable' || !state;
 
-  const getStateIcon = () => {
-    switch (state) {
-      case 'cleaning':
-        return 'mdi:robot-vacuum';
-      case 'docked':
-        return 'mdi:robot-vacuum-variant';
-      case 'returning':
-        return 'mdi:home-import-outline';
-      case 'paused':
-        return 'mdi:pause-circle';
-      case 'error':
-        return 'mdi:alert-circle';
-      default:
-        return 'mdi:robot-vacuum';
-    }
+  // The state word compresses the whole card: what it is doing, plus the one number that
+  // matters in that mode (charge on the dock, suction out on the floor).
+  const stateWord = roberOff
+    ? 'Off'
+    : state === 'docked' && battery !== undefined
+      ? `${stateLabel} · ${Math.round(battery)}%`
+      : state === 'cleaning'
+        ? `${stateLabel} · ${fanSpeedLabel}`
+        : stateLabel;
+
+  const batteryDoorIcon =
+    battery === undefined
+      ? 'mdi:battery-unknown'
+      : state === 'docked' && battery < 100
+        ? 'mdi:battery-charging'
+        : battery > 80
+          ? 'mdi:battery'
+          : battery > 40
+            ? 'mdi:battery-50'
+            : 'mdi:battery-20';
+
+  const togglePower = () => {
+    if (!callService || !enabledEntity) return;
+    callService({
+      domain: 'input_boolean',
+      service: enabledEntity.state === 'on' ? 'turn_off' : 'turn_on',
+      target: { entity_id: ROBOT_ENABLED_BOOLEAN_ENTITY },
+    });
   };
 
+  // Day strip geometry - the bar opens at the first stretch of the day and ends at now.
+  const barStartMs = daySpans.length ? daySpans[0].startMs : null;
+  const barEndMs = now;
+  const showDayStrip = barStartMs != null && barEndMs > barStartMs;
+
+  const heroSubParts = [`battery · ${roomStatusDisplay}`];
+  if (isActive && cleaningProgressSafe !== undefined) heroSubParts.push(`${Math.round(cleaningProgressSafe)}% of run done`);
+
+  const roomMapEntries = maps ? getLatestMapsByRoom(maps.filter(e => !isStuckMapRoom(e.room))) : [];
+
   return (
-    <div className={`vacuum-card ${isExpanded ? 'expanded' : ''} ${isActive ? 'active' : ''}`}>
-      {/* Header */}
-      <div className='vacuum-header'>
-        <button type='button' className='vacuum-header-toggle' onClick={() => setIsExpanded(!isExpanded)} aria-expanded={isExpanded}>
-          <div className='vacuum-header-info'>
-            <Icon
-              icon={getStateIcon()}
-              className={`vacuum-icon ${isActive ? 'working' : isError || isOffline ? 'error' : isIdle ? 'idle' : ''}`}
-            />
-            <div className='vacuum-status'>
-              <span className='vacuum-name'>Rober2</span>
-              <span className='vacuum-state-text'>{stateLabel}</span>
-            </div>
-          </div>
-          <div className='vacuum-header-right'>
-            <div className='vacuum-power-chip' title='Power mode'>
-              <Icon icon='mdi:fan' />
-              <span>{fanSpeedLabel}</span>
-            </div>
-            <Icon icon={isExpanded ? 'mdi:chevron-up' : 'mdi:chevron-down'} />
-          </div>
-        </button>
-        <button
-          type='button'
-          className={`vacuum-battery ${state === 'docked' && battery !== undefined && battery < 100 ? 'charging' : ''}`}
-          onClick={handleOpenBatteryGraph}
-          title='Battery level – tap for history'
-        >
-          {battery !== undefined ? (
-            <>
-              <Icon
-                icon={
-                  state === 'docked' && battery < 100
-                    ? 'mdi:battery-charging'
-                    : battery > 80
-                      ? 'mdi:battery'
-                      : battery > 40
-                        ? 'mdi:battery-50'
-                        : 'mdi:battery-20'
-                }
-              />
-              <span>{Math.round(battery)}%</span>
-            </>
-          ) : (
-            <>
-              <Icon icon='mdi:battery-unknown' />
-              <span>—</span>
-            </>
-          )}
-        </button>
+    <div className='rober-card'>
+      {/* Top row - also the collapse/expand tap target (collapsed by default) */}
+      <div
+        className='rober-top'
+        onClick={() => {
+          if (topSlop.consumeBlockClick()) return;
+          setCollapsed(v => !v);
+        }}
+        onTouchStart={topSlop.onTouchStart}
+        onTouchMove={topSlop.onTouchMove}
+        onTouchEnd={topSlop.onTouchEnd}
+        onTouchCancel={topSlop.onTouchCancel}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setCollapsed(v => !v);
+          }
+        }}
+        role='button'
+        tabIndex={0}
+        aria-expanded={!collapsed}
+      >
+        <span className={`rober-glyph ${roberOff ? 'is-off' : ''}`}>
+          <Icon icon='mdi:robot-vacuum' aria-hidden='true' />
+        </span>
+        <span className='rober-title'>Rober2</span>
+        <span className='rober-top-right'>
+          <span className={`rober-state ${roberOff ? 'muted' : isActive ? 'tint' : isError || isOffline ? 'alert' : 'muted'}`}>
+            {stateWord}
+          </span>
+          <Icon icon={collapsed ? 'mdi:chevron-down' : 'mdi:chevron-up'} aria-hidden='true' className='rober-chevron' />
+        </span>
       </div>
 
+      {/* Switched off: the card is one word and one door back on. */}
+      {!collapsed && roberOff && (
+        <div className='rober-doors rober-doors--lone'>
+          <button type='button' className='rober-ibtn' onClick={togglePower} aria-label='Turn Rober2 back on' title='Turn on'>
+            <Icon icon='mdi:power' aria-hidden='true' />
+          </button>
+        </div>
+      )}
+
       {/* Expanded content */}
-      {isExpanded && (
-        <div className='vacuum-content'>
-          {/* Cleaning progress - only show when robot is active */}
-          {isActive && (cleaningProgressSafe !== undefined || roomStatusDisplay) && (
-            <div className='vacuum-progress'>
-              <div className='vacuum-progress-header'>
-                <Icon icon='mdi:progress-clock' />
-                <div className='vacuum-progress-text'>
-                  <span className='room'>{roomStatusDisplay}</span>
-                </div>
-                <div className='vacuum-progress-right'>
-                  {cleaningProgressSafe !== undefined && <span className='value'>{Math.round(cleaningProgressSafe)}%</span>}
-                  {isActive && liveMapImage && (
-                    <button className='vacuum-live-button' onClick={handleOpenLiveMap} title='View live map'>
-                      <Icon icon='mdi:map-marker-radius' />
-                      <span>Live</span>
-                    </button>
-                  )}
-                </div>
+      {!collapsed && !roberOff && (
+        <>
+          <div className='rober-hero'>
+            <div className='rober-hero-value'>
+              {battery !== undefined ? Math.round(battery) : '--'}
+              <sup className='rober-hero-unit'>%</sup>
+            </div>
+            <div className='rober-hero-sub'>{heroSubParts.join(' · ')}</div>
+          </div>
+
+          {showDayStrip && barStartMs != null && (
+            <div
+              className='rober-bar-section'
+              onClick={handleOpenRoomsSheet}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleOpenRoomsSheet();
+                }
+              }}
+              role='button'
+              tabIndex={0}
+              aria-label="Show today's rooms"
+            >
+              <div className='rober-bar-track'>
+                {daySpans.map(span => {
+                  const left = pctOf(span.startMs, barStartMs, barEndMs);
+                  const width = Math.max(0, pctOf(span.endMs, barStartMs, barEndMs) - left);
+                  if (width <= 0) return null;
+                  const label = span.room ? formatRoomName(span.room) : undefined;
+                  return (
+                    <div key={span.startMs} className='rober-bar-fill' style={{ left: `${left}%`, width: `${width}%` }}>
+                      {label && width >= SPAN_LABEL_MIN_PCT && <span className='rober-bar-word'>{label}</span>}
+                    </div>
+                  );
+                })}
               </div>
-              {cleaningProgressSafe !== undefined && (
-                <div className='vacuum-progress-bar'>
-                  <div className='vacuum-progress-fill' style={{ width: `${cleaningProgressSafe}%` }} />
-                </div>
-              )}
+              <div className='rober-bar-ticks'>
+                <span className='rober-bar-tick rober-bar-tick--start'>{formatHHMM(barStartMs)}</span>
+                <span className='rober-bar-tick rober-bar-tick--now'>{formatHHMM(barEndMs)}</span>
+              </div>
             </div>
           )}
 
-          {/* Cleaning maps (past runs) */}
-          {maps !== null && (
-            <div className='vacuum-maps'>
-              <div className='vacuum-maps-header'>
-                <Icon icon='mdi:map' />
-                <div className='vacuum-maps-text'>
-                  <span className='label'>Room maps</span>
-                </div>
-                {mapsLoading && <span className='value'>Loading…</span>}
-                {!mapsLoading && mapsError && <span className='value error'>{mapsError}</span>}
-              </div>
-              {!mapsLoading && !mapsError && maps.length === 0 && <div className='vacuum-maps-empty'>No maps found.</div>}
-              {!mapsLoading && maps.length > 0 && (
-                <div className='vacuum-maps-list'>
-                  {getLatestMapsByRoom(maps.filter(e => !isStuckMapRoom(e.room))).map(entry => {
-                    const friendlyRoom = formatRoomName(entry.room || entry.room?.toString());
-                    const label = friendlyRoom || entry.room || 'Unknown room';
-                    const dateStr = formatMapDate(entry.datetime, entry.timestamp);
-                    return (
-                      <button key={entry.filename} className='vacuum-map-button' onClick={() => handleOpenMap(entry)}>
-                        <Icon icon='mdi:map-outline' />
-                        <div className='vacuum-map-button-info'>
-                          <span className='room'>{label}</span>
-                          <span className='date'>{dateStr}</span>
-                        </div>
-                        <Icon icon='mdi:chevron-right' />
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Clean while home toggle */}
+          {/* Cleans while we're home - a preference, so it keeps its toggle row */}
           {(() => {
             const cleanWhileHomeId = 'input_boolean.clean_while_home';
             const cleanWhileHome = entities?.[cleanWhileHomeId];
@@ -776,51 +942,102 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
             };
 
             return (
-              <button
-                className={`vacuum-setting-toggle ${isEnabled ? 'on' : ''}`}
-                onClick={handleToggle}
-                title={isEnabled ? 'Disable cleaning while home' : 'Enable cleaning while home'}
-              >
-                <Icon icon='mdi:home-variant' />
-                <span className='toggle-label'>Clean while home</span>
-                <div className={`toggle-switch ${isEnabled ? 'on' : ''}`}>
-                  <div className='toggle-slider' />
+              <div className='rober-hairline'>
+                <div
+                  className='rober-toggle-row'
+                  onClick={handleToggle}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleToggle();
+                    }
+                  }}
+                  role='switch'
+                  tabIndex={0}
+                  aria-checked={isEnabled}
+                >
+                  <span>Cleans while we're home</span>
+                  <span className={`rober-knob ${isEnabled ? 'on' : ''}`} aria-hidden='true' />
                 </div>
-              </button>
+              </div>
             );
           })()}
 
-          {/* Robot enabled toggle */}
-          {(() => {
-            const robotEnabled = entities?.[ROBOT_ENABLED_BOOLEAN_ENTITY];
-            if (!robotEnabled) return null;
-
-            const isEnabled = robotEnabled.state === 'on';
-
-            const handleToggle = () => {
-              if (!callService) return;
-              callService({
-                domain: 'input_boolean',
-                service: isEnabled ? 'turn_off' : 'turn_on',
-                target: { entity_id: ROBOT_ENABLED_BOOLEAN_ENTITY },
-              });
-            };
-
-            return (
+          {/* Icon doors */}
+          <div className='rober-doors'>
+            <button
+              type='button'
+              className='rober-ibtn rober-ibtn--tint'
+              onClick={handleOpenBatteryGraph}
+              aria-label='Battery history'
+              title='Battery level – tap for history'
+            >
+              <Icon icon={batteryDoorIcon} aria-hidden='true' />
+            </button>
+            {isActive && liveMapImage && (
               <button
-                className={`vacuum-setting-toggle ${isEnabled ? 'on' : ''}`}
-                onClick={handleToggle}
-                title={isEnabled ? 'Disable robot automation' : 'Enable robot automation'}
+                type='button'
+                className='rober-ibtn rober-ibtn--tint'
+                onClick={handleOpenLiveMap}
+                aria-label='Live map'
+                title='View live map'
               >
+                <Icon icon='mdi:map-marker-radius' aria-hidden='true' />
+              </button>
+            )}
+            {enabledEntity && (
+              <button type='button' className='rober-ibtn' onClick={togglePower} aria-label='Turn Rober2 off' title='Turn off'>
+                <Icon icon='mdi:power' aria-hidden='true' />
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Rooms sheet - every saved map, freshest first */}
+      {roomsSheetOpen && (
+        <>
+          <div className='vacuum-map-overlay' onClick={handleCloseRoomsSheet} />
+          <div
+            className='vacuum-map-modal rober-rooms-modal'
+            role='dialog'
+            aria-modal='true'
+            onTouchStart={handleRoomsTouchStart}
+            onTouchMove={handleRoomsTouchMove}
+            onTouchEnd={handleRoomsTouchEnd}
+          >
+            <div className='vacuum-map-modal-header'>
+              <div className='vacuum-map-modal-title'>
                 <Icon icon='mdi:robot-vacuum' />
-                <span className='toggle-label'>Rober2</span>
-                <div className={`toggle-switch ${isEnabled ? 'on' : ''}`}>
-                  <div className='toggle-slider' />
-                </div>
+                <span className='room'>Rooms</span>
+              </div>
+              <button className='vacuum-map-modal-close modal-close-button' onClick={handleCloseRoomsSheet} aria-label='Close'>
+                <Icon icon='mdi:close' />
               </button>
-            );
-          })()}
-        </div>
+            </div>
+            <div className='vacuum-map-modal-content rober-rooms-content'>
+              {mapsLoading && <div className='rober-rooms-note'>Loading…</div>}
+              {!mapsLoading && mapsError && <div className='rober-rooms-note error'>{mapsError}</div>}
+              {!mapsLoading && !mapsError && roomMapEntries.length === 0 && <div className='rober-rooms-note'>No maps found.</div>}
+              {!mapsLoading && roomMapEntries.length > 0 && (
+                <div className='rober-rooms-grid'>
+                  {roomMapEntries.map(entry => {
+                    const friendlyRoom = formatRoomName(entry.room || entry.room?.toString());
+                    const label = friendlyRoom || entry.room || 'Unknown room';
+                    const dateStr = formatMapDate(entry.datetime, entry.timestamp);
+                    return (
+                      <button key={entry.filename} type='button' className='rober-room-tile' onClick={() => handleOpenMap(entry)}>
+                        <img className='rober-room-img' src={entry.url} alt={label} loading='lazy' />
+                        <span className='rober-room-name'>{label}</span>
+                        <span className='rober-room-date'>{dateStr}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       )}
 
       {/* Map Modal */}

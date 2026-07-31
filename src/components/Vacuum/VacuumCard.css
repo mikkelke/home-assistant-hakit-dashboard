@@ -1,412 +1,394 @@
-/* Vacuum Card */
-.vacuum-card {
-  background: rgba(20, 21, 24, 0.9);
+/* Rober2 card - the Climate-card grammar (see AC/TonightCard.css): iOS grouped dark surfaces,
+   an emerald glyph disc, a hero number, a gradient day strip, and icon doors instead of labelled
+   setting rows. Dark-only, like the rest of this app (index.css: color-scheme: dark).
+
+   NOTE: the modal block further down (.vacuum-map-overlay / .vacuum-map-modal / the battery
+   graph) is deliberately kept under its old class names - HomePulse imports this stylesheet for
+   its stuck-map viewer. The legacy .room-cleaning-toggle block at the end is likewise kept for
+   RoomDetail's rooftop "keep speaker playing" row. */
+
+.rober-card {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  background: #1c1c1e; /* iOS systemGray6 dark */
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.75rem;
-  overflow: hidden;
+  border-radius: 24px;
+  padding: 1.25rem;
   margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.92);
 }
 
-.vacuum-card.expanded {
-  border-color: rgba(59, 130, 246, 0.35);
-}
-
-.vacuum-card.active {
-  border-color: rgba(16, 185, 129, 0.5);
-  background: rgba(16, 185, 129, 0.05);
-}
-
-/* Header */
-.vacuum-header {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 1rem;
-}
-
-.vacuum-header-toggle {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0;
-  background: transparent;
-  border: none;
-  color: #e4e4e7;
-  cursor: pointer;
-  transition: background 0.2s;
-  text-align: left;
-}
-
-.vacuum-header-toggle:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.vacuum-header-info {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.vacuum-icon {
-  font-size: 1.75rem;
-  color: #71717a; /* Default: muted gray for idle */
-  transition: color 0.3s ease;
-}
-
-.vacuum-icon.idle {
-  color: #71717a; /* Muted gray - no glow when idle */
-  filter: none;
-}
-
-.vacuum-icon.working {
-  color: #34d399; /* Green when working */
-  filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.8));
-  animation: vacuum-move 1s ease-in-out infinite, vacuum-glow 2s ease-in-out infinite;
-}
-
-.vacuum-icon.error {
-  color: #ef4444; /* Red for error/offline */
-  filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.6));
-}
-
-@keyframes vacuum-move {
-  0%, 100% { transform: translateX(0) rotate(0deg); }
-  25% { transform: translateX(3px) rotate(5deg); }
-  75% { transform: translateX(-3px) rotate(-5deg); }
-}
-
-@keyframes vacuum-glow {
-  0%, 100% {
-    filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.8));
-  }
-  50% {
-    filter: drop-shadow(0 0 12px rgba(16, 185, 129, 1));
-  }
-}
-
-.vacuum-status {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.vacuum-name {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #e4e4e7;
-}
-
-.vacuum-state-text {
-  font-size: 0.75rem;
-  color: #a1a1aa;
-  text-transform: capitalize;
-}
-
-.vacuum-header-right {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.vacuum-power-chip {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.25rem 0.5rem;
-  background: rgba(59, 130, 246, 0.15);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  border-radius: 0.25rem;
-  font-size: 0.75rem;
-  color: #bfdbfe;
-}
-
-.vacuum-power-chip svg {
-  font-size: 1rem;
-  color: #93c5fd;
-}
-
-.vacuum-battery {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.5rem;
-  background: rgba(100, 100, 120, 0.4);
-  border: 1px solid transparent;
-  border-radius: 0.25rem;
-  font-size: 0.75rem;
-  color: #a1a1aa;
-  cursor: pointer;
-  transition: box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease;
-  font-family: inherit;
-}
-
-.vacuum-battery:focus {
-  outline: none;
-}
-
-.vacuum-battery:hover {
-  background: rgba(100, 100, 120, 0.55);
-}
-
-.vacuum-battery.charging {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.35);
-  box-shadow: 0 0 12px rgba(16, 185, 129, 0.35), inset 0 0 8px rgba(16, 185, 129, 0.08);
-  animation: vacuum-battery-charging-glow 2.5s ease-in-out infinite;
-}
-
-@keyframes vacuum-battery-charging-glow {
-  0%, 100% {
-    box-shadow: 0 0 12px rgba(16, 185, 129, 0.35), inset 0 0 8px rgba(16, 185, 129, 0.08);
-  }
-  50% {
-    box-shadow: 0 0 18px rgba(16, 185, 129, 0.5), inset 0 0 10px rgba(16, 185, 129, 0.12);
-  }
-}
-
-.vacuum-battery svg {
-  font-size: 1rem;
-  color: #10b981;
-}
-
-.vacuum-header-right > svg:last-child {
-  font-size: 1.25rem;
-  color: #71717a;
-}
-
-/* Content */
-.vacuum-content {
-  padding: 0.5rem 1rem 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.vacuum-info-row {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 1rem 0;
-}
-
-.vacuum-info-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #a1a1aa;
-  font-size: 0.85rem;
-}
-
-.vacuum-info-item svg {
-  font-size: 1.25rem;
-  color: #10b981;
-}
-
-.vacuum-info-item.error {
-  color: #ef4444;
-}
-
-.vacuum-info-item.error svg {
-  color: #ef4444;
-}
-
-.vacuum-progress {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  margin-top: 0.25rem;
-  margin-bottom: 1rem;
-}
-
-.vacuum-progress-header {
+/* Top row - also the collapse/expand tap target (collapsed by default) */
+.rober-top {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  color: #e4e4e7;
-}
-
-.vacuum-progress-header svg {
-  font-size: 1.25rem;
-  color: #71717a;
-}
-
-.vacuum-progress-right {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-left: auto;
-}
-
-.vacuum-progress-header .value {
-  font-weight: 600;
-  color: #e4e4e7;
-}
-
-.vacuum-live-button {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem 0.65rem;
-  background: rgba(16, 185, 129, 0.15);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  border-radius: 0.5rem;
-  color: #10b981;
-  font-size: 0.875rem;
-  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
-.vacuum-live-button:hover {
-  background: rgba(16, 185, 129, 0.25);
-  border-color: rgba(16, 185, 129, 0.4);
+.rober-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  background: rgba(52, 211, 153, 0.16);
   color: #34d399;
 }
-
-.vacuum-live-button:active {
-  transform: scale(0.98);
-}
-
-.vacuum-live-button svg {
+.rober-glyph svg {
   font-size: 1rem;
 }
+.rober-glyph.is-off {
+  background: #2c2c2e; /* iOS systemGray5 dark */
+  color: rgba(235, 235, 245, 0.3);
+}
 
-.vacuum-progress-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
+.rober-title {
   flex: 1;
+  font-size: 1.05rem;
+  font-weight: 600;
 }
 
-.vacuum-progress-text .room {
-  font-size: 1rem;
-  color: #e4e4e7;
-  font-weight: 500;
-  line-height: 1.4;
-}
-
-.vacuum-progress-bar {
-  width: 100%;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.vacuum-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #3b82f6, #10b981);
-  width: 0%;
-  border-radius: 999px;
-  transition: width 0.2s ease;
-}
-
-.vacuum-maps {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.vacuum-maps-header {
+.rober-top-right {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  color: #e4e4e7;
-}
-
-.vacuum-maps-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-
-.vacuum-maps-text .label {
-  font-size: 0.9rem;
-}
-
-.vacuum-maps-text .sub {
-  font-size: 0.8rem;
-  color: #9ca3af;
-}
-
-.vacuum-maps-header .value {
-  margin-left: auto;
-  font-size: 0.85rem;
-  color: #e4e4e7;
-}
-
-.vacuum-maps-header .value.error {
-  color: #f97316;
-}
-
-.vacuum-maps-empty {
-  color: #9ca3af;
-  font-size: 0.9rem;
-}
-
-.vacuum-maps-list {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.5rem;
-}
-
-.vacuum-map-button {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  width: 100%;
-  padding: 0.6rem 0.5rem;
-  background: rgba(18, 19, 22, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.5rem;
-  color: #e4e4e7;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: center;
-}
-
-.vacuum-map-button:hover {
-  background: rgba(36, 38, 43, 0.9);
-  border-color: rgba(59, 130, 246, 0.35);
-}
-
-.vacuum-map-button svg:first-child {
-  font-size: 1.25rem;
-  color: #71717a;
   flex-shrink: 0;
 }
 
-.vacuum-map-button svg:last-child {
-  display: none;
+.rober-state {
+  font-size: 0.9rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.rober-state.tint {
+  color: #34d399;
+}
+.rober-state.muted {
+  color: rgba(235, 235, 245, 0.5);
+}
+.rober-state.alert {
+  color: #ff453a;
 }
 
-.vacuum-map-button-info {
+.rober-chevron {
+  font-size: 1.1rem;
+  color: rgba(235, 235, 245, 0.4);
+  flex-shrink: 0;
+}
+
+/* Hero */
+.rober-hero {
+  margin-top: 0.9rem;
+}
+
+.rober-hero-value {
+  font-size: clamp(3.5rem, 14vw, 3.9rem);
+  font-weight: 200;
+  line-height: 0.92;
+  letter-spacing: -0.01em;
+}
+
+.rober-hero-unit {
+  font-size: 1.4rem;
+  font-weight: 300;
+  vertical-align: top;
+  margin-left: 0.1rem;
+}
+
+.rober-hero-sub {
+  margin-top: 0.3rem;
+  font-size: 0.82rem;
+  color: rgba(235, 235, 245, 0.3);
+}
+
+/* Day strip - today's driving stretches; the whole thing taps through to the Rooms sheet */
+.rober-bar-section {
+  margin-top: 0.9rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rober-bar-track {
+  position: relative;
+  height: 30px;
+  border-radius: 15px;
+  background: #2c2c2e;
+  overflow: hidden;
+}
+
+.rober-bar-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, #059669, #34d399);
+}
+
+.rober-bar-word {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.55);
+  white-space: nowrap;
+}
+
+.rober-bar-ticks {
+  position: relative;
+  height: 0.85rem;
+  margin-top: 0.35rem;
+  font-size: 0.66rem;
+  color: rgba(235, 235, 245, 0.3);
+}
+
+.rober-bar-tick {
+  position: absolute;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.rober-bar-tick--start {
+  left: 0;
+}
+.rober-bar-tick--now {
+  right: 0;
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
+}
+
+/* Preference row (the master switch is a door, not a setting) */
+.rober-hairline {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rober-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.rober-knob {
+  margin-left: auto;
+  position: relative;
+  flex-shrink: 0;
+  width: 40px;
+  height: 24px;
+  border-radius: 12px;
+  background: #3a3a3c; /* iOS systemGray4 dark */
+  transition: background 0.2s;
+}
+.rober-knob.on {
+  background: rgba(52, 211, 153, 0.55);
+}
+.rober-knob::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.2s;
+}
+.rober-knob.on::after {
+  left: 19px;
+}
+
+/* Icon doors */
+.rober-doors {
+  margin-top: 1.1rem;
+  display: flex;
+  justify-content: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+.rober-doors--lone {
+  margin-top: 1rem;
+}
+
+.rober-ibtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: #2c2c2e;
+  color: rgba(235, 235, 245, 0.6);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.rober-ibtn svg {
+  width: 17px;
+  height: 17px;
+}
+.rober-ibtn--tint {
+  color: #34d399;
+}
+
+/* Rooms sheet - map tiles, three across */
+.rober-rooms-modal {
+  max-width: 720px;
+}
+
+.rober-rooms-content {
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.rober-rooms-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.55rem;
+}
+
+.rober-room-tile {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  align-items: center;
+  border-radius: 14px;
+  background: #2c2c2e;
+  border: none;
+  padding: 0.5rem;
+  font-family: inherit;
+  text-align: left;
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rober-room-img {
   width: 100%;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 9px;
+  background: #1c1c1e;
 }
 
-.vacuum-map-button-info .room {
-  font-size: 0.75rem;
-  color: #e4e4e7;
-  font-weight: 500;
-  text-align: center;
-  line-height: 1.2;
+.rober-room-name {
+  margin-top: 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.vacuum-map-button-info .date {
-  font-size: 0.65rem;
-  color: #9ca3af;
-  text-align: center;
+.rober-room-date {
+  font-size: 0.62rem;
+  color: rgba(235, 235, 245, 0.3);
 }
+
+.rober-rooms-note {
+  width: 100%;
+  padding: 1rem 0;
+  text-align: center;
+  font-size: 0.875rem;
+  color: rgba(235, 235, 245, 0.6);
+}
+.rober-rooms-note.error {
+  color: #ff6961;
+}
+
+/* Request rows (RoomCleaningToggle) - one line, one action, per room */
+.rober-request-card {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  background: #1c1c1e;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.92);
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.rober-request-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+  min-height: 2.1rem;
+}
+
+.rober-request-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  background: rgba(52, 211, 153, 0.16);
+  color: #34d399;
+}
+.rober-request-glyph svg {
+  font-size: 1rem;
+}
+.rober-request-glyph.is-live svg {
+  animation: vacuum-move 1s ease-in-out infinite;
+}
+
+.rober-request-title {
+  flex: 1;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.rober-request-state {
+  font-size: 0.9rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.rober-request-state.tint {
+  color: #34d399;
+}
+.rober-request-state.muted {
+  color: rgba(235, 235, 245, 0.5);
+}
+
+.rober-request-action {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 0.2rem;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  color: #34d399;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@keyframes vacuum-move {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  25% {
+    transform: translateX(3px) rotate(5deg);
+  }
+  75% {
+    transform: translateX(-3px) rotate(-5deg);
+  }
+}
+
+/* ---- Kept as-is: the modal machinery. HomePulse imports this stylesheet and reuses these ---- */
 
 /* Map Modal */
 .vacuum-map-overlay {
@@ -639,72 +621,7 @@
   }
 }
 
-
-/* Controls */
-.vacuum-controls {
-  display: flex;
-  justify-content: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.vacuum-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.6rem 1rem;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.5rem;
-  color: #e4e4e7;
-  cursor: pointer;
-  transition: all 0.2s;
-  min-width: 60px;
-}
-
-.vacuum-btn:hover {
-  background: rgba(16, 185, 129, 0.2);
-  border-color: rgba(16, 185, 129, 0.4);
-}
-
-.vacuum-btn svg {
-  font-size: 1.25rem;
-}
-
-.vacuum-btn span {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-}
-
-.vacuum-btn.start {
-  background: rgba(16, 185, 129, 0.2);
-  border-color: rgba(16, 185, 129, 0.4);
-  color: #10b981;
-}
-
-.vacuum-btn.start:hover {
-  background: rgba(16, 185, 129, 0.3);
-}
-
-.vacuum-btn.pause {
-  background: rgba(251, 191, 36, 0.2);
-  border-color: rgba(251, 191, 36, 0.4);
-  color: #fbbf24;
-}
-
-.vacuum-btn.stop {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #ef4444;
-}
-
-.vacuum-btn.home {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: rgba(59, 130, 246, 0.4);
-  color: #3b82f6;
-}
-
+/* ---- Kept as-is: RoomDetail's rooftop "keep speaker playing" row uses these classes ---- */
 /* Room Cleaning Toggle */
 .room-cleaning-toggle {
   display: flex;
@@ -794,122 +711,3 @@
   left: 20px;
   background: #3b82f6;
 }
-
-.room-cleaning-toggle-group {
-  width: 100%;
-  margin-bottom: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.toggle-group-header {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  color: #e4e4e7;
-  font-size: 0.9rem;
-  padding: 0 0.2rem;
-}
-
-.toggle-group-header svg {
-  color: #3b82f6;
-  font-size: 1.2rem;
-}
-
-.toggle-header-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-
-.toggle-header-sub {
-  color: #9ca3af;
-  font-size: 0.8rem;
-}
-
-.toggle-group-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.75rem;
-}
-
-@media (min-width: 640px) {
-  .toggle-group-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-/* Vacuum Setting Toggle (Clean while home) */
-.vacuum-setting-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  width: 100%;
-  margin-top: 1rem;
-  padding: 0.75rem 1rem;
-  background: rgba(40, 40, 60, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.5rem;
-  color: #a1a1aa;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.vacuum-setting-toggle:hover {
-  background: rgba(50, 50, 70, 0.8);
-  border-color: rgba(16, 185, 129, 0.3);
-}
-
-.vacuum-setting-toggle.on {
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.3);
-  color: #e4e4e7;
-}
-
-.vacuum-setting-toggle svg {
-  font-size: 1.25rem;
-  color: #71717a;
-}
-
-.vacuum-setting-toggle.on svg {
-  color: #10b981;
-}
-
-.vacuum-setting-toggle .toggle-label {
-  flex: 1;
-  text-align: left;
-  font-size: 0.85rem;
-}
-
-/* Toggle Switch */
-.toggle-switch {
-  width: 40px;
-  height: 22px;
-  border-radius: 11px;
-  background: rgba(100, 100, 120, 0.5);
-  position: relative;
-  transition: background 0.2s;
-}
-
-.toggle-switch::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #71717a;
-  transition: all 0.2s;
-}
-
-.toggle-switch.on {
-  background: rgba(16, 185, 129, 0.5);
-}
-
-.toggle-switch.on::after {
-  left: 20px;
-  background: #10b981;
-}
-

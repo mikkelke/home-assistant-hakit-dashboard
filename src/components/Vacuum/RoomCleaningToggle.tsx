@@ -1,12 +1,54 @@
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
-import { VACUUM_ENTITY, ROBOT_CLEAN_PREFIX, ROBOT_CLEAN_KITCHEN_1, ROBOT_CLEAN_KITCHEN_2 } from '../../config/entities';
+import {
+  VACUUM_ENTITY,
+  VACUUM_CURRENT_ROOM_SENSOR,
+  ROBOT_CLEAN_PREFIX,
+  ROBOT_CLEAN_KITCHEN_1,
+  ROBOT_CLEAN_KITCHEN_2,
+} from '../../config/entities';
+import { formatRoberRoomName } from './rooms';
 import './VacuumCard.css';
+
+// The request row every room that isn't the kitchen gets: one line, one action. Words state
+// ("Requested", "Cleaning here"), the action is quiet - same grammar as the Rober2 card itself.
 
 interface RoomCleaningToggleProps {
   areaName: string;
   entities: HassEntities;
   callService: CallServiceFunction | undefined;
+}
+
+interface RequestRowProps {
+  title: string;
+  requested: boolean;
+  cleaningHere: boolean;
+  onToggle: () => void;
+}
+
+function RequestRow({ title, requested, cleaningHere, onToggle }: RequestRowProps) {
+  return (
+    <div className='rober-request-row'>
+      <span className={`rober-request-glyph ${cleaningHere ? 'is-live' : ''}`}>
+        <Icon icon='mdi:broom' aria-hidden='true' />
+      </span>
+      <span className='rober-request-title'>{title}</span>
+      {cleaningHere ? (
+        <span className='rober-request-state tint'>Cleaning here</span>
+      ) : requested ? (
+        <>
+          <span className='rober-request-state muted'>Requested</span>
+          <button type='button' className='rober-request-action' onClick={onToggle} title='Cancel cleaning request'>
+            Cancel
+          </button>
+        </>
+      ) : (
+        <button type='button' className='rober-request-action' onClick={onToggle} title='Request cleaning'>
+          Request clean
+        </button>
+      )}
+    </div>
+  );
 }
 
 export function RoomCleaningToggle({ areaName, entities, callService }: RoomCleaningToggleProps) {
@@ -15,6 +57,9 @@ export function RoomCleaningToggle({ areaName, entities, callService }: RoomClea
   const vacuum = entities?.[VACUUM_ENTITY];
   const vacuumState = vacuum?.state;
   const isVacuumActive = vacuumState === 'cleaning' || vacuumState === 'returning';
+  // "Cleaning here" is only true when the robot's live room IS this row's room.
+  const liveRoomName = formatRoberRoomName(entities?.[VACUUM_CURRENT_ROOM_SENSOR]?.state);
+  const cleaningIn = (roomName: string) => isVacuumActive && !!liveRoomName && liveRoomName.toLowerCase() === roomName.toLowerCase();
 
   const isKitchen = areaNameNormalized === 'kitchen';
 
@@ -36,43 +81,29 @@ export function RoomCleaningToggle({ areaName, entities, callService }: RoomClea
 
     if (!hasAny) return null;
 
-    const renderToggle = (label: string, entityId: string | null, toggle: { state: string } | null | undefined, icon: string) => {
-      if (!entityId || !toggle) return null;
-      const isRequested = toggle.state === 'on';
-      return (
-        <button
-          key={entityId}
-          className={`room-cleaning-toggle small ${isRequested ? 'requested' : ''} ${isVacuumActive ? 'vacuum-active' : ''}`}
-          onClick={() => handleToggle(entityId, isRequested)}
-          title={isRequested ? 'Cancel cleaning request' : 'Request cleaning'}
-        >
-          <Icon icon={icon} className={isVacuumActive ? 'cleaning' : ''} />
-          <span className='toggle-text'>
-            {label}
-            <span className='toggle-subtext'>{isRequested ? 'Requested' : 'Tap to request'}</span>
-          </span>
-          <div className={`toggle-indicator ${isRequested ? 'on' : 'off'}`} />
-        </button>
-      );
-    };
-
     return (
-      <div className='room-cleaning-toggle-group'>
-        <div className='toggle-group-header'>
-          <Icon icon='mdi:robot-vacuum' />
-          <div className='toggle-header-text'>
-            <span>Kitchen cleaning</span>
-          </div>
-        </div>
-        <div className='toggle-group-grid'>
-          {renderToggle('Cook side', cookId, cookToggle, 'mdi:countertop-outline')}
-          {renderToggle('Dining side', diningId, diningToggle, 'mdi:table-chair')}
-        </div>
+      <div className='rober-request-card'>
+        {cookToggle && (
+          <RequestRow
+            title='Cook side'
+            requested={cookToggle.state === 'on'}
+            cleaningHere={cleaningIn('Kitchen cook side')}
+            onToggle={() => handleToggle(cookId, cookToggle.state === 'on')}
+          />
+        )}
+        {diningToggle && (
+          <RequestRow
+            title='Dining side'
+            requested={diningToggle.state === 'on'}
+            cleaningHere={cleaningIn('Kitchen dining side')}
+            onToggle={() => handleToggle(diningId, diningToggle.state === 'on')}
+          />
+        )}
       </div>
     );
   }
 
-  // Default single toggle for non-kitchen rooms
+  // Default single row for non-kitchen rooms
   const toggleId = `${ROBOT_CLEAN_PREFIX}${areaNameNormalized}`;
   const toggle = entities?.[toggleId];
 
@@ -81,14 +112,13 @@ export function RoomCleaningToggle({ areaName, entities, callService }: RoomClea
   const isRequested = toggle.state === 'on';
 
   return (
-    <button
-      className={`room-cleaning-toggle ${isRequested ? 'requested' : ''} ${isVacuumActive ? 'vacuum-active' : ''}`}
-      onClick={() => handleToggle(toggleId, isRequested)}
-      title={isRequested ? 'Cancel cleaning request' : 'Request room cleaning'}
-    >
-      <Icon icon='mdi:robot-vacuum' className={isVacuumActive ? 'cleaning' : ''} />
-      <span className='toggle-text'>{isRequested ? 'Cleaning requested' : 'Request cleaning'}</span>
-      <div className={`toggle-indicator ${isRequested ? 'on' : 'off'}`} />
-    </button>
+    <div className='rober-request-card'>
+      <RequestRow
+        title='Rober2'
+        requested={isRequested}
+        cleaningHere={cleaningIn(areaName)}
+        onToggle={() => handleToggle(toggleId, isRequested)}
+      />
+    </div>
   );
 }
