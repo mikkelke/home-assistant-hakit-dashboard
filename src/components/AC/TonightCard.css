@@ -93,14 +93,14 @@
 }
 
 .tonight-hero-value {
-  font-size: clamp(3.5rem, 14vw, 3.9rem);
+  font-size: clamp(2.3rem, 9vw, 2.6rem);
   font-weight: 200;
   line-height: 0.92;
   letter-spacing: -0.01em;
 }
 
 .tonight-hero-deg {
-  font-size: 1.4rem;
+  font-size: 1rem;
   font-weight: 300;
   vertical-align: top;
   margin-left: 0.1rem;

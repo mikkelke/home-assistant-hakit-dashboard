@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { useLocalStorageBoolean, useTouchScrollSlopGuard } from '../../hooks';
@@ -27,7 +27,20 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
   const hasAlarmEntities = !!(toggleEntity || timeEntity);
 
   const isEnabled = toggleEntity?.state === 'on';
-  const alarmTime = timeEntity?.state || '07:00:00';
+
+  // Optimistic time (user 2026-07-31: "the reaction is very bad"): each press used to wait
+  // for the HA round-trip before the display moved, and rapid presses computed from the
+  // stale entity value so they swallowed each other. A just-sent local value wins the
+  // display until the entity moves (our echo, or any external change), then the entity wins
+  // again - the React adjust-state-during-render reset pattern, so the render stays pure.
+  const [localTime, setLocalTime] = useState<string | null>(null);
+  const entityTime = timeEntity?.state || '07:00:00';
+  const [lastEntityTime, setLastEntityTime] = useState(entityTime);
+  if (entityTime !== lastEntityTime) {
+    setLastEntityTime(entityTime);
+    setLocalTime(null);
+  }
+  const alarmTime = localTime ?? entityTime;
 
   // Format time for display (HH:MM)
   const displayTime = alarmTime.slice(0, 5);
@@ -48,6 +61,7 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
     (newHours: number, newMinutes: number) => {
       if (!callService || !timeEntity) return;
       const timeString = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}:00`;
+      setLocalTime(timeString);
       callService({
         domain: 'input_datetime',
         service: 'set_datetime',
