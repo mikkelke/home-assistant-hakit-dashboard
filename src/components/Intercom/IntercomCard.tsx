@@ -38,7 +38,12 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
   // without a toast (user 2026-07-31: the doors must work from the collapsed row).
   const [fired, setFired] = useState<string | null>(null);
   const firedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (firedTimer.current) clearTimeout(firedTimer.current); }, []);
+  useEffect(
+    () => () => {
+      if (firedTimer.current) clearTimeout(firedTimer.current);
+    },
+    []
+  );
   const flashFired = (id: string) => {
     setFired(id);
     if (firedTimer.current) clearTimeout(firedTimer.current);
@@ -171,12 +176,7 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
   );
 
   const quickDoors = (
-    <span
-      className='access-quick'
-      onClick={e => e.stopPropagation()}
-      onKeyDown={e => e.stopPropagation()}
-      role='presentation'
-    >
+    <span className='access-quick' onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} role='presentation'>
       {frontLock && quickDoor(frontLockId, frontLock, 'F', 'Open the front building door')}
       {backLock && quickDoor(backLockId, backLock, 'B', 'Open the back building door')}
       {aptLock && (frontLock || backLock) && <span className='access-quick-div' aria-hidden='true' />}
@@ -191,10 +191,7 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
           aria-label={aptLocked ? 'Unlock the apartment' : 'Lock the apartment'}
           title={aptLocked ? 'Unlock the apartment' : 'Lock the apartment'}
         >
-          <Icon
-            icon={fired === aptLockId ? 'mdi:check' : aptLocked ? 'mdi:lock' : 'mdi:lock-open-variant'}
-            aria-hidden='true'
-          />
+          <Icon icon={fired === aptLockId ? 'mdi:check' : aptLocked ? 'mdi:lock' : 'mdi:lock-open-variant'} aria-hidden='true' />
         </button>
       )}
     </span>

@@ -502,11 +502,7 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
             </button>
           </div>
         )}
-        <button
-          className={`qa-button ${doorsOpen ? 'is-active' : ''}`}
-          onClick={() => setDoorsOpen(v => !v)}
-          title='Access'
-        >
+        <button className={`qa-button ${doorsOpen ? 'is-active' : ''}`} onClick={() => setDoorsOpen(v => !v)} title='Access'>
           <Icon icon='mdi:door' />
         </button>
         <button className='qa-button' onClick={() => openQuickAccess('media')} title='Media controls'>
