@@ -695,7 +695,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   const downTheTerrace = windDirection != null && isTerraceAxis(windDirection);
 
   const windSubParts: string[] = [];
-    // Gusts only when they actually exceed the sustained wind - "9 km/h, gusts 9 km/h" is noise.
+  // Gusts only when they actually exceed the sustained wind - "9 km/h, gusts 9 km/h" is noise.
   if (gustDisplay !== undefined && windSpeedMs !== undefined && gustMs !== undefined && gustMs > windSpeedMs * 1.05)
     windSubParts.push(`gusts ${formatWindValue(gustDisplay, windUnitLabel)} ${windUnitLabel}`);
   if (showPeak && peakGustDisplay !== undefined && peakGustNext12h) {
@@ -760,7 +760,12 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
 
   const hourSpan = (h: WeatherForecastEntry) =>
     spanPct(Date.parse(h.datetime), Date.parse(h.datetime) + (h.bucketHours ?? 1) * 3600_000, windowStartMs, windowEndMs);
-  const rainHours = ribbonHours.filter(h => (h.precipitation ?? 0) > 0);
+  // A rain hour is either measurable millimetres OR a real chance of them: met.no reports
+  // light showers as probability with precipitation still 0.0, so keying on mm alone would
+  // silently call a 60%-chance night "dry" (user 2026-07-31).
+  const RAIN_PROB_PCT = 40;
+  const isRainHour = (h: WeatherForecastEntry) => (h.precipitation ?? 0) > 0 || (h.precipitation_probability ?? 0) >= RAIN_PROB_PCT;
+  const rainHours = ribbonHours.filter(isRainHour);
   const rainBandSpans = rainHours.map(hourSpan);
   const gustHoursPred = (h: WeatherForecastEntry) => {
     const g = hourGustMs(h, forecastWindUnit);
@@ -789,17 +794,18 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
     return out;
   };
   const fmtRange = (r: { from: number; to: number }) => `${formatHHMM(new Date(r.from))}–${formatHHMM(new Date(r.to))}`;
-  const rainRanges = showRibbon ? runRanges(ribbonHours, h => (h.precipitation ?? 0) > 0) : [];
+  const rainRanges = showRibbon ? runRanges(ribbonHours, isRainHour) : [];
   const gustRanges = showRibbon ? runRanges(ribbonHours, gustHoursPred) : [];
   const rainTotalMm = rainHours.reduce((sum, h) => sum + (h.precipitation ?? 0), 0);
   const ribbonNotes: Array<{ kind: 'rain' | 'gust' | 'dry'; text: string }> = [];
   if (rainRanges.length > 0) {
     const shown = rainRanges.slice(0, 2).map(fmtRange).join(', ');
     const more = rainRanges.length > 2 ? ` +${rainRanges.length - 2}` : '';
-    const mm = rainTotalMm >= 0.1 ? ` · ${rainTotalMm.toFixed(1)} mm` : '';
-    ribbonNotes.push({ kind: 'rain', text: `Rain ${shown}${more}${mm}` });
-  }
-  else if (showRibbon) {
+    const maxProb = Math.max(...rainHours.map(h => h.precipitation_probability ?? 0));
+    // Millimetres when the forecast commits to an amount, otherwise the chance it is quoting.
+    const tail = rainTotalMm >= 0.1 ? ` · ${rainTotalMm.toFixed(1)} mm` : maxProb > 0 ? ` · ${Math.round(maxProb)}% chance` : '';
+    ribbonNotes.push({ kind: 'rain', text: `Rain ${shown}${more}${tail}` });
+  } else if (showRibbon) {
     // Saying nothing read as broken (user 2026-07-31: "still not clear") - a dry window is
     // an answer, and it's the one being asked for.
     ribbonNotes.push({ kind: 'dry', text: `Dry until ${formatHHMM(new Date(windowEndMs))}` });
@@ -813,7 +819,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
         { pct: nowRibbonPct, label: formatHHMM(now), priority: 3 },
         { pct: 0, label: formatHHMM(new Date(windowStartMs)), priority: 2 },
         { pct: 100, label: formatHHMM(new Date(windowEndMs)), priority: 2 },
-        ...[...runStarts(ribbonHours, h => (h.precipitation ?? 0) > 0), ...runStarts(ribbonHours, gustHoursPred)]
+        ...[...runStarts(ribbonHours, isRainHour), ...runStarts(ribbonHours, gustHoursPred)]
           .sort((a, b) => a - b)
           .map(ms => ({ pct: pctOf(ms, windowStartMs, windowEndMs), label: formatHHMM(new Date(ms)), priority: 1 })),
       ]
