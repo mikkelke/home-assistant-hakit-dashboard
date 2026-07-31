@@ -10,8 +10,9 @@ import {
 import { formatRoberRoomName } from './rooms';
 import './VacuumCard.css';
 
-// The request row every room that isn't the kitchen gets: one line, one action. Words state
-// ("Requested", "Cleaning here"), the action is quiet - same grammar as the Rober2 card itself.
+// The request row every room that isn't the kitchen gets: one line, one control. The room's
+// request IS a boolean, so it wears the same knob as the Rober2 card's own preference row;
+// words only state ("Requested", "Cleaning here").
 
 interface RoomCleaningToggleProps {
   areaName: string;
@@ -28,7 +29,21 @@ interface RequestRowProps {
 
 function RequestRow({ title, requested, cleaningHere, onToggle }: RequestRowProps) {
   return (
-    <div className='rober-request-row'>
+    <div
+      className='rober-request-row'
+      onClick={onToggle}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onToggle();
+        }
+      }}
+      role='switch'
+      tabIndex={0}
+      aria-checked={requested}
+      aria-label={`${title} — request a clean`}
+      title={requested ? 'Cancel cleaning request' : 'Request cleaning'}
+    >
       <span className={`rober-request-glyph ${cleaningHere ? 'is-live' : ''}`}>
         <Icon icon='mdi:broom' aria-hidden='true' />
       </span>
@@ -36,17 +51,9 @@ function RequestRow({ title, requested, cleaningHere, onToggle }: RequestRowProp
       {cleaningHere ? (
         <span className='rober-request-state tint'>Cleaning here</span>
       ) : requested ? (
-        <>
-          <span className='rober-request-state muted'>Requested</span>
-          <button type='button' className='rober-request-action' onClick={onToggle} title='Cancel cleaning request'>
-            Cancel
-          </button>
-        </>
-      ) : (
-        <button type='button' className='rober-request-action' onClick={onToggle} title='Request cleaning'>
-          Request clean
-        </button>
-      )}
+        <span className='rober-request-state muted'>Requested</span>
+      ) : null}
+      <span className={`rober-knob ${requested ? 'on' : ''}`} aria-hidden='true' />
     </div>
   );
 }
@@ -86,7 +93,7 @@ export function RoomCleaningToggle({ areaName, entities, callService }: RoomClea
       <div className='rober-request-card'>
         {cookToggle && (
           <RequestRow
-            title='Cook side'
+            title='Clean cook side'
             requested={cookToggle.state === 'on'}
             cleaningHere={cleaningIn('Kitchen cook side')}
             onToggle={() => handleToggle(cookId, cookToggle.state === 'on')}
@@ -94,7 +101,7 @@ export function RoomCleaningToggle({ areaName, entities, callService }: RoomClea
         )}
         {diningToggle && (
           <RequestRow
-            title='Dining side'
+            title='Clean dining side'
             requested={diningToggle.state === 'on'}
             cleaningHere={cleaningIn('Kitchen dining side')}
             onToggle={() => handleToggle(diningId, diningToggle.state === 'on')}
@@ -115,7 +122,7 @@ export function RoomCleaningToggle({ areaName, entities, callService }: RoomClea
   return (
     <div className='rober-request-card'>
       <RequestRow
-        title='Rober2'
+        title='Clean this room'
         requested={isRequested}
         cleaningHere={cleaningIn(areaName)}
         onToggle={() => handleToggle(toggleId, isRequested)}
