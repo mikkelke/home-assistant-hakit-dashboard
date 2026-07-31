@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { IntercomCard } from '../Intercom';
@@ -422,10 +422,103 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
   // Use standardized swipe-to-close hook
   const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestCloseQuickAccess);
 
+  // Doors popover: press-and-hold the Access button to get the three doors from any tab
+  // without the full panel (a plain tap still opens the panel, so nothing existing changes).
+  // The doors themselves are one tap each, same rule as the Access card's collapsed row.
+  const [doorsOpen, setDoorsOpen] = useState(false);
+  const [doorFired, setDoorFired] = useState<string | null>(null);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heldRef = useRef(false);
+  const firedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (holdTimer.current) clearTimeout(holdTimer.current);
+      if (firedTimer.current) clearTimeout(firedTimer.current);
+    },
+    []
+  );
+
+  const frontLock = entities?.['lock.intercomproxy_front_door'];
+  const backLock = entities?.['lock.intercomproxy_back_door'];
+  const aptLock = entities?.['lock.yale_bt'];
+  const aptLocked = aptLock?.state === 'locked';
+
+  const fireDoor = useCallback(
+    (entityId: string, lockEntity: typeof frontLock, lockToggle = false) => {
+      if (!callService) return;
+      const supported = Number(lockEntity?.attributes?.supported_features ?? 0);
+      const service = lockToggle ? (aptLocked ? 'unlock' : 'lock') : (supported & 1) !== 0 ? 'open' : 'unlock';
+      callService({ domain: 'lock', service, target: { entity_id: entityId } });
+      setDoorFired(entityId);
+      if (firedTimer.current) clearTimeout(firedTimer.current);
+      firedTimer.current = setTimeout(() => setDoorFired(null), 2000);
+    },
+    [callService, aptLocked]
+  );
+
+  const startHold = () => {
+    heldRef.current = false;
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+    holdTimer.current = setTimeout(() => {
+      heldRef.current = true;
+      setDoorsOpen(true);
+    }, 450);
+  };
+  const endHold = () => {
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+  };
+
+  const qaDoorBtn = (id: string, lock: typeof frontLock, letter: string, label: string) => (
+    <button
+      type='button'
+      className={`qa-door ${doorFired === id ? 'is-done' : ''}`}
+      onClick={() => fireDoor(id, lock)}
+      aria-label={label}
+      title={label}
+    >
+      <Icon icon={doorFired === id ? 'mdi:check' : 'mdi:door-open'} />
+      {doorFired !== id && <span className='qa-door-tag'>{letter}</span>}
+    </button>
+  );
+
   return (
     <>
+      {doorsOpen && <div className='qa-doors-scrim' onClick={() => setDoorsOpen(false)} />}
       <div className='quick-access'>
-        <button className='qa-button' onClick={() => openQuickAccess('intercom')} title='Access'>
+        {doorsOpen && (
+          <div className='qa-doors' role='group' aria-label='Doors'>
+            {frontLock && qaDoorBtn('lock.intercomproxy_front_door', frontLock, 'F', 'Open the front building door')}
+            {backLock && qaDoorBtn('lock.intercomproxy_back_door', backLock, 'B', 'Open the back building door')}
+            {aptLock && (frontLock || backLock) && <span className='qa-door-div' aria-hidden='true' />}
+            {aptLock && (
+              <button
+                type='button'
+                className={`qa-door is-lock ${aptLocked ? '' : 'is-unlocked'} ${doorFired === 'lock.yale_bt' ? 'is-done' : ''}`}
+                onClick={() => fireDoor('lock.yale_bt', aptLock, true)}
+                aria-label={aptLocked ? 'Unlock the apartment' : 'Lock the apartment'}
+                title={aptLocked ? 'Unlock the apartment' : 'Lock the apartment'}
+              >
+                <Icon icon={doorFired === 'lock.yale_bt' ? 'mdi:check' : aptLocked ? 'mdi:lock' : 'mdi:lock-open-variant'} />
+              </button>
+            )}
+          </div>
+        )}
+        <button
+          className='qa-button'
+          onClick={() => {
+            if (heldRef.current) {
+              heldRef.current = false;
+              return;
+            }
+            openQuickAccess('intercom');
+          }}
+          onPointerDown={startHold}
+          onPointerUp={endHold}
+          onPointerLeave={endHold}
+          onPointerCancel={endHold}
+          onContextMenu={e => e.preventDefault()}
+          title='Access — hold for doors'
+        >
           <Icon icon='mdi:door' />
         </button>
         <button className='qa-button' onClick={() => openQuickAccess('media')} title='Media controls'>

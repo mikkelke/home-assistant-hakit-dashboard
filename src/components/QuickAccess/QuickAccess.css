@@ -1093,3 +1093,84 @@
 .info-transit-toggle.off::after {
   left: 2px;
 }
+
+/* Doors popover - press-and-hold the Access button to reach every door from any tab.
+   Same rules as the Access card's collapsed row: one tap per door, 2 s green check. */
+.qa-doors-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+}
+
+.qa-doors {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.7rem;
+  background: rgba(15, 17, 23, 0.98);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+.qa-door {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(24, 25, 28, 0.9);
+  color: #f59e0b;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.08s ease, background 0.15s ease, color 0.15s ease;
+}
+.qa-door:active {
+  transform: scale(0.88);
+}
+.qa-door svg {
+  font-size: 1.1rem;
+}
+.qa-door.is-lock {
+  color: rgba(235, 235, 245, 0.6);
+}
+.qa-door.is-lock.is-unlocked {
+  background: rgba(255, 69, 58, 0.15);
+  color: #ff453a;
+}
+.qa-door.is-done {
+  background: rgba(52, 199, 89, 0.18);
+  color: #34c759;
+}
+
+.qa-door-tag {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #3a3a3c;
+  border: 2px solid #0f1117;
+  color: rgba(235, 235, 245, 0.75);
+  font-size: 0.5rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qa-door-div {
+  width: 1px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 0 0.1rem;
+}
