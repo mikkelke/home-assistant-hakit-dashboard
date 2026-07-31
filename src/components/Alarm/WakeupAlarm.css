@@ -85,45 +85,28 @@
   padding: 0 1.25rem 1.25rem;
 }
 
-.wakeup-hero {
-  margin-top: -0.25rem;
-}
-
-.wakeup-hero-value {
-  font-size: clamp(2.3rem, 9vw, 2.6rem);
-  font-weight: 200;
-  line-height: 0.92;
-  letter-spacing: -0.01em;
-  font-variant-numeric: tabular-nums;
-}
-
-.wakeup-hero-sub {
-  margin-top: 0.3rem;
-  font-size: 0.82rem;
-  color: rgba(235, 235, 245, 0.3);
-}
-
-/* Time stepper - the card's one real control */
+/* One compact row: the time stepper IS the display (header shows it too), with the
+   wake-now sunrise as an icon door on the same line (user 2026-07-31: "one line,
+   should not be that big"). */
 .wakeup-time-row {
-  margin-top: 1.1rem;
+  margin-top: 0.2rem;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 1rem;
+  gap: 0.45rem;
 }
 
 .wakeup-time-group {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.35rem;
 }
 
 .wakeup-time-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 34px;
   flex-shrink: 0;
   border-radius: 50%;
   background: #3a3a3c; /* iOS systemGray4 dark */
@@ -138,36 +121,45 @@
   background: #48484a;
 }
 .wakeup-time-btn svg {
-  font-size: 1.15rem;
+  font-size: 1rem;
 }
 
 .wakeup-time-value {
-  min-width: 2.75rem;
+  min-width: 2rem;
   text-align: center;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
 .wakeup-time-sep {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 600;
   color: rgba(235, 235, 245, 0.3);
 }
 
-/* Primary action - filled tint pill, same shape as TonightCard's */
-.wakeup-action {
-  width: 100%;
-  margin-top: 1.1rem;
-  padding: 0.85rem 1rem;
+/* Wake up now - amber sunrise icon door, right end of the stepper row */
+.wakeup-now-btn {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: rgba(245, 158, 11, 0.16);
+  color: #f59e0b;
   border: none;
-  border-radius: 16px;
-  font-family: inherit;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #ffffff;
-  background: #64d2ff;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.08s ease;
+}
+.wakeup-now-btn:active {
+  transform: scale(0.88);
+}
+.wakeup-now-btn svg {
+  font-size: 1.25rem;
 }
 
 /* Footer - no explanatory text, just the on/off action, right-aligned */

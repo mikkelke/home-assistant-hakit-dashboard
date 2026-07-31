@@ -149,11 +149,6 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
 
       {!collapsed && (
         <div className='wakeup-content'>
-          <div className='wakeup-hero'>
-            <div className='wakeup-hero-value'>{displayTime}</div>
-            {isEnabled && <div className='wakeup-hero-sub'>light and radio ramp up first</div>}
-          </div>
-
           <div className='wakeup-time-row'>
             <div className='wakeup-time-group'>
               <button type='button' className='wakeup-time-btn' onClick={() => adjustHours(-1)} aria-label='Lower hour'>
@@ -174,13 +169,12 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
                 <Icon icon='mdi:plus' />
               </button>
             </div>
+            {wakeNowEntity && (
+              <button type='button' className='wakeup-now-btn' onClick={handleWakeNow} aria-label='Wake up now' title='Wake up now'>
+                <Icon icon='mdi:weather-sunset-up' />
+              </button>
+            )}
           </div>
-
-          {wakeNowEntity && (
-            <button type='button' className='wakeup-action' onClick={handleWakeNow}>
-              Wake up now
-            </button>
-          )}
 
           <div className='wakeup-footer'>
             <button type='button' className='wakeup-footer-action' onClick={handleToggle}>
