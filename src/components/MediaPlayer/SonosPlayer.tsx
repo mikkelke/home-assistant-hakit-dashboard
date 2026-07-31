@@ -1282,7 +1282,13 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService, embedded
           <Icon icon='mdi:speaker-multiple' aria-hidden='true' />
           {hasGroup && <span className='sonos-badge'>{groupMembers.length}</span>}
         </button>
-        <button type='button' className='sonos-ibtn sonos-ibtn--bare' onClick={handleOpenSourceSheet} aria-label='Source' title={displaySource}>
+        <button
+          type='button'
+          className='sonos-ibtn sonos-ibtn--bare'
+          onClick={handleOpenSourceSheet}
+          aria-label='Source'
+          title={displaySource}
+        >
           {sourceMark}
         </button>
       </div>
@@ -1467,7 +1473,11 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService, embedded
                 <Icon icon={showPodcastModal ? 'mdi:podcast' : 'mdi:speaker'} aria-hidden='true' />
               </span>
               <span className='sonos-title'>
-                {viewingEpisodes ? PODCAST_FEEDS.find(f => f.id === selectedPodcastId)?.title || 'Episodes' : showPodcastModal ? 'Podcasts' : 'Source'}
+                {viewingEpisodes
+                  ? PODCAST_FEEDS.find(f => f.id === selectedPodcastId)?.title || 'Episodes'
+                  : showPodcastModal
+                    ? 'Podcasts'
+                    : 'Source'}
               </span>
               <button className='sonos-sheet-close modal-close-button' onClick={handleCloseSourceSheet} aria-label='Close'>
                 <Icon icon='mdi:close' />
@@ -1479,7 +1489,12 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService, embedded
                 <>
                   <div className='sonos-srcgrid'>
                     <div className='sonos-srctile'>
-                      <button type='button' className='sonos-srcbtn sonos-srcbtn--bare' onClick={handleSpotifyClick} aria-label='Open Spotify'>
+                      <button
+                        type='button'
+                        className='sonos-srcbtn sonos-srcbtn--bare'
+                        onClick={handleSpotifyClick}
+                        aria-label='Open Spotify'
+                      >
                         <Icon icon='mdi:spotify' className='sonos-mark--spotify' aria-hidden='true' />
                       </button>
                       <span>Spotify{isSpotify ? ' · now' : ''}</span>
@@ -1521,12 +1536,7 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService, embedded
                     )}
 
                     <div className='sonos-srctile'>
-                      <button
-                        type='button'
-                        className='sonos-srcbtn'
-                        onClick={() => handleSelectSource('Audiocast')}
-                        aria-label='Audiocast'
-                      >
+                      <button type='button' className='sonos-srcbtn' onClick={() => handleSelectSource('Audiocast')} aria-label='Audiocast'>
                         <Icon icon='mdi:cast' aria-hidden='true' />
                       </button>
                       <span>Audiocast{isLineIn(currentSource) ? ' · now' : ''}</span>

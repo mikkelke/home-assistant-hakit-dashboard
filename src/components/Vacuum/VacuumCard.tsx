@@ -982,13 +982,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
             >
               <Icon icon={batteryDoorIcon} aria-hidden='true' />
             </button>
-            <button
-              type='button'
-              className='rober-ibtn rober-ibtn--tint'
-              onClick={handleOpenRoomsSheet}
-              aria-label='Rooms'
-              title='Rooms'
-            >
+            <button type='button' className='rober-ibtn rober-ibtn--tint' onClick={handleOpenRoomsSheet} aria-label='Rooms' title='Rooms'>
               <Icon icon='mdi:map-outline' aria-hidden='true' />
             </button>
             {isActive && liveMapImage && (
