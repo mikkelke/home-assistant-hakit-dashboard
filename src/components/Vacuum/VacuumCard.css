@@ -362,6 +362,11 @@
 .rober-request-state.muted {
   color: rgba(235, 235, 245, 0.5);
 }
+/* Last-clean date on an idle row: quiet context, not a state - lighter than "Requested" */
+.rober-request-state.faint {
+  font-weight: 500;
+  color: rgba(235, 235, 245, 0.3);
+}
 
 /* The whole row is the switch (same target size as the card's own preference row) */
 .rober-request-row {

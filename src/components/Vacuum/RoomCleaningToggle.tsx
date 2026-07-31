@@ -20,14 +20,32 @@ interface RoomCleaningToggleProps {
   callService: CallServiceFunction | undefined;
 }
 
+/** "2026-07-31" -> "Cleaned today" / "yesterday" / "3 days ago" / "21-04". Older dates use
+ * Danish day-month order (the household reads DD-MM, never MM-DD). Empty for a missing or
+ * unparseable value: a room that has never been cleaned says nothing rather than guessing. */
+function lastCleanLabel(raw: string | undefined, todayMs: number): string | null {
+  if (!raw || raw === 'unknown' || raw === 'unavailable') return null;
+  const then = Date.parse(`${raw}T12:00:00`);
+  if (!Number.isFinite(then)) return null;
+  const days = Math.round((todayMs - then) / 86_400_000);
+  if (days <= 0) return 'Cleaned today';
+  if (days === 1) return 'Cleaned yesterday';
+  if (days < 7) return `Cleaned ${days} days ago`;
+  const d = new Date(then);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `Cleaned ${dd}-${mm}`;
+}
+
 interface RequestRowProps {
   title: string;
   requested: boolean;
   cleaningHere: boolean;
+  lastClean: string | null;
   onToggle: () => void;
 }
 
-function RequestRow({ title, requested, cleaningHere, onToggle }: RequestRowProps) {
+function RequestRow({ title, requested, cleaningHere, lastClean, onToggle }: RequestRowProps) {
   return (
     <div
       className='rober-request-row'
@@ -52,6 +70,10 @@ function RequestRow({ title, requested, cleaningHere, onToggle }: RequestRowProp
         <span className='rober-request-state tint'>Cleaning here</span>
       ) : requested ? (
         <span className='rober-request-state muted'>Requested</span>
+      ) : lastClean ? (
+        // The idle row had nothing to say; the last-clean date is the one fact worth
+        // knowing before you ask for another pass (user 2026-07-31).
+        <span className='rober-request-state faint'>{lastClean}</span>
       ) : null}
       <span className={`rober-knob ${requested ? 'on' : ''}`} aria-hidden='true' />
     </div>
@@ -70,6 +92,9 @@ export function RoomCleaningToggle({ areaName, entities, callService }: RoomClea
   const cleaningIn = (roomName: string) => isCleaning && !!liveRoomName && liveRoomName.toLowerCase() === roomName.toLowerCase();
 
   const isKitchen = areaNameNormalized === 'kitchen';
+  // Local midday anchor, so "today" flips at midnight rather than 24 h after the last clean.
+  const todayMs = new Date().setHours(12, 0, 0, 0);
+  const lastCleanOf = (id: string) => lastCleanLabel(entities?.[id]?.state, todayMs);
 
   const handleToggle = (entityId: string | null, currentlyOn: boolean) => {
     if (!entityId || !callService) return;
@@ -96,6 +121,7 @@ export function RoomCleaningToggle({ areaName, entities, callService }: RoomClea
             title='Clean cook side'
             requested={cookToggle.state === 'on'}
             cleaningHere={cleaningIn('Kitchen cook side')}
+            lastClean={lastCleanOf('input_text.kitchen_last_clean')}
             onToggle={() => handleToggle(cookId, cookToggle.state === 'on')}
           />
         )}
@@ -104,6 +130,7 @@ export function RoomCleaningToggle({ areaName, entities, callService }: RoomClea
             title='Clean dining side'
             requested={diningToggle.state === 'on'}
             cleaningHere={cleaningIn('Kitchen dining side')}
+            lastClean={lastCleanOf('input_text.kitchen_2_last_clean')}
             onToggle={() => handleToggle(diningId, diningToggle.state === 'on')}
           />
         )}
@@ -125,6 +152,7 @@ export function RoomCleaningToggle({ areaName, entities, callService }: RoomClea
         title='Clean this room'
         requested={isRequested}
         cleaningHere={cleaningIn(areaName)}
+        lastClean={lastCleanOf(`input_text.${areaNameNormalized}_last_clean`)}
         onToggle={() => handleToggle(toggleId, isRequested)}
       />
     </div>
