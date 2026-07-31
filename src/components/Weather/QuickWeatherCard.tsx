@@ -729,10 +729,11 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   if (tonightLow != null) heroParts.push(`down to ${Math.round(tonightLow)}° tonight`);
   if (dewpoint !== undefined) heroParts.push(`dew ${Math.round(dewpoint)}°`);
 
-  // Today ribbon - now-2h through end of today (min 8h span), built from the hourly forecast.
+  // Ribbon window: a ROLLING 18 h from now-2h (user 2026-07-31 - it used to stop at midnight,
+  // so rain during the night was literally off the end of the bar). 18 h always covers tonight
+  // and reaches into tomorrow morning, whatever time of day you look.
   const windowStartMs = nowMs - 2 * 3600_000;
-  const naturalEndMs = atHour(now, 24).getTime();
-  const windowEndMs = Math.max(naturalEndMs, windowStartMs + 8 * 3600_000);
+  const windowEndMs = windowStartMs + 18 * 3600_000;
   const ribbonHours = hourlyAll.filter(h => {
     const t = Date.parse(h.datetime);
     return Number.isFinite(t) && t > windowStartMs && t <= windowEndMs;
@@ -765,6 +766,37 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   const widestRainIdx = rainBandSpans.length ? rainBandSpans.reduce((best, s, i, arr) => (s.width > arr[best].width ? i : best), 0) : -1;
   const widestGustIdx = gustBandSpans.length ? gustBandSpans.reduce((best, s, i, arr) => (s.width > arr[best].width ? i : best), 0) : -1;
   const nowRibbonPct = pctOf(nowMs, windowStartMs, windowEndMs);
+
+  // Rain/gust said in WORDS under the bar. Colour alone wasn't readable (user 2026-07-31:
+  // "I see just color"), and a narrow band - which is what a two-hour shower looks like on an
+  // 18 h bar - is too thin to carry its own label. Each run becomes "02:00-05:00".
+  const runRanges = (hours: WeatherForecastEntry[], pred: (h: WeatherForecastEntry) => boolean) => {
+    const out: Array<{ from: number; to: number }> = [];
+    for (const h of hours) {
+      const t = Date.parse(h.datetime);
+      if (!Number.isFinite(t)) continue;
+      const end = t + (h.bucketHours ?? 1) * 3600_000;
+      if (!pred(h)) continue;
+      const last = out[out.length - 1];
+      if (last && t - last.to <= 30 * 60_000) last.to = end;
+      else out.push({ from: t, to: end });
+    }
+    return out;
+  };
+  const fmtRange = (r: { from: number; to: number }) => `${formatHHMM(new Date(r.from))}–${formatHHMM(new Date(r.to))}`;
+  const rainRanges = showRibbon ? runRanges(ribbonHours, h => (h.precipitation ?? 0) > 0) : [];
+  const gustRanges = showRibbon ? runRanges(ribbonHours, gustHoursPred) : [];
+  const rainTotalMm = rainHours.reduce((sum, h) => sum + (h.precipitation ?? 0), 0);
+  const ribbonNotes: Array<{ kind: 'rain' | 'gust'; text: string }> = [];
+  if (rainRanges.length > 0) {
+    const shown = rainRanges.slice(0, 2).map(fmtRange).join(', ');
+    const more = rainRanges.length > 2 ? ` +${rainRanges.length - 2}` : '';
+    const mm = rainTotalMm >= 0.1 ? ` · ${rainTotalMm.toFixed(1)} mm` : '';
+    ribbonNotes.push({ kind: 'rain', text: `Rain ${shown}${more}${mm}` });
+  }
+  if (gustRanges.length > 0) {
+    ribbonNotes.push({ kind: 'gust', text: `Gusts ${gustRanges.slice(0, 2).map(fmtRange).join(', ')}` });
+  }
 
   const tickCandidates: TickCandidate[] = showRibbon
     ? [
@@ -856,7 +888,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
                 className='quick-weather-ribbon-band quick-weather-ribbon-band--rain'
                 style={{ left: `${s.left}%`, width: `${s.width}%` }}
               >
-                {i === widestRainIdx && s.width >= 8 && <span className='quick-weather-ribbon-word'>rain</span>}
+                {i === widestRainIdx && s.width >= 5 && <span className='quick-weather-ribbon-word'>rain</span>}
               </div>
             ))}
             {gustBandSpans.map((s, i) => (
@@ -865,7 +897,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
                 className='quick-weather-ribbon-band quick-weather-ribbon-band--gust'
                 style={{ left: `${s.left}%`, width: `${s.width}%` }}
               >
-                {i === widestGustIdx && s.width >= 8 && <span className='quick-weather-ribbon-word'>gusts</span>}
+                {i === widestGustIdx && s.width >= 5 && <span className='quick-weather-ribbon-word'>gusts</span>}
               </div>
             ))}
             <div className='quick-weather-ribbon-now' style={{ left: `${nowRibbonPct}%` }} />
@@ -881,6 +913,15 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
               </span>
             ))}
           </div>
+          {ribbonNotes.length > 0 && (
+            <div className='quick-weather-ribbon-notes'>
+              {ribbonNotes.map(n => (
+                <span key={n.kind} className={`quick-weather-ribbon-note is-${n.kind}`}>
+                  {n.text}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

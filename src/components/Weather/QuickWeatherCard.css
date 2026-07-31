@@ -547,3 +547,22 @@
     padding: 0.5rem 0.55rem;
   }
 }
+
+/* Rain/gusts said in words under the bar - colour alone wasn't readable, and a two-hour
+   shower is too narrow a band on an 18 h ribbon to carry its own label. */
+.quick-weather-ribbon-notes {
+  margin-top: 0.45rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.quick-weather-ribbon-note.is-rain {
+  color: #93c5fd;
+}
+
+.quick-weather-ribbon-note.is-gust {
+  color: #f59e0b;
+}
