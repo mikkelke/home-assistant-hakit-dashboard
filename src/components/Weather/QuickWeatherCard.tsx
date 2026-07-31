@@ -1,9 +1,10 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
-import { useWeather } from '@hakit/core';
+import { createPortal } from 'react-dom';
+import { useWeather, useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
-import type { HassEntities } from '../../types';
-import { useHass } from '@hakit/core';
+import type { HassEntities, HassEntity } from '../../types';
 import { useModalBackButton } from '../../hooks';
+import { Timeline } from '../Timeline';
 import { getWeatherConditionIcon } from './weatherIcons';
 import './QuickWeatherCard.css';
 
@@ -19,7 +20,10 @@ type EntityLike = {
   last_updated?: string;
 };
 
-/** Home Assistant weather forecast entry (hourly or daily). */
+/** Home Assistant weather forecast entry (hourly or daily). Fields beyond what Hakit's own
+ * ForecastAttribute type declares (precipitation, wind_gust_speed, wind_bearing, is_daytime)
+ * still arrive on the underlying object whenever the integration provides them - read
+ * defensively via toForecastEntry rather than widening Hakit's type. */
 type WeatherForecastEntry = {
   datetime: string;
   condition?: string;
@@ -28,7 +32,9 @@ type WeatherForecastEntry = {
   precipitation_probability?: number;
   precipitation?: number;
   wind_speed?: number;
+  wind_gust_speed?: number;
   wind_bearing?: number;
+  is_daytime?: boolean;
   bucketHours?: number;
 };
 
@@ -39,68 +45,39 @@ interface ConnectionWithAuth {
 
 /**
  * Data sources for QuickWeatherCard:
- * - Weather entity (entityId): condition; forecast via Hakit useWeather (same WebSocket subscription as the old WeatherCard).
+ * - Weather entity (entityId): condition + forecast via Hakit useWeather (same WebSocket subscription as the old WeatherCard).
  * - GW2000A sensors below: current live readings only (not forecast).
  */
 const SENSOR_IDS = {
   outdoorTemp: 'sensor.gw2000a_outdoor_temperature',
   seaTemperature: 'sensor.kobenhavns_havn_ii_water_temperature',
-  feelsLike: 'sensor.gw2000a_feels_like_temperature',
-  humidity: 'sensor.gw2000a_humidity',
   dewpoint: 'sensor.gw2000a_dewpoint',
   windSpeed: 'sensor.gw2000a_wind_speed',
   windGust: 'sensor.gw2000a_wind_gust',
   windDirection: 'sensor.gw2000a_wind_direction',
-  rainRate: 'sensor.gw2000a_rain_rate_piezo',
   rainDaily: 'sensor.gw2000a_daily_rain_piezo',
   uv: 'sensor.gw2000a_uv_index',
-  solarRadiation: 'sensor.gw2000a_solar_radiation',
-  solarLux: 'sensor.gw2000a_solar_lux',
+  pressureRelative: 'sensor.gw2000a_relative_pressure',
+  pressureAbsolute: 'sensor.gw2000a_absolute_pressure',
 } as const;
-
-function MetricPill({ icon, label, value, subvalue }: { icon: string; label: string; value: string; subvalue?: string }) {
-  return (
-    <div className='quick-weather-card__metric'>
-      <div className='quick-weather-card__metric-icon'>
-        <Icon icon={icon} />
-      </div>
-      <div className='quick-weather-card__metric-copy'>
-        <span className='quick-weather-card__metric-label'>{label}</span>
-        <span className='quick-weather-card__metric-value'>{value}</span>
-        {subvalue ? <span className='quick-weather-card__metric-subvalue'>{subvalue}</span> : null}
-      </div>
-    </div>
-  );
-}
+/** HA automation's own opening/rain call - when it says so, the rain alert always shows. */
+const WINDOW_RAIN_ALERT_ENTITY = 'binary_sensor.weather_opening_alert_window_rain';
+/** Friendly titles for the shared entity-history modal (wind row + facts tiles). */
+const HISTORY_LABELS: Record<string, string> = {
+  [SENSOR_IDS.windSpeed]: 'Wind',
+  [SENSOR_IDS.rainDaily]: 'Rain today',
+  [SENSOR_IDS.uv]: 'UV',
+  [SENSOR_IDS.pressureRelative]: 'Pressure',
+  [SENSOR_IDS.pressureAbsolute]: 'Pressure',
+};
 
 const getEntity = (entities: HassEntities, entityId: string) => entities?.[entityId] as EntityLike | undefined;
-
 const getState = (entities: HassEntities, entityId: string) => getEntity(entities, entityId)?.state;
 
 const getNumber = (value: unknown) => {
   if (value === undefined || value === null || value === '') return undefined;
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : undefined;
-};
-
-const formatCondition = (value?: string) => {
-  if (!value) return 'Weather';
-  const withSpaces = value
-    .replace(/partlycloudy/i, 'partly-cloudy')
-    .split('-')
-    .join(' ')
-    .replace(/\b\w/g, char => char.toUpperCase());
-  return withSpaces;
-};
-
-const getConditionTone = (condition?: string) => {
-  if (!condition) return 'neutral';
-  if (condition.includes('rain') || condition === 'pouring' || condition === 'lightning') return 'rain';
-  if (condition.includes('snow') || condition === 'hail') return 'snow';
-  if (condition.includes('clear') || condition === 'sunny') return 'sun';
-  if (condition.includes('wind')) return 'wind';
-  if (condition === 'fog' || condition === 'cloudy' || condition === 'partlycloudy') return 'cloud';
-  return 'neutral';
 };
 
 const getSeaTemperatureFeel = (temperature?: number) => {
@@ -113,21 +90,6 @@ const getSeaTemperatureFeel = (temperature?: number) => {
   return 'Very warm';
 };
 
-/** Wind speed (m/s) above which we show a heavy-wind warning. ~10.8 m/s ≈ 39 km/h (strong wind). */
-const HEAVY_WIND_MS = 10.8;
-/** Gust speed (m/s) above which we show a wind warning. ~13.9 m/s ≈ 50 km/h. */
-const HEAVY_GUST_MS = 13.9;
-
-const isHeavyWind = (windMs?: number, gustMs?: number) =>
-  (windMs != null && windMs >= HEAVY_WIND_MS) || (gustMs != null && gustMs >= HEAVY_GUST_MS);
-
-const getDirectionLabel = (deg?: number) => {
-  if (deg === undefined || Number.isNaN(deg)) return '—';
-  const normalized = ((deg % 360) + 360) % 360;
-  const labels = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-  return labels[Math.round(normalized / 45) % 8];
-};
-
 const toMetersPerSecond = (value: unknown, unit?: string) => {
   const numeric = getNumber(value);
   if (numeric === undefined) return undefined;
@@ -138,18 +100,267 @@ const toMetersPerSecond = (value: unknown, unit?: string) => {
   return numeric;
 };
 
-const getRelativeTimeLabel = (dateValue?: string) => {
-  if (!dateValue) return 'Live';
-  const date = new Date(dateValue);
-  if (Number.isNaN(date.getTime())) return 'Live';
+/** Header/hero condition word - lowercase throughout ("partly cloudy", not "Partly Cloudy"). */
+function lowerCondition(condition?: string): string {
+  if (!condition) return '—';
+  return condition
+    .replace(/partlycloudy/i, 'partly cloudy')
+    .split('-')
+    .join(' ')
+    .toLowerCase();
+}
 
-  const minutes = Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
-  if (minutes < 1) return 'Updated just now';
-  if (minutes < 60) return `Updated ${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `Updated ${hours}h ago`;
-  return `Updated ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}`;
-};
+const COMPASS_16 = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+/** 16-point compass name for a bearing in degrees. */
+function compass16(deg: number): string {
+  const n = ((deg % 360) + 360) % 360;
+  return COMPASS_16[Math.round(n / 22.5) % 16];
+}
+
+/** Terrace axis: the sector the wind row and storm alert both care about. */
+function isTerraceAxis(bearingDeg: number): boolean {
+  const b = ((bearingDeg % 360) + 360) % 360;
+  return b >= 300 && b <= 350;
+}
+
+/** Gust plausibility filter (critical): the station emits ~1 bogus spike/day (worst seen: 143
+ * km/h during a 9 km/h hour). Reject readings failing basic physical plausibility - applied
+ * before display AND before the pill classification. Ratio/absolute thresholds expressed in
+ * m/s (our canonical unit here) so no separate km/h bookkeeping is needed. */
+function isPlausibleGustMs(gustMs: number, windMs: number): boolean {
+  if (gustMs > 110 / 3.6) return false;
+  if (windMs > 1 / 3.6 && gustMs > windMs * 4) return false;
+  return true;
+}
+
+function classifyGustWord(gustMs: number): string {
+  if (gustMs < 5) return 'Calm';
+  if (gustMs < 10) return 'Light';
+  if (gustMs < 14) return 'Fresh';
+  if (gustMs < 18) return 'Strong';
+  if (gustMs < 25) return 'Storm';
+  return 'Violent';
+}
+
+function uvWord(uv: number): string {
+  if (uv <= 2) return 'low';
+  if (uv <= 5) return 'moderate';
+  if (uv <= 7) return 'high';
+  if (uv <= 10) return 'very high';
+  return 'extreme';
+}
+
+function formatWindValue(value: number, unit: 'km/h' | 'm/s'): string {
+  return unit === 'm/s' ? value.toFixed(1) : Math.round(value).toString();
+}
+
+/** `base`'s calendar day at a fixed local hour (copied from TonightCard's tick/window math). */
+function atHour(base: Date, hour: number): Date {
+  const d = new Date(base);
+  d.setHours(hour, 0, 0, 0);
+  return d;
+}
+
+function formatHHMM(d: Date): string {
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/** Clamp any timestamp to a 0-100% position within [startMs, endMs] (same idea as TonightCard). */
+function pctOf(ms: number, startMs: number, endMs: number): number {
+  if (!Number.isFinite(ms) || endMs <= startMs) return 0;
+  const pct = ((ms - startMs) / (endMs - startMs)) * 100;
+  return Number.isFinite(pct) ? Math.min(100, Math.max(0, pct)) : 0;
+}
+
+interface Span {
+  left: number;
+  width: number;
+}
+
+function spanPct(startMs: number, endMs: number, barStartMs: number, barEndMs: number): Span {
+  const left = pctOf(startMs, barStartMs, barEndMs);
+  const width = Math.max(0, pctOf(endMs, barStartMs, barEndMs) - left);
+  return { left, width };
+}
+
+/** Darken a #rrggbb color by `amount` (0-1) - used for night-hour ribbon cells. */
+function darkenHex(hex: string, amount: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.round(((n >> 16) & 255) * (1 - amount));
+  const g = Math.round(((n >> 8) & 255) * (1 - amount));
+  const b = Math.round((n & 255) * (1 - amount));
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
+
+/** Base ribbon color for a condition string - six buckets per spec, unrecognized conditions
+ * fall back to the partly-cloudy tone rather than guessing. */
+function conditionBaseColor(condition?: string): string {
+  const c = (condition ?? '').toLowerCase();
+  if (c === 'fog') return '#5b6f7d';
+  if (c.includes('snow')) return '#8aa6bd';
+  if (c.includes('rain') || c === 'pouring' || c.includes('lightning')) return '#46687e';
+  if (c.includes('clear') || c === 'sunny') return '#f0b429';
+  if (c === 'cloudy') return '#4a6d86';
+  return '#7a97ad';
+}
+
+/** Night = HA's own is_daytime when the forecast provides it (real sunrise/sunset derived),
+ * else the hour<6/hour>21 fallback. */
+function isNightHour(entry: WeatherForecastEntry): boolean {
+  if (entry.is_daytime != null) return !entry.is_daytime;
+  const hour = new Date(entry.datetime).getHours();
+  return hour < 6 || hour > 21;
+}
+
+function hourColor(entry: WeatherForecastEntry): string {
+  const base = conditionBaseColor(entry.condition);
+  return isNightHour(entry) ? darkenHex(base, 0.35) : base;
+}
+
+/** Per-hour gust in m/s - forecasts rarely publish a real gust field, so this is almost always
+ * the ×1.4 sustained-wind estimate the spec calls for. */
+function hourGustMs(entry: WeatherForecastEntry, unit: string): number | undefined {
+  const gust = entry.wind_gust_speed ?? (entry.wind_speed != null ? entry.wind_speed * 1.4 : undefined);
+  return toMetersPerSecond(gust, unit);
+}
+
+/** Turn hour-center color stops into one CSS gradient - single stop per hour lets the browser
+ * cross-fade between adjacent hours (same idea as TonightCard's barGradient, simpler here
+ * because this fill has no track-color gaps to preserve). */
+function ribbonGradient(stops: { pct: number; color: string }[]): string {
+  const sorted = [...stops].sort((a, b) => a.pct - b.pct);
+  const parts: string[] = [];
+  if (sorted[0].pct > 0) parts.push(`${sorted[0].color} 0%`);
+  for (const s of sorted) parts.push(`${s.color} ${s.pct.toFixed(2)}%`);
+  if (sorted[sorted.length - 1].pct < 100) parts.push(`${sorted[sorted.length - 1].color} 100%`);
+  return `linear-gradient(90deg, ${parts.join(', ')})`;
+}
+
+/** Group consecutive hours passing `pred` into runs; returns each run's start time - used to
+ * place one tick at the start of each rain/gust stretch, not per hour. */
+function runStarts(hours: WeatherForecastEntry[], pred: (h: WeatherForecastEntry) => boolean): number[] {
+  const starts: number[] = [];
+  let wasIn = false;
+  for (const h of hours) {
+    const isIn = pred(h);
+    if (isIn && !wasIn) starts.push(Date.parse(h.datetime));
+    wasIn = isIn;
+  }
+  return starts;
+}
+
+interface TickCandidate {
+  pct: number;
+  label: string;
+  priority: number;
+}
+
+/** Greedy tick de-dup: highest-priority ticks (now, then the window edges) win; anything within
+ * minGapPct of an already-accepted tick is dropped. */
+function pickTicks(candidates: TickCandidate[], minGapPct: number): TickCandidate[] {
+  const ordered = [...candidates].sort((a, b) => b.priority - a.priority);
+  const accepted: TickCandidate[] = [];
+  for (const c of ordered) {
+    if (accepted.every(a => Math.abs(a.pct - c.pct) >= minGapPct)) accepted.push(c);
+  }
+  return accepted.sort((a, b) => a.pct - b.pct);
+}
+
+/** Storm-warning-class thresholds (rarely fires by design): terrace-axis gusts >=21 m/s, or any-
+ * direction gusts >=24 m/s, scanning the next 24h of hourly forecast. Names the first hit. */
+function findStormHour(hours: WeatherForecastEntry[], nowMs: number, windUnit: string): WeatherForecastEntry | null {
+  const horizon = nowMs + 24 * 3600_000;
+  const inWindow = hours
+    .filter(h => {
+      const t = Date.parse(h.datetime);
+      return Number.isFinite(t) && t >= nowMs && t <= horizon;
+    })
+    .sort((a, b) => Date.parse(a.datetime) - Date.parse(b.datetime));
+  for (const h of inWindow) {
+    const gustMs = hourGustMs(h, windUnit);
+    if (gustMs == null) continue;
+    const bearing = getNumber(h.wind_bearing);
+    const onTerraceAxis = bearing != null && isTerraceAxis(bearing);
+    if (gustMs >= 24 || (gustMs >= 21 && onTerraceAxis)) return h;
+  }
+  return null;
+}
+
+/** First hour with any precipitation within `withinMs` of now - used for the rain alert's time
+ * and (with a wider horizon) the binary-sensor-forced case. */
+function findFirstRainHour(hours: WeatherForecastEntry[], nowMs: number, withinMs: number): WeatherForecastEntry | null {
+  const horizon = nowMs + withinMs;
+  const candidates = hours
+    .filter(h => {
+      const t = Date.parse(h.datetime);
+      return Number.isFinite(t) && t >= nowMs && t <= horizon && (h.precipitation ?? 0) > 0;
+    })
+    .sort((a, b) => Date.parse(a.datetime) - Date.parse(b.datetime));
+  return candidates[0] ?? null;
+}
+
+/** Highest forecast gust within `horizonMs` of now, with the hour it happens. */
+function findPeakGustWithin(
+  hours: WeatherForecastEntry[],
+  nowMs: number,
+  horizonMs: number,
+  windUnit: string
+): { ms: number; atIso: string } | null {
+  let best: { ms: number; atIso: string } | null = null;
+  for (const h of hours) {
+    const t = Date.parse(h.datetime);
+    if (!Number.isFinite(t) || t < nowMs || t > nowMs + horizonMs) continue;
+    const g = hourGustMs(h, windUnit);
+    if (g == null) continue;
+    if (!best || g > best.ms) best = { ms: g, atIso: h.datetime };
+  }
+  return best;
+}
+
+/** Highest forecast gust anywhere within the given calendar day (used by the week rows). */
+function dailyPeakGustMs(hours: WeatherForecastEntry[], dayKey: string, windUnit: string): number | undefined {
+  let peak: number | undefined;
+  for (const h of hours) {
+    if (getLocalDayKey(h.datetime) !== dayKey) continue;
+    const g = hourGustMs(h, windUnit);
+    if (g != null && (peak == null || g > peak)) peak = g;
+  }
+  return peak;
+}
+
+/** Today's remaining peak temperature (with its hour) - read straight off the hourly forecast,
+ * no separate max sensor exists. */
+function findTodayPeak(hours: WeatherForecastEntry[], todayKey: string): { temp: number; atIso: string } | null {
+  let best: { temp: number; atIso: string } | null = null;
+  for (const h of hours) {
+    if (getLocalDayKey(h.datetime) !== todayKey) continue;
+    if (h.temperature == null) continue;
+    if (!best || h.temperature > best.temp) best = { temp: h.temperature, atIso: h.datetime };
+  }
+  return best;
+}
+
+/** Overnight low through the next occurrence of 06:00 ("tonight"). */
+function findTonightLow(hours: WeatherForecastEntry[], nowMs: number, tonightEndMs: number): number | null {
+  let min: number | null = null;
+  for (const h of hours) {
+    const t = Date.parse(h.datetime);
+    if (!Number.isFinite(t) || t < nowMs || t > tonightEndMs) continue;
+    if (h.temperature == null) continue;
+    if (min == null || h.temperature < min) min = h.temperature;
+  }
+  return min;
+}
+
+/** Count of window contacts currently open, matched by the standard
+ * binary_sensor.<area>_window_contact naming convention (no house-wide list to keep in sync). */
+function countOpenWindows(entities: HassEntities): number {
+  let n = 0;
+  for (const [id, entity] of Object.entries(entities ?? {})) {
+    if (/^binary_sensor\..+_window_contact$/.test(id) && entity?.state === 'on') n++;
+  }
+  return n;
+}
 
 /** Parse forecast array from weather entity attributes. */
 function getForecastList(attributes: Record<string, unknown>): WeatherForecastEntry[] {
@@ -222,20 +433,29 @@ function formatDay(datetime: string) {
   return d.toLocaleDateString([], { weekday: 'short' });
 }
 
-/** Map Hakit forecast entry to our shape (same fields). */
-function toForecastEntry(e: {
-  datetime: string;
-  condition?: string;
-  temperature?: number;
-  templow?: number;
-  precipitation_probability?: number;
-}): WeatherForecastEntry {
+/** Week-row label - always the bare weekday abbreviation (unlike formatDay's "Today"/"Tomorrow",
+ * which is still used for the hourly day-popup title). */
+function shortWeekday(datetime: string) {
+  const d = new Date(datetime);
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString([], { weekday: 'short' });
+}
+
+/** Normalize a Hakit or raw-attribute forecast entry to our shape. Fields undeclared by Hakit's
+ * ForecastAttribute type (precipitation, wind_gust_speed, wind_bearing, is_daytime) still arrive
+ * on the underlying object when the integration provides them - read them defensively rather
+ * than widening Hakit's own type. */
+function toForecastEntry(e: Record<string, unknown>): WeatherForecastEntry {
   return {
-    datetime: e.datetime,
-    condition: e.condition,
-    temperature: e.temperature,
-    templow: e.templow,
-    precipitation_probability: e.precipitation_probability,
+    datetime: String(e.datetime ?? ''),
+    condition: typeof e.condition === 'string' ? e.condition : undefined,
+    temperature: getNumber(e.temperature),
+    templow: getNumber(e.templow),
+    precipitation_probability: getNumber(e.precipitation_probability),
+    precipitation: getNumber(e.precipitation),
+    wind_speed: getNumber(e.wind_speed),
+    wind_gust_speed: getNumber(e.wind_gust_speed),
+    wind_bearing: getNumber(e.wind_bearing),
+    is_daytime: typeof e.is_daytime === 'boolean' ? e.is_daytime : undefined,
   };
 }
 
@@ -251,6 +471,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   const weatherDaily = useWeather(entityId as Parameters<typeof useWeather>[0], { type: 'daily' });
   const weatherHourly = useWeather(entityId as Parameters<typeof useWeather>[0], { type: 'hourly' });
   const connection = useHass((state: unknown) => (state as { connection?: ConnectionWithAuth | null }).connection ?? undefined);
+  const hassUrl = useHass((state: unknown) => (state as { hassUrl?: string | null }).hassUrl ?? null);
   const [extendedForecast, setExtendedForecast] = useState<WeatherForecastEntry[]>([]);
 
   const getAccessToken = useCallback((): string | null => {
@@ -366,21 +587,32 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
     };
   }, [getAccessToken]);
 
+  // Now-tick: same pattern as TonightCard (lazy useState initializer covers the first render;
+  // only the interval callback ever calls setState, never the render body itself). Every
+  // "now"-dependent value below reads this state rather than constructing a fresh Date.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const nowMs = now.getTime();
+
   const { hourlyAll, daily } = useMemo(() => {
     const fromAttr = getForecastList(weatherEntity?.attributes ?? {});
     const fromAttrSplit = splitForecast(fromAttr);
     const dailyList = weatherDaily?.forecast?.forecast ?? [];
     const hourlyList = weatherHourly?.forecast?.forecast ?? [];
-    const dailyMapped = (dailyList.length > 0 ? dailyList : fromAttrSplit.daily).map(toForecastEntry).slice(0, 6);
-    const now = new Date();
+    const dailyMapped = (dailyList.length > 0 ? dailyList : fromAttrSplit.daily)
+      .map(e => toForecastEntry(e as unknown as Record<string, unknown>))
+      .slice(0, 6);
     const futureHourly = (hourlyList.length > 0 ? hourlyList : fromAttrSplit.hourly)
-      .map(toForecastEntry)
-      .filter(e => new Date(e.datetime).getTime() >= now.getTime());
+      .map(e => toForecastEntry(e as unknown as Record<string, unknown>))
+      .filter(e => new Date(e.datetime).getTime() >= nowMs);
     const lastHourlyTs = futureHourly.length > 0 ? new Date(futureHourly[futureHourly.length - 1].datetime).getTime() : 0;
     const extraFutureBuckets = extendedForecast.filter(entry => new Date(entry.datetime).getTime() > lastHourlyTs);
     const hourlyAllSlots = [...futureHourly, ...extraFutureBuckets].slice(0, 7 * 24); /* for day-detail popup when a day is clicked */
     return { hourlyAll: hourlyAllSlots, daily: dailyMapped };
-  }, [weatherEntity?.attributes, weatherDaily?.forecast, weatherHourly?.forecast, extendedForecast]);
+  }, [weatherEntity?.attributes, weatherDaily?.forecast, weatherHourly?.forecast, extendedForecast, nowMs]);
 
   const [selectedDayDatetime, setSelectedDayDatetime] = useState<string | null>(null);
   const toggleDay = useCallback((datetime: string) => {
@@ -403,6 +635,17 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
 
   const selectedDayHasCoarseBuckets = selectedDayHourly.some(entry => (entry.bucketHours ?? 1) > 1);
 
+  // Shared entity-history modal (wind row + facts tiles) - one Timeline popup, whichever
+  // entityId was last tapped. Same push/back-button pattern as WeatherCard's old per-row
+  // modal, generalized to a single instance instead of one per row.
+  const [historyEntityId, setHistoryEntityId] = useState<string | null>(null);
+  const closeHistory = useCallback(() => setHistoryEntityId(null), []);
+  const { requestClose: requestCloseHistory } = useModalBackButton({
+    isOpen: historyEntityId !== null,
+    onRequestClose: closeHistory,
+    historyKey: 'quick-weather-history',
+  });
+
   if (!weatherEntity) {
     return (
       <div className='quick-weather-card quick-weather-card--empty'>
@@ -416,209 +659,423 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
 
   const attributes = weatherEntity.attributes ?? {};
   const condition = weatherEntity.state;
-  const tone = getConditionTone(condition);
   const conditionIcon = getWeatherConditionIcon(condition);
+  const conditionLabel = lowerCondition(condition);
+  const forecastWindUnit = typeof attributes.wind_speed_unit === 'string' ? attributes.wind_speed_unit : 'km/h';
+  const todayKey = getLocalDayKey(now);
 
   const currentTemp = getNumber(attributes.temperature) ?? getNumber(getState(entities, SENSOR_IDS.outdoorTemp));
-  const currentTempUnit = typeof attributes.temperature_unit === 'string' ? attributes.temperature_unit : '°C';
+  const dewpoint = getNumber(getState(entities, SENSOR_IDS.dewpoint));
+
   const seaTemperatureEntity = getEntity(entities, SENSOR_IDS.seaTemperature);
   const seaTemperature = getNumber(seaTemperatureEntity?.state);
-  const seaTemperatureUnit =
-    typeof seaTemperatureEntity?.attributes?.unit_of_measurement === 'string' ? seaTemperatureEntity.attributes.unit_of_measurement : '°C';
   const seaTemperatureFeel = getSeaTemperatureFeel(seaTemperature);
-  const feelsLike = getNumber(getState(entities, SENSOR_IDS.feelsLike));
-  const humidity = getNumber(attributes.humidity) ?? getNumber(getState(entities, SENSOR_IDS.humidity));
-  const solarRadiation = getNumber(getState(entities, SENSOR_IDS.solarRadiation));
-  const solarLux = getNumber(getState(entities, SENSOR_IDS.solarLux));
 
+  // Wind - canonical m/s figures preserved exactly as before (attribute first, sensor fallback);
+  // display unit/plausibility/classification are new derivations layered on top.
   const windDirection = getNumber(getState(entities, SENSOR_IDS.windDirection));
-  const windDirectionLabel = getDirectionLabel(windDirection);
-
+  const windDirLabel = windDirection != null ? compass16(windDirection) : '—';
   const windSpeedMs =
     toMetersPerSecond(attributes.wind_speed, typeof attributes.wind_speed_unit === 'string' ? attributes.wind_speed_unit : undefined) ??
     toMetersPerSecond(getState(entities, SENSOR_IDS.windSpeed), 'km/h');
+  const rawGustMs = toMetersPerSecond(getState(entities, SENSOR_IDS.windGust), 'km/h');
+  const gustPlausible = rawGustMs !== undefined && windSpeedMs !== undefined && isPlausibleGustMs(rawGustMs, windSpeedMs);
+  const gustMs = gustPlausible ? rawGustMs : undefined;
+  const pillBasisMs = gustMs ?? windSpeedMs;
+  const windWord = pillBasisMs !== undefined ? classifyGustWord(pillBasisMs) : undefined;
 
-  const gustMs = toMetersPerSecond(getState(entities, SENSOR_IDS.windGust), 'km/h');
-  const rainRate = getNumber(getState(entities, SENSOR_IDS.rainRate));
+  const showMsUnit = gustMs !== undefined && gustMs >= 14;
+  const windUnitLabel: 'km/h' | 'm/s' = showMsUnit ? 'm/s' : 'km/h';
+  const windSpeedDisplay = windSpeedMs !== undefined ? (showMsUnit ? windSpeedMs : windSpeedMs * 3.6) : undefined;
+  const gustDisplay = gustMs !== undefined ? (showMsUnit ? gustMs : gustMs * 3.6) : undefined;
+
+  const peakGustNext12h = findPeakGustWithin(hourlyAll, nowMs, 12 * 3600_000, forecastWindUnit);
+  const showPeak = peakGustNext12h != null && gustMs !== undefined && peakGustNext12h.ms > gustMs;
+  const peakGustDisplay = peakGustNext12h != null ? (showMsUnit ? peakGustNext12h.ms : peakGustNext12h.ms * 3.6) : undefined;
+  const downTheTerrace = windDirection != null && isTerraceAxis(windDirection);
+
+  const windSubParts: string[] = [];
+  if (gustDisplay !== undefined) windSubParts.push(`gusts ${formatWindValue(gustDisplay, windUnitLabel)}${windUnitLabel}`);
+  if (showPeak && peakGustDisplay !== undefined && peakGustNext12h) {
+    windSubParts.push(
+      `reaching ${formatWindValue(peakGustDisplay, windUnitLabel)}${windUnitLabel} at ${formatHHMM(new Date(peakGustNext12h.atIso))}`
+    );
+  }
+  if (downTheTerrace) windSubParts.push('down the terrace');
+  const showWindRow = windSpeedMs !== undefined || gustMs !== undefined;
+
+  // Storm alert - terrace-axis or any-direction extreme gusts in the next 24h of forecast.
+  const stormHour = findStormHour(hourlyAll, nowMs, forecastWindUnit);
+  const hasStormAlert = stormHour != null;
+  const windColor = hasStormAlert ? '#f59e0b' : '#a3b8cc';
+  const windColorFaint = hasStormAlert ? 'rgba(245,158,11,0.22)' : 'rgba(163,184,204,0.22)';
+
+  // Rain alert - open windows + rain due soon, or the HA automation's own call.
+  const windowsOpenCount = countOpenWindows(entities);
+  const forcedRainAlert = getState(entities, WINDOW_RAIN_ALERT_ENTITY) === 'on';
+  const rainHour = findFirstRainHour(hourlyAll, nowMs, forcedRainAlert ? 24 * 3600_000 : 6 * 3600_000);
+  const showRainAlert = windowsOpenCount > 0 && (rainHour != null || forcedRainAlert);
+  const rainAlertTimeMs = rainHour ? Date.parse(rainHour.datetime) : nowMs;
+
+  // Hero sub-line - today's remaining peak, tonight's low (through the next 06:00), dew point.
+  const todayPeak = findTodayPeak(hourlyAll, todayKey);
+  const tonightEndMs = (() => {
+    const today6 = atHour(now, 6).getTime();
+    return today6 > nowMs ? today6 : today6 + 24 * 3600_000;
+  })();
+  const tonightLow = findTonightLow(hourlyAll, nowMs, tonightEndMs);
+  const heroParts: string[] = [];
+  if (todayPeak) heroParts.push(`up to ${Math.round(todayPeak.temp)}° at ${formatHHMM(new Date(todayPeak.atIso))}`);
+  if (tonightLow != null) heroParts.push(`down to ${Math.round(tonightLow)}° tonight`);
+  if (dewpoint !== undefined) heroParts.push(`dew ${Math.round(dewpoint)}°`);
+
+  // Today ribbon - now-2h through end of today (min 8h span), built from the hourly forecast.
+  const windowStartMs = nowMs - 2 * 3600_000;
+  const naturalEndMs = atHour(now, 24).getTime();
+  const windowEndMs = Math.max(naturalEndMs, windowStartMs + 8 * 3600_000);
+  const ribbonHours = hourlyAll.filter(h => {
+    const t = Date.parse(h.datetime);
+    return Number.isFinite(t) && t > windowStartMs && t <= windowEndMs;
+  });
+  const showRibbon = ribbonHours.length > 0;
+
+  const isNightNow = now.getHours() < 6 || now.getHours() > 21;
+  const nowAnchorColor = isNightNow ? darkenHex(conditionBaseColor(condition), 0.35) : conditionBaseColor(condition);
+  const ribbonStops = showRibbon
+    ? [
+        { pct: pctOf(nowMs, windowStartMs, windowEndMs), color: nowAnchorColor },
+        ...ribbonHours.map(h => ({
+          pct: pctOf(Date.parse(h.datetime) + ((h.bucketHours ?? 1) * 3600_000) / 2, windowStartMs, windowEndMs),
+          color: hourColor(h),
+        })),
+      ]
+    : [];
+  const ribbonGradientCss = showRibbon ? ribbonGradient(ribbonStops) : '';
+
+  const hourSpan = (h: WeatherForecastEntry) =>
+    spanPct(Date.parse(h.datetime), Date.parse(h.datetime) + (h.bucketHours ?? 1) * 3600_000, windowStartMs, windowEndMs);
+  const rainHours = ribbonHours.filter(h => (h.precipitation ?? 0) > 0);
+  const rainBandSpans = rainHours.map(hourSpan);
+  const gustHoursPred = (h: WeatherForecastEntry) => {
+    const g = hourGustMs(h, forecastWindUnit);
+    return g != null && g >= 14;
+  };
+  const gustHours = ribbonHours.filter(gustHoursPred);
+  const gustBandSpans = gustHours.map(hourSpan);
+  const widestRainIdx = rainBandSpans.length ? rainBandSpans.reduce((best, s, i, arr) => (s.width > arr[best].width ? i : best), 0) : -1;
+  const widestGustIdx = gustBandSpans.length ? gustBandSpans.reduce((best, s, i, arr) => (s.width > arr[best].width ? i : best), 0) : -1;
+  const nowRibbonPct = pctOf(nowMs, windowStartMs, windowEndMs);
+
+  const tickCandidates: TickCandidate[] = showRibbon
+    ? [
+        { pct: nowRibbonPct, label: formatHHMM(now), priority: 3 },
+        { pct: 0, label: formatHHMM(new Date(windowStartMs)), priority: 2 },
+        { pct: 100, label: formatHHMM(new Date(windowEndMs)), priority: 2 },
+        ...[...runStarts(ribbonHours, h => (h.precipitation ?? 0) > 0), ...runStarts(ribbonHours, gustHoursPred)]
+          .sort((a, b) => a - b)
+          .map(ms => ({ pct: pctOf(ms, windowStartMs, windowEndMs), label: formatHHMM(new Date(ms)), priority: 1 })),
+      ]
+    : [];
+  const ticks = pickTicks(tickCandidates, 7);
+
+  // Week rows - up to 4 days, today excluded (the ribbon already tells today's story).
+  const weekDays = daily.filter(d => getLocalDayKey(d.datetime) !== todayKey).slice(0, 4);
+  const dayLows = weekDays.map(d => d.templow ?? d.temperature).filter((v): v is number => v != null);
+  const dayHighs = weekDays.map(d => d.temperature ?? d.templow).filter((v): v is number => v != null);
+  const rangeMin = dayLows.length ? Math.min(...dayLows) : 0;
+  const rangeMax = dayHighs.length ? Math.max(...dayHighs) : 0;
+  const rangeSpan = rangeMax > rangeMin ? rangeMax - rangeMin : 1;
+
+  // Facts row.
   const rainDaily = getNumber(getState(entities, SENSOR_IDS.rainDaily));
   const uvIndex = getNumber(getState(entities, SENSOR_IDS.uv));
+  const pressureEntityId = entities?.[SENSOR_IDS.pressureRelative] ? SENSOR_IDS.pressureRelative : SENSOR_IDS.pressureAbsolute;
+  const pressure = getNumber(getState(entities, pressureEntityId));
 
-  const tempUnit = currentTempUnit;
+  // Footer - sea temperature (existing entity/feel words) + roof station health.
+  const outdoorTempEntity = getEntity(entities, SENSOR_IDS.outdoorTemp);
+  const windSpeedEntity = getEntity(entities, SENSOR_IDS.windSpeed);
+  const stationChangeMs = [outdoorTempEntity, windSpeedEntity]
+    .map(e => Date.parse(e?.last_changed ?? e?.last_updated ?? ''))
+    .filter(Number.isFinite);
+  const stationAgeMin = stationChangeMs.length ? Math.round((nowMs - Math.max(...stationChangeMs)) / 60000) : null;
+  const stationQuiet = stationAgeMin != null && stationAgeMin > 30;
+
+  const historyEntity = historyEntityId ? entities?.[historyEntityId] : undefined;
+  const historyTitle = historyEntityId
+    ? (HISTORY_LABELS[historyEntityId] ??
+      (typeof historyEntity?.attributes?.friendly_name === 'string' ? historyEntity.attributes.friendly_name : historyEntityId))
+    : '';
 
   return (
-    <div className={`quick-weather-card quick-weather-card--${tone}`}>
-      <div className='quick-weather-card__glow' />
-
-      <div className='quick-weather-card__hero'>
-        <div className='quick-weather-card__identity'>
-          <div className='quick-weather-card__icon-wrap'>
-            <Icon icon={conditionIcon} />
-          </div>
-
-          <div className='quick-weather-card__title-group'>
-            <span className='quick-weather-card__eyebrow'>Quick weather</span>
-            <h3 className='quick-weather-card__title'>{formatCondition(condition)}</h3>
-            <span className='quick-weather-card__timestamp'>
-              {getRelativeTimeLabel(weatherEntity.last_updated || weatherEntity.last_changed)}
-            </span>
-          </div>
-        </div>
-
-        <div className='quick-weather-card__hero-side'>
-          <div className='quick-weather-card__temperature'>
-            {currentTemp !== undefined ? `${currentTemp.toFixed(0)}${currentTempUnit}` : '—'}
-          </div>
-          <div className='quick-weather-card__hero-meta'>
-            <span>{feelsLike !== undefined ? `Feels ${feelsLike.toFixed(0)}°C` : 'Feels —'}</span>
-            <span>{humidity !== undefined ? `${humidity.toFixed(0)}% humidity` : 'Humidity —'}</span>
-          </div>
-        </div>
+    <div className='quick-weather-card'>
+      <div className='quick-weather-header'>
+        <span className={`quick-weather-glyph${hasStormAlert ? ' is-alert' : ''}`}>
+          <Icon icon={conditionIcon} aria-hidden='true' />
+        </span>
+        <span className='quick-weather-title'>Weather</span>
+        <span className={`quick-weather-state${hasStormAlert ? ' is-alert' : ''}`}>
+          {currentTemp !== undefined ? `${Math.round(currentTemp)}°` : '—'} · {conditionLabel}
+        </span>
       </div>
 
-      <div className='quick-weather-card__summary-row'>
-        <div className='quick-weather-card__badges'>
-          <span className='quick-weather-card__badge'>
-            <Icon icon='mdi:weather-pouring' />
-            {rainRate !== undefined ? `${rainRate.toFixed(1)} mm/h now` : 'No live rain'}
-          </span>
-          <span className='quick-weather-card__badge'>
-            <Icon icon='mdi:weather-rainy' />
-            {rainDaily !== undefined ? `${rainDaily.toFixed(1)} mm today` : 'Rain total —'}
-          </span>
-          <span className='quick-weather-card__badge'>
-            <Icon icon='mdi:weather-sunny-alert' />
-            {uvIndex !== undefined ? `UV ${uvIndex.toFixed(0)}` : 'UV —'}
-          </span>
-        </div>
-      </div>
-
-      <div className='quick-weather-card__metrics-grid'>
-        <MetricPill
-          icon='mdi:weather-windy'
-          label={isHeavyWind(windSpeedMs, gustMs) ? 'Wind (heavy)' : 'Wind'}
-          value={windSpeedMs !== undefined ? `${windSpeedMs.toFixed(1)} m/s` : '—'}
-          subvalue={
-            gustMs !== undefined
-              ? `Gusts ${gustMs.toFixed(1)} m/s${windDirectionLabel !== '—' ? ` · ${windDirectionLabel}` : ''}`
-              : windDirectionLabel !== '—'
-                ? windDirectionLabel
-                : undefined
-          }
-        />
-        <MetricPill
-          icon='mdi:weather-sunny'
-          label='Sun'
-          value={
-            solarRadiation !== undefined
-              ? `${solarRadiation.toFixed(0)} W/m²`
-              : solarLux !== undefined
-                ? `${solarLux.toFixed(0)} lux`
-                : uvIndex !== undefined
-                  ? `UV ${uvIndex.toFixed(0)}`
-                  : '—'
-          }
-          subvalue={
-            solarRadiation !== undefined && solarLux !== undefined
-              ? `${solarLux.toFixed(0)} lux`
-              : solarLux !== undefined && uvIndex !== undefined
-                ? `UV ${uvIndex.toFixed(0)}`
-                : undefined
-          }
-        />
-        {seaTemperature !== undefined && (
-          <MetricPill
-            icon='mdi:waves'
-            label='Sea Temp'
-            value={`${seaTemperature.toFixed(0)}${seaTemperatureUnit}`}
-            subvalue={seaTemperatureFeel}
-          />
-        )}
-      </div>
-
-      <div className='quick-weather-card__forecast-shell'>
-        <div className='quick-weather-card__forecast-header'>
-          <span>Forecast</span>
-          <span className='quick-weather-card__forecast-subtitle'>{daily.length > 0 ? 'Next few days' : 'No forecast data'}</span>
-        </div>
-        {daily.length > 0 ? (
-          <>
-            <div className='quick-weather-card__daily'>
-              {daily.map((entry, i) => (
-                <button
-                  type='button'
-                  key={`d-${i}-${entry.datetime}`}
-                  className={`quick-weather-card__forecast-item quick-weather-card__forecast-item--daily ${selectedDayDatetime === entry.datetime ? 'quick-weather-card__forecast-item--selected' : ''}`}
-                  onClick={() => toggleDay(entry.datetime)}
-                  aria-pressed={selectedDayDatetime === entry.datetime}
-                  aria-label={`${formatDay(entry.datetime)} forecast, click for hourly`}
-                >
-                  <span className='quick-weather-card__forecast-day'>{formatDay(entry.datetime)}</span>
-                  <div className='quick-weather-card__forecast-icon'>
-                    <Icon icon={getWeatherConditionIcon(entry.condition)} />
-                  </div>
-                  <span className='quick-weather-card__forecast-temp'>
-                    {entry.templow != null && entry.temperature != null
-                      ? `${Math.round(entry.templow)}–${Math.round(entry.temperature)}${tempUnit}`
-                      : entry.temperature != null
-                        ? `${Math.round(entry.temperature)}${tempUnit}`
-                        : '—'}
-                  </span>
-                  {entry.precipitation_probability != null && entry.precipitation_probability > 0 && (
-                    <span className='quick-weather-card__forecast-pop'>
-                      <Icon icon='mdi:weather-rainy' aria-hidden />
-                      {entry.precipitation_probability}%
-                    </span>
-                  )}
-                </button>
-              ))}
+      {(hasStormAlert || showRainAlert) && (
+        <div className='quick-weather-alerts'>
+          {hasStormAlert && stormHour && (
+            <div className='quick-weather-alert quick-weather-alert--storm'>
+              <Icon icon='mdi:weather-windy-variant' aria-hidden='true' />
+              <span>Storm on the terrace from {formatHHMM(new Date(stormHour.datetime))}</span>
             </div>
-            {selectedDayDatetime != null && (
-              <div className='quick-weather-card__day-popup' role='dialog' aria-modal aria-labelledby='day-popup-title'>
-                <div className='quick-weather-card__day-popup-backdrop' onClick={requestCloseDayPopup} aria-hidden />
-                <div className='quick-weather-card__day-popup-panel'>
-                  <div className='quick-weather-card__day-popup-header'>
-                    <h3 id='day-popup-title' className='quick-weather-card__day-popup-title'>
-                      {formatDay(selectedDayDatetime)} — {selectedDayHasCoarseBuckets ? 'detailed forecast' : 'by hour'}
-                    </h3>
-                    <button type='button' className='quick-weather-card__day-popup-close' onClick={requestCloseDayPopup} aria-label='Close'>
-                      <Icon icon='mdi:close' />
-                    </button>
-                  </div>
-                  <div className='quick-weather-card__day-popup-body'>
-                    {selectedDayHourly.length > 0 ? (
-                      <ul className='quick-weather-card__hour-list'>
-                        {selectedDayHourly.map((entry, i) => (
-                          <li key={`sd-${i}-${entry.datetime}`} className='quick-weather-card__hour-row'>
-                            <span className='quick-weather-card__hour-time'>{formatBucketLabel(entry)}</span>
-                            <div className='quick-weather-card__hour-icon'>
-                              <Icon icon={getWeatherConditionIcon(entry.condition)} />
-                            </div>
-                            <span className='quick-weather-card__hour-temp'>
-                              {entry.temperature != null ? `${Math.round(entry.temperature)}${tempUnit}` : '—'}
-                            </span>
-                            {entry.precipitation_probability != null && entry.precipitation_probability > 0 && (
-                              <span className='quick-weather-card__hour-pop'>
-                                <Icon icon='mdi:weather-rainy' aria-hidden />
-                                {entry.precipitation_probability}%
-                              </span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className='quick-weather-card__forecast-empty'>No hourly data for this day.</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </>
-        ) : (
-          <p className='quick-weather-card__forecast-empty'>
-            Hourly and daily forecast appear here when your weather integration provides them.
-          </p>
-        )}
+          )}
+          {showRainAlert && (
+            <div className='quick-weather-alert quick-weather-alert--rain'>
+              <Icon icon='mdi:weather-pouring' aria-hidden='true' />
+              <span>
+                Rain at {formatHHMM(new Date(rainAlertTimeMs))} · {windowsOpenCount} window{windowsOpenCount === 1 ? '' : 's'} open
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className='quick-weather-hero'>
+        <div className='quick-weather-hero-value'>
+          {currentTemp !== undefined ? Math.round(currentTemp) : '—'}
+          <sup className='quick-weather-hero-deg'>°</sup>
+        </div>
+        {heroParts.length > 0 && <div className='quick-weather-hero-sub'>{heroParts.join(' · ')}</div>}
       </div>
+
+      {showRibbon && (
+        <div className='quick-weather-ribbon'>
+          <div className='quick-weather-ribbon-track'>
+            <div className='quick-weather-ribbon-fill' style={{ background: ribbonGradientCss }} />
+            {rainBandSpans.map((s, i) => (
+              <div
+                key={`rain-${i}`}
+                className='quick-weather-ribbon-band quick-weather-ribbon-band--rain'
+                style={{ left: `${s.left}%`, width: `${s.width}%` }}
+              >
+                {i === widestRainIdx && s.width >= 8 && <span className='quick-weather-ribbon-word'>rain</span>}
+              </div>
+            ))}
+            {gustBandSpans.map((s, i) => (
+              <div
+                key={`gust-${i}`}
+                className='quick-weather-ribbon-band quick-weather-ribbon-band--gust'
+                style={{ left: `${s.left}%`, width: `${s.width}%` }}
+              >
+                {i === widestGustIdx && s.width >= 8 && <span className='quick-weather-ribbon-word'>gusts</span>}
+              </div>
+            ))}
+            <div className='quick-weather-ribbon-now' style={{ left: `${nowRibbonPct}%` }} />
+          </div>
+          <div className='quick-weather-ribbon-ticks'>
+            {ticks.map((t, i) => (
+              <span
+                key={`${t.pct}-${i}`}
+                className={`quick-weather-ribbon-tick${t.priority === 3 ? ' is-now' : ''}`}
+                style={{ left: `${t.pct}%` }}
+              >
+                {t.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {showWindRow && (
+        <div
+          className='quick-weather-wind-row'
+          role='button'
+          tabIndex={0}
+          onClick={() => setHistoryEntityId(SENSOR_IDS.windSpeed)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setHistoryEntityId(SENSOR_IDS.windSpeed);
+            }
+          }}
+        >
+          <svg className='quick-weather-compass' width='40' height='40' viewBox='0 0 52 52' aria-hidden='true'>
+            <circle cx='26' cy='26' r='23' fill='none' stroke={windColorFaint} strokeWidth='2' />
+            <text x='26' y='9' textAnchor='middle' dominantBaseline='central' className='quick-weather-compass-n'>
+              N
+            </text>
+            <g transform={`rotate(${windDirection ?? 0} 26 26)`}>
+              <path d='M26 9 L31 30 L26 26.5 L21 30 Z' fill={windColor} />
+            </g>
+            <text x='26' y='30' textAnchor='middle' dominantBaseline='central' className='quick-weather-compass-label' fill={windColor}>
+              {windDirLabel}
+            </text>
+          </svg>
+          <div className='quick-weather-wind-mid'>
+            <div className='quick-weather-wind-speed'>
+              {windSpeedDisplay !== undefined ? `${formatWindValue(windSpeedDisplay, windUnitLabel)} ${windUnitLabel}` : '—'}
+            </div>
+            {windSubParts.length > 0 && <div className='quick-weather-wind-sub'>{windSubParts.join(' · ')}</div>}
+          </div>
+          {windWord && <span className={`quick-weather-wind-pill${hasStormAlert ? ' is-alert' : ''}`}>{windWord}</span>}
+        </div>
+      )}
+
+      {weekDays.length > 0 && (
+        <div className='quick-weather-week'>
+          {weekDays.map(d => {
+            const low = d.templow ?? d.temperature;
+            const high = d.temperature ?? d.templow;
+            const peakGustMs = dailyPeakGustMs(hourlyAll, getLocalDayKey(d.datetime), forecastWindUnit);
+            const peakGustDisplayDay = peakGustMs != null ? (showMsUnit ? peakGustMs : peakGustMs * 3.6) : undefined;
+            const barLeft = low != null ? ((low - rangeMin) / rangeSpan) * 100 : 0;
+            const barWidth = low != null && high != null ? ((high - low) / rangeSpan) * 100 : 0;
+            return (
+              <div
+                key={d.datetime}
+                className='quick-weather-week-row'
+                role='button'
+                tabIndex={0}
+                onClick={() => toggleDay(d.datetime)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleDay(d.datetime);
+                  }
+                }}
+              >
+                <span className='quick-weather-week-day'>{shortWeekday(d.datetime)}</span>
+                <Icon className='quick-weather-week-icon' icon={getWeatherConditionIcon(d.condition)} />
+                <span className={`quick-weather-week-gust${peakGustMs != null && peakGustMs >= 14 ? ' is-strong' : ''}`}>
+                  {peakGustDisplayDay != null ? `${formatWindValue(peakGustDisplayDay, windUnitLabel)}${windUnitLabel}` : ''}
+                </span>
+                <span className='quick-weather-week-low'>{low != null ? `${Math.round(low)}°` : '—'}</span>
+                <div className='quick-weather-week-bar'>
+                  <div className='quick-weather-week-bar-fill' style={{ left: `${barLeft}%`, width: `${barWidth}%` }} />
+                </div>
+                <span className='quick-weather-week-high'>{high != null ? `${Math.round(high)}°` : '—'}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {selectedDayDatetime != null && (
+        <div className='quick-weather-card__day-popup' role='dialog' aria-modal aria-labelledby='day-popup-title'>
+          <div className='quick-weather-card__day-popup-backdrop' onClick={requestCloseDayPopup} aria-hidden />
+          <div className='quick-weather-card__day-popup-panel'>
+            <div className='quick-weather-card__day-popup-header'>
+              <h3 id='day-popup-title' className='quick-weather-card__day-popup-title'>
+                {formatDay(selectedDayDatetime)} — {selectedDayHasCoarseBuckets ? 'detailed forecast' : 'by hour'}
+              </h3>
+              <button type='button' className='quick-weather-card__day-popup-close' onClick={requestCloseDayPopup} aria-label='Close'>
+                <Icon icon='mdi:close' />
+              </button>
+            </div>
+            <div className='quick-weather-card__day-popup-body'>
+              {selectedDayHourly.length > 0 ? (
+                <ul className='quick-weather-card__hour-list'>
+                  {selectedDayHourly.map((entry, i) => (
+                    <li key={`sd-${i}-${entry.datetime}`} className='quick-weather-card__hour-row'>
+                      <span className='quick-weather-card__hour-time'>{formatBucketLabel(entry)}</span>
+                      <div className='quick-weather-card__hour-icon'>
+                        <Icon icon={getWeatherConditionIcon(entry.condition)} />
+                      </div>
+                      <span className='quick-weather-card__hour-temp'>
+                        {entry.temperature != null ? `${Math.round(entry.temperature)}°` : '—'}
+                      </span>
+                      {entry.precipitation_probability != null && entry.precipitation_probability > 0 && (
+                        <span className='quick-weather-card__hour-pop'>
+                          <Icon icon='mdi:weather-rainy' aria-hidden />
+                          {entry.precipitation_probability}%
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className='quick-weather-card__forecast-empty'>No hourly data for this day.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(rainDaily !== undefined || uvIndex !== undefined || pressure !== undefined) && (
+        <div className='quick-weather-facts'>
+          {rainDaily !== undefined && (
+            <button type='button' className='quick-weather-fact' onClick={() => setHistoryEntityId(SENSOR_IDS.rainDaily)}>
+              <span className='quick-weather-fact-label'>Rain today</span>
+              <span className='quick-weather-fact-value'>{rainDaily.toFixed(1)} mm</span>
+            </button>
+          )}
+          {uvIndex !== undefined && (
+            <button type='button' className='quick-weather-fact' onClick={() => setHistoryEntityId(SENSOR_IDS.uv)}>
+              <span className='quick-weather-fact-label'>UV</span>
+              <span className='quick-weather-fact-value'>{uvIndex.toFixed(0)}</span>
+              <span className='quick-weather-fact-sub'>{uvWord(uvIndex)}</span>
+            </button>
+          )}
+          {pressure !== undefined && (
+            <button type='button' className='quick-weather-fact' onClick={() => setHistoryEntityId(pressureEntityId)}>
+              <span className='quick-weather-fact-label'>Pressure</span>
+              <span className='quick-weather-fact-value'>{Math.round(pressure)} hPa</span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {(seaTemperature !== undefined || stationAgeMin != null) && (
+        <div className='quick-weather-footer'>
+          <span className='quick-weather-footer-sea'>
+            {seaTemperature !== undefined && (
+              <>
+                <Icon icon='mdi:waves' aria-hidden='true' /> Sea {Math.round(seaTemperature)}°
+                {seaTemperatureFeel ? ` · ${seaTemperatureFeel}` : ''}
+              </>
+            )}
+          </span>
+          {stationAgeMin != null && (
+            <span className={`quick-weather-footer-station${stationQuiet ? ' is-quiet' : ''}`}>
+              {stationQuiet ? `roof quiet ${stationAgeMin} min` : 'roof live'}
+            </span>
+          )}
+        </div>
+      )}
+
+      {historyEntityId &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className='person-info-overlay'
+            role='presentation'
+            onClick={() => requestCloseHistory()}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <div
+              className='person-info-modal person-timeline-modal'
+              role='dialog'
+              aria-label={`${historyTitle} history`}
+              onClick={e => e.stopPropagation()}
+              onMouseDown={e => e.stopPropagation()}
+            >
+              <div className='modal-header'>
+                <span className='modal-title'>{historyTitle}</span>
+                <button className='modal-close' onClick={() => requestCloseHistory()}>
+                  <Icon icon='mdi:close' />
+                </button>
+              </div>
+              <div className='modal-timeline-content'>
+                <Timeline
+                  entityId={historyEntityId}
+                  entity={historyEntity ?? ({ entity_id: historyEntityId, state: '', attributes: {} } as HassEntity)}
+                  hassUrl={hassUrl}
+                  hours={168}
+                  limit={100}
+                />
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

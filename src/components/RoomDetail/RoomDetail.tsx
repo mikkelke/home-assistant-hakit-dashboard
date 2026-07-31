@@ -8,7 +8,6 @@ import { VacuumCard, RoomCleaningToggle } from '../Vacuum';
 import { LightCard } from '../Light';
 import { WakeupAlarm } from '../Alarm';
 import { IntercomCard } from '../Intercom';
-import { WeatherCard } from '../Weather';
 import { WasherCard } from '../Washer';
 import { DishwasherCard } from '../Dishwasher';
 import { DryerCard } from '../Dryer';
@@ -152,9 +151,6 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
 
         {/* Light Controls (bedroom moves this below the blind - see the Light Controls line after Cover) */}
         {!isBedroom && <LightCard areaName={area.name} entities={entities} callService={callService} />}
-
-        {/* Weather (Rooftop) */}
-        {isRooftop && <WeatherCard entities={entities} callService={callService} hassUrl={hassUrl} />}
 
         {/* Keep speaker on (follow-me exempt) — Rooftop */}
         {isRooftop && keepSpeakerEntity && (
