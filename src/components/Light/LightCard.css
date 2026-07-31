@@ -375,3 +375,60 @@
   background: #2c2c2e;
   color: rgba(235, 235, 245, 0.4);
 }
+
+/* Automatic lighting - the one part of the retired Room Info drawer worth keeping, now
+   inside the card it affects. Switch reads ON when the house is driving. */
+.light-auto-row {
+  margin-top: 0.35rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.light-auto-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.light-auto-name {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.light-auto-sub {
+  font-size: 0.75rem;
+  color: rgba(235, 235, 245, 0.3);
+}
+
+.light-auto-knob {
+  margin-left: auto;
+  position: relative;
+  width: 42px;
+  height: 26px;
+  border-radius: 13px;
+  background: #3a3a3c;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+.light-auto-knob.on {
+  background: #fbbf24;
+}
+.light-auto-knob::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: left 0.15s ease;
+}
+.light-auto-knob.on::after {
+  left: 19px;
+}

@@ -4,7 +4,7 @@ import type { HassEntities, CallServiceFunction } from '../../types';
 import { attrNum, attrStringArray, attrStr } from '../../types';
 import { useLocalStorageBoolean, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
 import './LightCard.css';
-import { ROOM_LIGHTS, ROOM_LIGHT_MANUAL_OVERRIDE } from '../../config/lights';
+import { ROOM_LIGHTS, ROOM_LIGHT_MANUAL_OVERRIDE, ROOM_LIGHT_MANUAL_OVERRIDE_TIMEOUT_HOURS } from '../../config/lights';
 
 // "Lights" card in the Climate-card grammar (see AC/TonightCard): amber glyph disc, state word
 // right, one row per light. The row IS the information: the dot wears the light's actual color,
@@ -92,6 +92,42 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
   const overrideId = ROOM_LIGHT_MANUAL_OVERRIDE[areaNameNormalized];
   const overrideEntity = overrideId ? entities?.[overrideId] : undefined;
   const overrideOn = overrideEntity?.state === 'on';
+
+  // Live countdown to the 12 h auto-resume, computed from the boolean's own last_changed -
+  // the same source the AppDaemon watcher uses, so dashboard and server always agree.
+  // Timer callbacks refresh the clock state; render itself stays pure.
+  const [overrideNowMs, setOverrideNowMs] = useState(0);
+  useEffect(() => {
+    if (!overrideOn) return;
+    const update = () => setOverrideNowMs(Date.now());
+    const t0 = window.setTimeout(update, 0);
+    const id = window.setInterval(update, 30_000);
+    return () => {
+      window.clearTimeout(t0);
+      window.clearInterval(id);
+    };
+  }, [overrideOn]);
+
+  const overrideRemainingLabel = (() => {
+    if (!overrideOn) return null;
+    const lc = overrideEntity?.last_changed ? Date.parse(overrideEntity.last_changed) : NaN;
+    if (Number.isNaN(lc) || overrideNowMs <= 0) return 'resumes in ≤12 h';
+    const remainingMs = ROOM_LIGHT_MANUAL_OVERRIDE_TIMEOUT_HOURS * 3600_000 - (overrideNowMs - lc);
+    if (remainingMs <= 0) return 'resuming…';
+    const totalMin = Math.ceil(remainingMs / 60_000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return h > 0 ? `resumes in ${h}h ${String(m).padStart(2, '0')}m` : `resumes in ${m} min`;
+  })();
+
+  const toggleOverride = () => {
+    if (!callService || !overrideId) return;
+    callService({
+      domain: 'input_boolean',
+      service: overrideOn ? 'turn_off' : 'turn_on',
+      target: { entity_id: overrideId },
+    });
+  };
 
   // Filter to only existing lights
   const availableLights = roomLights.filter(lightId => entities?.[lightId]);
@@ -502,6 +538,32 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
               </div>
             );
           })}
+
+          {/* Automatic lighting - moved here from the retired Room Info drawer (user
+              2026-07-31: it was the only part of that drawer in use, and it belongs to
+              the card it affects). Named for what it controls, not as an "override";
+              the 12 h auto-resume countdown is its only sub-line. */}
+          {overrideEntity && (
+            <div
+              className='light-auto-row'
+              role='switch'
+              tabIndex={0}
+              aria-checked={!overrideOn}
+              onClick={toggleOverride}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  toggleOverride();
+                }
+              }}
+            >
+              <span className='light-auto-text'>
+                <span className='light-auto-name'>Automatic lighting</span>
+                {overrideOn && overrideRemainingLabel && <span className='light-auto-sub'>{overrideRemainingLabel}</span>}
+              </span>
+              <span className={`light-auto-knob ${overrideOn ? '' : 'on'}`} aria-hidden='true' />
+            </div>
+          )}
         </div>
       )}
 

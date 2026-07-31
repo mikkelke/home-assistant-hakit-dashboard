@@ -7,19 +7,16 @@
   max-height: 100vh;
   overflow: hidden;
 }
-
 .room-detail.desktop {
   flex: 0 0 auto;
   width: 450px;
   max-width: 500px;
 }
-
 @media (min-width: 1200px) {
   .room-detail.desktop {
     width: 500px;
   }
 }
-
 .room-detail.mobile {
   position: fixed;
   top: 0;
@@ -35,7 +32,6 @@
   touch-action: pan-y pinch-zoom;
   -webkit-overflow-scrolling: touch;
 }
-
 @keyframes slideUp {
   from {
     transform: translateY(100%);
@@ -44,7 +40,6 @@
     transform: translateY(0);
   }
 }
-
 .room-detail-header {
   display: flex;
   justify-content: space-between;
@@ -54,19 +49,16 @@
   background: rgba(18, 19, 22, 0.95);
   flex-shrink: 0;
 }
-
 .room-detail-header h2 {
   margin: 0;
   font-size: 1.35rem;
   font-weight: 600;
 }
-
 .room-detail-title {
   display: flex;
   align-items: center;
   gap: 0.75rem;
 }
-
 .presence-badge {
   padding: 0.25rem 0.5rem;
   background: rgba(34, 197, 94, 0.2);
@@ -76,7 +68,6 @@
   border-radius: 1rem;
   text-transform: uppercase;
 }
-
 .close-button {
   width: 32px;
   height: 32px;
@@ -91,23 +82,19 @@
   cursor: pointer;
   transition: background 0.2s;
 }
-
 .close-button:hover {
   background: rgba(255, 255, 255, 0.2);
 }
-
 .room-detail-content {
   flex: 1;
   padding: 1.25rem;
   overflow-y: auto;
   max-height: calc(100vh - 72px); /* account for header height */
 }
-
 /* Uniform spacing between cards */
 .room-detail-content > *:not(:last-child) {
   margin-bottom: 1rem;
 }
-
 /* TV Lift Card (Bedroom) */
 .tv-lift-card {
   display: flex;
@@ -118,13 +105,11 @@
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 0.75rem;
 }
-
 .tv-lift-header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
-
 .tv-lift-title {
   display: flex;
   align-items: center;
@@ -132,18 +117,15 @@
   font-weight: 600;
   color: #e4e4e7;
 }
-
 .tv-lift-title svg {
   font-size: 1.1rem;
   color: #a1a1aa;
 }
-
 .tv-lift-quick {
   display: flex;
   gap: 0.35rem;
   margin-left: auto;
 }
-
 .tv-lift-quick-btn {
   display: inline-flex;
   align-items: center;
@@ -157,17 +139,14 @@
   transition: all 0.15s ease;
   font-size: 0.8rem;
 }
-
 .tv-lift-quick-btn:hover {
   background: rgba(59, 130, 246, 0.16);
   border-color: rgba(59, 130, 246, 0.3);
 }
-
 .tv-lift-quick-btn svg {
   font-size: 1rem;
   color: #a1a1aa;
 }
-
 .tv-lift-toggle {
   width: 32px;
   height: 32px;
@@ -181,24 +160,20 @@
   cursor: pointer;
   transition: all 0.15s ease;
 }
-
 .tv-lift-toggle:hover {
   background: rgba(59, 130, 246, 0.16);
   border-color: rgba(59, 130, 246, 0.28);
 }
-
 .tv-lift-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.5rem;
 }
-
 .tv-lift-body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
-
 .tv-lift-btn {
   display: flex;
   flex-direction: column;
@@ -213,27 +188,22 @@
   cursor: pointer;
   transition: all 0.15s ease;
 }
-
 .tv-lift-btn:hover {
   background: rgba(59, 130, 246, 0.16);
   border-color: rgba(59, 130, 246, 0.3);
 }
-
 .tv-lift-btn svg {
   font-size: 1.3rem;
   color: #a1a1aa;
 }
-
 .tv-lift-btn .primary {
   font-size: 0.9rem;
   font-weight: 600;
 }
-
 .tv-lift-btn .secondary {
   font-size: 0.7rem;
   color: #a1a1aa;
 }
-
 /* Standalone Stat Card */
 .room-stat-card {
   display: flex;
@@ -246,24 +216,20 @@
   border-radius: 0.75rem;
   margin-bottom: 1rem;
 }
-
 .room-stat-card svg {
   font-size: 1.5rem;
   color: #3b82f6;
 }
-
 .stat-value {
   font-size: 1.5rem;
   font-weight: 700;
   color: #e4e4e7;
 }
-
 .stat-label {
   font-size: 0.7rem;
   color: #71717a;
   text-transform: uppercase;
 }
-
 /* Overlay for mobile */
 .overlay {
   position: fixed;
@@ -275,7 +241,6 @@
   z-index: 99;
   animation: fadeIn 0.2s ease;
 }
-
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -284,111 +249,6 @@
     opacity: 1;
   }
 }
-
-/* Room Info Section */
-.room-info-section {
-  margin-top: 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  padding-top: 1rem;
-}
-
-.room-info-toggle {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: rgba(24, 25, 28, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 0.5rem;
-  color: #a1a1aa;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.room-info-toggle:hover {
-  background: rgba(36, 38, 43, 0.85);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: #e4e4e7;
-}
-
-.room-info-toggle svg:first-child {
-  font-size: 1.1rem;
-  color: #71717a;
-}
-
-.room-info-toggle span {
-  flex: 1;
-  text-align: left;
-}
-
-.room-info-toggle svg:last-child {
-  font-size: 1rem;
-  color: #71717a;
-}
-
-.room-info-content {
-  margin-top: 0.75rem;
-  padding: 0.75rem;
-  background: rgba(18, 19, 22, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 0.5rem;
-}
-
-.room-info-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.5rem 0;
-}
-
-.room-info-item:not(:last-child) {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  padding-bottom: 0.75rem;
-  margin-bottom: 0.5rem;
-}
-
-.room-info-item svg {
-  font-size: 1.25rem;
-  color: #71717a;
-  margin-top: 0.1rem;
-}
-
-.room-info-details {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.room-info-label {
-  font-size: 0.7rem;
-  color: #71717a;
-  text-transform: uppercase;
-}
-
-.room-info-value {
-  font-size: 0.9rem;
-  color: #e4e4e7;
-}
-
-/* Presence mode toggle row inside Room Info */
-.room-info-item--toggle {
-  width: 100%;
-  background: none;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  color: inherit;
-  border-radius: 0.35rem;
-  transition: background 0.15s;
-  align-items: center;
-}
-
-.room-info-item--toggle:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
 /* Energy Card */
 .energy-card {
   background: rgba(24, 25, 28, 0.85);
@@ -396,42 +256,35 @@
   border-radius: 0.75rem;
   padding: 0.9rem 1rem;
 }
-
 .energy-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 0.75rem;
 }
-
 .energy-metric {
   display: flex;
   align-items: center;
   gap: 0.6rem;
 }
-
 .energy-metric svg {
   font-size: 1.3rem;
   color: #fbbf24;
 }
-
 .energy-values {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
 }
-
 .energy-label {
   font-size: 0.75rem;
   color: #a1a1aa;
   text-transform: uppercase;
 }
-
 .energy-value {
   font-size: 1.1rem;
   font-weight: 700;
   color: #e4e4e7;
 }
-
 /* Overnight Guest Toggle */
 .overnight-guest-toggle {
   display: flex;
@@ -447,34 +300,28 @@
   transition: all 0.2s;
   margin-bottom: 1rem;
 }
-
 .overnight-guest-toggle:hover {
   background: rgba(36, 38, 43, 0.9);
   border-color: rgba(59, 130, 246, 0.3);
 }
-
 .overnight-guest-toggle.on {
   background: rgba(59, 130, 246, 0.18);
   border-color: rgba(59, 130, 246, 0.45);
   color: #e4e4e7;
 }
-
 .overnight-guest-toggle svg {
   font-size: 1.5rem;
   color: #71717a;
   transition: color 0.2s;
 }
-
 .overnight-guest-toggle.on svg {
   color: #a855f7;
 }
-
 .overnight-guest-toggle .toggle-label {
   flex: 1;
   text-align: left;
   font-size: 0.85rem;
 }
-
 /* Toggle Switch */
 .toggle-switch {
   width: 40px;
@@ -484,7 +331,6 @@
   position: relative;
   transition: background 0.2s;
 }
-
 .toggle-switch::after {
   content: '';
   position: absolute;
@@ -496,57 +342,10 @@
   background: #71717a;
   transition: all 0.2s;
 }
-
 .toggle-switch.on {
   background: rgba(59, 130, 246, 0.45);
 }
-
 .toggle-switch.on::after {
   left: 20px;
   background: #3b82f6;
-}
-
-
-/* Manual lights override — tucked into Room Info (auto-clears after 12 h) */
-button.room-info-item.room-info-action {
-  width: 100%;
-  background: transparent;
-  border: none;
-  text-align: left;
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
-}
-.room-info-action.active > svg {
-  color: #fbbf77;
-}
-.room-info-action.active .room-info-value {
-  color: #fbbf77;
-}
-.room-info-switch {
-  margin-left: auto;
-  width: 34px;
-  height: 19px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.12);
-  position: relative;
-  transition: background 0.15s;
-  flex-shrink: 0;
-}
-.room-info-switch.on {
-  background: rgba(245, 158, 11, 0.55);
-}
-.room-info-switch-knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: #d4d4d8;
-  transition: transform 0.15s;
-}
-.room-info-switch.on .room-info-switch-knob {
-  transform: translateX(15px);
-  background: #fff;
 }
