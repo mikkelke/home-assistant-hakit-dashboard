@@ -339,3 +339,33 @@
   color: rgba(235, 235, 245, 0.3);
   white-space: nowrap;
 }
+
+/* Quick dots on the collapsed row - one per light, wearing its current color; tap toggles.
+   They replace the "n of m on" word: lit vs grey dots carry the same count, visually. */
+.light-quick {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.light-quick-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+  background: #fbbf24;
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.35);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.08s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+.light-quick-dot:active {
+  transform: scale(0.85);
+}
+.light-quick-dot.is-off {
+  background: transparent;
+  border: 1.6px solid rgba(235, 235, 245, 0.28);
+  box-shadow: none;
+}

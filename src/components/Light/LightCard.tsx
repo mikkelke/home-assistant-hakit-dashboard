@@ -376,8 +376,34 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
         </span>
         <span className='light-title'>Lights</span>
         <span className='light-top-right'>
-          <span className='light-state muted'>
-            {lightsOn} of {availableLights.length} on
+          {/* Quick dots (user 2026-07-31, same idea as the Access card's doors): every light
+              is one tap from the collapsed row, each wearing its own current color. The dots
+              also ARE the "n of m on" count, so the word is gone - lit dots say it better. */}
+          <span
+            className='light-quick'
+            onClick={e => e.stopPropagation()}
+            onKeyDown={e => e.stopPropagation()}
+            role='presentation'
+          >
+            {availableLights.map(lightId => {
+              const optimisticState = optimisticStates[lightId];
+              const isOn =
+                optimisticState !== null && optimisticState !== undefined
+                  ? optimisticState === 'on'
+                  : entities[lightId]?.state === 'on';
+              const name = getLightName(lightId);
+              return (
+                <button
+                  key={lightId}
+                  type='button'
+                  className={`light-quick-dot ${isOn ? '' : 'is-off'}`}
+                  style={isOn ? { background: getLightColor(lightId) } : undefined}
+                  onClick={() => handleToggleLight(lightId)}
+                  aria-label={`${isOn ? 'Turn off' : 'Turn on'} ${name}`}
+                  title={name}
+                />
+              );
+            })}
           </span>
           {overrideOn && (
             <span className='light-override-header-icon' title='Automatic lighting is paused for this room'>
