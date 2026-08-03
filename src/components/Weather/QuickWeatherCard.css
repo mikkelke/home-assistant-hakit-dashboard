@@ -171,7 +171,8 @@
 
 .quick-weather-ribbon-ticks {
   position: relative;
-  height: 0.9rem;
+  /* two lines now: the time, and the forecast temperature under it */
+  height: 2.1rem;
   margin-top: 0.4rem;
 }
 
@@ -614,4 +615,22 @@
 }
 .quick-weather-card__hour-wind.is-strong .quick-weather-card__hour-gust {
   color: #f59e0b;
+}
+
+/* Forecast temperature under each ribbon tick */
+.quick-weather-ribbon-tick-temp {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(235, 235, 245, 0.55);
+}
+.quick-weather-ribbon-tick.is-now .quick-weather-ribbon-tick-temp {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* The whole ribbon opens today by the hour */
+.quick-weather-ribbon.is-tappable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }

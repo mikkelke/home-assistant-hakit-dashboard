@@ -239,6 +239,8 @@ interface TickCandidate {
   pct: number;
   label: string;
   priority: number;
+  /** Forecast temperature at that tick, shown under the time (user 2026-08-01). */
+  temp?: string;
 }
 
 /** Greedy tick de-dup: highest-priority ticks (now, then the window edges) win; anything within
@@ -831,11 +833,29 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   // anything (user 2026-07-31). The rain and gust HOURS are named in words underneath, so the
   // ticks no longer have to mark events - they just have to make the bar readable as a clock.
   const TICK_STEP_MS = 3 * 3600_000;
+  /** Forecast temperature at a moment - the hour bucket containing it. */
+  const tempAt = (ms: number): number | undefined => {
+    for (const h of hourlyAll) {
+      const t = Date.parse(h.datetime);
+      if (!Number.isFinite(t)) continue;
+      if (ms >= t && ms < t + (h.bucketHours ?? 1) * 3600_000) return h.temperature;
+    }
+    return undefined;
+  };
   const roundTicks: TickCandidate[] = [];
   for (let t = windowStartMs; t <= windowEndMs; t += TICK_STEP_MS) {
-    roundTicks.push({ pct: pctOf(t, windowStartMs, windowEndMs), label: formatHHMM(new Date(t)), priority: 2 });
+    const temp = tempAt(t);
+    roundTicks.push({
+      pct: pctOf(t, windowStartMs, windowEndMs),
+      label: formatHHMM(new Date(t)),
+      priority: 2,
+      temp: temp != null ? `${Math.round(temp)}°` : undefined,
+    });
   }
-  const tickCandidates: TickCandidate[] = showRibbon ? [{ pct: nowRibbonPct, label: formatHHMM(now), priority: 3 }, ...roundTicks] : [];
+  const tickCandidates: TickCandidate[] = showRibbon ? [
+        { pct: nowRibbonPct, label: formatHHMM(now), priority: 3, temp: currentTemp != null ? `${Math.round(currentTemp)}\u00b0` : undefined },
+        ...roundTicks,
+      ] : [];
   const ticks = pickTicks(tickCandidates, 7);
 
   // Week rows - up to 4 days, today excluded (the ribbon already tells today's story).
@@ -907,7 +927,19 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
       </div>
 
       {showRibbon && (
-        <div className='quick-weather-ribbon'>
+        <div
+          className='quick-weather-ribbon is-tappable'
+          role='button'
+          tabIndex={0}
+          aria-label='Open today by hour'
+          onClick={() => setSelectedDayDatetime(new Date(nowMs).toISOString())}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setSelectedDayDatetime(new Date(nowMs).toISOString());
+            }
+          }}
+        >
           <div className='quick-weather-ribbon-track'>
             <div className='quick-weather-ribbon-fill' style={{ background: ribbonGradientCss }} />
             {conditionRuns.map(r => {
@@ -950,6 +982,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
                 style={{ left: `${t.pct}%` }}
               >
                 {t.label}
+                {t.temp && <span className='quick-weather-ribbon-tick-temp'>{t.temp}</span>}
               </span>
             ))}
           </div>
