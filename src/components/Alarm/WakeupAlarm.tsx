@@ -116,7 +116,12 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
   // so a changed state is real confirmation rather than an optimistic guess.
   const [wakeFired, setWakeFired] = useState(false);
   const wakeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (wakeTimer.current) clearTimeout(wakeTimer.current); }, []);
+  useEffect(
+    () => () => {
+      if (wakeTimer.current) clearTimeout(wakeTimer.current);
+    },
+    []
+  );
   const wakeNowId = 'input_button.wake_up_now';
   const wakeNowEntity = entities?.[wakeNowId];
   const handleWakeNow = useCallback(() => {

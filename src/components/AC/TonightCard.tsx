@@ -226,7 +226,12 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   // inert while you wonder whether it registered.
   const [pressed, setPressed] = useState<null | { kind: 'bed' | 'off' | 'arm'; at: number }>(null);
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (pressTimer.current) clearTimeout(pressTimer.current); }, []);
+  useEffect(
+    () => () => {
+      if (pressTimer.current) clearTimeout(pressTimer.current);
+    },
+    []
+  );
   const markPressed = (kind: 'bed' | 'off' | 'arm') => {
     setPressed({ kind, at: Date.now() });
     if (pressTimer.current) clearTimeout(pressTimer.current);
@@ -725,7 +730,17 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
               }}
               disabled={pressed?.kind === 'arm' && !armed}
             >
-              {pressed?.kind === 'arm' ? (armed ? <><Icon icon='mdi:check' aria-hidden='true' /> Armed</> : 'Arming…') : 'Cool Tonight'}
+              {pressed?.kind === 'arm' ? (
+                armed ? (
+                  <>
+                    <Icon icon='mdi:check' aria-hidden='true' /> Armed
+                  </>
+                ) : (
+                  'Arming…'
+                )
+              ) : (
+                'Cool Tonight'
+              )}
             </button>
           )}
           {buttonKind === 'going_to_bed' && (
