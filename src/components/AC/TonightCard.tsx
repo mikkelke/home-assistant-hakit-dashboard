@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { attrNum, attrStr, attrStringArray } from '../../types';
@@ -220,6 +220,18 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
     const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
+  // Press feedback (user 2026-08-03: "quite a delay before I can see it IRL"). Stopping the
+  // AC and starting the wake sequence both take seconds to show up in the room, so the button
+  // acknowledges the press immediately and then confirms from the entity, rather than sitting
+  // inert while you wonder whether it registered.
+  const [pressed, setPressed] = useState<null | { kind: 'bed' | 'off' | 'arm'; at: number }>(null);
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (pressTimer.current) clearTimeout(pressTimer.current); }, []);
+  const markPressed = (kind: 'bed' | 'off' | 'arm') => {
+    setPressed({ kind, at: Date.now() });
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    pressTimer.current = setTimeout(() => setPressed(null), 6000);
+  };
   const [sheetOpen, setSheetOpen] = useState(false);
   // Bar tap -> exact schedule list (times the bar itself can't fit without colliding).
   const [schedOpen, setSchedOpen] = useState(false);
@@ -305,6 +317,9 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   const nowPct = barEndMs != null ? pctOf(nowMs, barStartMs, barEndMs) : null;
 
   const coolRunning = ACTIVE_COOLING_STATES.has(statusState);
+  // The press is confirmed when the compressor actually stops - the app answers the
+  // AC-removed press by winding down, drying, and disarming.
+  const acStopped = !coolRunning || !armed;
   const minutesNeeded = attrNum(statusAttrs.minutes_needed, NaN);
   const remainMs = Number.isFinite(minutesNeeded) && minutesNeeded > 0 ? minutesNeeded * 60_000 : 0;
   // The scheduler's actual chosen stretches (planned_cool_windows, closed ISO pairs). When
@@ -703,30 +718,63 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
           {buttonKind === 'cool_tonight' && (
             <button
               type='button'
-              className='tonight-button tonight-button--tint'
-              onClick={() => call('input_boolean', 'turn_on', SMART_COOLING_ENABLE)}
+              className={`tonight-button tonight-button--tint${pressed?.kind === 'arm' ? ' is-working' : ''}`}
+              onClick={() => {
+                markPressed('arm');
+                call('input_boolean', 'turn_on', SMART_COOLING_ENABLE);
+              }}
+              disabled={pressed?.kind === 'arm' && !armed}
             >
-              Cool Tonight
+              {pressed?.kind === 'arm' ? (armed ? <><Icon icon='mdi:check' aria-hidden='true' /> Armed</> : 'Arming…') : 'Cool Tonight'}
             </button>
           )}
           {buttonKind === 'going_to_bed' && (
             <button
               type='button'
-              className='tonight-button tonight-button--indigo'
-              onClick={() => call('input_boolean', 'turn_on', SMART_COOLING_AC_REMOVED)}
+              className={`tonight-button tonight-button--indigo${pressed?.kind === 'bed' ? ' is-working' : ''}`}
+              onClick={() => {
+                markPressed('bed');
+                call('input_boolean', 'turn_on', SMART_COOLING_AC_REMOVED);
+              }}
+              disabled={pressed?.kind === 'bed'}
             >
-              <span>Going to Bed</span>
-              <small>stops the AC — unplug after</small>
+              {pressed?.kind === 'bed' ? (
+                acStopped ? (
+                  <>
+                    <span>
+                      <Icon icon='mdi:check' aria-hidden='true' /> AC stopped
+                    </span>
+                    <small>unplug it and sleep well</small>
+                  </>
+                ) : (
+                  <>
+                    <span>
+                      <Icon icon='mdi:loading' className='tonight-spin' aria-hidden='true' /> Stopping the AC…
+                    </span>
+                    <small>winding the compressor down</small>
+                  </>
+                )
+              ) : (
+                <>
+                  <span>Going to Bed</span>
+                  <small>stops the AC — unplug after</small>
+                </>
+              )}
             </button>
           )}
           {buttonKind === 'nothing_to_do' && (
             <div className='tonight-quiet-row'>
               <button
                 type='button'
-                className='tonight-quiet-action'
-                onClick={() => call('input_boolean', 'turn_off', SMART_COOLING_ENABLE)}
+                className={`tonight-icon-action${pressed?.kind === 'off' ? ' is-done' : ''}`}
+                onClick={() => {
+                  markPressed('off');
+                  call('input_boolean', 'turn_off', SMART_COOLING_ENABLE);
+                }}
+                aria-label='Turn the cooling off for tonight'
+                title='Turn off'
               >
-                Turn Off
+                <Icon icon={pressed?.kind === 'off' ? 'mdi:check' : 'mdi:power'} aria-hidden='true' />
               </button>
             </div>
           )}

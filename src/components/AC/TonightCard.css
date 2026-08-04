@@ -506,3 +506,51 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+
+/* Press feedback: the button acknowledges instantly, then confirms from the entity */
+.tonight-button.is-working {
+  opacity: 0.9;
+}
+.tonight-button svg {
+  vertical-align: -0.15em;
+  margin-right: 0.3rem;
+}
+.tonight-spin {
+  animation: tonight-spin 1s linear infinite;
+}
+@keyframes tonight-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tonight-spin {
+    animation: none;
+  }
+}
+
+/* Quiet actions are icons now, like every other card */
+.tonight-icon-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: #2c2c2e;
+  color: rgba(235, 235, 245, 0.6);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.08s ease, background 0.15s ease, color 0.15s ease;
+}
+.tonight-icon-action:active {
+  transform: scale(0.88);
+}
+.tonight-icon-action svg {
+  font-size: 1.05rem;
+}
+.tonight-icon-action.is-done {
+  background: rgba(52, 199, 89, 0.18);
+  color: #34c759;
+}

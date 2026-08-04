@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { useLocalStorageBoolean, useTouchScrollSlopGuard } from '../../hooks';
@@ -111,10 +111,19 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
   // "Wake up now": starts the whole wake sequence immediately (lights ramp, covers, radio) and
   // counts as the wake moment for the morning briefing. Backed by input_button.wake_up_now --
   // only rendered where that helper exists.
+  // Press feedback (user 2026-08-03): the wake sequence takes seconds to reach the room, so
+  // the button confirms the press itself. input_button's state IS the last-press timestamp,
+  // so a changed state is real confirmation rather than an optimistic guess.
+  const [wakeFired, setWakeFired] = useState(false);
+  const wakeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (wakeTimer.current) clearTimeout(wakeTimer.current); }, []);
   const wakeNowId = 'input_button.wake_up_now';
   const wakeNowEntity = entities?.[wakeNowId];
   const handleWakeNow = useCallback(() => {
     if (!callService || !wakeNowEntity) return;
+    setWakeFired(true);
+    if (wakeTimer.current) clearTimeout(wakeTimer.current);
+    wakeTimer.current = setTimeout(() => setWakeFired(false), 5000);
     callService({
       domain: 'input_button',
       service: 'press',
@@ -193,8 +202,15 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
               </button>
             </div>
             {wakeNowEntity && (
-              <button type='button' className='wakeup-now-btn' onClick={handleWakeNow} aria-label='Wake up now' title='Wake up now'>
-                <Icon icon='mdi:weather-sunset-up' />
+              <button
+                type='button'
+                className={`wakeup-now-btn${wakeFired ? ' is-fired' : ''}`}
+                onClick={handleWakeNow}
+                aria-label='Wake up now'
+                title={wakeFired ? 'Wake sequence started' : 'Wake up now'}
+                disabled={wakeFired}
+              >
+                <Icon icon={wakeFired ? 'mdi:check' : 'mdi:weather-sunset-up'} />
               </button>
             )}
           </div>

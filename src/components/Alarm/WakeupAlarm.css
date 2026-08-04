@@ -182,3 +182,9 @@
   font-size: 1.25rem;
 }
 
+
+/* Press confirmed: the sequence is running even though the room takes a moment to show it */
+.wakeup-now-btn.is-fired {
+  background: rgba(52, 199, 89, 0.18);
+  color: #34c759;
+}
