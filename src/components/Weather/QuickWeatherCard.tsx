@@ -852,10 +852,17 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
       temp: temp != null ? `${Math.round(temp)}°` : undefined,
     });
   }
-  const tickCandidates: TickCandidate[] = showRibbon ? [
-        { pct: nowRibbonPct, label: formatHHMM(now), priority: 3, temp: currentTemp != null ? `${Math.round(currentTemp)}\u00b0` : undefined },
+  const tickCandidates: TickCandidate[] = showRibbon
+    ? [
+        {
+          pct: nowRibbonPct,
+          label: formatHHMM(now),
+          priority: 3,
+          temp: currentTemp != null ? `${Math.round(currentTemp)}\u00b0` : undefined,
+        },
         ...roundTicks,
-      ] : [];
+      ]
+    : [];
   const ticks = pickTicks(tickCandidates, 7);
 
   // Week rows - up to 4 days, today excluded (the ribbon already tells today's story).
