@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import {
@@ -99,11 +100,14 @@ function RequestRow({ title, requested, cleaningHere, lastClean, onToggle, onOpe
   );
 }
 
-/** The archived-run viewer: the Rober2 card's map modal, openable from a request row. */
+/** The archived-run viewer: the Rober2 card's map modal, openable from a request row.
+ * Portaled to <body>: the mobile room-detail panel animates with a transform, and a
+ * transformed ancestor becomes the containing block for position:fixed - rendered
+ * in place, the modal would land a full viewport below the screen. */
 function RoomMapModal({ map, onClose }: { map: MapEntry; onClose: () => void }) {
   const { requestClose } = useModalBackButton({ isOpen: true, onRequestClose: onClose, historyKey: 'rober-room-map' });
   const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestClose);
-  return (
+  return createPortal(
     <>
       <div className='vacuum-map-overlay' onClick={requestClose} />
       <div className='vacuum-map-modal' onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
@@ -123,7 +127,8 @@ function RoomMapModal({ map, onClose }: { map: MapEntry; onClose: () => void }) 
           <img src={map.url} alt={map.filename} />
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 

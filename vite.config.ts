@@ -60,7 +60,7 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
-      '/local/robot_maps': {
+      '/local/rober2_maps': {
         target: HA_TARGET,
         changeOrigin: true,
         secure: false,
