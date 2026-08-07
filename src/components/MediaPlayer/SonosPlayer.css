@@ -709,3 +709,60 @@
 .sonos-note.error {
   color: #ff6961;
 }
+
+/* Keep-playing switch (rooftop only): same row grammar as LightCard's "Automatic
+   lighting" row, knob in the Sonos green. */
+.sonos-keep-row {
+  margin-top: 0.35rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sonos-keep-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.sonos-keep-name {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.sonos-keep-sub {
+  font-size: 0.75rem;
+  color: rgba(235, 235, 245, 0.3);
+}
+
+.sonos-keep-knob {
+  margin-left: auto;
+  position: relative;
+  width: 42px;
+  height: 26px;
+  border-radius: 13px;
+  background: #3a3a3c;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+.sonos-keep-knob.on {
+  background: #22c55e;
+}
+.sonos-keep-knob::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: left 0.15s ease;
+}
+.sonos-keep-knob.on::after {
+  left: 19px;
+}

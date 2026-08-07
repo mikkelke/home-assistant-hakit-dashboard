@@ -65,10 +65,9 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
   const dishwasherStateEntity = entities?.['sensor.dishwasher_state'];
   const vacuum = entities?.[VACUUM_ENTITY];
 
-  // Rooftop: keep the Sonos on / exempt from follow-me (no-motion) muting.
+  // Rooftop: keep the Sonos on / exempt from follow-me muting while docked.
+  // Rendered as a row inside the Sonos card (user 2026-08-07), not a standalone toggle.
   const keepSpeakerOnId = 'input_boolean.rooftop_keep_speaker_on';
-  const keepSpeakerEntity = entities?.[keepSpeakerOnId];
-  const keepSpeakerOn = keepSpeakerEntity?.state === 'on';
 
   // TV entities
   const bedroomTv = entities?.['media_player.bedroom_tv'];
@@ -108,7 +107,14 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
         {/* Sonos Player - MOST IMPORTANT, at the top */}
         {/* Hide living room Sonos when TV is using it */}
         {mediaPlayer && shouldShowSonos && (
-          <SonosPlayer entityId={mediaSensor} entities={entities} hassUrl={hassUrl} callService={callService} />
+          <SonosPlayer
+            entityId={mediaSensor}
+            entities={entities}
+            hassUrl={hassUrl}
+            callService={callService}
+            keepPlayingEntityId={isRooftop ? keepSpeakerOnId : undefined}
+            dockedEntityId={isRooftop ? 'binary_sensor.rooftop_charging' : undefined}
+          />
         )}
 
         {/* TV Card (Bedroom and Living Room) */}
@@ -151,25 +157,6 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
 
         {/* Light Controls (bedroom moves this below the blind - see the Light Controls line after Cover) */}
         {!isBedroom && <LightCard areaName={area.name} entities={entities} callService={callService} />}
-
-        {/* Keep speaker on (follow-me exempt) — Rooftop */}
-        {isRooftop && keepSpeakerEntity && (
-          <button
-            className={`room-cleaning-toggle ${keepSpeakerOn ? 'requested' : ''}`}
-            onClick={() =>
-              callService?.({
-                domain: 'input_boolean',
-                service: keepSpeakerOn ? 'turn_off' : 'turn_on',
-                target: { entity_id: keepSpeakerOnId },
-              })
-            }
-            title='Keep the rooftop speaker on (exempt from follow-me / no-motion muting)'
-          >
-            <Icon icon='mdi:speaker' />
-            <span className='toggle-text'>Keep speaker playing</span>
-            <div className={`toggle-indicator ${keepSpeakerOn ? 'on' : 'off'}`} />
-          </button>
-        )}
 
         {/* Bedroom seasonal combo slot: floor heating in winter, the Tonight cooling card once AC
             season starts (heatingSeason gates on the whole-apartment thermostat) - never both. */}

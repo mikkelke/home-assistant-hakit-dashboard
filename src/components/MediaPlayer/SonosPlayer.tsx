@@ -85,9 +85,13 @@ function withHistoryWindow(action: (targetWindow: Window) => void) {
  *  chrome and title); the room-detail home gets the collapsible card. */
 interface SonosCardProps extends SonosPlayerProps {
   embedded?: boolean;
+  /** Rooftop only: input_boolean exempting this speaker from follow-me muting while docked. */
+  keepPlayingEntityId?: string;
+  /** Rooftop only: binary_sensor that is on while the speaker sits in its charging dock. */
+  dockedEntityId?: string;
 }
 
-export function SonosPlayer({ entityId, entities, hassUrl, callService, embedded = false }: SonosCardProps) {
+export function SonosPlayer({ entityId, entities, hassUrl, callService, embedded = false, keepPlayingEntityId, dockedEntityId }: SonosCardProps) {
   // Collapsed by default in the room-detail home (same pattern as TonightCard/HeatCard).
   const [collapsed, setCollapsed] = useLocalStorageBoolean('sonoscard-collapsed', true);
   const topSlop = useTouchScrollSlopGuard();
@@ -120,6 +124,21 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService, embedded
   const [seekerPreview, setSeekerPreview] = useState<number | null>(null); // position in seconds while dragging
   const [, setSeekerTick] = useState(0); // force re-render for live position when playing
   const player = entities?.[entityId];
+
+  // Rooftop: docked (charging), follow-me mutes this speaker when the living room is
+  // empty; off the dock it always plays (follow_me.py _is_present). The switch is named
+  // for the one case it changes.
+  const keepPlaying = keepPlayingEntityId ? entities?.[keepPlayingEntityId] : undefined;
+  const keepPlayingOn = keepPlaying?.state === 'on';
+  const dockedNow = dockedEntityId ? entities?.[dockedEntityId]?.state === 'on' : false;
+  const toggleKeepPlaying = () => {
+    if (!callService || !keepPlayingEntityId) return;
+    callService({
+      domain: 'input_boolean',
+      service: keepPlayingOn ? 'turn_off' : 'turn_on',
+      target: { entity_id: keepPlayingEntityId },
+    });
+  };
 
   // Use safe fallbacks when player is missing so all hooks run unconditionally (avoids React #300 when switching rooms)
   const state = player?.state ?? 'unavailable';
@@ -1292,6 +1311,35 @@ export function SonosPlayer({ entityId, entities, hassUrl, callService, embedded
           {sourceMark}
         </button>
       </div>
+
+      {/* Keep playing while docked - the standalone RoomDetail toggle folded into this
+          card (user 2026-08-07), same row grammar as LightCard's "Automatic lighting". */}
+      {keepPlaying && (
+        <div
+          className='sonos-keep-row'
+          role='switch'
+          tabIndex={0}
+          aria-checked={keepPlayingOn}
+          onClick={toggleKeepPlaying}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              toggleKeepPlaying();
+            }
+          }}
+          title='Docked, the speaker mutes when the living room is empty. Off the dock it always plays.'
+        >
+          <span className='sonos-keep-text'>
+            <span className='sonos-keep-name'>Keep playing while docked</span>
+            {dockedNow && (
+              <span className='sonos-keep-sub'>
+                {keepPlayingOn ? 'Docked now — staying on' : 'Docked now — mutes when the living room empties'}
+              </span>
+            )}
+          </span>
+          <span className={`sonos-keep-knob ${keepPlayingOn ? 'on' : ''}`} aria-hidden='true' />
+        </div>
+      )}
     </>
   );
 
