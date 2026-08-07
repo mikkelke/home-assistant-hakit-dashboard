@@ -8,7 +8,6 @@ import { StatusBar } from '../StatusBar';
 import { HomePulse } from '../HomePulse';
 import { QuickAccess } from '../QuickAccess/QuickAccess';
 import { RoomGrid } from '../RoomGrid';
-import { RoomDetail } from '../RoomDetail';
 import { Menu } from '../Menu';
 import './Dashboard.css';
 
@@ -16,6 +15,15 @@ import './Dashboard.css';
 // split out of the first-paint bundle. The Suspense fallback is an empty stand-in for the page's own
 // full-screen dark backdrop (see .energy-page-loading in Dashboard.css), so the swap is invisible.
 const EnergyPage = lazy(() => import('../Energy').then(module => ({ default: module.EnergyPage })));
+
+// Room detail is the app's other big subtree (every card lives in it) and only mounts on a room tap,
+// so it is split out too — phones are the main client (see the audience memory) and cold loads are
+// common there. Unlike Energy it is warmed on idle right after first paint, because a room tap is the
+// most likely next action: by the time anyone taps, the chunk is already cached and the panel opens
+// with no fetch. `import()` is memoised by the module registry, so the warm-up and the lazy() call
+// share one promise.
+const RoomDetail = lazy(() => import('../RoomDetail').then(module => ({ default: module.RoomDetail })));
+const warmRoomDetail = () => void import('../RoomDetail');
 
 /** Build mock washer entities for ?washer_demo=running|unemptied|paused|emptied|off (for UI preview). */
 function getWasherDemoEntities(mode: string | null): HassEntities {
@@ -279,6 +287,20 @@ export function Dashboard() {
       return base;
     return { ...base, ...washerMock, ...dishwasherMock, ...dryerMock };
   }, [entities, washerDemo, dishwasherDemo, dryerDemo]);
+
+  // Fetch the room-detail chunk once the browser is idle after first paint, so the first room tap
+  // costs nothing. requestIdleCallback is missing on Safari/iOS, which is most of this household's
+  // phones — fall back to a timeout there rather than skipping the warm-up on the very clients it
+  // matters most for.
+  useEffect(() => {
+    const idle = window.requestIdleCallback;
+    if (typeof idle === 'function') {
+      const handle = idle(warmRoomDetail, { timeout: 3000 });
+      return () => window.cancelIdleCallback?.(handle);
+    }
+    const timer = window.setTimeout(warmRoomDetail, 1500);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   // Keep ref in sync with state (safety measure)
   useEffect(() => {
@@ -562,15 +584,20 @@ export function Dashboard() {
         {selectedRoom && (
           <>
             {isMobile && <div className='overlay' onClick={handleCloseRoom} />}
-            <RoomDetail
-              key={selectedRoom.area_id}
-              area={selectedRoom}
-              entities={displayEntities}
-              hassUrl={hassUrl}
-              callService={callService}
-              onClose={handleCloseRoom}
-              isMobile={isMobile}
-            />
+            {/* No fallback surface: the panel's own slide-up is the opening animation, and a
+                stand-in rectangle underneath it would read as a double flash. Warmed on idle, so
+                in practice the chunk is already there when this mounts. */}
+            <Suspense fallback={null}>
+              <RoomDetail
+                key={selectedRoom.area_id}
+                area={selectedRoom}
+                entities={displayEntities}
+                hassUrl={hassUrl}
+                callService={callService}
+                onClose={handleCloseRoom}
+                isMobile={isMobile}
+              />
+            </Suspense>
           </>
         )}
 
