@@ -91,7 +91,15 @@ interface SonosCardProps extends SonosPlayerProps {
   dockedEntityId?: string;
 }
 
-export function SonosPlayer({ entityId, entities, hassUrl, callService, embedded = false, keepPlayingEntityId, dockedEntityId }: SonosCardProps) {
+export function SonosPlayer({
+  entityId,
+  entities,
+  hassUrl,
+  callService,
+  embedded = false,
+  keepPlayingEntityId,
+  dockedEntityId,
+}: SonosCardProps) {
   // Collapsed by default in the room-detail home (same pattern as TonightCard/HeatCard).
   const [collapsed, setCollapsed] = useLocalStorageBoolean('sonoscard-collapsed', true);
   const topSlop = useTouchScrollSlopGuard();
