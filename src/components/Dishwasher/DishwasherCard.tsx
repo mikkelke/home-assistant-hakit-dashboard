@@ -1,10 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
+import { useHass } from '@hakit/core';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { resolveDishwasherSemanticState } from '../../utils/dishwasherSemanticState';
 import { formatKr } from '../../utils/format';
+import { fireHaEvent } from '../../utils/haEvents';
 import { useRunCost } from '../../energy';
 import { ApplianceCycleTiming } from '../ApplianceCycleTiming';
+import { useLocalStorageBoolean, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
 import './DishwasherCard.css';
 
 const DISHWASHER_STATE_ID = 'sensor.dishwasher_state';
@@ -95,11 +99,202 @@ function getFeedbackUrl(): string | null {
   return url && url.length > 0 ? url : null;
 }
 
+type DishwasherPicker = 'programme' | 'short' | null;
+
+/** One generic picker sheet: a row per option, current selection checked in the dishwasher accent. */
+interface PickerSheetProps {
+  title: string;
+  options: readonly string[];
+  current: string;
+  onPick: (option: string) => void;
+  onClose: () => void;
+}
+
+function DishwasherPickerSheet({ title, options, current, onPick, onClose }: PickerSheetProps) {
+  const { requestClose } = useModalBackButton({ isOpen: true, onRequestClose: onClose, historyKey: 'dishwasher-picker' });
+  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestClose);
+
+  return createPortal(
+    <div className='dishwasher-modal-overlay' onClick={requestClose}>
+      <div
+        className='dishwasher-sheet'
+        role='dialog'
+        aria-modal='true'
+        onClick={e => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className='dishwasher-sheet-top'>
+          <span className='dishwasher-glyph'>
+            <Icon icon='mdi:dishwasher' aria-hidden='true' />
+          </span>
+          <span className='dishwasher-title'>{title}</span>
+          <button className='dishwasher-sheet-close modal-close-button' onClick={requestClose} aria-label='Close'>
+            <Icon icon='mdi:close' />
+          </button>
+        </div>
+        <div className='dishwasher-sheet-body'>
+          {options.map(opt => (
+            <button key={opt} type='button' className='dishwasher-sheet-row' onClick={() => onPick(opt)}>
+              <span>{opt}</span>
+              {opt === current && <Icon icon='mdi:check' className='dishwasher-sheet-check' aria-hidden='true' />}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+interface HistorySheetProps {
+  cyclesNewestFirst: DishwasherCycle[];
+  hasFeedbackData: boolean;
+  feedbackLoading: boolean;
+  feedbackError: string | null;
+  fetchFeedback: () => void;
+  cycleSelection: Record<number, string>;
+  setCycleSelection: React.Dispatch<React.SetStateAction<Record<number, string>>>;
+  savingCycleIndex: number | null;
+  handleConfirmCycle: (index: number) => void;
+  programmeKeys: string[];
+  onClose: () => void;
+}
+
+function DishwasherHistorySheet({
+  cyclesNewestFirst,
+  hasFeedbackData,
+  feedbackLoading,
+  feedbackError,
+  fetchFeedback,
+  cycleSelection,
+  setCycleSelection,
+  savingCycleIndex,
+  handleConfirmCycle,
+  programmeKeys,
+  onClose,
+}: HistorySheetProps) {
+  const { requestClose } = useModalBackButton({ isOpen: true, onRequestClose: onClose, historyKey: 'dishwasher-history' });
+  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestClose);
+
+  return createPortal(
+    <div className='dishwasher-modal-overlay' onClick={requestClose}>
+      <div
+        className='dishwasher-sheet'
+        role='dialog'
+        aria-modal='true'
+        onClick={e => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className='dishwasher-sheet-top'>
+          <span className='dishwasher-glyph'>
+            <Icon icon='mdi:history' aria-hidden='true' />
+          </span>
+          <span className='dishwasher-title'>Cycle history</span>
+          <button className='dishwasher-sheet-close modal-close-button' onClick={requestClose} aria-label='Close'>
+            <Icon icon='mdi:close' />
+          </button>
+        </div>
+        <div className='dishwasher-sheet-body'>
+          {feedbackLoading && !hasFeedbackData ? (
+            <p className='dishwasher-history-note'>Loading…</p>
+          ) : feedbackError ? (
+            <p className='dishwasher-history-note error'>
+              {feedbackError}
+              <button type='button' className='dishwasher-history-retry' onClick={fetchFeedback}>
+                Retry
+              </button>
+            </p>
+          ) : cyclesNewestFirst.length === 0 ? (
+            <p className='dishwasher-history-note'>No cycles recorded yet.</p>
+          ) : (
+            <div className='dishwasher-history-list'>
+              {cyclesNewestFirst.map((cycle, index) => {
+                const predictedLabel = PROGRAMME_KEY_TO_LABEL[cycle.predicted] ?? cycle.predicted;
+                const confirmedLabel = PROGRAMME_KEY_TO_LABEL[cycle.confirmed] ?? cycle.confirmed;
+                const isUnconfirmed = !cycle.programme_confirmed_by_human;
+                const isSaving = savingCycleIndex === index;
+                return (
+                  <div key={`${cycle.ts}-${index}`} className='dishwasher-history-row'>
+                    <div className='dishwasher-history-line'>
+                      <span className='dishwasher-history-ts'>{formatCycleTs(cycle.ts)}</span>
+                      <span>{formatDuration(cycle.duration_min)}</span>
+                      <span>{cycle.energy_kwh.toFixed(2)} kWh</span>
+                      <span className='dishwasher-history-programme' title={isUnconfirmed ? 'Predicted (unconfirmed)' : 'Confirmed'}>
+                        {isUnconfirmed ? predictedLabel : confirmedLabel}
+                        {isUnconfirmed && <span className='dishwasher-history-unconfirmed-mark'>?</span>}
+                      </span>
+                    </div>
+                    {isUnconfirmed && (
+                      <div className='dishwasher-history-confirm'>
+                        <select
+                          className='dishwasher-history-select'
+                          aria-label='Correct programme'
+                          value={cycleSelection[index] ?? cycle.predicted}
+                          onChange={e => setCycleSelection(prev => ({ ...prev, [index]: e.target.value }))}
+                          disabled={isSaving}
+                        >
+                          {programmeKeys.map(k => (
+                            <option key={k} value={k}>
+                              {PROGRAMME_KEY_TO_LABEL[k] ?? k}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type='button'
+                          className='dishwasher-history-confirm-btn'
+                          onClick={() => handleConfirmCycle(index)}
+                          disabled={isSaving}
+                          aria-label='Confirm programme'
+                        >
+                          <Icon
+                            icon={isSaving ? 'mdi:loading' : 'mdi:check'}
+                            className={isSaving ? 'dishwasher-spin' : ''}
+                            aria-hidden='true'
+                          />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
   const dishwasher = entities?.[DISHWASHER_STATE_ID];
   const dishwasherInputState = entities?.[DISHWASHER_INPUT_STATE_ID];
   const programmeSelect = entities?.[PROGRAMME_SELECT_ID];
   const shortSelect = entities?.[SHORT_SELECT_ID];
+
+  const [collapsed, setCollapsed] = useLocalStorageBoolean('dishwashercard-collapsed', true);
+  const headerSlop = useTouchScrollSlopGuard();
+  const connection = useHass((s: { connection?: unknown }) => s.connection);
+  // `connection` is typed `unknown` (see energy/ws.ts / VacuumCard) — narrow to boolean once so
+  // it can gate JSX directly (`unknown && <Jsx/>` doesn't type-check as ReactNode).
+  const hasConnection = Boolean(connection);
+
+  // Which picker/history sheet is open (at most one at a time — chips/footer icons open them).
+  const [openPicker, setOpenPicker] = useState<DishwasherPicker>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  // Press feedback for the "Emptied" action (quick button or hero pill): acknowledges instantly,
+  // then the entity flipping to Emptied hides the whole card — that's the real success signal.
+  const [emptiedPressed, setEmptiedPressed] = useState(false);
+  const emptiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (emptiedTimerRef.current) clearTimeout(emptiedTimerRef.current);
+    };
+  }, []);
 
   const [feedbackData, setFeedbackData] = useState<DishwasherFeedbackJson | null>(null);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
@@ -230,8 +425,11 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
         ? Math.min(100, (elapsedMin / totalMin) * 100)
         : 0;
   const countdownLabel = remainingMin == null ? null : remainingMin <= 0 ? 'Almost done' : `${formatDuration(remainingMin)} left`;
+  // New cycle-strip design only degrades to the plain timing line when there's truly nothing to
+  // bar-chart (no percentage AND no known total) — otherwise even a 0% bar is more informative.
+  const showProgressStrip = !(progressPct === 0 && totalMin == null);
 
-  // "Started HH:MM": prefer started_at_display if time-only (HH:MM); if ISO datetime, format to time; else use cycle_start_time
+  // "Started HH:MM": prefer started_at_display if it's time-only (HH:MM); if it's ISO datetime, format to time; else use cycle_start_time
   const startedDisplay = (() => {
     const s = startedAtDisplay && String(startedAtDisplay).trim();
     if (!s) return formatTimeOnly(cycleStartTimeLocal || cycleStartTime);
@@ -239,6 +437,7 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
     if (/^\d{4}-\d{2}/.test(s) || s.includes('T')) return formatTimeOnly(s);
     return formatTimeOnly(cycleStartTimeLocal || cycleStartTime);
   })();
+  const hasStartedDisplay = startedDisplay !== '--:--';
 
   const showApplianceTimingDetail =
     state === 'Running' &&
@@ -269,183 +468,277 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
     });
   };
 
-  const headerIcon = state === 'Running' ? 'mdi:dishwasher' : state === 'Unemptied' ? 'mdi:basket-outline' : 'mdi:dishwasher';
-
   const cyclesNewestFirst = feedbackData?.cycles ? [...feedbackData.cycles].reverse() : [];
 
+  const handlePick = (setter: (option: string) => void) => (option: string) => {
+    setter(option);
+    setOpenPicker(null);
+  };
+
+  const handleForceEmptied = () => {
+    if (!connection) return;
+    setEmptiedPressed(true);
+    if (emptiedTimerRef.current) clearTimeout(emptiedTimerRef.current);
+    emptiedTimerRef.current = setTimeout(() => setEmptiedPressed(false), 5000);
+    fireHaEvent(connection, 'dishwasher_force_emptied', { reason: 'Dashboard' });
+  };
+
+  const stateWord = state === 'Running' ? 'Running' : state === 'Paused' ? 'Paused' : 'Empty it';
+  const stateWordClass = state === 'Running' ? 'tint' : state === 'Unemptied' ? 'alert' : 'muted';
+
+  // "Done HH:MM": the dishwasher has no idle-detection lag (unlike washer/dryer), so last_changed
+  // IS the real cycle end — omitted entirely when it can't be parsed.
+  const lastChangedMs = dishwasher.last_changed ? Date.parse(dishwasher.last_changed) : NaN;
+  const doneAtDisplay = Number.isFinite(lastChangedMs)
+    ? new Date(lastChangedMs).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
+    : null;
+  const startedByRaw = typeof attrs.started_by === 'string' ? attrs.started_by.trim() : '';
+  const heroLine2 = startedByRaw
+    ? `Started by ${startedByRaw} · ${startedDisplay}`
+    : hasStartedDisplay
+      ? `Started ${startedDisplay}`
+      : null;
+
+  const renderChips = () => (
+    <div className='dishwasher-chips'>
+      <DishwasherChip label={programmeLabel} isInteractive={isInteractive} onClick={() => setOpenPicker('programme')} />
+      {shortSelect && (
+        <DishwasherChip label={shortSelect.state ?? '—'} isInteractive={isInteractive} onClick={() => setOpenPicker('short')} />
+      )}
+    </div>
+  );
+
   return (
-    <div className={`dishwasher-card state-${state.toLowerCase()}`}>
-      <div className='dishwasher-header'>
-        <div className='dishwasher-title-row'>
-          <span className={`dishwasher-icon-wrap ${state === 'Running' ? 'dancing' : ''} ${state === 'Paused' ? 'paused-pulse' : ''}`}>
-            <Icon icon={headerIcon} className='dishwasher-icon' />
+    <div className='dishwasher-card'>
+      <div
+        className='dishwasher-header'
+        onClick={() => {
+          if (headerSlop.consumeBlockClick()) return;
+          setCollapsed(v => !v);
+        }}
+        onTouchStart={headerSlop.onTouchStart}
+        onTouchMove={headerSlop.onTouchMove}
+        onTouchEnd={headerSlop.onTouchEnd}
+        onTouchCancel={headerSlop.onTouchCancel}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setCollapsed(v => !v);
+          }
+        }}
+        role='button'
+        tabIndex={0}
+        aria-expanded={!collapsed}
+      >
+        <span className='dishwasher-glyph'>
+          <Icon icon='mdi:dishwasher' aria-hidden='true' />
+        </span>
+        <span className='dishwasher-title'>Dishwasher</span>
+        {collapsed && state === 'Unemptied' && hasConnection && (
+          <span className='dishwasher-quick' onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} role='presentation'>
+            <button
+              type='button'
+              className='dishwasher-quick-btn'
+              onClick={handleForceEmptied}
+              disabled={emptiedPressed}
+              aria-label='Mark the dishwasher as emptied'
+              title='Mark emptied'
+            >
+              <Icon
+                icon={emptiedPressed ? 'mdi:loading' : 'mdi:basket-outline'}
+                className={emptiedPressed ? 'dishwasher-spin' : ''}
+                aria-hidden='true'
+              />
+            </button>
           </span>
-          <span className='dishwasher-label'>Dishwasher</span>
-        </div>
-        <span className='dishwasher-state-badge'>{state}</span>
+        )}
+        <span className='dishwasher-header-right'>
+          <span className={`dishwasher-word ${stateWordClass}`}>{stateWord}</span>
+          <Icon icon={collapsed ? 'mdi:chevron-down' : 'mdi:chevron-up'} aria-hidden='true' className='dishwasher-chevron' />
+        </span>
       </div>
 
-      <div className='dishwasher-body'>
-        <div className='dishwasher-row programme-row'>
-          <span className='dishwasher-field-label'>Programme:</span>
-          {isInteractive && options.length > 0 ? (
-            <select
-              className='dishwasher-programme-select'
-              value={programmeSelect?.state ?? ''}
-              onChange={e => handleProgrammeChange(e.target.value)}
-              aria-label='Programme'
-            >
-              {options.map(opt => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <span className={`dishwasher-programme-value ${!isInteractive ? 'muted' : ''}`}>{programmeLabel}</span>
+      {collapsed && state === 'Running' && (
+        <div className='dishwasher-collapsed-strip'>
+          <div className='dishwasher-collapsed-strip-fill' style={{ width: `${progressPct}%` }} />
+        </div>
+      )}
+
+      {!collapsed && (
+        <div className='dishwasher-content'>
+          {state === 'Running' && (
+            <>
+              {showProgressStrip ? (
+                <div className='dishwasher-cycle-strip'>
+                  <div className='dishwasher-cycle-bar'>
+                    <div className='dishwasher-cycle-track'>
+                      <div className='dishwasher-cycle-fill' style={{ width: `${progressPct}%` }} />
+                    </div>
+                    <div className='dishwasher-cycle-now' style={{ left: `${progressPct}%` }} />
+                  </div>
+                  <div className='dishwasher-cycle-meta'>
+                    {hasStartedDisplay && <span className='dishwasher-cycle-meta-start'>{startedDisplay}</span>}
+                    {countdownLabel != null && <span className='dishwasher-cycle-meta-countdown'>{countdownLabel}</span>}
+                    {estimatedEndTime && String(estimatedEndTime).trim() !== '' && (
+                      <span className='dishwasher-cycle-meta-end'>~{formatTimeOnly(estimatedEndTime)}</span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className='dishwasher-timing-line'>
+                  <ApplianceCycleTiming
+                    hasDetail={showApplianceTimingDetail}
+                    startedDisplay={startedDisplay}
+                    estimatedEndTime={estimatedEndTime}
+                    countdownLabel={countdownLabel}
+                    formatTimeOnly={formatTimeOnly}
+                  />
+                </div>
+              )}
+
+              {renderChips()}
+
+              {(energyUsed != null || liveCostKr != null || feedbackUrl) && (
+                <div className='dishwasher-footer'>
+                  {energyUsed != null && (
+                    <span className='dishwasher-footer-item'>
+                      <Icon icon='mdi:flash' aria-hidden='true' />
+                      {Number(energyUsed).toFixed(2)} kWh
+                    </span>
+                  )}
+                  {liveCostKr != null && <span className='dishwasher-footer-item'>≈ {formatKr(liveCostKr)}</span>}
+                  {feedbackUrl && (
+                    <span className='dishwasher-footer-actions'>
+                      <button
+                        type='button'
+                        className='dishwasher-footer-icon-btn'
+                        onClick={() => setHistoryOpen(true)}
+                        aria-label='Cycle history'
+                      >
+                        <Icon icon='mdi:history' aria-hidden='true' />
+                      </button>
+                    </span>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {state === 'Paused' && (
+            <div className='dishwasher-paused-row'>
+              <Icon icon='mdi:plus-circle-outline' aria-hidden='true' />
+              <span>Paused</span>
+            </div>
+          )}
+
+          {state === 'Unemptied' && (
+            <>
+              <div className='dishwasher-hero'>
+                <span className='dishwasher-hero-icon'>
+                  <Icon icon='mdi:basket-outline' aria-hidden='true' />
+                </span>
+                <span className='dishwasher-hero-text'>
+                  {doneAtDisplay && <span className='dishwasher-hero-line1'>Done {doneAtDisplay}</span>}
+                  {heroLine2 && <span className='dishwasher-hero-line2'>{heroLine2}</span>}
+                </span>
+                {hasConnection && (
+                  <button
+                    type='button'
+                    className='dishwasher-emptied-pill'
+                    onClick={handleForceEmptied}
+                    disabled={emptiedPressed}
+                    aria-busy={emptiedPressed}
+                  >
+                    <Icon
+                      icon={emptiedPressed ? 'mdi:loading' : 'mdi:check'}
+                      className={emptiedPressed ? 'dishwasher-spin' : ''}
+                      aria-hidden='true'
+                    />
+                    <span>Emptied</span>
+                  </button>
+                )}
+              </div>
+
+              {renderChips()}
+
+              {(runTimeMinutes != null || energyUsed != null || runCostKr != null || feedbackUrl) && (
+                <div className='dishwasher-footer'>
+                  {runTimeMinutes != null && (
+                    <span className='dishwasher-footer-item'>
+                      <Icon icon='mdi:clock-outline' aria-hidden='true' />
+                      Ran {formatDuration(runTimeMinutes)}
+                    </span>
+                  )}
+                  {energyUsed != null && (
+                    <span className='dishwasher-footer-item'>
+                      <Icon icon='mdi:flash' aria-hidden='true' />
+                      {Number(energyUsed).toFixed(2)} kWh
+                    </span>
+                  )}
+                  {runCostKr != null && <span className='dishwasher-footer-item'>≈ {formatKr(runCostKr)}</span>}
+                  {feedbackUrl && (
+                    <span className='dishwasher-footer-actions'>
+                      <button
+                        type='button'
+                        className='dishwasher-footer-icon-btn'
+                        onClick={() => setHistoryOpen(true)}
+                        aria-label='Cycle history'
+                      >
+                        <Icon icon='mdi:history' aria-hidden='true' />
+                      </button>
+                    </span>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
+      )}
 
-        {(state === 'Running' || state === 'Unemptied') && shortSelect && (
-          <div className='dishwasher-row short-row'>
-            <span className='dishwasher-field-label'>Short:</span>
-            <select
-              className='dishwasher-programme-select'
-              value={shortSelect.state ?? '—'}
-              onChange={e => handleShortChange(e.target.value)}
-              aria-label='Short programme'
-            >
-              {SHORT_OPTIONS.map(opt => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {state === 'Running' && (
-          <>
-            {hasProgressBar && (
-              <div className='dishwasher-progress'>
-                <div className='dishwasher-progress-bar'>
-                  <div className='dishwasher-progress-fill' style={{ width: `${progressPct}%` }} />
-                </div>
-                <span className='dishwasher-progress-pct'>{Math.round(progressPct)}%</span>
-              </div>
-            )}
-            <div className='dishwasher-countdown-line'>
-              <ApplianceCycleTiming
-                hasDetail={showApplianceTimingDetail}
-                startedDisplay={startedDisplay}
-                estimatedEndTime={estimatedEndTime}
-                countdownLabel={countdownLabel}
-                formatTimeOnly={formatTimeOnly}
-              />
-            </div>
-            {(energyUsed != null || liveCostKr != null) && (
-              <div className='dishwasher-stats'>
-                {energyUsed != null && <span>Used {Number(energyUsed).toFixed(2)} kWh</span>}
-                {energyUsed != null && liveCostKr != null && ' · '}
-                {liveCostKr != null && <span>≈ {formatKr(liveCostKr)}</span>}
-              </div>
-            )}
-          </>
-        )}
-
-        {state === 'Paused' && (
-          <div className='dishwasher-banner paused'>
-            <Icon icon='mdi:plus-circle-outline' />
-            <span>Adding items…</span>
-          </div>
-        )}
-
-        {state === 'Unemptied' && (
-          <>
-            {(runTimeMinutes != null || energyUsed != null) && (
-              <div className='dishwasher-stats'>
-                {runTimeMinutes != null && <span>Ran {formatDuration(runTimeMinutes)}</span>}
-                {runTimeMinutes != null && energyUsed != null && ' · '}
-                {energyUsed != null && <span>Used {Number(energyUsed).toFixed(2)} kWh</span>}
-                {energyUsed != null && runCostKr != null && ' · '}
-                {runCostKr != null && <span>≈ {formatKr(runCostKr)}</span>}
-              </div>
-            )}
-            <div className='dishwasher-banner unemptied'>
-              <Icon icon='mdi:alert-circle-outline' />
-              <span>Please empty the dishwasher</span>
-            </div>
-          </>
-        )}
-
-        {/* Cycle history - only when feedback URL is set */}
-        {feedbackUrl && (
-          <div className='dishwasher-history-section'>
-            <div className='dishwasher-history-title'>
-              <Icon icon='mdi:history' />
-              Cycle history
-            </div>
-            {feedbackLoading && !feedbackData ? (
-              <p className='dishwasher-history-loading'>Loading…</p>
-            ) : feedbackError ? (
-              <p className='dishwasher-history-error'>
-                {feedbackError}
-                <button type='button' onClick={fetchFeedback} style={{ marginLeft: '0.5rem', textDecoration: 'underline' }}>
-                  Retry
-                </button>
-              </p>
-            ) : cyclesNewestFirst.length === 0 ? (
-              <p className='dishwasher-history-empty'>No cycles recorded yet.</p>
-            ) : (
-              <div className='dishwasher-history-list'>
-                {cyclesNewestFirst.map((cycle, index) => {
-                  const predictedLabel = PROGRAMME_KEY_TO_LABEL[cycle.predicted] ?? cycle.predicted;
-                  const confirmedLabel = PROGRAMME_KEY_TO_LABEL[cycle.confirmed] ?? cycle.confirmed;
-                  const isUnconfirmed = !cycle.programme_confirmed_by_human;
-                  const isSaving = savingCycleIndex === index;
-                  return (
-                    <div key={`${cycle.ts}-${index}`} className={`dishwasher-cycle-row ${isUnconfirmed ? 'unconfirmed' : ''}`}>
-                      <span className='dishwasher-cycle-ts'>{formatCycleTs(cycle.ts)}</span>
-                      <span className='dishwasher-cycle-duration'>{formatDuration(cycle.duration_min)}</span>
-                      <span className='dishwasher-cycle-energy'>{cycle.energy_kwh.toFixed(2)} kWh</span>
-                      <span className='dishwasher-cycle-programme' title={isUnconfirmed ? 'Predicted (unconfirmed)' : 'Confirmed'}>
-                        {isUnconfirmed ? predictedLabel : confirmedLabel}
-                        {isUnconfirmed && ' (?)'}
-                      </span>
-                      <div className='dishwasher-cycle-actions'>
-                        {isUnconfirmed && (
-                          <>
-                            <select
-                              aria-label='Correct programme'
-                              value={cycleSelection[index] ?? cycle.predicted}
-                              onChange={e => setCycleSelection(prev => ({ ...prev, [index]: e.target.value }))}
-                              disabled={isSaving}
-                            >
-                              {PROGRAMME_KEYS.map(k => (
-                                <option key={k} value={k}>
-                                  {PROGRAMME_KEY_TO_LABEL[k]}
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              type='button'
-                              onClick={() => handleConfirmCycle(index)}
-                              disabled={isSaving}
-                              aria-label='Confirm programme'
-                            >
-                              Confirm
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      {openPicker === 'programme' && (
+        <DishwasherPickerSheet
+          title='Programme'
+          options={options}
+          current={programmeSelect?.state ?? ''}
+          onPick={handlePick(handleProgrammeChange)}
+          onClose={() => setOpenPicker(null)}
+        />
+      )}
+      {openPicker === 'short' && (
+        <DishwasherPickerSheet
+          title='Short'
+          options={SHORT_OPTIONS}
+          current={shortSelect?.state ?? '—'}
+          onPick={handlePick(handleShortChange)}
+          onClose={() => setOpenPicker(null)}
+        />
+      )}
+      {historyOpen && (
+        <DishwasherHistorySheet
+          cyclesNewestFirst={cyclesNewestFirst}
+          hasFeedbackData={feedbackData !== null}
+          feedbackLoading={feedbackLoading}
+          feedbackError={feedbackError}
+          fetchFeedback={fetchFeedback}
+          cycleSelection={cycleSelection}
+          setCycleSelection={setCycleSelection}
+          savingCycleIndex={savingCycleIndex}
+          handleConfirmCycle={handleConfirmCycle}
+          programmeKeys={PROGRAMME_KEYS}
+          onClose={() => setHistoryOpen(false)}
+        />
+      )}
     </div>
+  );
+}
+
+/** A setting's current value as a tappable pill — a plain muted span when the card isn't
+ * interactive (state has no editable settings right now). */
+function DishwasherChip({ label, isInteractive, onClick }: { label: string; isInteractive: boolean; onClick: () => void }) {
+  if (!isInteractive) return <span className='dishwasher-chip muted'>{label}</span>;
+  return (
+    <button type='button' className='dishwasher-chip' onClick={onClick}>
+      {label}
+    </button>
   );
 }

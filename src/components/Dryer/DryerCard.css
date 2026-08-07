@@ -1,370 +1,529 @@
-/* Dryer Card - mirrors Dishwasher/Washer card patterns */
+/* Dryer card — same iOS-styled shell as CoverCard.css (System Gray6 dark, 24px radius),
+   collapsed-by-default header, function color #fb923c throughout (glyph, running word, cycle
+   strip, quick/footer bell). Sheets (picker/history) are portaled to document.body — see
+   DryerCard.tsx — so their overlay/sheet rules below apply regardless of where in the DOM
+   they're mounted. */
+
 .dryer-card {
-  background: rgba(20, 21, 24, 0.9);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  background: #1c1c1e; /* iOS systemGray6 dark */
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.75rem;
+  border-radius: 24px;
   overflow: hidden;
   margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.92);
 }
 
-.dryer-card.state-running {
-  border-color: rgba(59, 130, 246, 0.35);
-}
-
-.dryer-card.state-unemptied {
-  border-color: rgba(234, 179, 8, 0.4);
-}
-
-/* Header */
+/* Header — always visible; the whole row is the tap target */
 .dryer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem;
-}
-
-.dryer-title-row {
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  padding: 1.25rem;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
-.dryer-icon-wrap {
-  display: inline-flex;
+.dryer-glyph {
+  display: flex;
   align-items: center;
   justify-content: center;
-  transform-origin: center center;
-}
-
-.dryer-icon-wrap.dancing {
-  animation: dryer-dance 1.2s ease-in-out infinite;
-}
-
-@keyframes dryer-dance {
-  0%, 100% { transform: translateX(0) translateY(0) rotate(-4deg); }
-  25% { transform: translateX(2px) translateY(-2px) rotate(4deg); }
-  50% { transform: translateX(-1px) translateY(0) rotate(-3deg); }
-  75% { transform: translateX(-2px) translateY(-2px) rotate(4deg); }
-}
-
-.dryer-icon {
-  font-size: 1.5rem;
-  color: #71717a;
-}
-
-.dryer-card.state-running .dryer-icon {
-  color: #f59e0b;
-  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.5));
-}
-
-.dryer-card.state-running .dryer-icon-wrap.dancing .dryer-icon {
-  animation: dryer-glow-pulse 2s ease-in-out infinite;
-}
-
-@keyframes dryer-glow-pulse {
-  0%, 100% { opacity: 1; filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.5)); }
-  50% { opacity: 0.9; filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.7)); }
-}
-
-.dryer-label {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #e4e4e7;
-}
-
-.dryer-state-badge {
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  padding: 0.25rem 0.5rem;
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.08);
-  color: #a1a1aa;
-}
-
-.dryer-card.state-running .dryer-state-badge {
-  background: rgba(59, 130, 246, 0.25);
-  color: #60a5fa;
-}
-
-.dryer-card.state-unemptied .dryer-state-badge {
-  background: rgba(234, 179, 8, 0.25);
-  color: #eab308;
-}
-
-.dryer-card.state-paused .dryer-state-badge {
-  background: rgba(251, 191, 36, 0.2);
-  color: #fbbf24;
-}
-
-/* Body */
-.dryer-body {
-  padding: 0 1rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.dryer-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.dryer-field-label {
-  font-size: 0.85rem;
-  color: #a1a1aa;
-}
-
-.dryer-programme-select {
-  flex: 1;
-  max-width: 100%;
-  padding: 0.4rem 0.6rem;
-  font-size: 0.9rem;
-  background: rgba(24, 25, 28, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.5rem;
-  color: #e4e4e7;
-  cursor: pointer;
-}
-
-.dryer-programme-select:focus {
-  outline: none;
-  border-color: rgba(245, 158, 11, 0.5);
-}
-
-.dryer-programme-value {
-  font-size: 0.9rem;
-  color: #e4e4e7;
-}
-
-.dryer-programme-value.muted {
-  color: #71717a;
-}
-
-/* Skåne + and Announce toggles */
-.dryer-skane-toggle,
-.dryer-announce-toggle {
-  margin-left: auto;
-  width: 40px;
-  height: 22px;
-  border-radius: 11px;
-  background: rgba(100, 100, 120, 0.5);
-  border: none;
-  cursor: pointer;
-  position: relative;
-  padding: 0;
-  transition: background 0.2s;
-}
-
-.dryer-skane-toggle:hover,
-.dryer-announce-toggle:hover {
-  background: rgba(120, 120, 140, 0.6);
-}
-
-.dryer-skane-toggle.on,
-.dryer-announce-toggle.on {
-  background: rgba(59, 130, 246, 0.45);
-}
-
-.dryer-skane-switch,
-.dryer-announce-switch {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  background: #71717a;
-  transition: all 0.2s;
+  background: rgba(251, 146, 60, 0.16);
+  color: #fb923c;
+}
+.dryer-glyph svg {
+  font-size: 1rem;
 }
 
-.dryer-skane-toggle.on .dryer-skane-switch,
-.dryer-announce-toggle.on .dryer-announce-switch {
-  left: 20px;
-  background: #3b82f6;
-}
-
-.dryer-row.announce-row {
-  padding: 0.25rem 0;
-}
-
-.dryer-row.announce-row svg {
-  font-size: 1.1rem;
-  color: #71717a;
-}
-
-/* Progress */
-.dryer-progress {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.dryer-progress-bar {
+.dryer-title {
   flex: 1;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.dryer-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #3b82f6, #10b981);
-  width: 0%;
-  border-radius: 999px;
-  transition: width 0.2s ease;
-}
-
-.dryer-progress-pct {
-  font-size: 0.8rem;
+  min-width: 0;
+  font-size: 1.05rem;
   font-weight: 600;
-  color: #a1a1aa;
-  min-width: 2.5rem;
-  text-align: right;
 }
 
-.dryer-countdown-line {
-  font-size: 0.8rem;
-  color: #71717a;
-}
-
-/* Stats (Unemptied) */
-.dryer-stats {
-  font-size: 0.85rem;
-  color: #a1a1aa;
-}
-
-/* Banners */
-.dryer-banner {
+.dryer-header-right {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 0.75rem;
-  border-radius: 0.5rem;
-  font-size: 0.85rem;
-}
-
-.dryer-banner svg {
-  font-size: 1.2rem;
+  gap: 0.6rem;
   flex-shrink: 0;
 }
 
-.dryer-banner.paused {
-  background: rgba(251, 191, 36, 0.15);
-  border: 1px solid rgba(251, 191, 36, 0.3);
+.dryer-word {
+  font-size: 0.9rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.dryer-word.tint {
+  color: #fb923c;
+}
+.dryer-word.muted {
+  color: rgba(235, 235, 245, 0.6);
+}
+.dryer-word.alert {
   color: #fbbf24;
 }
 
-.dryer-banner.unemptied {
-  background: rgba(234, 179, 8, 0.15);
-  border: 1px solid rgba(234, 179, 8, 0.35);
-  color: #eab308;
+.dryer-chevron {
+  font-size: 1.1rem;
+  color: rgba(235, 235, 245, 0.4);
+  flex-shrink: 0;
 }
 
-/* Cycle history */
-.dryer-history-section {
-  margin-top: 0.5rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.dryer-history-title {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #e4e4e7;
-  margin-bottom: 0.5rem;
+/* Collapsed quick actions: bell (Running) or basket (Unemptied), never both. */
+.dryer-quick {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.3rem;
 }
 
-.dryer-history-empty,
-.dryer-history-error,
-.dryer-history-configure {
-  font-size: 0.85rem;
-  color: #71717a;
-  padding: 0.5rem 0;
+.dryer-quick-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+  background: #2c2c2e;
+  color: rgba(235, 235, 245, 0.6);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.08s ease, background 0.2s ease, color 0.2s ease;
+}
+.dryer-quick-btn svg {
+  font-size: 0.95rem;
+}
+.dryer-quick-btn:active {
+  transform: scale(0.88);
+}
+.dryer-quick-btn.on {
+  background: rgba(34, 197, 94, 0.18);
+  color: #22c55e;
+}
+.dryer-quick-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Collapsed progress strip — hairline under the header while Running */
+.dryer-collapsed-strip {
+  margin: 10px 1.25rem 1.25rem;
+  height: 3px;
+  border-radius: 2px;
+  background: #2c2c2e;
+  overflow: hidden;
+}
+.dryer-collapsed-strip-fill {
+  height: 100%;
+  background: #fb923c;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* Expanded content */
+.dryer-content {
+  padding: 0 1.25rem 1.25rem;
+}
+
+/* Cycle strip (Running, usable progress) */
+.dryer-cycle-strip {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Bar sized exactly to the track (12px) — the "now" line's -2px top/bottom insets must stretch
+   only across the bar, not the meta row below it, so it lives in its own positioned wrapper. */
+.dryer-cycle-bar {
+  position: relative;
+  height: 12px;
+}
+
+.dryer-cycle-track {
+  position: relative;
+  height: 12px;
+  border-radius: 6px;
+  background: #2c2c2e;
+  overflow: hidden;
+}
+
+.dryer-cycle-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #7c3f16, #fb923c);
+  transition: width 0.3s ease;
+}
+
+.dryer-cycle-now {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.55);
+  transform: translateX(-50%);
+  transition: left 0.3s ease;
+}
+
+.dryer-cycle-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  font-size: 12px;
+}
+
+.dryer-cycle-meta-start {
+  color: rgba(235, 235, 245, 0.45);
+}
+.dryer-cycle-meta-countdown {
+  flex: 1;
+  text-align: center;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+}
+.dryer-cycle-meta-end {
+  color: rgba(235, 235, 245, 0.35);
+}
+
+/* Fallback single-line timing (no usable progress yet) */
+.dryer-timing-line {
+  padding: 0.1rem 0;
+}
+
+/* Chips */
+.dryer-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.dryer-chip {
+  background: #2c2c2e;
+  border: none;
+  border-radius: 15px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.dryer-chip.muted {
+  color: rgba(235, 235, 245, 0.5);
+  cursor: default;
+}
+.dryer-chip.on {
+  background: rgba(251, 146, 60, 0.16);
+  color: #fb923c;
+}
+
+/* Paused */
+.dryer-paused-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(235, 235, 245, 0.6);
+  font-size: 0.9rem;
+}
+.dryer-paused-row svg {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+/* Unemptied hero */
+.dryer-hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.dryer-hero-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: rgba(251, 191, 36, 0.14);
+  color: #fbbf24;
+}
+.dryer-hero-icon svg {
+  font-size: 22px;
+}
+.dryer-hero-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dryer-hero-line1 {
+  font-size: 15px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.92);
+}
+.dryer-hero-line2 {
+  font-size: 12.5px;
+  color: rgba(235, 235, 245, 0.45);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dryer-emptied-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  background: rgba(34, 197, 94, 0.18);
+  color: #22c55e;
+  border: none;
+  border-radius: 17px;
+  padding: 8px 14px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.dryer-emptied-pill:disabled {
+  opacity: 0.75;
+  cursor: default;
+}
+
+/* Spin (loading) icon, reused by the quick button, the Emptied pill and the history confirm button */
+.dryer-spin {
+  animation: dryer-spin 1s linear infinite;
+  display: inline-flex;
+}
+@keyframes dryer-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dryer-spin {
+    animation: none;
+  }
+}
+
+/* Footer */
+.dryer-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 12.5px;
+  color: rgba(235, 235, 245, 0.6);
+}
+.dryer-footer-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.dryer-footer-item svg {
+  font-size: 13px;
+}
+.dryer-footer-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dryer-footer-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0;
+  color: rgba(235, 235, 245, 0.6);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.dryer-footer-icon-btn svg {
+  font-size: 15px;
+}
+.dryer-footer-icon-btn.on {
+  color: #22c55e;
+}
+
+/* ---- Sheets (picker / history), portaled to document.body ---- */
+.dryer-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+
+.dryer-sheet {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  background: #1c1c1e;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+  padding: 1.25rem;
+  width: 100%;
+  max-width: 420px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  color: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.dryer-sheet-top {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.dryer-sheet-body {
+  margin-top: 1.1rem;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dryer-sheet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.7rem 0.2rem;
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.92);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.dryer-sheet-row:last-child {
+  border-bottom: none;
+}
+.dryer-sheet-check {
+  flex-shrink: 0;
+  font-size: 1.1rem;
+  color: #fb923c;
+}
+
+/* History sheet */
+.dryer-history-note {
+  padding: 1rem 0;
+  text-align: center;
+  font-size: 0.875rem;
+  color: rgba(235, 235, 245, 0.6);
+}
+.dryer-history-note.error {
+  color: #ff6961;
+}
+.dryer-history-retry {
+  margin-left: 0.5rem;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .dryer-history-list {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  max-height: 12rem;
-  overflow-y: auto;
 }
 
-.dryer-cycle-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto 1fr auto;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.5rem;
-  font-size: 0.8rem;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 0.4rem;
-  border: 1px solid transparent;
+.dryer-history-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 13px;
+}
+.dryer-history-row:last-child {
+  border-bottom: none;
 }
 
-.dryer-cycle-row.unconfirmed {
-  background: rgba(234, 179, 8, 0.08);
-  border-color: rgba(234, 179, 8, 0.2);
-}
-
-.dryer-cycle-row .dryer-cycle-ts {
-  color: #a1a1aa;
-  white-space: nowrap;
-}
-
-.dryer-cycle-row .dryer-cycle-duration {
-  color: #e4e4e7;
-}
-
-.dryer-cycle-row .dryer-cycle-energy {
-  color: #a1a1aa;
-}
-
-.dryer-cycle-row .dryer-cycle-programme {
-  font-weight: 500;
-  color: #e4e4e7;
-}
-
-.dryer-cycle-actions {
+.dryer-history-line {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  color: rgba(235, 235, 245, 0.75);
+}
+.dryer-history-ts {
+  color: rgba(235, 235, 245, 0.45);
+}
+.dryer-history-programme {
+  margin-left: auto;
+  color: rgba(255, 255, 255, 0.92);
+}
+.dryer-history-unconfirmed-mark {
+  margin-left: 0.25rem;
+  color: #fbbf24;
+  font-weight: 600;
 }
 
-.dryer-cycle-actions select {
-  padding: 0.2rem 0.35rem;
-  font-size: 0.75rem;
-  background: rgba(24, 25, 28, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.35rem;
-  color: #e4e4e7;
+.dryer-history-confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.dryer-history-select {
+  background: #2c2c2e;
+  color: inherit;
+  border: none;
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 12.5px;
   cursor: pointer;
-  min-width: 5rem;
 }
-
-.dryer-cycle-actions button {
-  padding: 0.2rem 0.4rem;
-  font-size: 0.75rem;
-  background: rgba(59, 130, 246, 0.25);
-  border: 1px solid rgba(59, 130, 246, 0.4);
-  border-radius: 0.35rem;
-  color: #60a5fa;
+.dryer-history-confirm-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(34, 197, 94, 0.18);
+  color: #22c55e;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
-
-.dryer-cycle-actions button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.dryer-history-loading {
+.dryer-history-confirm-btn svg {
   font-size: 0.85rem;
-  color: #71717a;
-  padding: 0.5rem 0;
+}
+.dryer-history-confirm-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
 }

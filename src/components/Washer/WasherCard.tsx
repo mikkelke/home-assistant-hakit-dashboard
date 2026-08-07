@@ -1,9 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
+import { useHass } from '@hakit/core';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { formatKr } from '../../utils/format';
+import { fireHaEvent } from '../../utils/haEvents';
 import { useRunCost } from '../../energy';
 import { ApplianceCycleTiming } from '../ApplianceCycleTiming';
+import { useLocalStorageBoolean, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
 import './WasherCard.css';
 
 const WASHER_STATE_ID = 'sensor.washer_state';
@@ -101,12 +105,208 @@ function getFeedbackUrl(): string | null {
   return url && url.length > 0 ? url : null;
 }
 
+type WasherPicker = 'programme' | 'temperature' | 'spin' | null;
+
+/** One generic picker sheet: a row per option, current selection checked in the washer accent. */
+interface PickerSheetProps {
+  title: string;
+  options: readonly string[];
+  current: string;
+  onPick: (option: string) => void;
+  onClose: () => void;
+  renderOption?: (option: string) => string;
+}
+
+function WasherPickerSheet({ title, options, current, onPick, onClose, renderOption }: PickerSheetProps) {
+  const { requestClose } = useModalBackButton({ isOpen: true, onRequestClose: onClose, historyKey: 'washer-picker' });
+  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestClose);
+
+  return createPortal(
+    <div className='washer-modal-overlay' onClick={requestClose}>
+      <div
+        className='washer-sheet'
+        role='dialog'
+        aria-modal='true'
+        onClick={e => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className='washer-sheet-top'>
+          <span className='washer-glyph'>
+            <Icon icon='mdi:washing-machine' aria-hidden='true' />
+          </span>
+          <span className='washer-title'>{title}</span>
+          <button className='washer-sheet-close modal-close-button' onClick={requestClose} aria-label='Close'>
+            <Icon icon='mdi:close' />
+          </button>
+        </div>
+        <div className='washer-sheet-body'>
+          {options.map(opt => (
+            <button key={opt} type='button' className='washer-sheet-row' onClick={() => onPick(opt)}>
+              <span>{renderOption ? renderOption(opt) : opt}</span>
+              {opt === current && <Icon icon='mdi:check' className='washer-sheet-check' aria-hidden='true' />}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+interface HistorySheetProps {
+  cyclesNewestFirst: WasherCycle[];
+  hasFeedbackData: boolean;
+  feedbackLoading: boolean;
+  feedbackError: string | null;
+  fetchFeedback: () => void;
+  cycleSelection: Record<number, string>;
+  setCycleSelection: React.Dispatch<React.SetStateAction<Record<number, string>>>;
+  savingCycleIndex: number | null;
+  handleConfirmCycle: (index: number) => void;
+  programmeKeys: string[];
+  onClose: () => void;
+}
+
+function WasherHistorySheet({
+  cyclesNewestFirst,
+  hasFeedbackData,
+  feedbackLoading,
+  feedbackError,
+  fetchFeedback,
+  cycleSelection,
+  setCycleSelection,
+  savingCycleIndex,
+  handleConfirmCycle,
+  programmeKeys,
+  onClose,
+}: HistorySheetProps) {
+  const { requestClose } = useModalBackButton({ isOpen: true, onRequestClose: onClose, historyKey: 'washer-history' });
+  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestClose);
+
+  return createPortal(
+    <div className='washer-modal-overlay' onClick={requestClose}>
+      <div
+        className='washer-sheet'
+        role='dialog'
+        aria-modal='true'
+        onClick={e => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className='washer-sheet-top'>
+          <span className='washer-glyph'>
+            <Icon icon='mdi:history' aria-hidden='true' />
+          </span>
+          <span className='washer-title'>Cycle history</span>
+          <button className='washer-sheet-close modal-close-button' onClick={requestClose} aria-label='Close'>
+            <Icon icon='mdi:close' />
+          </button>
+        </div>
+        <div className='washer-sheet-body'>
+          {feedbackLoading && !hasFeedbackData ? (
+            <p className='washer-history-note'>Loading…</p>
+          ) : feedbackError ? (
+            <p className='washer-history-note error'>
+              {feedbackError}
+              <button type='button' className='washer-history-retry' onClick={fetchFeedback}>
+                Retry
+              </button>
+            </p>
+          ) : cyclesNewestFirst.length === 0 ? (
+            <p className='washer-history-note'>No cycles recorded yet.</p>
+          ) : (
+            <div className='washer-history-list'>
+              {cyclesNewestFirst.map((cycle, index) => {
+                const predictedLabel = PROGRAMME_KEY_TO_LABEL[cycle.predicted] ?? cycle.predicted;
+                const confirmedLabel = PROGRAMME_KEY_TO_LABEL[cycle.confirmed] ?? cycle.confirmed;
+                const isUnconfirmed = !cycle.programme_confirmed_by_human;
+                const isSaving = savingCycleIndex === index;
+                return (
+                  <div key={`${cycle.ts}-${index}`} className='washer-history-row'>
+                    <div className='washer-history-line'>
+                      <span className='washer-history-ts'>{formatCycleTs(cycle.ts)}</span>
+                      <span>{formatDuration(cycle.duration_min)}</span>
+                      <span>{cycle.energy_kwh.toFixed(2)} kWh</span>
+                      <span className='washer-history-programme' title={isUnconfirmed ? 'Predicted (unconfirmed)' : 'Confirmed'}>
+                        {isUnconfirmed ? predictedLabel : confirmedLabel}
+                        {isUnconfirmed && <span className='washer-history-unconfirmed-mark'>?</span>}
+                      </span>
+                    </div>
+                    {isUnconfirmed && (
+                      <div className='washer-history-confirm'>
+                        <select
+                          className='washer-history-select'
+                          aria-label='Correct programme'
+                          value={cycleSelection[index] ?? cycle.predicted}
+                          onChange={e => setCycleSelection(prev => ({ ...prev, [index]: e.target.value }))}
+                          disabled={isSaving}
+                        >
+                          {programmeKeys.map(k => (
+                            <option key={k} value={k}>
+                              {PROGRAMME_KEY_TO_LABEL[k] ?? k}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type='button'
+                          className='washer-history-confirm-btn'
+                          onClick={() => handleConfirmCycle(index)}
+                          disabled={isSaving}
+                          aria-label='Confirm programme'
+                        >
+                          <Icon
+                            icon={isSaving ? 'mdi:loading' : 'mdi:check'}
+                            className={isSaving ? 'washer-spin' : ''}
+                            aria-hidden='true'
+                          />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export function WasherCard({ entities, callService }: WasherCardProps) {
   const washer = entities?.[WASHER_STATE_ID];
   const programmeSelect = entities?.[PROGRAMME_SELECT_ID];
   const announceToggle = entities?.[ANNOUNCE_TOGGLE_ID];
   const spinSelect = entities?.[SPIN_SELECT_ID];
   const temperatureSelect = entities?.[TEMPERATURE_SELECT_ID];
+
+  const [collapsed, setCollapsed] = useLocalStorageBoolean('washercard-collapsed', true);
+  const headerSlop = useTouchScrollSlopGuard();
+  const connection = useHass((s: { connection?: unknown }) => s.connection);
+  // `connection` is typed `unknown` (see energy/ws.ts / VacuumCard) — narrow to boolean once so
+  // it can gate JSX directly (`unknown && <Jsx/>` doesn't type-check as ReactNode).
+  const hasConnection = Boolean(connection);
+
+  // Which picker/history sheet is open (at most one at a time — chips/footer icons open them).
+  const [openPicker, setOpenPicker] = useState<WasherPicker>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  // Press feedback for the "Emptied" action (quick button or hero pill): acknowledges instantly,
+  // then the entity flipping to Emptied hides the whole card — that's the real success signal.
+  const [emptiedPressed, setEmptiedPressed] = useState(false);
+  const emptiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Brief flash on the prediction-confirm disc after a successful auto-confirm.
+  const [predictionConfirmed, setPredictionConfirmed] = useState(false);
+  const predictionFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (emptiedTimerRef.current) clearTimeout(emptiedTimerRef.current);
+      if (predictionFlashTimerRef.current) clearTimeout(predictionFlashTimerRef.current);
+    };
+  }, []);
 
   const [feedbackData, setFeedbackData] = useState<WasherFeedbackJson | null>(null);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
@@ -280,6 +480,9 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
       (startedAtDisplay && String(startedAtDisplay).trim() !== '') ||
       countdownLabel != null ||
       (estimatedEndTime != null && String(estimatedEndTime).trim() !== ''));
+  // New cycle-strip design only degrades to the plain timing line when there's truly nothing to
+  // bar-chart (no percentage AND no known total) — otherwise even a 0% bar is more informative.
+  const showProgressStrip = !(progressPct === 0 && totalMin == null);
 
   // "Started HH:MM": prefer started_at_display if it's time-only (HH:MM); if it's ISO datetime, format to time; else use cycle_start_time
   const startedDisplay = (() => {
@@ -289,6 +492,7 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
     if (/^\d{4}-\d{2}/.test(s) || s.includes('T')) return formatTimeOnly(s);
     return formatTimeOnly(cycleStartTimeLocal || cycleStartTime);
   })();
+  const hasStartedDisplay = startedDisplay !== '--:--';
 
   const isInteractive = state === 'Running' || state === 'Unemptied';
   const announceOn = announceToggle?.state === 'on';
@@ -338,235 +542,364 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
   const cyclesNewestFirst = feedbackData?.cycles ? [...feedbackData.cycles].reverse() : [];
   const programmeKeysForHistory = options.length > 0 ? options : PROGRAMME_KEYS;
 
+  // Preferred (attribute-derived) spin label, e.g. "1400 rpm"/"No spin" — falls back to the
+  // select's own raw state so the chip and its picker's checkmark still agree.
   const spinLabel = spinRpm !== undefined ? (spinRpm === 0 ? 'No spin' : `${spinRpm} rpm`) : null;
-  const programmeAndSpinLabel =
-    state === 'Unemptied' && spinLabel != null ? `${programmeLabel} ${spinRpm === 0 ? '· No spin' : `@ ${spinRpm} rpm`}` : programmeLabel;
+  const spinChipValue = spinLabel ?? spinSelect?.state ?? '—';
 
-  // State-specific header icon: dancing washer when running, basket when unemptied
-  const headerIcon = state === 'Running' ? 'mdi:washing-machine' : state === 'Unemptied' ? 'mdi:basket-outline' : 'mdi:washing-machine';
+  const handlePick = (setter: (option: string) => void) => (option: string) => {
+    setter(option);
+    setOpenPicker(null);
+  };
+
+  const handleForceEmptied = () => {
+    if (!connection) return;
+    setEmptiedPressed(true);
+    if (emptiedTimerRef.current) clearTimeout(emptiedTimerRef.current);
+    emptiedTimerRef.current = setTimeout(() => setEmptiedPressed(false), 5000);
+    fireHaEvent(connection, 'washer_force_emptied', { reason: 'Dashboard' });
+  };
+
+  // Tap the prediction disc: adopt the matching programme option directly (flash to confirm), or
+  // fall back to the picker sheet when nothing in the list matches the predicted label.
+  const handleConfirmPrediction = () => {
+    const predictedLower = predictionDisplay.toLowerCase();
+    const match = options.find(opt => {
+      const optLower = opt.toLowerCase();
+      return optLower === predictedLower || optLower.includes(predictedLower);
+    });
+    if (match) {
+      handleProgrammeChange(match);
+      setPredictionConfirmed(true);
+      if (predictionFlashTimerRef.current) clearTimeout(predictionFlashTimerRef.current);
+      predictionFlashTimerRef.current = setTimeout(() => setPredictionConfirmed(false), 2000);
+    } else {
+      setOpenPicker('programme');
+    }
+  };
+
+  const stateWord = state === 'Running' ? 'Running' : state === 'Paused' ? 'Paused' : 'Empty it';
+  const stateWordClass = state === 'Running' ? 'tint' : state === 'Unemptied' ? 'alert' : 'muted';
+
+  // "Done HH:MM": the real cycle end, recovered from the Unemptied-flip timestamp minus the
+  // backend's known detection lag (idle_min) — omitted entirely when last_changed can't be parsed.
+  const lastChangedMs = washer.last_changed ? Date.parse(washer.last_changed) : NaN;
+  const doneAtDisplay = Number.isFinite(lastChangedMs)
+    ? new Date(lastChangedMs - (idleMinutes ?? 0) * 60_000).toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      })
+    : null;
+  const startedByRaw = typeof attrs.started_by === 'string' ? attrs.started_by.trim() : '';
+  const heroLine2 = startedByRaw
+    ? `Started by ${startedByRaw} · ${startedDisplay}`
+    : hasStartedDisplay
+      ? `Started ${startedDisplay}`
+      : null;
 
   return (
-    <div className={`washer-card state-${state.toLowerCase()}`}>
-      <div className='washer-header'>
-        <div className='washer-title-row'>
-          <span className={`washer-icon-wrap ${state === 'Running' ? 'dancing' : ''}`}>
-            <Icon icon={headerIcon} className='washer-icon' />
+    <div className='washer-card'>
+      <div
+        className='washer-header'
+        onClick={() => {
+          if (headerSlop.consumeBlockClick()) return;
+          setCollapsed(v => !v);
+        }}
+        onTouchStart={headerSlop.onTouchStart}
+        onTouchMove={headerSlop.onTouchMove}
+        onTouchEnd={headerSlop.onTouchEnd}
+        onTouchCancel={headerSlop.onTouchCancel}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setCollapsed(v => !v);
+          }
+        }}
+        role='button'
+        tabIndex={0}
+        aria-expanded={!collapsed}
+      >
+        <span className='washer-glyph'>
+          <Icon icon='mdi:washing-machine' aria-hidden='true' />
+        </span>
+        <span className='washer-title'>Washer</span>
+        {collapsed && state === 'Running' && announceToggle && (
+          <span className='washer-quick' onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} role='presentation'>
+            <button
+              type='button'
+              className={`washer-quick-btn ${announceOn ? 'on' : ''}`}
+              onClick={handleAnnounceToggle}
+              aria-pressed={announceOn}
+              aria-label={announceOn ? 'Turn off announce when finished' : 'Turn on announce when finished'}
+              title='Announce when finished'
+            >
+              <Icon icon='mdi:bell' aria-hidden='true' />
+            </button>
           </span>
-          <span className='washer-label'>Washer</span>
-        </div>
-        <span className='washer-state-badge'>{state}</span>
+        )}
+        {collapsed && state === 'Unemptied' && hasConnection && (
+          <span className='washer-quick' onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} role='presentation'>
+            <button
+              type='button'
+              className='washer-quick-btn'
+              onClick={handleForceEmptied}
+              disabled={emptiedPressed}
+              aria-label='Mark the washer as emptied'
+              title='Mark emptied'
+            >
+              <Icon
+                icon={emptiedPressed ? 'mdi:loading' : 'mdi:basket-outline'}
+                className={emptiedPressed ? 'washer-spin' : ''}
+                aria-hidden='true'
+              />
+            </button>
+          </span>
+        )}
+        <span className='washer-header-right'>
+          <span className={`washer-word ${stateWordClass}`}>{stateWord}</span>
+          <Icon icon={collapsed ? 'mdi:chevron-down' : 'mdi:chevron-up'} aria-hidden='true' className='washer-chevron' />
+        </span>
       </div>
 
-      <div className='washer-body'>
-        {/* Programme row */}
-        <div className='washer-row programme-row'>
-          <span className='washer-field-label'>Program:</span>
-          {isInteractive && options.length > 0 ? (
-            <select
-              className='washer-programme-select'
-              value={programmeSelect?.state ?? ''}
-              onChange={e => handleProgrammeChange(e.target.value)}
-              aria-label='Program'
-            >
-              {options.map(opt => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <span className={`washer-programme-value ${!isInteractive ? 'muted' : ''}`}>{programmeAndSpinLabel}</span>
+      {collapsed && state === 'Running' && (
+        <div className='washer-collapsed-strip'>
+          <div className='washer-collapsed-strip-fill' style={{ width: `${progressPct}%` }} />
+        </div>
+      )}
+
+      {!collapsed && (
+        <div className='washer-content'>
+          {state === 'Running' && (
+            <>
+              {showProgressStrip ? (
+                <div className='washer-cycle-strip'>
+                  <div className='washer-cycle-bar'>
+                    <div className='washer-cycle-track'>
+                      <div className='washer-cycle-fill' style={{ width: `${progressPct}%` }} />
+                    </div>
+                    <div className='washer-cycle-now' style={{ left: `${progressPct}%` }} />
+                  </div>
+                  <div className='washer-cycle-meta'>
+                    {hasStartedDisplay && <span className='washer-cycle-meta-start'>{startedDisplay}</span>}
+                    {countdownLabel != null && <span className='washer-cycle-meta-countdown'>{countdownLabel}</span>}
+                    {estimatedEndTime && String(estimatedEndTime).trim() !== '' && (
+                      <span className='washer-cycle-meta-end'>~{formatTimeOnly(estimatedEndTime)}</span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className='washer-timing-line'>
+                  <ApplianceCycleTiming
+                    hasDetail={showApplianceTimingDetail}
+                    startedDisplay={startedDisplay}
+                    estimatedEndTime={estimatedEndTime}
+                    countdownLabel={countdownLabel}
+                    formatTimeOnly={formatTimeOnly}
+                  />
+                </div>
+              )}
+
+              <div className='washer-chips'>
+                <WasherChip label={programmeLabel} isInteractive={isInteractive} onClick={() => setOpenPicker('programme')} />
+                {temperatureSelect && (
+                  <WasherChip
+                    label={temperatureSelect.state ?? '-'}
+                    isInteractive={isInteractive}
+                    onClick={() => setOpenPicker('temperature')}
+                  />
+                )}
+                {spinSelect && <WasherChip label={spinChipValue} isInteractive={isInteractive} onClick={() => setOpenPicker('spin')} />}
+              </div>
+
+              {showPredictedProgramme && (
+                <div className='washer-predict-row' role='status'>
+                  <Icon icon='mdi:lightbulb-outline' className='washer-predict-icon' aria-hidden='true' />
+                  <span className='washer-predict-text'>We think {predictionDisplay}</span>
+                  <button
+                    type='button'
+                    className={`washer-predict-confirm ${predictionConfirmed ? 'flash' : ''}`}
+                    onClick={handleConfirmPrediction}
+                    aria-label={`Confirm ${predictionDisplay}`}
+                  >
+                    <Icon icon='mdi:check' aria-hidden='true' />
+                  </button>
+                </div>
+              )}
+
+              {(energyUsed != null || liveCostKr != null || announceToggle || feedbackUrl) && (
+                <div className='washer-footer'>
+                  {energyUsed != null && (
+                    <span className='washer-footer-item'>
+                      <Icon icon='mdi:flash' aria-hidden='true' />
+                      {Number(energyUsed).toFixed(2)} kWh
+                    </span>
+                  )}
+                  {liveCostKr != null && <span className='washer-footer-item'>≈ {formatKr(liveCostKr)}</span>}
+                  {(announceToggle || feedbackUrl) && (
+                    <span className='washer-footer-actions'>
+                      {announceToggle && (
+                        <button
+                          type='button'
+                          className={`washer-footer-icon-btn ${announceOn ? 'on' : ''}`}
+                          onClick={handleAnnounceToggle}
+                          aria-pressed={announceOn}
+                          aria-label={announceOn ? 'Turn off announce when finished' : 'Turn on announce when finished'}
+                        >
+                          <Icon icon='mdi:bell' aria-hidden='true' />
+                        </button>
+                      )}
+                      {feedbackUrl && (
+                        <button
+                          type='button'
+                          className='washer-footer-icon-btn'
+                          onClick={() => setHistoryOpen(true)}
+                          aria-label='Cycle history'
+                        >
+                          <Icon icon='mdi:history' aria-hidden='true' />
+                        </button>
+                      )}
+                    </span>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {state === 'Paused' && (
+            <div className='washer-paused-row'>
+              <Icon icon='mdi:plus-circle-outline' aria-hidden='true' />
+              <span>Adding laundry…</span>
+            </div>
+          )}
+
+          {state === 'Unemptied' && (
+            <>
+              <div className='washer-hero'>
+                <span className='washer-hero-icon'>
+                  <Icon icon='mdi:basket-outline' aria-hidden='true' />
+                </span>
+                <span className='washer-hero-text'>
+                  {doneAtDisplay && <span className='washer-hero-line1'>Done {doneAtDisplay}</span>}
+                  {heroLine2 && <span className='washer-hero-line2'>{heroLine2}</span>}
+                </span>
+                {hasConnection && (
+                  <button
+                    type='button'
+                    className='washer-emptied-pill'
+                    onClick={handleForceEmptied}
+                    disabled={emptiedPressed}
+                    aria-busy={emptiedPressed}
+                  >
+                    <Icon
+                      icon={emptiedPressed ? 'mdi:loading' : 'mdi:check'}
+                      className={emptiedPressed ? 'washer-spin' : ''}
+                      aria-hidden='true'
+                    />
+                    <span>Emptied</span>
+                  </button>
+                )}
+              </div>
+
+              <div className='washer-chips'>
+                <WasherChip label={programmeLabel} isInteractive={isInteractive} onClick={() => setOpenPicker('programme')} />
+                {temperatureSelect && (
+                  <WasherChip
+                    label={temperatureSelect.state ?? '-'}
+                    isInteractive={isInteractive}
+                    onClick={() => setOpenPicker('temperature')}
+                  />
+                )}
+                {spinSelect && <WasherChip label={spinChipValue} isInteractive={isInteractive} onClick={() => setOpenPicker('spin')} />}
+              </div>
+
+              {(runTimeMinutes != null || energyUsed != null || runCostKr != null || feedbackUrl) && (
+                <div className='washer-footer'>
+                  {runTimeMinutes != null && (
+                    <span className='washer-footer-item'>
+                      <Icon icon='mdi:clock-outline' aria-hidden='true' />
+                      Ran {formatDuration(runTimeMinutes)}
+                    </span>
+                  )}
+                  {energyUsed != null && (
+                    <span className='washer-footer-item'>
+                      <Icon icon='mdi:flash' aria-hidden='true' />
+                      {Number(energyUsed).toFixed(2)} kWh
+                    </span>
+                  )}
+                  {runCostKr != null && <span className='washer-footer-item'>≈ {formatKr(runCostKr)}</span>}
+                  {feedbackUrl && (
+                    <span className='washer-footer-actions'>
+                      <button
+                        type='button'
+                        className='washer-footer-icon-btn'
+                        onClick={() => setHistoryOpen(true)}
+                        aria-label='Cycle history'
+                      >
+                        <Icon icon='mdi:history' aria-hidden='true' />
+                      </button>
+                    </span>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
+      )}
 
-        {/* When user left Auto / not committed: show classifier prediction */}
-        {showPredictedProgramme && (
-          <div className='washer-prediction-hint' role='status'>
-            <Icon icon='mdi:lightbulb-outline' />
-            <span>
-              We think: <strong>{predictionDisplay}</strong>
-            </span>
-          </div>
-        )}
-
-        {/* Temperature: show for all programmes (user can set wash temp regardless of programme) */}
-        {(state === 'Running' || state === 'Unemptied') && temperatureSelect && (
-          <div className='washer-row temperature-row'>
-            <span className='washer-field-label'>Temperature:</span>
-            <select
-              className='washer-programme-select washer-temperature-select'
-              value={temperatureSelect.state ?? '-'}
-              onChange={e => handleTemperatureChange(e.target.value)}
-              aria-label='Wash temperature'
-            >
-              {temperatureOptions.map(opt => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Spin speed: during Running or when Unemptied (backend reads at cycle end) */}
-        {(state === 'Running' || state === 'Unemptied') && spinSelect && (
-          <div className='washer-row spin-row'>
-            <span className='washer-field-label'>Spin:</span>
-            <select
-              className='washer-programme-select washer-spin-select'
-              value={spinSelect.state ?? '—'}
-              onChange={e => handleSpinChange(e.target.value)}
-              aria-label='Spin speed'
-            >
-              {spinOptions.map(opt => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Running: progress bar + countdown */}
-        {state === 'Running' && (
-          <>
-            {hasProgressBar && (
-              <div className='washer-progress'>
-                <div className='washer-progress-bar'>
-                  <div className='washer-progress-fill' style={{ width: `${progressPct}%` }} />
-                </div>
-                <span className='washer-progress-pct'>{Math.round(progressPct)}%</span>
-              </div>
-            )}
-            <div className='washer-countdown-line'>
-              <ApplianceCycleTiming
-                hasDetail={showApplianceTimingDetail}
-                startedDisplay={startedDisplay}
-                estimatedEndTime={estimatedEndTime}
-                countdownLabel={countdownLabel}
-                formatTimeOnly={formatTimeOnly}
-              />
-            </div>
-            {(energyUsed != null || liveCostKr != null) && (
-              <div className='washer-stats'>
-                {energyUsed != null && <span>Used {Number(energyUsed).toFixed(2)} kWh</span>}
-                {energyUsed != null && liveCostKr != null && ' · '}
-                {liveCostKr != null && <span>≈ {formatKr(liveCostKr)}</span>}
-              </div>
-            )}
-            {announceToggle && (
-              <div className='washer-row announce-row'>
-                <Icon icon='mdi:bell' />
-                <span className='washer-field-label'>Announce</span>
-                <button
-                  type='button'
-                  className={`washer-announce-toggle ${announceOn ? 'on' : 'off'}`}
-                  onClick={handleAnnounceToggle}
-                  aria-pressed={announceOn}
-                  aria-label={announceOn ? 'Announce on' : 'Announce off'}
-                >
-                  <div className='washer-announce-switch' />
-                </button>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Paused */}
-        {state === 'Paused' && (
-          <div className='washer-banner paused'>
-            <Icon icon='mdi:plus-circle-outline' />
-            <span>Adding laundry…</span>
-          </div>
-        )}
-
-        {/* Unemptied */}
-        {state === 'Unemptied' && (
-          <>
-            {(runTimeMinutes != null || energyUsed != null) && (
-              <div className='washer-stats'>
-                {runTimeMinutes != null && <span>Ran {formatDuration(runTimeMinutes)}</span>}
-                {runTimeMinutes != null && energyUsed != null && ' · '}
-                {energyUsed != null && <span>Used {Number(energyUsed).toFixed(2)} kWh</span>}
-                {energyUsed != null && runCostKr != null && ' · '}
-                {runCostKr != null && <span>≈ {formatKr(runCostKr)}</span>}
-              </div>
-            )}
-            <div className='washer-banner unemptied'>
-              <Icon icon='mdi:alert-circle-outline' />
-              <span>Please empty the washer</span>
-            </div>
-          </>
-        )}
-
-        {/* Cycle history - only when feedback URL is set */}
-        {feedbackUrl && (
-          <div className='washer-history-section'>
-            <div className='washer-history-title'>
-              <Icon icon='mdi:history' />
-              Cycle history
-            </div>
-            {feedbackLoading && !feedbackData ? (
-              <p className='washer-history-loading'>Loading…</p>
-            ) : feedbackError ? (
-              <p className='washer-history-error'>
-                {feedbackError}
-                <button type='button' onClick={fetchFeedback} style={{ marginLeft: '0.5rem', textDecoration: 'underline' }}>
-                  Retry
-                </button>
-              </p>
-            ) : cyclesNewestFirst.length === 0 ? (
-              <p className='washer-history-empty'>No cycles recorded yet.</p>
-            ) : (
-              <div className='washer-history-list'>
-                {cyclesNewestFirst.map((cycle, index) => {
-                  const predictedLabel = PROGRAMME_KEY_TO_LABEL[cycle.predicted] ?? cycle.predicted;
-                  const confirmedLabel = PROGRAMME_KEY_TO_LABEL[cycle.confirmed] ?? cycle.confirmed;
-                  const isUnconfirmed = !cycle.programme_confirmed_by_human;
-                  const isSaving = savingCycleIndex === index;
-                  return (
-                    <div key={`${cycle.ts}-${index}`} className={`washer-cycle-row ${isUnconfirmed ? 'unconfirmed' : ''}`}>
-                      <span className='washer-cycle-ts'>{formatCycleTs(cycle.ts)}</span>
-                      <span className='washer-cycle-duration'>{formatDuration(cycle.duration_min)}</span>
-                      <span className='washer-cycle-energy'>{cycle.energy_kwh.toFixed(2)} kWh</span>
-                      <span className='washer-cycle-programme' title={isUnconfirmed ? 'Predicted (unconfirmed)' : 'Confirmed'}>
-                        {isUnconfirmed ? predictedLabel : confirmedLabel}
-                        {isUnconfirmed && ' (?)'}
-                      </span>
-                      <div className='washer-cycle-actions'>
-                        {isUnconfirmed && (
-                          <>
-                            <select
-                              aria-label='Correct programme'
-                              value={cycleSelection[index] ?? cycle.predicted}
-                              onChange={e => setCycleSelection(prev => ({ ...prev, [index]: e.target.value }))}
-                              disabled={isSaving}
-                            >
-                              {programmeKeysForHistory.map(k => (
-                                <option key={k} value={k}>
-                                  {PROGRAMME_KEY_TO_LABEL[k] ?? k}
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              type='button'
-                              onClick={() => handleConfirmCycle(index)}
-                              disabled={isSaving}
-                              aria-label='Confirm programme'
-                            >
-                              Confirm
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      {openPicker === 'programme' && (
+        <WasherPickerSheet
+          title='Programme'
+          options={options}
+          current={programmeSelect?.state ?? ''}
+          onPick={handlePick(handleProgrammeChange)}
+          onClose={() => setOpenPicker(null)}
+        />
+      )}
+      {openPicker === 'temperature' && (
+        <WasherPickerSheet
+          title='Temperature'
+          options={temperatureOptions}
+          current={temperatureSelect?.state ?? '-'}
+          onPick={handlePick(handleTemperatureChange)}
+          onClose={() => setOpenPicker(null)}
+        />
+      )}
+      {openPicker === 'spin' && (
+        <WasherPickerSheet
+          title='Spin'
+          options={spinOptions}
+          current={spinSelect?.state ?? '—'}
+          onPick={handlePick(handleSpinChange)}
+          onClose={() => setOpenPicker(null)}
+        />
+      )}
+      {historyOpen && (
+        <WasherHistorySheet
+          cyclesNewestFirst={cyclesNewestFirst}
+          hasFeedbackData={feedbackData !== null}
+          feedbackLoading={feedbackLoading}
+          feedbackError={feedbackError}
+          fetchFeedback={fetchFeedback}
+          cycleSelection={cycleSelection}
+          setCycleSelection={setCycleSelection}
+          savingCycleIndex={savingCycleIndex}
+          handleConfirmCycle={handleConfirmCycle}
+          programmeKeys={programmeKeysForHistory}
+          onClose={() => setHistoryOpen(false)}
+        />
+      )}
     </div>
+  );
+}
+
+/** A setting's current value as a tappable pill — a plain muted span when the card isn't
+ * interactive (state has no editable settings right now). */
+function WasherChip({ label, isInteractive, onClick }: { label: string; isInteractive: boolean; onClick: () => void }) {
+  if (!isInteractive) return <span className='washer-chip muted'>{label}</span>;
+  return (
+    <button type='button' className='washer-chip' onClick={onClick}>
+      {label}
+    </button>
   );
 }

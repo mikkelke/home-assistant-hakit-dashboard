@@ -1,337 +1,518 @@
-/* Dishwasher Card - mirrors Washer card patterns */
+/* Dishwasher card — same iOS-styled shell as CoverCard.css (System Gray6 dark, 24px radius),
+   collapsed-by-default header, function color #2dd4bf throughout (glyph, running word, cycle
+   strip). No announce toggle exists for this appliance, so there's never a bell anywhere on
+   this card. Sheets (picker/history) are portaled to document.body — see DishwasherCard.tsx —
+   so their overlay/sheet rules below apply regardless of where in the DOM they're mounted. */
+
 .dishwasher-card {
-  background: rgba(20, 21, 24, 0.9);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  background: #1c1c1e; /* iOS systemGray6 dark */
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.75rem;
+  border-radius: 24px;
   overflow: hidden;
   margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.92);
 }
 
-.dishwasher-card.state-running {
-  border-color: rgba(59, 130, 246, 0.35);
-}
-
-.dishwasher-card.state-unemptied {
-  border-color: rgba(234, 179, 8, 0.4);
-}
-
-/* Header */
+/* Header — always visible; the whole row is the tap target */
 .dishwasher-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem;
-}
-
-.dishwasher-title-row {
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  padding: 1.25rem;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
-.dishwasher-icon-wrap {
-  display: inline-flex;
+.dishwasher-glyph {
+  display: flex;
   align-items: center;
   justify-content: center;
-  transform-origin: center center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(45, 212, 191, 0.16);
+  color: #2dd4bf;
+}
+.dishwasher-glyph svg {
+  font-size: 1rem;
 }
 
-.dishwasher-icon-wrap.dancing {
-  animation: dishwasher-dance 1.2s ease-in-out infinite;
-}
-
-.dishwasher-card.state-paused .dishwasher-icon {
-  color: #38bdf8;
-}
-
-.dishwasher-card.state-paused .dishwasher-icon-wrap.paused-pulse .dishwasher-icon {
-  animation: dishwasher-paused-icon-pulse 2s ease-in-out infinite;
-}
-
-@keyframes dishwasher-paused-icon-pulse {
-  0%, 100% {
-    opacity: 1;
-    filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.5));
-  }
-  50% {
-    opacity: 0.72;
-    filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.65));
-  }
-}
-
-@keyframes dishwasher-dance {
-  0%, 100% { transform: translateX(0) translateY(0) rotate(-4deg); }
-  25% { transform: translateX(2px) translateY(-2px) rotate(4deg); }
-  50% { transform: translateX(-1px) translateY(0) rotate(-3deg); }
-  75% { transform: translateX(-2px) translateY(-2px) rotate(4deg); }
-}
-
-.dishwasher-icon {
-  font-size: 1.5rem;
-  color: #71717a;
-}
-
-.dishwasher-card.state-running .dishwasher-icon {
-  color: #38bdf8;
-  filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.5));
-}
-
-.dishwasher-card.state-running .dishwasher-icon-wrap.dancing .dishwasher-icon {
-  animation: dishwasher-glow-pulse 2s ease-in-out infinite;
-}
-
-@keyframes dishwasher-glow-pulse {
-  0%, 100% { opacity: 1; filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.5)); }
-  50% { opacity: 0.9; filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.7)); }
-}
-
-.dishwasher-label {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #e4e4e7;
-}
-
-.dishwasher-state-badge {
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  padding: 0.25rem 0.5rem;
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.08);
-  color: #a1a1aa;
-}
-
-.dishwasher-card.state-running .dishwasher-state-badge {
-  background: rgba(59, 130, 246, 0.25);
-  color: #60a5fa;
-}
-
-.dishwasher-card.state-unemptied .dishwasher-state-badge {
-  background: rgba(234, 179, 8, 0.25);
-  color: #eab308;
-}
-
-.dishwasher-card.state-paused .dishwasher-state-badge {
-  background: rgba(251, 191, 36, 0.2);
-  color: #fbbf24;
-}
-
-/* Body */
-.dishwasher-body {
-  padding: 0 1rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.dishwasher-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.dishwasher-field-label {
-  font-size: 0.85rem;
-  color: #a1a1aa;
-}
-
-.dishwasher-programme-select {
+.dishwasher-title {
   flex: 1;
-  max-width: 100%;
-  padding: 0.4rem 0.6rem;
-  font-size: 0.9rem;
-  background: rgba(24, 25, 28, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.5rem;
-  color: #e4e4e7;
-  cursor: pointer;
-}
-
-.dishwasher-programme-select:focus {
-  outline: none;
-  border-color: rgba(59, 130, 246, 0.5);
-}
-
-.dishwasher-programme-value {
-  font-size: 0.9rem;
-  color: #e4e4e7;
-}
-
-.dishwasher-programme-value.muted {
-  color: #71717a;
-}
-
-/* Progress */
-.dishwasher-progress {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.dishwasher-progress-bar {
-  flex: 1;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.dishwasher-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #3b82f6, #10b981);
-  width: 0%;
-  border-radius: 999px;
-  transition: width 0.2s ease;
-}
-
-.dishwasher-progress-pct {
-  font-size: 0.8rem;
+  min-width: 0;
+  font-size: 1.05rem;
   font-weight: 600;
-  color: #a1a1aa;
-  min-width: 2.5rem;
-  text-align: right;
 }
 
-.dishwasher-countdown-line {
-  font-size: 0.8rem;
-  color: #71717a;
-}
-
-/* Stats (Unemptied) */
-.dishwasher-stats {
-  font-size: 0.85rem;
-  color: #a1a1aa;
-}
-
-/* Banners */
-.dishwasher-banner {
+.dishwasher-header-right {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 0.75rem;
-  border-radius: 0.5rem;
-  font-size: 0.85rem;
-}
-
-.dishwasher-banner svg {
-  font-size: 1.2rem;
+  gap: 0.6rem;
   flex-shrink: 0;
 }
 
-.dishwasher-banner.paused {
-  background: rgba(251, 191, 36, 0.15);
-  border: 1px solid rgba(251, 191, 36, 0.3);
+.dishwasher-word {
+  font-size: 0.9rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.dishwasher-word.tint {
+  color: #2dd4bf;
+}
+.dishwasher-word.muted {
+  color: rgba(235, 235, 245, 0.6);
+}
+.dishwasher-word.alert {
   color: #fbbf24;
 }
 
-.dishwasher-banner.unemptied {
-  background: rgba(234, 179, 8, 0.15);
-  border: 1px solid rgba(234, 179, 8, 0.35);
-  color: #eab308;
+.dishwasher-chevron {
+  font-size: 1.1rem;
+  color: rgba(235, 235, 245, 0.4);
+  flex-shrink: 0;
 }
 
-/* Cycle history */
-.dishwasher-history-section {
-  margin-top: 0.5rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.dishwasher-history-title {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #e4e4e7;
-  margin-bottom: 0.5rem;
+/* Collapsed quick action: basket (Unemptied only — no announce toggle exists for this appliance). */
+.dishwasher-quick {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.3rem;
 }
 
-.dishwasher-history-empty,
-.dishwasher-history-error,
-.dishwasher-history-configure {
-  font-size: 0.85rem;
-  color: #71717a;
-  padding: 0.5rem 0;
+.dishwasher-quick-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+  background: #2c2c2e;
+  color: rgba(235, 235, 245, 0.6);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.08s ease, background 0.2s ease, color 0.2s ease;
+}
+.dishwasher-quick-btn svg {
+  font-size: 0.95rem;
+}
+.dishwasher-quick-btn:active {
+  transform: scale(0.88);
+}
+.dishwasher-quick-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Collapsed progress strip — hairline under the header while Running */
+.dishwasher-collapsed-strip {
+  margin: 10px 1.25rem 1.25rem;
+  height: 3px;
+  border-radius: 2px;
+  background: #2c2c2e;
+  overflow: hidden;
+}
+.dishwasher-collapsed-strip-fill {
+  height: 100%;
+  background: #2dd4bf;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* Expanded content */
+.dishwasher-content {
+  padding: 0 1.25rem 1.25rem;
+}
+
+/* Cycle strip (Running, usable progress) */
+.dishwasher-cycle-strip {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Bar sized exactly to the track (12px) — the "now" line's -2px top/bottom insets must stretch
+   only across the bar, not the meta row below it, so it lives in its own positioned wrapper. */
+.dishwasher-cycle-bar {
+  position: relative;
+  height: 12px;
+}
+
+.dishwasher-cycle-track {
+  position: relative;
+  height: 12px;
+  border-radius: 6px;
+  background: #2c2c2e;
+  overflow: hidden;
+}
+
+.dishwasher-cycle-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #115e54, #2dd4bf);
+  transition: width 0.3s ease;
+}
+
+.dishwasher-cycle-now {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.55);
+  transform: translateX(-50%);
+  transition: left 0.3s ease;
+}
+
+.dishwasher-cycle-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  font-size: 12px;
+}
+
+.dishwasher-cycle-meta-start {
+  color: rgba(235, 235, 245, 0.45);
+}
+.dishwasher-cycle-meta-countdown {
+  flex: 1;
+  text-align: center;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+}
+.dishwasher-cycle-meta-end {
+  color: rgba(235, 235, 245, 0.35);
+}
+
+/* Fallback single-line timing (no usable progress yet) */
+.dishwasher-timing-line {
+  padding: 0.1rem 0;
+}
+
+/* Chips */
+.dishwasher-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.dishwasher-chip {
+  background: #2c2c2e;
+  border: none;
+  border-radius: 15px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.dishwasher-chip.muted {
+  color: rgba(235, 235, 245, 0.5);
+  cursor: default;
+}
+
+/* Paused */
+.dishwasher-paused-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(235, 235, 245, 0.6);
+  font-size: 0.9rem;
+}
+.dishwasher-paused-row svg {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+/* Unemptied hero */
+.dishwasher-hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.dishwasher-hero-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: rgba(251, 191, 36, 0.14);
+  color: #fbbf24;
+}
+.dishwasher-hero-icon svg {
+  font-size: 22px;
+}
+.dishwasher-hero-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dishwasher-hero-line1 {
+  font-size: 15px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.92);
+}
+.dishwasher-hero-line2 {
+  font-size: 12.5px;
+  color: rgba(235, 235, 245, 0.45);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dishwasher-emptied-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  background: rgba(34, 197, 94, 0.18);
+  color: #22c55e;
+  border: none;
+  border-radius: 17px;
+  padding: 8px 14px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.dishwasher-emptied-pill:disabled {
+  opacity: 0.75;
+  cursor: default;
+}
+
+/* Spin (loading) icon, reused by the quick button, the Emptied pill and the history confirm button */
+.dishwasher-spin {
+  animation: dishwasher-spin 1s linear infinite;
+  display: inline-flex;
+}
+@keyframes dishwasher-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dishwasher-spin {
+    animation: none;
+  }
+}
+
+/* Footer */
+.dishwasher-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 12.5px;
+  color: rgba(235, 235, 245, 0.6);
+}
+.dishwasher-footer-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.dishwasher-footer-item svg {
+  font-size: 13px;
+}
+.dishwasher-footer-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dishwasher-footer-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0;
+  color: rgba(235, 235, 245, 0.6);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.dishwasher-footer-icon-btn svg {
+  font-size: 15px;
+}
+
+/* ---- Sheets (picker / history), portaled to document.body ---- */
+.dishwasher-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+
+.dishwasher-sheet {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  background: #1c1c1e;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+  padding: 1.25rem;
+  width: 100%;
+  max-width: 420px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  color: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.dishwasher-sheet-top {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.dishwasher-sheet-body {
+  margin-top: 1.1rem;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dishwasher-sheet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.7rem 0.2rem;
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.92);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.dishwasher-sheet-row:last-child {
+  border-bottom: none;
+}
+.dishwasher-sheet-check {
+  flex-shrink: 0;
+  font-size: 1.1rem;
+  color: #2dd4bf;
+}
+
+/* History sheet */
+.dishwasher-history-note {
+  padding: 1rem 0;
+  text-align: center;
+  font-size: 0.875rem;
+  color: rgba(235, 235, 245, 0.6);
+}
+.dishwasher-history-note.error {
+  color: #ff6961;
+}
+.dishwasher-history-retry {
+  margin-left: 0.5rem;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .dishwasher-history-list {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  max-height: 12rem;
-  overflow-y: auto;
 }
 
-.dishwasher-cycle-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto 1fr auto;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.5rem;
-  font-size: 0.8rem;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 0.4rem;
-  border: 1px solid transparent;
+.dishwasher-history-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 13px;
+}
+.dishwasher-history-row:last-child {
+  border-bottom: none;
 }
 
-.dishwasher-cycle-row.unconfirmed {
-  background: rgba(234, 179, 8, 0.08);
-  border-color: rgba(234, 179, 8, 0.2);
-}
-
-.dishwasher-cycle-row .dishwasher-cycle-ts {
-  color: #a1a1aa;
-  white-space: nowrap;
-}
-
-.dishwasher-cycle-row .dishwasher-cycle-duration {
-  color: #e4e4e7;
-}
-
-.dishwasher-cycle-row .dishwasher-cycle-energy {
-  color: #a1a1aa;
-}
-
-.dishwasher-cycle-row .dishwasher-cycle-programme {
-  font-weight: 500;
-  color: #e4e4e7;
-}
-
-.dishwasher-cycle-actions {
+.dishwasher-history-line {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  color: rgba(235, 235, 245, 0.75);
+}
+.dishwasher-history-ts {
+  color: rgba(235, 235, 245, 0.45);
+}
+.dishwasher-history-programme {
+  margin-left: auto;
+  color: rgba(255, 255, 255, 0.92);
+}
+.dishwasher-history-unconfirmed-mark {
+  margin-left: 0.25rem;
+  color: #fbbf24;
+  font-weight: 600;
 }
 
-.dishwasher-cycle-actions select {
-  padding: 0.2rem 0.35rem;
-  font-size: 0.75rem;
-  background: rgba(24, 25, 28, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.35rem;
-  color: #e4e4e7;
+.dishwasher-history-confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.dishwasher-history-select {
+  background: #2c2c2e;
+  color: inherit;
+  border: none;
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 12.5px;
   cursor: pointer;
-  min-width: 5rem;
 }
-
-.dishwasher-cycle-actions button {
-  padding: 0.2rem 0.4rem;
-  font-size: 0.75rem;
-  background: rgba(59, 130, 246, 0.25);
-  border: 1px solid rgba(59, 130, 246, 0.4);
-  border-radius: 0.35rem;
-  color: #60a5fa;
+.dishwasher-history-confirm-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(34, 197, 94, 0.18);
+  color: #22c55e;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
-
-.dishwasher-cycle-actions button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.dishwasher-history-loading {
+.dishwasher-history-confirm-btn svg {
   font-size: 0.85rem;
-  color: #71717a;
-  padding: 0.5rem 0;
+}
+.dishwasher-history-confirm-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
 }
