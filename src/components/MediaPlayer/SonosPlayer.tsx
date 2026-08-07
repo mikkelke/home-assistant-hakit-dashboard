@@ -1386,6 +1386,25 @@ export function SonosPlayer({
               <Icon icon='mdi:alert-circle-outline' aria-hidden='true' />
             </span>
           )}
+          {/* Collapsed quick actions (user 2026-08-07): play/pause + next without expanding.
+              Same quick-dot grammar as the blind and light cards; play wears the Sonos
+              green while something is playing. */}
+          {collapsed && (
+            <span className='sonos-quick' onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} role='presentation'>
+              <button
+                type='button'
+                className={`sonos-quick-btn ${isPlaying ? 'is-current' : ''}`}
+                onClick={handlePlayPause}
+                aria-label={isPlaying ? 'Pause' : 'Play'}
+                title={isPlaying ? 'Pause' : 'Play'}
+              >
+                <Icon icon={isPlaying ? 'mdi:pause' : 'mdi:play'} aria-hidden='true' />
+              </button>
+              <button type='button' className='sonos-quick-btn' onClick={handleNext} aria-label='Next track' title='Next'>
+                <Icon icon='mdi:skip-next' aria-hidden='true' />
+              </button>
+            </span>
+          )}
           <span className='sonos-top-right'>
             <span className={`sonos-state ${isPlaying ? 'tint' : 'muted'}`}>{stateWord}</span>
             <Icon icon={collapsed ? 'mdi:chevron-down' : 'mdi:chevron-up'} aria-hidden='true' className='sonos-chevron' />
