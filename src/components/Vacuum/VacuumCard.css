@@ -711,3 +711,28 @@
   left: 20px;
   background: #3b82f6;
 }
+
+/* Small map button on a request row: opens the room's last archived run. Ghost disc so
+   the knob stays the row's loudest control. */
+.rober-request-map {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(235, 235, 245, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.rober-request-map svg {
+  font-size: 1.05rem;
+}
+.rober-request-map:active {
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.9);
+}

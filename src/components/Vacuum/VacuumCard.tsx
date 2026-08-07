@@ -11,10 +11,10 @@ import {
   VACUUM_CURRENT_ROOM_INPUT,
   VACUUM_CURRENT_ROOM_SENSOR,
   VACUUM_MAP_IMAGE_ENTITY,
-  ROBOT_MAPS_PATH,
 } from '../../config/entities';
 import { useLocalStorageBoolean, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
 import { formatRoberRoomName } from './rooms';
+import { fetchMapsIndex, formatMapDate, type MapEntry } from './maps';
 import './VacuumCard.css';
 
 // "Rober2" card in the Climate-card grammar (see AC/TonightCard): emerald glyph disc, hero
@@ -118,13 +118,6 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   const cleaningProgressSafe =
     cleaningProgress !== undefined && !Number.isNaN(cleaningProgress) ? Math.max(0, Math.min(100, cleaningProgress)) : undefined;
 
-  type MapEntry = {
-    filename: string;
-    timestamp: string;
-    datetime?: string;
-    room?: string;
-    url: string;
-  };
   const [maps, setMaps] = useState<MapEntry[] | null>(null);
   const [mapsError, setMapsError] = useState<string | null>(null);
   const [mapsLoading, setMapsLoading] = useState(false);
@@ -164,19 +157,6 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
         ? window.location.origin
         : ''
   )?.replace(/\/$/, '');
-
-  const getHaOrigin = () => {
-    try {
-      return new URL(haBase).origin;
-    } catch {
-      return '';
-    }
-  };
-
-  const toHaUrl = (path: string) => {
-    if (!path) return '';
-    return path.startsWith('http') ? path : `${haBase}${path}`;
-  };
 
   const modalHistoryUrl = () => getHistoryUrl();
 
@@ -218,47 +198,6 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     } catch {
       return 'Updating...';
     }
-  };
-
-  const formatMapDate = (datetime?: string, timestamp?: string): string => {
-    const formatDateFriendly = (date: Date) => {
-      const today = new Date();
-      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-      const diffDays = Math.floor((startOfToday.getTime() - startOfDate.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDays === 0) return `Today ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-      if (diffDays === 1) return 'Yesterday';
-      if (diffDays < 7) return `${diffDays}d ago`;
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
-      });
-    };
-
-    if (datetime) {
-      try {
-        const date = new Date(datetime);
-        return formatDateFriendly(date);
-      } catch {
-        return datetime;
-      }
-    }
-    if (timestamp) {
-      // Format YYYYMMDD_HHMMSS to readable date
-      try {
-        const year = timestamp.substring(0, 4);
-        const month = timestamp.substring(4, 6);
-        const day = timestamp.substring(6, 8);
-        const hour = timestamp.substring(9, 11);
-        const minute = timestamp.substring(11, 13);
-        const date = new Date(`${year}-${month}-${day}T${hour}:${minute}:00`);
-        return formatDateFriendly(date);
-      } catch {
-        return timestamp;
-      }
-    }
-    return 'Unknown date';
   };
 
   // Handle map modal open/close with browser history
@@ -516,24 +455,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     const load = async () => {
       try {
         setMapsLoading(true);
-        const haOrigin = typeof window !== 'undefined' ? getHaOrigin() : '';
-        const sameOrigin = typeof window !== 'undefined' && haOrigin === window.location.origin;
-        // In dev (not on HA domain), use relative path so Vite proxy intercepts it
-        // In prod (on HA domain), also use relative path (same origin)
-        // Only use absolute URL if we're in a weird cross-origin prod scenario
-        const isDev =
-          typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-        const indexUrl = sameOrigin || isDev ? `/local/${ROBOT_MAPS_PATH}/index.json` : toHaUrl(`/local/${ROBOT_MAPS_PATH}/index.json`);
-        const res = await fetch(indexUrl, { cache: 'no-cache' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const entries: MapEntry[] = Array.isArray(data?.maps)
-          ? data.maps.map((m: MapEntry) => {
-              // Use relative URLs in dev/same-origin so proxy works, absolute in cross-origin prod
-              const url = sameOrigin || isDev ? m.url : toHaUrl(m.url);
-              return { ...m, url };
-            })
-          : [];
+        const entries = await fetchMapsIndex();
         setMaps(entries);
         setMapsError(null);
       } catch {
@@ -544,7 +466,6 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
       }
     };
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- getHaOrigin/toHaUrl are stable; ROBOT_MAPS_PATH is a constant
   }, [collapsed]);
 
   // Day strip: today's driving stretches, joined to the room sensor for their labels. One

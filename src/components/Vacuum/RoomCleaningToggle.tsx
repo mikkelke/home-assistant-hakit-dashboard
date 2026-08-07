@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import {
@@ -7,7 +8,9 @@ import {
   ROBOT_CLEAN_KITCHEN_1,
   ROBOT_CLEAN_KITCHEN_2,
 } from '../../config/entities';
+import { useModalBackButton, useSwipeToClose } from '../../hooks';
 import { formatRoberRoomName } from './rooms';
+import { fetchMapsIndex, formatMapDate, latestMapForRoom, type MapEntry } from './maps';
 import './VacuumCard.css';
 
 // The request row every room that isn't the kitchen gets: one line, one control. The room's
@@ -43,9 +46,11 @@ interface RequestRowProps {
   cleaningHere: boolean;
   lastClean: string | null;
   onToggle: () => void;
+  /** Present when this room has an archived run: the small map button opens it. */
+  onOpenMap?: () => void;
 }
 
-function RequestRow({ title, requested, cleaningHere, lastClean, onToggle }: RequestRowProps) {
+function RequestRow({ title, requested, cleaningHere, lastClean, onToggle, onOpenMap }: RequestRowProps) {
   return (
     <div
       className='rober-request-row'
@@ -75,13 +80,75 @@ function RequestRow({ title, requested, cleaningHere, lastClean, onToggle }: Req
         // knowing before you ask for another pass (user 2026-07-31).
         <span className='rober-request-state faint'>{lastClean}</span>
       ) : null}
+      {onOpenMap && (
+        <button
+          type='button'
+          className='rober-request-map'
+          onClick={e => {
+            e.stopPropagation();
+            onOpenMap();
+          }}
+          aria-label={`${title} — see the last cleaning run`}
+          title='Last cleaning run'
+        >
+          <Icon icon='mdi:map-outline' aria-hidden='true' />
+        </button>
+      )}
       <span className={`rober-knob ${requested ? 'on' : ''}`} aria-hidden='true' />
     </div>
   );
 }
 
+/** The archived-run viewer: the Rober2 card's map modal, openable from a request row. */
+function RoomMapModal({ map, onClose }: { map: MapEntry; onClose: () => void }) {
+  const { requestClose } = useModalBackButton({ isOpen: true, onRequestClose: onClose, historyKey: 'rober-room-map' });
+  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestClose);
+  return (
+    <>
+      <div className='vacuum-map-overlay' onClick={requestClose} />
+      <div className='vacuum-map-modal' onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+        <div className='vacuum-map-modal-header'>
+          <div className='vacuum-map-modal-title'>
+            <Icon icon='mdi:map' />
+            <div>
+              <span className='room'>{formatRoberRoomName(map.room) || map.room || 'Unknown room'}</span>
+              <span className='date'>{formatMapDate(map.datetime, map.timestamp)}</span>
+            </div>
+          </div>
+          <button className='vacuum-map-modal-close modal-close-button' onClick={requestClose}>
+            <Icon icon='mdi:close' />
+          </button>
+        </div>
+        <div className='vacuum-map-modal-content'>
+          <img src={map.url} alt={map.filename} />
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function RoomCleaningToggle({ areaName, entities, callService }: RoomCleaningToggleProps) {
   const areaNameNormalized = areaName.toLowerCase().replace(/\s+/g, '_');
+
+  // Maps index (small JSON, fetched once per room-detail open): the map button only
+  // appears on rows whose room actually has an archived run to show.
+  const [maps, setMaps] = useState<MapEntry[] | null>(null);
+  const [openMap, setOpenMap] = useState<MapEntry | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchMapsIndex()
+      .then(entries => {
+        if (!cancelled) setMaps(entries);
+      })
+      .catch(() => {
+        if (!cancelled) setMaps([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const mapFor = (slug: string) => (maps ? latestMapForRoom(maps, slug) : null);
+  const openMapFor = (map: MapEntry | null) => (map ? () => setOpenMap(map) : undefined);
 
   const vacuum = entities?.[VACUUM_ENTITY];
   const vacuumState = vacuum?.state;
@@ -123,6 +190,7 @@ export function RoomCleaningToggle({ areaName, entities, callService }: RoomClea
             cleaningHere={cleaningIn('Kitchen cook side')}
             lastClean={lastCleanOf('input_text.kitchen_last_clean')}
             onToggle={() => handleToggle(cookId, cookToggle.state === 'on')}
+            onOpenMap={openMapFor(mapFor('kitchen'))}
           />
         )}
         {diningToggle && (
@@ -132,8 +200,10 @@ export function RoomCleaningToggle({ areaName, entities, callService }: RoomClea
             cleaningHere={cleaningIn('Kitchen dining side')}
             lastClean={lastCleanOf('input_text.kitchen_2_last_clean')}
             onToggle={() => handleToggle(diningId, diningToggle.state === 'on')}
+            onOpenMap={openMapFor(mapFor('kitchen_2'))}
           />
         )}
+        {openMap && <RoomMapModal map={openMap} onClose={() => setOpenMap(null)} />}
       </div>
     );
   }
@@ -154,7 +224,9 @@ export function RoomCleaningToggle({ areaName, entities, callService }: RoomClea
         cleaningHere={cleaningIn(areaName)}
         lastClean={lastCleanOf(`input_text.${areaNameNormalized}_last_clean`)}
         onToggle={() => handleToggle(toggleId, isRequested)}
+        onOpenMap={openMapFor(mapFor(areaNameNormalized))}
       />
+      {openMap && <RoomMapModal map={openMap} onClose={() => setOpenMap(null)} />}
     </div>
   );
 }
