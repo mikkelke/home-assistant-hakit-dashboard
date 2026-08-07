@@ -62,6 +62,11 @@ const SENSOR_IDS = {
 } as const;
 /** HA automation's own opening/rain call - when it says so, the rain alert always shows. */
 const WINDOW_RAIN_ALERT_ENTITY = 'binary_sensor.weather_opening_alert_window_rain';
+/** Rain against an open TERRACE DOOR - a roof door in rain is water damage, not a draught
+ * (user 2026-08-07: "they cannot be open in rain"). Separate HA automation, shown red. */
+const ROOFTOP_RAIN_ALERT_ENTITY = 'binary_sensor.weather_opening_alert_rooftop_rain';
+const TERRACE_DOOR_LIVING = 'binary_sensor.rooftop_door_1_contact';
+const TERRACE_DOOR_CLAUDIA = 'binary_sensor.rooftop_door_2_contact';
 /** Friendly titles for the shared entity-history modal (wind row + facts tiles). */
 const HISTORY_LABELS: Record<string, string> = {
   [SENSOR_IDS.windSpeed]: 'Wind',
@@ -706,6 +711,18 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   const rainHour = findFirstRainHour(hourlyAll, nowMs, forcedRainAlert ? 24 * 3600_000 : 6 * 3600_000);
   const showRainAlert = windowsOpenCount > 0 && (rainHour != null || forcedRainAlert);
   const rainAlertTimeMs = rainHour ? Date.parse(rainHour.datetime) : nowMs;
+  // Terrace-door rain is its own, louder story: HA's rooftop alert plus which door it is.
+  const rooftopRainAlert = getState(entities, ROOFTOP_RAIN_ALERT_ENTITY) === 'on';
+  const livingDoorOpen = getState(entities, TERRACE_DOOR_LIVING) === 'on';
+  const claudiaDoorOpen = getState(entities, TERRACE_DOOR_CLAUDIA) === 'on';
+  const terraceDoorLabel =
+    livingDoorOpen && claudiaDoorOpen
+      ? 'both terrace doors are open'
+      : livingDoorOpen
+        ? 'the living-room terrace door is open'
+        : claudiaDoorOpen
+          ? "Claudia's terrace door is open"
+          : 'a terrace door is open';
 
   // Hero sub-line - today's remaining peak, tonight's low (through the next 06:00), dew point.
   const todayPeak = findTodayPeak(hourlyAll, todayKey);
@@ -906,8 +923,14 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
         </span>
       </div>
 
-      {(hasStormAlert || showRainAlert) && (
+      {(hasStormAlert || showRainAlert || rooftopRainAlert) && (
         <div className='quick-weather-alerts'>
+          {rooftopRainAlert && (
+            <div className='quick-weather-alert quick-weather-alert--terrace'>
+              <Icon icon='mdi:water-alert' aria-hidden='true' />
+              <span>Rain — {terraceDoorLabel}</span>
+            </div>
+          )}
           {hasStormAlert && stormHour && (
             <div className='quick-weather-alert quick-weather-alert--storm'>
               <Icon icon='mdi:weather-windy-variant' aria-hidden='true' />

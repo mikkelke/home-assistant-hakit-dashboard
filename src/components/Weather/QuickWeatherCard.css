@@ -634,3 +634,14 @@
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* Terrace-door rain: a roof door in rain is water damage - the card's loudest row */
+.quick-weather-alert--terrace {
+  background: rgba(255, 69, 58, 0.13);
+  border: 1px solid rgba(255, 69, 58, 0.32);
+  color: #ff6961;
+  font-weight: 600;
+}
+.quick-weather-alert--terrace svg {
+  color: #ff453a;
+}
