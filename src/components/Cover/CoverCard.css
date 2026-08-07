@@ -132,3 +132,38 @@
 .cover-btn.stop svg {
   color: #ff453a;
 }
+
+/* Collapsed quick actions: Default + Close without expanding. Neutral discs; the one
+   matching the blind's current position wears the blind purple. */
+.cover-quick {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.cover-quick-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+  background: #2c2c2e;
+  color: rgba(235, 235, 245, 0.6);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.08s ease, background 0.2s ease, color 0.2s ease;
+}
+.cover-quick-btn svg {
+  font-size: 0.95rem;
+}
+.cover-quick-btn:active {
+  transform: scale(0.88);
+}
+.cover-quick-btn.is-current {
+  background: rgba(167, 139, 250, 0.18);
+  color: #a78bfa;
+}

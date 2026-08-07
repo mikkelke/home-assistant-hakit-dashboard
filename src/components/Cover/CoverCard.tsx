@@ -138,6 +138,31 @@ export function CoverCard({ areaName, entities, callService }: CoverCardProps) {
           <Icon icon='mdi:blinds' aria-hidden='true' />
         </span>
         <span className='cover-title'>Blind</span>
+        {/* Collapsed quick actions (user 2026-08-07): the two positions that matter without
+            expanding — Default (the everyday open; past it only fixed glass shows) and Close.
+            Same quick-dot grammar as LightCard's bulbs; the tinted one is where the blind is. */}
+        {collapsed && (
+          <span className='cover-quick' onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} role='presentation'>
+            <button
+              type='button'
+              className={`cover-quick-btn ${isAtDay ? 'is-current' : ''}`}
+              onClick={handleDay}
+              aria-label={`Blind to ${dayLabel.toLowerCase()} position`}
+              title={dayLabel}
+            >
+              <Icon icon='mdi:blinds-horizontal' aria-hidden='true' />
+            </button>
+            <button
+              type='button'
+              className={`cover-quick-btn ${sliderValue >= 98 ? 'is-current' : ''}`}
+              onClick={handleClose}
+              aria-label='Close the blind'
+              title='Close'
+            >
+              <Icon icon='mdi:arrow-up-bold' aria-hidden='true' />
+            </button>
+          </span>
+        )}
         <span className='cover-header-right'>
           <span className={`cover-word ${isMoving ? 'tint' : 'muted'}`}>{isMoving ? movingWord : positionWord}</span>
           <Icon icon={collapsed ? 'mdi:chevron-down' : 'mdi:chevron-up'} aria-hidden='true' className='cover-chevron' />
