@@ -257,7 +257,7 @@ function DryerHistorySheet({
                       <div className='dryer-history-confirm'>
                         <select
                           className='dryer-history-select'
-                          aria-label='Correct programme'
+                          aria-label='Correct program'
                           value={cycleSelection[index] ?? cycle.predicted}
                           onChange={e => setCycleSelection(prev => ({ ...prev, [index]: e.target.value }))}
                           disabled={isSaving}
@@ -273,7 +273,7 @@ function DryerHistorySheet({
                           className='dryer-history-confirm-btn'
                           onClick={() => handleConfirmCycle(index)}
                           disabled={isSaving}
-                          aria-label='Confirm programme'
+                          aria-label='Confirm program'
                         >
                           <Icon icon={isSaving ? 'mdi:loading' : 'mdi:check'} className={isSaving ? 'dryer-spin' : ''} aria-hidden='true' />
                         </button>
@@ -606,7 +606,7 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
         <DryerChip label={`${timeSelect.state} min`} isInteractive={isInteractive} onClick={() => setOpenPicker('time')} />
       )}
       {lockSkaneOn && (
-        <span className='dryer-chip on' title='Always on for this programme'>
+        <span className='dryer-chip on' title='Always on for this program'>
           Skåne+
         </span>
       )}
@@ -832,7 +832,7 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
 
       {openPicker === 'programme' && (
         <DryerPickerSheet
-          title='Programme'
+          title='Program'
           options={options}
           current={programmeSelect?.state ?? ''}
           onPick={handlePick(handleProgrammeChange)}

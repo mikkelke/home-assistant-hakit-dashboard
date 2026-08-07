@@ -286,13 +286,13 @@ export function PriceAdvisor() {
               </button>
             </div>
 
-            <div className='price-advisor-programme-toggle' role='group' aria-label='Programme length'>
+            <div className='price-advisor-programme-toggle' role='group' aria-label='Program length'>
               <button
                 type='button'
                 className={`price-advisor-toggle-btn ${programme === 'full' ? 'active' : ''}`}
                 onClick={() => setProgramme('full')}
               >
-                Full programme
+                Full program
               </button>
               <button
                 type='button'

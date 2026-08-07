@@ -239,7 +239,7 @@ function WasherHistorySheet({
                       <div className='washer-history-confirm'>
                         <select
                           className='washer-history-select'
-                          aria-label='Correct programme'
+                          aria-label='Correct program'
                           value={cycleSelection[index] ?? cycle.predicted}
                           onChange={e => setCycleSelection(prev => ({ ...prev, [index]: e.target.value }))}
                           disabled={isSaving}
@@ -255,7 +255,7 @@ function WasherHistorySheet({
                           className='washer-history-confirm-btn'
                           onClick={() => handleConfirmCycle(index)}
                           disabled={isSaving}
-                          aria-label='Confirm programme'
+                          aria-label='Confirm program'
                         >
                           <Icon
                             icon={isSaving ? 'mdi:loading' : 'mdi:check'}
@@ -849,7 +849,7 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
 
       {openPicker === 'programme' && (
         <WasherPickerSheet
-          title='Programme'
+          title='Program'
           options={options}
           current={programmeSelect?.state ?? ''}
           onPick={handlePick(handleProgrammeChange)}

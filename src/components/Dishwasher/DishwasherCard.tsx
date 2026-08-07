@@ -232,7 +232,7 @@ function DishwasherHistorySheet({
                       <div className='dishwasher-history-confirm'>
                         <select
                           className='dishwasher-history-select'
-                          aria-label='Correct programme'
+                          aria-label='Correct program'
                           value={cycleSelection[index] ?? cycle.predicted}
                           onChange={e => setCycleSelection(prev => ({ ...prev, [index]: e.target.value }))}
                           disabled={isSaving}
@@ -248,7 +248,7 @@ function DishwasherHistorySheet({
                           className='dishwasher-history-confirm-btn'
                           onClick={() => handleConfirmCycle(index)}
                           disabled={isSaving}
-                          aria-label='Confirm programme'
+                          aria-label='Confirm program'
                         >
                           <Icon
                             icon={isSaving ? 'mdi:loading' : 'mdi:check'}
@@ -697,7 +697,7 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
 
       {openPicker === 'programme' && (
         <DishwasherPickerSheet
-          title='Programme'
+          title='Program'
           options={options}
           current={programmeSelect?.state ?? ''}
           onPick={handlePick(handleProgrammeChange)}
