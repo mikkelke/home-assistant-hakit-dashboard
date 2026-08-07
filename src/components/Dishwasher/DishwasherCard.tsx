@@ -310,7 +310,11 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
         aria-label='Mark the dishwasher as emptied'
         title='Mark emptied'
       >
-        <Icon icon={emptiedPressed ? 'mdi:loading' : 'mdi:basket-outline'} className={emptiedPressed ? 'appliance-spin' : ''} aria-hidden='true' />
+        <Icon
+          icon={emptiedPressed ? 'mdi:loading' : 'mdi:basket-outline'}
+          className={emptiedPressed ? 'appliance-spin' : ''}
+          aria-hidden='true'
+        />
       </button>
     ) : null;
 
@@ -370,7 +374,12 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
               {liveCostKr != null && <span className='appliance-footer-item'>≈ {formatKr(liveCostKr)}</span>}
               {feedbackUrl && (
                 <span className='appliance-footer-actions'>
-                  <button type='button' className='appliance-footer-icon-btn' onClick={() => setHistoryOpen(true)} aria-label='Cycle history'>
+                  <button
+                    type='button'
+                    className='appliance-footer-icon-btn'
+                    onClick={() => setHistoryOpen(true)}
+                    aria-label='Cycle history'
+                  >
                     <Icon icon='mdi:history' aria-hidden='true' />
                   </button>
                 </span>
@@ -398,8 +407,18 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
               {heroLine2 && <span className='appliance-hero-line2'>{heroLine2}</span>}
             </span>
             {hasConnection && (
-              <button type='button' className='appliance-emptied-pill' onClick={handleForceEmptied} disabled={emptiedPressed} aria-busy={emptiedPressed}>
-                <Icon icon={emptiedPressed ? 'mdi:loading' : 'mdi:check'} className={emptiedPressed ? 'appliance-spin' : ''} aria-hidden='true' />
+              <button
+                type='button'
+                className='appliance-emptied-pill'
+                onClick={handleForceEmptied}
+                disabled={emptiedPressed}
+                aria-busy={emptiedPressed}
+              >
+                <Icon
+                  icon={emptiedPressed ? 'mdi:loading' : 'mdi:check'}
+                  className={emptiedPressed ? 'appliance-spin' : ''}
+                  aria-hidden='true'
+                />
                 <span>Emptied</span>
               </button>
             )}
@@ -424,7 +443,12 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
               {runCostKr != null && <span className='appliance-footer-item'>≈ {formatKr(runCostKr)}</span>}
               {feedbackUrl && (
                 <span className='appliance-footer-actions'>
-                  <button type='button' className='appliance-footer-icon-btn' onClick={() => setHistoryOpen(true)} aria-label='Cycle history'>
+                  <button
+                    type='button'
+                    className='appliance-footer-icon-btn'
+                    onClick={() => setHistoryOpen(true)}
+                    aria-label='Cycle history'
+                  >
                     <Icon icon='mdi:history' aria-hidden='true' />
                   </button>
                 </span>
