@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { useHass } from '@hakit/core';
 import type { HassEntities, CallServiceFunction } from '../../types';
@@ -7,7 +6,9 @@ import { formatKr } from '../../utils/format';
 import { fireHaEvent } from '../../utils/haEvents';
 import { useRunCost } from '../../energy';
 import { ApplianceCycleTiming } from '../ApplianceCycleTiming';
-import { useLocalStorageBoolean, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
+import { useLocalStorageBoolean } from '../../hooks';
+import { ApplianceCard, AppliancePickerSheet, ApplianceHistorySheet, formatTimeOnly, formatDuration } from '../Appliance';
+import type { ApplianceCycle, ApplianceFeedbackJson } from '../Appliance';
 import {
   DRYER_ANNOUNCE_BOOLEAN,
   DRYER_DRYNESS_SELECT,
@@ -16,7 +17,9 @@ import {
   DRYER_STATE_ENTITY,
   DRYER_TIME_MINUTES_SELECT,
 } from '../../config/entities';
-import './DryerCard.css';
+
+const ACCENT_CLASS = 'appliance-accent-dryer';
+const GLYPH_ICON = 'mdi:tumble-dryer';
 
 const DRYER_STATE_ID = DRYER_STATE_ENTITY;
 const PROGRAMME_SELECT_ID = DRYER_PROGRAMME_SELECT;
@@ -58,64 +61,12 @@ const PROGRAMME_KEYS = Object.keys(PROGRAMME_KEY_TO_LABEL) as string[];
 
 type DryerState = 'Off' | 'Running' | 'Paused' | 'Unemptied' | 'Emptied';
 
-export interface DryerCycle {
-  ts: string;
-  duration_min: number;
-  energy_kwh: number;
-  predicted: string;
-  confirmed: string;
-  programme_confirmed_by_human: boolean;
-  max_power_w?: number;
-  duration_source?: string;
-  end_reason?: string;
-  idle_min?: number;
-}
-
-export interface DryerFeedbackJson {
-  version: number;
-  cycles: DryerCycle[];
-}
+export type DryerCycle = ApplianceCycle;
+export type DryerFeedbackJson = ApplianceFeedbackJson;
 
 interface DryerCardProps {
   entities: HassEntities;
   callService: CallServiceFunction | undefined;
-}
-
-function formatTimeOnly(isoOrTime: string | undefined): string {
-  if (!isoOrTime) return '--:--';
-  const s = String(isoOrTime).trim();
-  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)) return s.slice(0, 5);
-  try {
-    const d = new Date(isoOrTime);
-    if (Number.isNaN(d.getTime())) return s.slice(0, 5);
-    return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
-  } catch {
-    return s.slice(0, 5);
-  }
-}
-
-function formatDuration(minutes: number | undefined): string {
-  if (minutes === undefined || minutes === null || Number.isNaN(minutes)) return '--';
-  const m = Math.round(minutes);
-  if (m < 60) return `${m} min`;
-  const h = Math.floor(m / 60);
-  const min = m % 60;
-  return min > 0 ? `${h}h ${min}m` : `${h}h`;
-}
-
-function formatCycleTs(ts: string): string {
-  try {
-    const d = new Date(ts);
-    if (Number.isNaN(d.getTime())) return ts.slice(0, 16);
-    return d.toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return ts.slice(0, 16);
-  }
 }
 
 function getFeedbackUrl(): string | null {
@@ -124,172 +75,6 @@ function getFeedbackUrl(): string | null {
 }
 
 type DryerPicker = 'programme' | 'dryness' | 'time' | null;
-
-/** One generic picker sheet: a row per option, current selection checked in the dryer accent. */
-interface PickerSheetProps {
-  title: string;
-  options: readonly string[];
-  current: string;
-  onPick: (option: string) => void;
-  onClose: () => void;
-  renderOption?: (option: string) => string;
-}
-
-function DryerPickerSheet({ title, options, current, onPick, onClose, renderOption }: PickerSheetProps) {
-  const { requestClose } = useModalBackButton({ isOpen: true, onRequestClose: onClose, historyKey: 'dryer-picker' });
-  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestClose);
-
-  return createPortal(
-    <div className='dryer-modal-overlay' onClick={requestClose}>
-      <div
-        className='dryer-sheet'
-        role='dialog'
-        aria-modal='true'
-        onClick={e => e.stopPropagation()}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        <div className='dryer-sheet-top'>
-          <span className='dryer-glyph'>
-            <Icon icon='mdi:tumble-dryer' aria-hidden='true' />
-          </span>
-          <span className='dryer-title'>{title}</span>
-          <button className='dryer-sheet-close modal-close-button' onClick={requestClose} aria-label='Close'>
-            <Icon icon='mdi:close' />
-          </button>
-        </div>
-        <div className='dryer-sheet-body'>
-          {options.map(opt => (
-            <button key={opt} type='button' className='dryer-sheet-row' onClick={() => onPick(opt)}>
-              <span>{renderOption ? renderOption(opt) : opt}</span>
-              {opt === current && <Icon icon='mdi:check' className='dryer-sheet-check' aria-hidden='true' />}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-}
-
-interface HistorySheetProps {
-  cyclesNewestFirst: DryerCycle[];
-  hasFeedbackData: boolean;
-  feedbackLoading: boolean;
-  feedbackError: string | null;
-  fetchFeedback: () => void;
-  cycleSelection: Record<number, string>;
-  setCycleSelection: React.Dispatch<React.SetStateAction<Record<number, string>>>;
-  savingCycleIndex: number | null;
-  handleConfirmCycle: (index: number) => void;
-  programmeKeys: string[];
-  onClose: () => void;
-}
-
-function DryerHistorySheet({
-  cyclesNewestFirst,
-  hasFeedbackData,
-  feedbackLoading,
-  feedbackError,
-  fetchFeedback,
-  cycleSelection,
-  setCycleSelection,
-  savingCycleIndex,
-  handleConfirmCycle,
-  programmeKeys,
-  onClose,
-}: HistorySheetProps) {
-  const { requestClose } = useModalBackButton({ isOpen: true, onRequestClose: onClose, historyKey: 'dryer-history' });
-  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestClose);
-
-  return createPortal(
-    <div className='dryer-modal-overlay' onClick={requestClose}>
-      <div
-        className='dryer-sheet'
-        role='dialog'
-        aria-modal='true'
-        onClick={e => e.stopPropagation()}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        <div className='dryer-sheet-top'>
-          <span className='dryer-glyph'>
-            <Icon icon='mdi:history' aria-hidden='true' />
-          </span>
-          <span className='dryer-title'>Cycle history</span>
-          <button className='dryer-sheet-close modal-close-button' onClick={requestClose} aria-label='Close'>
-            <Icon icon='mdi:close' />
-          </button>
-        </div>
-        <div className='dryer-sheet-body'>
-          {feedbackLoading && !hasFeedbackData ? (
-            <p className='dryer-history-note'>Loading…</p>
-          ) : feedbackError ? (
-            <p className='dryer-history-note error'>
-              {feedbackError}
-              <button type='button' className='dryer-history-retry' onClick={fetchFeedback}>
-                Retry
-              </button>
-            </p>
-          ) : cyclesNewestFirst.length === 0 ? (
-            <p className='dryer-history-note'>No cycles recorded yet.</p>
-          ) : (
-            <div className='dryer-history-list'>
-              {cyclesNewestFirst.map((cycle, index) => {
-                const predictedLabel = PROGRAMME_KEY_TO_LABEL[cycle.predicted] ?? cycle.predicted;
-                const confirmedLabel = PROGRAMME_KEY_TO_LABEL[cycle.confirmed] ?? cycle.confirmed;
-                const isUnconfirmed = !cycle.programme_confirmed_by_human;
-                const isSaving = savingCycleIndex === index;
-                return (
-                  <div key={`${cycle.ts}-${index}`} className='dryer-history-row'>
-                    <div className='dryer-history-line'>
-                      <span className='dryer-history-ts'>{formatCycleTs(cycle.ts)}</span>
-                      <span>{formatDuration(cycle.duration_min)}</span>
-                      <span>{cycle.energy_kwh.toFixed(2)} kWh</span>
-                      <span className='dryer-history-programme' title={isUnconfirmed ? 'Predicted (unconfirmed)' : 'Confirmed'}>
-                        {isUnconfirmed ? predictedLabel : confirmedLabel}
-                        {isUnconfirmed && <span className='dryer-history-unconfirmed-mark'>?</span>}
-                      </span>
-                    </div>
-                    {isUnconfirmed && (
-                      <div className='dryer-history-confirm'>
-                        <select
-                          className='dryer-history-select'
-                          aria-label='Correct program'
-                          value={cycleSelection[index] ?? cycle.predicted}
-                          onChange={e => setCycleSelection(prev => ({ ...prev, [index]: e.target.value }))}
-                          disabled={isSaving}
-                        >
-                          {programmeKeys.map(k => (
-                            <option key={k} value={k}>
-                              {PROGRAMME_KEY_TO_LABEL[k] ?? k}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type='button'
-                          className='dryer-history-confirm-btn'
-                          onClick={() => handleConfirmCycle(index)}
-                          disabled={isSaving}
-                          aria-label='Confirm program'
-                        >
-                          <Icon icon={isSaving ? 'mdi:loading' : 'mdi:check'} className={isSaving ? 'dryer-spin' : ''} aria-hidden='true' />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-}
 
 export function DryerCard({ entities, callService }: DryerCardProps) {
   const dryer = entities?.[DRYER_STATE_ID];
@@ -300,7 +85,6 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
   const announceToggle = entities?.[ANNOUNCE_TOGGLE_ID];
 
   const [collapsed, setCollapsed] = useLocalStorageBoolean('dryercard-collapsed', true);
-  const headerSlop = useTouchScrollSlopGuard();
   const connection = useHass((s: { connection?: unknown }) => s.connection);
   // `connection` is typed `unknown` (see energy/ws.ts / VacuumCard) — narrow to boolean once so
   // it can gate JSX directly (`unknown && <Jsx/>` doesn't type-check as ReactNode).
@@ -597,7 +381,7 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
       : null;
 
   const renderChips = () => (
-    <div className='dryer-chips'>
+    <div className='appliance-chips'>
       <DryerChip label={programmeLabel} isInteractive={isInteractive} onClick={() => setOpenPicker('programme')} />
       {showDryness && drynessSelect && (
         <DryerChip label={drynessSelect.state ?? '—'} isInteractive={isInteractive} onClick={() => setOpenPicker('dryness')} />
@@ -606,7 +390,7 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
         <DryerChip label={`${timeSelect.state} min`} isInteractive={isInteractive} onClick={() => setOpenPicker('time')} />
       )}
       {lockSkaneOn && (
-        <span className='dryer-chip on' title='Always on for this program'>
+        <span className='appliance-chip on' title='Always on for this program'>
           Skåne+
         </span>
       )}
@@ -616,222 +400,193 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
     </div>
   );
 
-  return (
-    <div className='dryer-card'>
-      <div
-        className='dryer-header'
-        onClick={() => {
-          if (headerSlop.consumeBlockClick()) return;
-          setCollapsed(v => !v);
-        }}
-        onTouchStart={headerSlop.onTouchStart}
-        onTouchMove={headerSlop.onTouchMove}
-        onTouchEnd={headerSlop.onTouchEnd}
-        onTouchCancel={headerSlop.onTouchCancel}
-        onKeyDown={e => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            setCollapsed(v => !v);
-          }
-        }}
-        role='button'
-        tabIndex={0}
-        aria-expanded={!collapsed}
+  const quickButton =
+    collapsed && state === 'Running' && announceToggle ? (
+      <button
+        type='button'
+        className={`appliance-quick-btn ${announceOn ? 'on' : ''}`}
+        onClick={handleAnnounceToggle}
+        aria-pressed={announceOn}
+        aria-label={announceOn ? 'Turn off announce when finished' : 'Turn on announce when finished'}
+        title='Announce when finished'
       >
-        <span className='dryer-glyph'>
-          <Icon icon='mdi:tumble-dryer' aria-hidden='true' />
-        </span>
-        <span className='dryer-title'>Dryer</span>
-        {collapsed && state === 'Running' && announceToggle && (
-          <span className='dryer-quick' onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} role='presentation'>
-            <button
-              type='button'
-              className={`dryer-quick-btn ${announceOn ? 'on' : ''}`}
-              onClick={handleAnnounceToggle}
-              aria-pressed={announceOn}
-              aria-label={announceOn ? 'Turn off announce when finished' : 'Turn on announce when finished'}
-              title='Announce when finished'
-            >
-              <Icon icon='mdi:bell' aria-hidden='true' />
-            </button>
-          </span>
-        )}
-        {collapsed && state === 'Unemptied' && hasConnection && (
-          <span className='dryer-quick' onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} role='presentation'>
-            <button
-              type='button'
-              className='dryer-quick-btn'
-              onClick={handleForceEmptied}
-              disabled={emptiedPressed}
-              aria-label='Mark the dryer as emptied'
-              title='Mark emptied'
-            >
-              <Icon
-                icon={emptiedPressed ? 'mdi:loading' : 'mdi:basket-outline'}
-                className={emptiedPressed ? 'dryer-spin' : ''}
-                aria-hidden='true'
+        <Icon icon='mdi:bell' aria-hidden='true' />
+      </button>
+    ) : collapsed && state === 'Unemptied' && hasConnection ? (
+      <button
+        type='button'
+        className='appliance-quick-btn'
+        onClick={handleForceEmptied}
+        disabled={emptiedPressed}
+        aria-label='Mark the dryer as emptied'
+        title='Mark emptied'
+      >
+        <Icon
+          icon={emptiedPressed ? 'mdi:loading' : 'mdi:basket-outline'}
+          className={emptiedPressed ? 'appliance-spin' : ''}
+          aria-hidden='true'
+        />
+      </button>
+    ) : null;
+
+  return (
+    <ApplianceCard
+      accentClassName={ACCENT_CLASS}
+      glyphIcon={GLYPH_ICON}
+      title='Dryer'
+      collapsed={collapsed}
+      onToggleCollapsed={() => setCollapsed(v => !v)}
+      quickButton={quickButton}
+      stateWord={stateWord}
+      stateWordClass={stateWordClass}
+      showCollapsedStrip={state === 'Running'}
+      progressPct={progressPct}
+    >
+      {state === 'Running' && (
+        <>
+          {showProgressStrip ? (
+            <div className='appliance-cycle-strip'>
+              <div className='appliance-cycle-bar'>
+                <div className='appliance-cycle-track'>
+                  <div className='appliance-cycle-fill' style={{ width: `${progressPct}%` }} />
+                </div>
+                <div className='appliance-cycle-now' style={{ left: `${progressPct}%` }} />
+              </div>
+              <div className='appliance-cycle-meta'>
+                {hasStartedDisplay && <span className='appliance-cycle-meta-start'>{startedDisplay}</span>}
+                {countdownLabel != null && <span className='appliance-cycle-meta-countdown'>{countdownLabel}</span>}
+                {estimatedEndTime && String(estimatedEndTime).trim() !== '' && (
+                  <span className='appliance-cycle-meta-end'>~{formatTimeOnly(estimatedEndTime)}</span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className='appliance-timing-line'>
+              <ApplianceCycleTiming
+                hasDetail={showApplianceTimingDetail}
+                startedDisplay={startedDisplay}
+                estimatedEndTime={estimatedEndTime}
+                countdownLabel={countdownLabel}
+                formatTimeOnly={formatTimeOnly}
               />
-            </button>
-          </span>
-        )}
-        <span className='dryer-header-right'>
-          <span className={`dryer-word ${stateWordClass}`}>{stateWord}</span>
-          <Icon icon={collapsed ? 'mdi:chevron-down' : 'mdi:chevron-up'} aria-hidden='true' className='dryer-chevron' />
-        </span>
-      </div>
-
-      {collapsed && state === 'Running' && (
-        <div className='dryer-collapsed-strip'>
-          <div className='dryer-collapsed-strip-fill' style={{ width: `${progressPct}%` }} />
-        </div>
-      )}
-
-      {!collapsed && (
-        <div className='dryer-content'>
-          {state === 'Running' && (
-            <>
-              {showProgressStrip ? (
-                <div className='dryer-cycle-strip'>
-                  <div className='dryer-cycle-bar'>
-                    <div className='dryer-cycle-track'>
-                      <div className='dryer-cycle-fill' style={{ width: `${progressPct}%` }} />
-                    </div>
-                    <div className='dryer-cycle-now' style={{ left: `${progressPct}%` }} />
-                  </div>
-                  <div className='dryer-cycle-meta'>
-                    {hasStartedDisplay && <span className='dryer-cycle-meta-start'>{startedDisplay}</span>}
-                    {countdownLabel != null && <span className='dryer-cycle-meta-countdown'>{countdownLabel}</span>}
-                    {estimatedEndTime && String(estimatedEndTime).trim() !== '' && (
-                      <span className='dryer-cycle-meta-end'>~{formatTimeOnly(estimatedEndTime)}</span>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className='dryer-timing-line'>
-                  <ApplianceCycleTiming
-                    hasDetail={showApplianceTimingDetail}
-                    startedDisplay={startedDisplay}
-                    estimatedEndTime={estimatedEndTime}
-                    countdownLabel={countdownLabel}
-                    formatTimeOnly={formatTimeOnly}
-                  />
-                </div>
-              )}
-
-              {renderChips()}
-
-              {(energyUsed != null || liveCostKr != null || announceToggle || feedbackUrl) && (
-                <div className='dryer-footer'>
-                  {energyUsed != null && (
-                    <span className='dryer-footer-item'>
-                      <Icon icon='mdi:flash' aria-hidden='true' />
-                      {Number(energyUsed).toFixed(2)} kWh
-                    </span>
-                  )}
-                  {liveCostKr != null && <span className='dryer-footer-item'>≈ {formatKr(liveCostKr)}</span>}
-                  {(announceToggle || feedbackUrl) && (
-                    <span className='dryer-footer-actions'>
-                      {announceToggle && (
-                        <button
-                          type='button'
-                          className={`dryer-footer-icon-btn ${announceOn ? 'on' : ''}`}
-                          onClick={handleAnnounceToggle}
-                          aria-pressed={announceOn}
-                          aria-label={announceOn ? 'Turn off announce when finished' : 'Turn on announce when finished'}
-                        >
-                          <Icon icon='mdi:bell' aria-hidden='true' />
-                        </button>
-                      )}
-                      {feedbackUrl && (
-                        <button
-                          type='button'
-                          className='dryer-footer-icon-btn'
-                          onClick={() => setHistoryOpen(true)}
-                          aria-label='Cycle history'
-                        >
-                          <Icon icon='mdi:history' aria-hidden='true' />
-                        </button>
-                      )}
-                    </span>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-
-          {state === 'Paused' && (
-            <div className='dryer-paused-row'>
-              <Icon icon='mdi:plus-circle-outline' aria-hidden='true' />
-              <span>Adding laundry…</span>
             </div>
           )}
 
-          {state === 'Unemptied' && (
-            <>
-              <div className='dryer-hero'>
-                <span className='dryer-hero-icon'>
-                  <Icon icon='mdi:basket-outline' aria-hidden='true' />
-                </span>
-                <span className='dryer-hero-text'>
-                  {doneAtDisplay && <span className='dryer-hero-line1'>Done {doneAtDisplay}</span>}
-                  {heroLine2 && <span className='dryer-hero-line2'>{heroLine2}</span>}
-                </span>
-                {hasConnection && (
-                  <button
-                    type='button'
-                    className='dryer-emptied-pill'
-                    onClick={handleForceEmptied}
-                    disabled={emptiedPressed}
-                    aria-busy={emptiedPressed}
-                  >
-                    <Icon
-                      icon={emptiedPressed ? 'mdi:loading' : 'mdi:check'}
-                      className={emptiedPressed ? 'dryer-spin' : ''}
-                      aria-hidden='true'
-                    />
-                    <span>Emptied</span>
-                  </button>
-                )}
-              </div>
+          {renderChips()}
 
-              {renderChips()}
-
-              {(runTimeMinutes != null || energyUsed != null || runCostKr != null || feedbackUrl) && (
-                <div className='dryer-footer'>
-                  {runTimeMinutes != null && (
-                    <span className='dryer-footer-item'>
-                      <Icon icon='mdi:clock-outline' aria-hidden='true' />
-                      Ran {formatDuration(runTimeMinutes)}
-                    </span>
-                  )}
-                  {energyUsed != null && (
-                    <span className='dryer-footer-item'>
-                      <Icon icon='mdi:flash' aria-hidden='true' />
-                      {Number(energyUsed).toFixed(2)} kWh
-                    </span>
-                  )}
-                  {runCostKr != null && <span className='dryer-footer-item'>≈ {formatKr(runCostKr)}</span>}
-                  {feedbackUrl && (
-                    <span className='dryer-footer-actions'>
-                      <button
-                        type='button'
-                        className='dryer-footer-icon-btn'
-                        onClick={() => setHistoryOpen(true)}
-                        aria-label='Cycle history'
-                      >
-                        <Icon icon='mdi:history' aria-hidden='true' />
-                      </button>
-                    </span>
-                  )}
-                </div>
+          {(energyUsed != null || liveCostKr != null || announceToggle || feedbackUrl) && (
+            <div className='appliance-footer'>
+              {energyUsed != null && (
+                <span className='appliance-footer-item'>
+                  <Icon icon='mdi:flash' aria-hidden='true' />
+                  {Number(energyUsed).toFixed(2)} kWh
+                </span>
               )}
-            </>
+              {liveCostKr != null && <span className='appliance-footer-item'>≈ {formatKr(liveCostKr)}</span>}
+              {(announceToggle || feedbackUrl) && (
+                <span className='appliance-footer-actions'>
+                  {announceToggle && (
+                    <button
+                      type='button'
+                      className={`appliance-footer-icon-btn ${announceOn ? 'on' : ''}`}
+                      onClick={handleAnnounceToggle}
+                      aria-pressed={announceOn}
+                      aria-label={announceOn ? 'Turn off announce when finished' : 'Turn on announce when finished'}
+                    >
+                      <Icon icon='mdi:bell' aria-hidden='true' />
+                    </button>
+                  )}
+                  {feedbackUrl && (
+                    <button
+                      type='button'
+                      className='appliance-footer-icon-btn'
+                      onClick={() => setHistoryOpen(true)}
+                      aria-label='Cycle history'
+                    >
+                      <Icon icon='mdi:history' aria-hidden='true' />
+                    </button>
+                  )}
+                </span>
+              )}
+            </div>
           )}
+        </>
+      )}
+
+      {state === 'Paused' && (
+        <div className='appliance-paused-row'>
+          <Icon icon='mdi:plus-circle-outline' aria-hidden='true' />
+          <span>Adding laundry…</span>
         </div>
       )}
 
+      {state === 'Unemptied' && (
+        <>
+          <div className='appliance-hero'>
+            <span className='appliance-hero-icon'>
+              <Icon icon='mdi:basket-outline' aria-hidden='true' />
+            </span>
+            <span className='appliance-hero-text'>
+              {doneAtDisplay && <span className='appliance-hero-line1'>Done {doneAtDisplay}</span>}
+              {heroLine2 && <span className='appliance-hero-line2'>{heroLine2}</span>}
+            </span>
+            {hasConnection && (
+              <button
+                type='button'
+                className='appliance-emptied-pill'
+                onClick={handleForceEmptied}
+                disabled={emptiedPressed}
+                aria-busy={emptiedPressed}
+              >
+                <Icon
+                  icon={emptiedPressed ? 'mdi:loading' : 'mdi:check'}
+                  className={emptiedPressed ? 'appliance-spin' : ''}
+                  aria-hidden='true'
+                />
+                <span>Emptied</span>
+              </button>
+            )}
+          </div>
+
+          {renderChips()}
+
+          {(runTimeMinutes != null || energyUsed != null || runCostKr != null || feedbackUrl) && (
+            <div className='appliance-footer'>
+              {runTimeMinutes != null && (
+                <span className='appliance-footer-item'>
+                  <Icon icon='mdi:clock-outline' aria-hidden='true' />
+                  Ran {formatDuration(runTimeMinutes)}
+                </span>
+              )}
+              {energyUsed != null && (
+                <span className='appliance-footer-item'>
+                  <Icon icon='mdi:flash' aria-hidden='true' />
+                  {Number(energyUsed).toFixed(2)} kWh
+                </span>
+              )}
+              {runCostKr != null && <span className='appliance-footer-item'>≈ {formatKr(runCostKr)}</span>}
+              {feedbackUrl && (
+                <span className='appliance-footer-actions'>
+                  <button
+                    type='button'
+                    className='appliance-footer-icon-btn'
+                    onClick={() => setHistoryOpen(true)}
+                    aria-label='Cycle history'
+                  >
+                    <Icon icon='mdi:history' aria-hidden='true' />
+                  </button>
+                </span>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
       {openPicker === 'programme' && (
-        <DryerPickerSheet
+        <AppliancePickerSheet
+          accentClassName={ACCENT_CLASS}
+          glyphIcon={GLYPH_ICON}
+          historyKey='dryer-picker'
           title='Program'
           options={options}
           current={programmeSelect?.state ?? ''}
@@ -840,7 +595,10 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
         />
       )}
       {openPicker === 'dryness' && (
-        <DryerPickerSheet
+        <AppliancePickerSheet
+          accentClassName={ACCENT_CLASS}
+          glyphIcon={GLYPH_ICON}
+          historyKey='dryer-picker'
           title='Dryness'
           options={drynessOptions}
           current={drynessSelect?.state ?? ''}
@@ -849,7 +607,10 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
         />
       )}
       {openPicker === 'time' && (
-        <DryerPickerSheet
+        <AppliancePickerSheet
+          accentClassName={ACCENT_CLASS}
+          glyphIcon={GLYPH_ICON}
+          historyKey='dryer-picker'
           title='Time'
           options={timeOptions}
           current={timeSelect?.state ?? ''}
@@ -859,7 +620,9 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
         />
       )}
       {historyOpen && (
-        <DryerHistorySheet
+        <ApplianceHistorySheet
+          accentClassName={ACCENT_CLASS}
+          historyKey='dryer-history'
           cyclesNewestFirst={cyclesNewestFirst}
           hasFeedbackData={feedbackData !== null}
           feedbackLoading={feedbackLoading}
@@ -870,10 +633,11 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
           savingCycleIndex={savingCycleIndex}
           handleConfirmCycle={handleConfirmCycle}
           programmeKeys={PROGRAMME_KEYS}
+          programmeKeyToLabel={PROGRAMME_KEY_TO_LABEL}
           onClose={() => setHistoryOpen(false)}
         />
       )}
-    </div>
+    </ApplianceCard>
   );
 }
 
@@ -891,9 +655,9 @@ function DryerChip({
   onClick: () => void;
   tinted?: boolean;
 }) {
-  if (!isInteractive) return <span className='dryer-chip muted'>{label}</span>;
+  if (!isInteractive) return <span className='appliance-chip muted'>{label}</span>;
   return (
-    <button type='button' className={`dryer-chip ${tinted ? 'on' : ''}`} onClick={onClick}>
+    <button type='button' className={`appliance-chip ${tinted ? 'on' : ''}`} onClick={onClick}>
       {label}
     </button>
   );

@@ -1,10 +1,29 @@
-/* Dishwasher card — same iOS-styled shell as CoverCard.css (System Gray6 dark, 24px radius),
-   collapsed-by-default header, function color #2dd4bf throughout (glyph, running word, cycle
-   strip). No announce toggle exists for this appliance, so there's never a bell anywhere on
-   this card. Sheets (picker/history) are portaled to document.body — see DishwasherCard.tsx —
-   so their overlay/sheet rules below apply regardless of where in the DOM they're mounted. */
+/* Shared appliance-card design system — washer, dryer and dishwasher cards are the same iOS-styled
+   shell as CoverCard.css (System Gray6 dark, 24px radius) with a collapsed-by-default header. The
+   only thing that varies per appliance is its accent: --appliance-accent / --appliance-accent-bg /
+   --appliance-accent-gradient, set by one of the modifier classes below on both the card root
+   (ApplianceCard) and every portaled sheet root (ApplianceSheet) — custom properties don't cascade
+   across the createPortal(..., document.body) jump, so the sheet needs its own copy of the class.
+   Card-specific rules (the washer's prediction-confirm row) live in that card's own CSS file
+   instead of here. */
 
-.dishwasher-card {
+.appliance-accent-washer {
+  --appliance-accent: #38bdf8;
+  --appliance-accent-bg: rgba(56, 189, 248, 0.16);
+  --appliance-accent-gradient: linear-gradient(90deg, #175d7a, #38bdf8);
+}
+.appliance-accent-dryer {
+  --appliance-accent: #fb923c;
+  --appliance-accent-bg: rgba(251, 146, 60, 0.16);
+  --appliance-accent-gradient: linear-gradient(90deg, #7c3f16, #fb923c);
+}
+.appliance-accent-dishwasher {
+  --appliance-accent: #2dd4bf;
+  --appliance-accent-bg: rgba(45, 212, 191, 0.16);
+  --appliance-accent-gradient: linear-gradient(90deg, #115e54, #2dd4bf);
+}
+
+.appliance-card {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
   background: #1c1c1e; /* iOS systemGray6 dark */
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -15,7 +34,7 @@
 }
 
 /* Header — always visible; the whole row is the tap target */
-.dishwasher-header {
+.appliance-header {
   width: 100%;
   display: flex;
   align-items: center;
@@ -29,7 +48,7 @@
   touch-action: manipulation;
 }
 
-.dishwasher-glyph {
+.appliance-glyph {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -37,56 +56,57 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: rgba(45, 212, 191, 0.16);
-  color: #2dd4bf;
+  background: var(--appliance-accent-bg);
+  color: var(--appliance-accent);
 }
-.dishwasher-glyph svg {
+.appliance-glyph svg {
   font-size: 1rem;
 }
 
-.dishwasher-title {
+.appliance-title {
   flex: 1;
   min-width: 0;
   font-size: 1.05rem;
   font-weight: 600;
 }
 
-.dishwasher-header-right {
+.appliance-header-right {
   display: flex;
   align-items: center;
   gap: 0.6rem;
   flex-shrink: 0;
 }
 
-.dishwasher-word {
+.appliance-word {
   font-size: 0.9rem;
   font-weight: 600;
   flex-shrink: 0;
 }
-.dishwasher-word.tint {
-  color: #2dd4bf;
+.appliance-word.tint {
+  color: var(--appliance-accent);
 }
-.dishwasher-word.muted {
+.appliance-word.muted {
   color: rgba(235, 235, 245, 0.6);
 }
-.dishwasher-word.alert {
+.appliance-word.alert {
   color: #fbbf24;
 }
 
-.dishwasher-chevron {
+.appliance-chevron {
   font-size: 1.1rem;
   color: rgba(235, 235, 245, 0.4);
   flex-shrink: 0;
 }
 
-/* Collapsed quick action: basket (Unemptied only — no announce toggle exists for this appliance). */
-.dishwasher-quick {
+/* Collapsed quick action: announce bell (washer/dryer, while Running) or mark-emptied basket
+   (all three, while Unemptied) — never more than one at a time. */
+.appliance-quick {
   display: flex;
   align-items: center;
   gap: 0.3rem;
 }
 
-.dishwasher-quick-btn {
+.appliance-quick-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -102,51 +122,55 @@
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.08s ease, background 0.2s ease, color 0.2s ease;
 }
-.dishwasher-quick-btn svg {
+.appliance-quick-btn svg {
   font-size: 0.95rem;
 }
-.dishwasher-quick-btn:active {
+.appliance-quick-btn:active {
   transform: scale(0.88);
 }
-.dishwasher-quick-btn:disabled {
+.appliance-quick-btn.on {
+  background: rgba(34, 197, 94, 0.18);
+  color: #22c55e;
+}
+.appliance-quick-btn:disabled {
   opacity: 0.6;
   cursor: default;
 }
 
 /* Collapsed progress strip — hairline under the header while Running */
-.dishwasher-collapsed-strip {
+.appliance-collapsed-strip {
   margin: 10px 1.25rem 1.25rem;
   height: 3px;
   border-radius: 2px;
   background: #2c2c2e;
   overflow: hidden;
 }
-.dishwasher-collapsed-strip-fill {
+.appliance-collapsed-strip-fill {
   height: 100%;
-  background: #2dd4bf;
+  background: var(--appliance-accent);
   border-radius: 2px;
   transition: width 0.3s ease;
 }
 
 /* Expanded content */
-.dishwasher-content {
+.appliance-content {
   padding: 0 1.25rem 1.25rem;
 }
 
 /* Cycle strip (Running, usable progress) */
-.dishwasher-cycle-strip {
+.appliance-cycle-strip {
   display: flex;
   flex-direction: column;
 }
 
 /* Bar sized exactly to the track (12px) — the "now" line's -2px top/bottom insets must stretch
    only across the bar, not the meta row below it, so it lives in its own positioned wrapper. */
-.dishwasher-cycle-bar {
+.appliance-cycle-bar {
   position: relative;
   height: 12px;
 }
 
-.dishwasher-cycle-track {
+.appliance-cycle-track {
   position: relative;
   height: 12px;
   border-radius: 6px;
@@ -154,17 +178,17 @@
   overflow: hidden;
 }
 
-.dishwasher-cycle-fill {
+.appliance-cycle-fill {
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
   border-radius: 6px;
-  background: linear-gradient(90deg, #115e54, #2dd4bf);
+  background: var(--appliance-accent-gradient);
   transition: width 0.3s ease;
 }
 
-.dishwasher-cycle-now {
+.appliance-cycle-now {
   position: absolute;
   top: -2px;
   bottom: -2px;
@@ -174,7 +198,7 @@
   transition: left 0.3s ease;
 }
 
-.dishwasher-cycle-meta {
+.appliance-cycle-meta {
   display: flex;
   align-items: baseline;
   gap: 0.6rem;
@@ -182,33 +206,33 @@
   font-size: 12px;
 }
 
-.dishwasher-cycle-meta-start {
+.appliance-cycle-meta-start {
   color: rgba(235, 235, 245, 0.45);
 }
-.dishwasher-cycle-meta-countdown {
+.appliance-cycle-meta-countdown {
   flex: 1;
   text-align: center;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.85);
 }
-.dishwasher-cycle-meta-end {
+.appliance-cycle-meta-end {
   color: rgba(235, 235, 245, 0.35);
 }
 
 /* Fallback single-line timing (no usable progress yet) */
-.dishwasher-timing-line {
+.appliance-timing-line {
   padding: 0.1rem 0;
 }
 
 /* Chips */
-.dishwasher-chips {
+.appliance-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 14px;
 }
 
-.dishwasher-chip {
+.appliance-chip {
   background: #2c2c2e;
   border: none;
   border-radius: 15px;
@@ -219,31 +243,37 @@
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.dishwasher-chip.muted {
+.appliance-chip.muted {
   color: rgba(235, 235, 245, 0.5);
   cursor: default;
 }
+/* Accent-tinted chip (e.g. the dryer's locked-on Skåne+) — never applied on an appliance whose
+   chips don't use it, so it's harmless there. */
+.appliance-chip.on {
+  background: var(--appliance-accent-bg);
+  color: var(--appliance-accent);
+}
 
 /* Paused */
-.dishwasher-paused-row {
+.appliance-paused-row {
   display: flex;
   align-items: center;
   gap: 8px;
   color: rgba(235, 235, 245, 0.6);
   font-size: 0.9rem;
 }
-.dishwasher-paused-row svg {
+.appliance-paused-row svg {
   font-size: 1.1rem;
   flex-shrink: 0;
 }
 
 /* Unemptied hero */
-.dishwasher-hero {
+.appliance-hero {
   display: flex;
   align-items: center;
   gap: 12px;
 }
-.dishwasher-hero-icon {
+.appliance-hero-icon {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -254,22 +284,22 @@
   background: rgba(251, 191, 36, 0.14);
   color: #fbbf24;
 }
-.dishwasher-hero-icon svg {
+.appliance-hero-icon svg {
   font-size: 22px;
 }
-.dishwasher-hero-text {
+.appliance-hero-text {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
-.dishwasher-hero-line1 {
+.appliance-hero-line1 {
   font-size: 15px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.92);
 }
-.dishwasher-hero-line2 {
+.appliance-hero-line2 {
   font-size: 12.5px;
   color: rgba(235, 235, 245, 0.45);
   overflow: hidden;
@@ -277,7 +307,7 @@
   white-space: nowrap;
 }
 
-.dishwasher-emptied-pill {
+.appliance-emptied-pill {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -293,29 +323,29 @@
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.dishwasher-emptied-pill:disabled {
+.appliance-emptied-pill:disabled {
   opacity: 0.75;
   cursor: default;
 }
 
 /* Spin (loading) icon, reused by the quick button, the Emptied pill and the history confirm button */
-.dishwasher-spin {
-  animation: dishwasher-spin 1s linear infinite;
+.appliance-spin {
+  animation: appliance-spin 1s linear infinite;
   display: inline-flex;
 }
-@keyframes dishwasher-spin {
+@keyframes appliance-spin {
   to {
     transform: rotate(360deg);
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .dishwasher-spin {
+  .appliance-spin {
     animation: none;
   }
 }
 
 /* Footer */
-.dishwasher-footer {
+.appliance-footer {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -326,22 +356,22 @@
   font-size: 12.5px;
   color: rgba(235, 235, 245, 0.6);
 }
-.dishwasher-footer-item {
+.appliance-footer-item {
   display: flex;
   align-items: center;
   gap: 4px;
   white-space: nowrap;
 }
-.dishwasher-footer-item svg {
+.appliance-footer-item svg {
   font-size: 13px;
 }
-.dishwasher-footer-actions {
+.appliance-footer-actions {
   margin-left: auto;
   display: flex;
   align-items: center;
   gap: 10px;
 }
-.dishwasher-footer-icon-btn {
+.appliance-footer-icon-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -352,12 +382,15 @@
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.dishwasher-footer-icon-btn svg {
+.appliance-footer-icon-btn svg {
   font-size: 15px;
+}
+.appliance-footer-icon-btn.on {
+  color: #22c55e;
 }
 
 /* ---- Sheets (picker / history), portaled to document.body ---- */
-.dishwasher-modal-overlay {
+.appliance-modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
@@ -368,7 +401,7 @@
   padding: 1rem;
 }
 
-.dishwasher-sheet {
+.appliance-sheet {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
   background: #1c1c1e;
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -383,20 +416,20 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
-.dishwasher-sheet-top {
+.appliance-sheet-top {
   display: flex;
   align-items: center;
   gap: 0.6rem;
   flex-shrink: 0;
 }
 
-.dishwasher-sheet-body {
+.appliance-sheet-body {
   margin-top: 1.1rem;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
 
-.dishwasher-sheet-row {
+.appliance-sheet-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -413,26 +446,26 @@
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.dishwasher-sheet-row:last-child {
+.appliance-sheet-row:last-child {
   border-bottom: none;
 }
-.dishwasher-sheet-check {
+.appliance-sheet-check {
   flex-shrink: 0;
   font-size: 1.1rem;
-  color: #2dd4bf;
+  color: var(--appliance-accent);
 }
 
 /* History sheet */
-.dishwasher-history-note {
+.appliance-history-note {
   padding: 1rem 0;
   text-align: center;
   font-size: 0.875rem;
   color: rgba(235, 235, 245, 0.6);
 }
-.dishwasher-history-note.error {
+.appliance-history-note.error {
   color: #ff6961;
 }
-.dishwasher-history-retry {
+.appliance-history-retry {
   margin-left: 0.5rem;
   background: none;
   border: none;
@@ -443,12 +476,12 @@
   cursor: pointer;
 }
 
-.dishwasher-history-list {
+.appliance-history-list {
   display: flex;
   flex-direction: column;
 }
 
-.dishwasher-history-row {
+.appliance-history-row {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
@@ -456,36 +489,36 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   font-size: 13px;
 }
-.dishwasher-history-row:last-child {
+.appliance-history-row:last-child {
   border-bottom: none;
 }
 
-.dishwasher-history-line {
+.appliance-history-line {
   display: flex;
   align-items: center;
   gap: 0.6rem;
   flex-wrap: wrap;
   color: rgba(235, 235, 245, 0.75);
 }
-.dishwasher-history-ts {
+.appliance-history-ts {
   color: rgba(235, 235, 245, 0.45);
 }
-.dishwasher-history-programme {
+.appliance-history-programme {
   margin-left: auto;
   color: rgba(255, 255, 255, 0.92);
 }
-.dishwasher-history-unconfirmed-mark {
+.appliance-history-unconfirmed-mark {
   margin-left: 0.25rem;
   color: #fbbf24;
   font-weight: 600;
 }
 
-.dishwasher-history-confirm {
+.appliance-history-confirm {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
-.dishwasher-history-select {
+.appliance-history-select {
   background: #2c2c2e;
   color: inherit;
   border: none;
@@ -495,7 +528,7 @@
   font-size: 12.5px;
   cursor: pointer;
 }
-.dishwasher-history-confirm-btn {
+.appliance-history-confirm-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -509,10 +542,10 @@
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.dishwasher-history-confirm-btn svg {
+.appliance-history-confirm-btn svg {
   font-size: 0.85rem;
 }
-.dishwasher-history-confirm-btn:disabled {
+.appliance-history-confirm-btn:disabled {
   opacity: 0.7;
   cursor: default;
 }
