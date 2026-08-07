@@ -77,6 +77,16 @@
   }
 }
 
+/* Backdrop held while the lazily-loaded Energy page chunk arrives. Mirrors .energy-page's own
+   fixed full-screen shell — that rule lives in the split-out EnergyPage.css, which is not on the
+   page yet, so the placeholder cannot reuse it. */
+.energy-page-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: #0d0f13;
+}
+
 /* Responsive - Mobile */
 @media (max-width: 700px) {
   .dashboard.has-detail .dashboard-content {

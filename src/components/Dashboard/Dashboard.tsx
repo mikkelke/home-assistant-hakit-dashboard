@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useHass } from '@hakit/core';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { EXCLUDED_AREAS } from '../../config/dashboard';
@@ -9,9 +9,13 @@ import { HomePulse } from '../HomePulse';
 import { QuickAccess } from '../QuickAccess/QuickAccess';
 import { RoomGrid } from '../RoomGrid';
 import { RoomDetail } from '../RoomDetail';
-import { EnergyPage } from '../Energy';
 import { Menu } from '../Menu';
 import './Dashboard.css';
+
+// The Energy page and its chart tree only ever mount behind Menu → Energy (or a #energy hash), so it is
+// split out of the first-paint bundle. The Suspense fallback is an empty stand-in for the page's own
+// full-screen dark backdrop (see .energy-page-loading in Dashboard.css), so the swap is invisible.
+const EnergyPage = lazy(() => import('../Energy').then(module => ({ default: module.EnergyPage })));
 
 /** Build mock washer entities for ?washer_demo=running|unemptied|paused|emptied|off (for UI preview). */
 function getWasherDemoEntities(mode: string | null): HassEntities {
@@ -570,7 +574,11 @@ export function Dashboard() {
           </>
         )}
 
-        {energyOpen && <EnergyPage onClose={handleCloseEnergy} />}
+        {energyOpen && (
+          <Suspense fallback={<div className='energy-page-loading' />}>
+            <EnergyPage onClose={handleCloseEnergy} />
+          </Suspense>
+        )}
       </div>
     </div>
   );
