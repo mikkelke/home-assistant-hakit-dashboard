@@ -359,37 +359,8 @@
   color: rgba(235, 235, 245, 0.4);
 }
 
-/* Footer */
-.quick-weather-footer {
-  margin-top: 1.1rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  font-size: 0.8125rem;
-  color: rgba(235, 235, 245, 0.6);
-}
-
-.quick-weather-footer-sea {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-.quick-weather-footer-sea svg {
-  font-size: 1rem;
-  opacity: 0.7;
-}
-
-.quick-weather-footer-station {
-  flex-shrink: 0;
-  color: rgba(235, 235, 245, 0.3);
-}
-.quick-weather-footer-station.is-quiet {
-  color: #ff453a;
-  font-weight: 600;
-}
+/* (The footer that used to carry "roof quiet N min" is gone - that line now rides on the hero
+   sub-line, beside the number whose provenance it explains.) */
 
 /* Day popup: full overlay to explore a day by hour (unchanged from the previous layout) */
 .quick-weather-card__day-popup {
@@ -633,6 +604,181 @@
 .quick-weather-ribbon.is-tappable {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Hero row: the measured number, and - only when the roof and the model actually disagree -
+   a chip that opens the comparison sheet. */
+.quick-weather-hero-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.quick-weather-hero-value.is-tappable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.quick-weather-hero-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  padding: 0.25rem 0.6rem;
+  border: none;
+  border-radius: 14px;
+  background: #2c2c2e;
+  color: rgba(235, 235, 245, 0.6);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.quick-weather-hero-chip svg {
+  font-size: 0.95em;
+  opacity: 0.8;
+}
+
+/* Where the hero number came from, when it did not come from the roof. Red only while the roof
+   is actually quiet - a plain missing sensor is information, not an alarm. */
+.quick-weather-hero-source {
+  color: rgba(235, 235, 245, 0.45);
+}
+.quick-weather-hero-source.is-quiet {
+  color: #ff453a;
+  font-weight: 600;
+}
+
+/* Source marker on the wind number itself */
+.quick-weather-wind-source {
+  margin-left: 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: rgba(235, 235, 245, 0.35);
+}
+
+/* Roof vs forecast sheet - reuses the shared .person-info-* modal shell */
+.person-info-modal.quick-weather-compare-modal {
+  max-width: 520px;
+}
+
+.person-info-modal .quick-weather-compare-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.quick-weather-compare-switch {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border-radius: 12px;
+  background: #2c2c2e;
+}
+
+.quick-weather-compare-tab {
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  padding: 0.3rem 0.7rem;
+  font-family: inherit;
+  font-size: 0.8rem;
+  color: rgba(235, 235, 245, 0.6);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.quick-weather-compare-tab.is-active {
+  background: #48484a;
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
+}
+
+.quick-weather-compare-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.quick-weather-compare-grid {
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1;
+}
+
+.quick-weather-compare-axis {
+  fill: rgba(235, 235, 245, 0.35);
+  font-family: inherit;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Measured: solid, in the card's amber accent. Modelled: dashed and muted - it is a guess. */
+.quick-weather-compare-measured {
+  fill: none;
+  stroke: #f59e0b;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.quick-weather-compare-modelled {
+  fill: none;
+  stroke: rgba(148, 163, 184, 0.85);
+  stroke-width: 1.6;
+  stroke-dasharray: 5 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.quick-weather-compare-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  font-size: 0.75rem;
+  color: rgba(235, 235, 245, 0.6);
+}
+
+.quick-weather-compare-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.quick-weather-compare-key::before {
+  content: '';
+  width: 18px;
+  height: 0;
+  border-top: 2px solid transparent;
+}
+.quick-weather-compare-key.is-measured::before {
+  border-top-color: #f59e0b;
+}
+.quick-weather-compare-key.is-modelled::before {
+  border-top-style: dashed;
+  border-top-color: rgba(148, 163, 184, 0.85);
+}
+
+.quick-weather-compare-unit {
+  margin-left: auto;
+  color: rgba(235, 235, 245, 0.35);
+  font-variant-numeric: tabular-nums;
+}
+
+.quick-weather-compare-summary,
+.quick-weather-compare-note {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: rgba(235, 235, 245, 0.6);
+}
+.quick-weather-compare-note {
+  color: rgba(235, 235, 245, 0.45);
 }
 
 /* Terrace-door rain: a roof door in rain is water damage - the card's loudest row */

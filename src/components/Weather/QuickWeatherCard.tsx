@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useWeather, useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import type { HassEntities, HassEntity } from '../../types';
-import { useModalBackButton } from '../../hooks';
+import { useModalBackButton, useSwipeToClose } from '../../hooks';
 import { Timeline } from '../Timeline';
 import { getWeatherConditionIcon } from './weatherIcons';
 import './QuickWeatherCard.css';
@@ -47,6 +47,12 @@ interface ConnectionWithAuth {
  * Data sources for QuickWeatherCard:
  * - Weather entity (entityId): condition + forecast via Hakit useWeather (same WebSocket subscription as the old WeatherCard).
  * - GW2000A sensors below: current live readings only (not forecast).
+ *
+ * The two headline numbers (temperature, wind) come off the GW2000A - they are MEASURED, on this
+ * roof. The weather entity is MODELLED for a grid square and is only the fallback. Before
+ * 2026-08-09 it was the other way round, and the card read 20.3° / 13.3 km/h off met.no while the
+ * roof said 21.4° / 6.5 km/h. Everything with a future in it (ribbon, peaks, week rows, rain and
+ * gust notes) is still forecast, because the station cannot know what happens next.
  */
 const SENSOR_IDS = {
   outdoorTemp: 'sensor.gw2000a_outdoor_temperature',
@@ -74,6 +80,18 @@ const HISTORY_LABELS: Record<string, string> = {
   [SENSOR_IDS.uv]: 'UV',
   [SENSOR_IDS.seaTemperature]: 'Sea temperature',
 };
+
+/** The roof stops being the headline once it has said nothing for this long - a dead station
+ * reading 21.4° forever is worse than a forecast that is merely modelled. */
+const STATION_QUIET_MIN = 30;
+/** Hero chip threshold: under a whole degree the roof and the model do not really disagree. */
+const TEMP_CHIP_MIN_DIFF_C = 1.0;
+/** Wind sub-line threshold, in km/h regardless of the row's display unit. */
+const WIND_NOTE_MIN_DIFF_KMH = 3;
+/** A gust is only worth naming when it beats the sustained wind by more than this (m/s). */
+const GUST_CLAUSE_MIN_MARGIN_MS = 1.0;
+/** Roof-vs-forecast sheet window. */
+const COMPARE_WINDOW_HOURS = 24;
 
 const getEntity = (entities: HassEntities, entityId: string) => entities?.[entityId] as EntityLike | undefined;
 const getState = (entities: HassEntities, entityId: string) => getEntity(entities, entityId)?.state;
@@ -459,6 +477,212 @@ function formatBucketLabel(entry: WeatherForecastEntry) {
   return formatHour(entry.datetime);
 }
 
+/* ---------------------------------------------------------------------------------------------
+ * Roof vs forecast: measured station history overlaid on the weather entity's own attribute
+ * history. Timeline can't carry this - it renders a list of discrete state events, not a numeric
+ * chart, and its `secondaryEntityId` only merges a second event stream into the same list. Hence
+ * the small SVG below rather than a Timeline extension.
+ * ------------------------------------------------------------------------------------------- */
+
+type CompareMetric = 'temperature' | 'wind';
+type CompareStatus = 'loading' | 'ready' | 'error';
+
+interface SeriesPoint {
+  t: number;
+  v: number;
+}
+
+interface CompareSeries {
+  measured: SeriesPoint[];
+  modelled: SeriesPoint[];
+  startMs: number;
+  endMs: number;
+  metric: CompareMetric;
+}
+
+/** One row of HA's /api/history/period response (full form - see fetchCompareSeries). */
+interface HistoryRow {
+  state?: string;
+  attributes?: Record<string, unknown>;
+  last_changed?: string;
+  last_updated?: string;
+}
+
+/** Sensor history -> numeric series. `last_updated` first: an attribute-only tick moves that and
+ * not `last_changed`, which is exactly what the weather entity does between condition changes. */
+function toStatePoints(rows: HistoryRow[]): SeriesPoint[] {
+  const points: SeriesPoint[] = [];
+  for (const row of rows) {
+    const t = Date.parse(row.last_updated ?? row.last_changed ?? '');
+    const v = getNumber(row.state);
+    if (!Number.isFinite(t) || v === undefined) continue;
+    points.push({ t, v });
+  }
+  return points.sort((a, b) => a.t - b.t);
+}
+
+/** Weather-entity history -> numeric series read off ATTRIBUTES: °C for temperature, km/h for
+ * wind (each row carries its own wind_speed_unit, so a unit change mid-window still converts). */
+function toAttributePoints(rows: HistoryRow[], metric: CompareMetric): SeriesPoint[] {
+  const points: SeriesPoint[] = [];
+  for (const row of rows) {
+    const t = Date.parse(row.last_updated ?? row.last_changed ?? '');
+    if (!Number.isFinite(t) || !row.attributes) continue;
+    if (metric === 'temperature') {
+      const v = getNumber(row.attributes.temperature);
+      if (v === undefined) continue;
+      points.push({ t, v });
+    } else {
+      const unit = typeof row.attributes.wind_speed_unit === 'string' ? row.attributes.wind_speed_unit : undefined;
+      const ms = toMetersPerSecond(row.attributes.wind_speed, unit);
+      if (ms === undefined) continue;
+      points.push({ t, v: ms * 3.6 });
+    }
+  }
+  return points.sort((a, b) => a.t - b.t);
+}
+
+/** Linearly interpolated value at `t`, or undefined outside the series' own range - the two
+ * series are paced very differently (roof every ~4 min, weather entity roughly hourly). */
+function sampleSeries(points: SeriesPoint[], t: number): number | undefined {
+  if (points.length === 0) return undefined;
+  if (t < points[0].t || t > points[points.length - 1].t) return undefined;
+  let lo = 0;
+  let hi = points.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (points[mid].t <= t) lo = mid;
+    else hi = mid;
+  }
+  const a = points[lo];
+  const b = points[hi];
+  if (b.t === a.t) return a.v;
+  return a.v + ((b.v - a.v) * (t - a.t)) / (b.t - a.t);
+}
+
+interface CompareStats {
+  meanDiff: number;
+  maxDiff: number;
+  maxDiffMs: number;
+}
+
+/** Signed roof-minus-forecast statistics, sampled on a fixed 10-minute grid so the denser series
+ * doesn't outvote the sparser one. */
+function computeCompareStats(series: CompareSeries): CompareStats | null {
+  const STEP_MS = 10 * 60_000;
+  // Grid snapped to whole ten-minute clock times so "biggest gap at 14:00" reads as a time
+  // somebody could look up, not 14:02.
+  const gridStart = Math.ceil(series.startMs / STEP_MS) * STEP_MS;
+  let sum = 0;
+  let count = 0;
+  let maxDiff = 0;
+  let maxDiffMs = gridStart;
+  for (let t = gridStart; t <= series.endMs; t += STEP_MS) {
+    const measured = sampleSeries(series.measured, t);
+    const modelled = sampleSeries(series.modelled, t);
+    if (measured === undefined || modelled === undefined) continue;
+    const diff = measured - modelled;
+    sum += diff;
+    if (count === 0 || Math.abs(diff) > Math.abs(maxDiff)) {
+      maxDiff = diff;
+      maxDiffMs = t;
+    }
+    count += 1;
+  }
+  return count === 0 ? null : { meanDiff: sum / count, maxDiff, maxDiffMs };
+}
+
+function compareUnitLabel(metric: CompareMetric): string {
+  return metric === 'temperature' ? '°C' : 'km/h';
+}
+
+/** One sentence under the chart: the average signed gap, then the worst moment. */
+function compareSummary(stats: CompareStats, metric: CompareMetric): string {
+  const suffix = metric === 'temperature' ? '°' : ' km/h';
+  const above = metric === 'temperature' ? 'warmer' : 'windier';
+  const below = metric === 'temperature' ? 'cooler' : 'calmer';
+  const lead =
+    Math.abs(stats.meanDiff) < 0.05
+      ? `The roof matched the forecast over ${COMPARE_WINDOW_HOURS} h`
+      : `The roof ran ${Math.abs(stats.meanDiff).toFixed(1)}${suffix} ${stats.meanDiff > 0 ? above : below} than forecast over ${COMPARE_WINDOW_HOURS} h`;
+  const sign = stats.maxDiff >= 0 ? '+' : '-';
+  return `${lead} · biggest gap ${sign}${Math.abs(stats.maxDiff).toFixed(1)}${suffix} at ${formatHHMM(new Date(stats.maxDiffMs))}`;
+}
+
+const COMPARE_VIEW_WIDTH = 340;
+const COMPARE_VIEW_HEIGHT = 170;
+const COMPARE_PAD = { top: 12, right: 8, bottom: 22, left: 30 };
+
+/** First whole 6-hour clock time at or after `startMs` (06:00, 12:00, … - never 12:17). */
+function firstSixHourTick(startMs: number): number {
+  const d = new Date(startMs);
+  d.setMinutes(0, 0, 0);
+  d.setHours(d.getHours() + ((6 - (d.getHours() % 6)) % 6));
+  return d.getTime() < startMs ? d.getTime() + 6 * 3600_000 : d.getTime();
+}
+
+/** Two numeric series on one pair of axes: measured solid amber, modelled dashed and muted. */
+function CompareChart({ series }: { series: CompareSeries }) {
+  const { measured, modelled, startMs, endMs, metric } = series;
+  if (measured.length === 0 && modelled.length === 0) return null;
+
+  const plotLeft = COMPARE_PAD.left;
+  const plotRight = COMPARE_VIEW_WIDTH - COMPARE_PAD.right;
+  const plotTop = COMPARE_PAD.top;
+  const plotBottom = COMPARE_VIEW_HEIGHT - COMPARE_PAD.bottom;
+
+  // Folded rather than spread into Math.min - the roof's wind sensor alone puts ~900 points in a
+  // 24 h window, and an argument list is the wrong shape for that.
+  let rawMin = Infinity;
+  let rawMax = -Infinity;
+  for (const point of measured) {
+    if (point.v < rawMin) rawMin = point.v;
+    if (point.v > rawMax) rawMax = point.v;
+  }
+  for (const point of modelled) {
+    if (point.v < rawMin) rawMin = point.v;
+    if (point.v > rawMax) rawMax = point.v;
+  }
+  const headroom = Math.max(0.5, (rawMax - rawMin) * 0.12);
+  const axisMin = metric === 'wind' ? Math.max(0, rawMin - headroom) : rawMin - headroom;
+  const axisMax = rawMax + headroom;
+  const axisSpan = axisMax > axisMin ? axisMax - axisMin : 1;
+
+  const xFor = (t: number) => plotLeft + ((t - startMs) / Math.max(1, endMs - startMs)) * (plotRight - plotLeft);
+  const yFor = (v: number) => plotBottom - ((v - axisMin) / axisSpan) * (plotBottom - plotTop);
+  const pathFor = (points: SeriesPoint[]) =>
+    points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(p.t).toFixed(1)} ${yFor(p.v).toFixed(1)}`).join(' ');
+
+  const gridValues = [axisMin, axisMin + axisSpan / 2, axisMax];
+  const timeTicks: number[] = [];
+  for (let t = firstSixHourTick(startMs); t <= endMs; t += 6 * 3600_000) timeTicks.push(t);
+
+  return (
+    <svg
+      className='quick-weather-compare-chart'
+      viewBox={`0 0 ${COMPARE_VIEW_WIDTH} ${COMPARE_VIEW_HEIGHT}`}
+      role='img'
+      aria-label={`Measured against forecast over the last ${COMPARE_WINDOW_HOURS} hours`}
+    >
+      {gridValues.map(value => (
+        <g key={`grid-${value}`}>
+          <line className='quick-weather-compare-grid' x1={plotLeft} y1={yFor(value)} x2={plotRight} y2={yFor(value)} />
+          <text className='quick-weather-compare-axis' x={plotLeft - 5} y={yFor(value) + 3} textAnchor='end'>
+            {metric === 'temperature' ? `${Math.round(value)}°` : Math.round(value)}
+          </text>
+        </g>
+      ))}
+      {timeTicks.map(t => (
+        <text key={`tick-${t}`} className='quick-weather-compare-axis' x={xFor(t)} y={COMPARE_VIEW_HEIGHT - 6} textAnchor='middle'>
+          {formatHHMM(new Date(t))}
+        </text>
+      ))}
+      {modelled.length > 0 && <path className='quick-weather-compare-modelled' d={pathFor(modelled)} />}
+      {measured.length > 0 && <path className='quick-weather-compare-measured' d={pathFor(measured)} />}
+    </svg>
+  );
+}
+
 export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) {
   const weatherEntity = getEntity(entities, entityId);
   const weatherDaily = useWeather(entityId as Parameters<typeof useWeather>[0], { type: 'daily' });
@@ -639,6 +863,78 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
     historyKey: 'quick-weather-history',
   });
 
+  // Roof vs forecast sheet - same portaled markup as the history modal above.
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [compareMetric, setCompareMetric] = useState<CompareMetric>('temperature');
+  const [compareSeries, setCompareSeries] = useState<CompareSeries | null>(null);
+  const [compareStatus, setCompareStatus] = useState<CompareStatus>('loading');
+  const openCompare = useCallback(() => setCompareOpen(true), []);
+  const closeCompare = useCallback(() => setCompareOpen(false), []);
+  const { requestClose: requestCloseCompare } = useModalBackButton({
+    isOpen: compareOpen,
+    onRequestClose: closeCompare,
+    historyKey: 'quick-weather-compare',
+  });
+  const {
+    handleTouchStart: handleCompareTouchStart,
+    handleTouchMove: handleCompareTouchMove,
+    handleTouchEnd: handleCompareTouchEnd,
+  } = useSwipeToClose(requestCloseCompare);
+
+  useEffect(() => {
+    if (!compareOpen) return;
+    let cancelled = false;
+    setCompareStatus('loading');
+
+    // significant_changes_only=0 is REQUIRED: the weather entity's temperature moves without its
+    // state (the condition word) moving, and those attribute-only rows are dropped otherwise -
+    // measured on this box, 26 rows in 24 h became 8. minimal_response must be ABSENT, not 0: HA
+    // reads that flag by presence, so `minimal_response=0` still strips the attributes we came for
+    // (measured: 26 rows with a temperature became 1).
+    const fetchCompareSeries = async () => {
+      const endMs = Date.now();
+      const startMs = endMs - COMPARE_WINDOW_HOURS * 3600_000;
+      const accessToken = getAccessToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+      const fetchHistory = async (targetEntityId: string): Promise<HistoryRow[]> => {
+        const url = new URL(`/api/history/period/${new Date(startMs).toISOString()}`, window.location.origin);
+        url.searchParams.set('filter_entity_id', targetEntityId);
+        url.searchParams.set('end_time', new Date(endMs).toISOString());
+        url.searchParams.set('significant_changes_only', '0');
+        const response = await fetch(url.toString(), { method: 'GET', headers, credentials: 'include' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data: unknown = await response.json();
+        if (!Array.isArray(data) || data.length === 0) return [];
+        return (Array.isArray(data[0]) ? data[0] : data) as HistoryRow[];
+      };
+
+      try {
+        const stationEntityId = compareMetric === 'wind' ? SENSOR_IDS.windSpeed : SENSOR_IDS.outdoorTemp;
+        const [stationRows, forecastRows] = await Promise.all([fetchHistory(stationEntityId), fetchHistory(entityId)]);
+        if (cancelled) return;
+        setCompareSeries({
+          measured: toStatePoints(stationRows),
+          modelled: toAttributePoints(forecastRows, compareMetric),
+          startMs,
+          endMs,
+          metric: compareMetric,
+        });
+        setCompareStatus('ready');
+      } catch {
+        if (cancelled) return;
+        setCompareSeries(null);
+        setCompareStatus('error');
+      }
+    };
+
+    void fetchCompareSeries();
+    return () => {
+      cancelled = true;
+    };
+  }, [compareOpen, compareMetric, entityId, getAccessToken]);
+
   if (!weatherEntity) {
     return (
       <div className='quick-weather-card quick-weather-card--empty'>
@@ -657,22 +953,72 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   const forecastWindUnit = typeof attributes.wind_speed_unit === 'string' ? attributes.wind_speed_unit : 'km/h';
   const todayKey = getLocalDayKey(now);
 
-  const currentTemp = getNumber(attributes.temperature) ?? getNumber(getState(entities, SENSOR_IDS.outdoorTemp));
+  // Roof station health first - it decides which source the two headline numbers come from, so it
+  // has to be known before either of them is picked.
+  const outdoorTempEntity = getEntity(entities, SENSOR_IDS.outdoorTemp);
+  const windSpeedEntity = getEntity(entities, SENSOR_IDS.windSpeed);
+  const stationChangeMs = [outdoorTempEntity, windSpeedEntity]
+    .map(e => Date.parse(e?.last_changed ?? e?.last_updated ?? ''))
+    .filter(Number.isFinite);
+  const stationAgeMin = stationChangeMs.length ? Math.round((nowMs - Math.max(...stationChangeMs)) / 60000) : null;
+  const stationQuiet = stationAgeMin != null && stationAgeMin > STATION_QUIET_MIN;
+  /** Roof stale: fall back to the model for the headline numbers, and say so on the card. */
+  const preferForecast = stationQuiet;
+
+  const stationTemp = getNumber(outdoorTempEntity?.state);
+  const forecastTemp = getNumber(attributes.temperature);
+  const currentTemp = preferForecast ? (forecastTemp ?? stationTemp) : (stationTemp ?? forecastTemp);
+  const tempSource: 'roof' | 'forecast' | undefined =
+    currentTemp === undefined
+      ? undefined
+      : preferForecast && forecastTemp !== undefined
+        ? 'forecast'
+        : stationTemp !== undefined
+          ? 'roof'
+          : 'forecast';
+  // Chip only when the two genuinely disagree - a tenth of a degree is not news. Suppressed
+  // while the roof is quiet: comparing a stale reading against a live forecast measures how
+  // long the sensor has been silent, not how wrong the model is, and the hero already says
+  // "from forecast · roof quiet N min" in that state.
+  const tempDiff = stationTemp !== undefined && forecastTemp !== undefined ? stationTemp - forecastTemp : undefined;
+  const tempChipText =
+    !stationQuiet && tempDiff !== undefined && Math.abs(tempDiff) >= TEMP_CHIP_MIN_DIFF_C
+      ? `${Math.abs(tempDiff).toFixed(1)}° ${tempDiff > 0 ? 'over' : 'under'} forecast`
+      : null;
+
   const dewpoint = getNumber(getState(entities, SENSOR_IDS.dewpoint));
 
   const seaTemperatureEntity = getEntity(entities, SENSOR_IDS.seaTemperature);
   const seaTemperature = getNumber(seaTemperatureEntity?.state);
   const seaTemperatureFeel = getSeaTemperatureFeel(seaTemperature);
 
-  // Wind - canonical m/s figures preserved exactly as before (attribute first, sensor fallback);
-  // display unit/plausibility/classification are new derivations layered on top.
+  // Wind - roof first, forecast only as fallback (user 2026-08-09, "for consistency" with the
+  // temperature, knowingly accepting that the roof sits sheltered and reads lower than met.no).
   const windDirection = getNumber(getState(entities, SENSOR_IDS.windDirection));
   const windDirLabel = windDirection != null ? compass16(windDirection) : '—';
-  const windSpeedMs =
-    toMetersPerSecond(attributes.wind_speed, typeof attributes.wind_speed_unit === 'string' ? attributes.wind_speed_unit : undefined) ??
-    toMetersPerSecond(getState(entities, SENSOR_IDS.windSpeed), 'km/h');
+  const stationWindMs = toMetersPerSecond(getState(entities, SENSOR_IDS.windSpeed), 'km/h');
+  const forecastWindMs = toMetersPerSecond(
+    attributes.wind_speed,
+    typeof attributes.wind_speed_unit === 'string' ? attributes.wind_speed_unit : undefined
+  );
+  const windSpeedMs = preferForecast ? (forecastWindMs ?? stationWindMs) : (stationWindMs ?? forecastWindMs);
+  const windSource: 'roof' | 'forecast' | undefined =
+    windSpeedMs === undefined
+      ? undefined
+      : preferForecast && forecastWindMs !== undefined
+        ? 'forecast'
+        : stationWindMs !== undefined
+          ? 'roof'
+          : 'forecast';
   const rawGustMs = toMetersPerSecond(getState(entities, SENSOR_IDS.windGust), 'km/h');
-  const gustPlausible = rawGustMs !== undefined && windSpeedMs !== undefined && isPlausibleGustMs(rawGustMs, windSpeedMs);
+  // The spike filter keeps its ORIGINAL basis (forecast wind first, station second) on purpose.
+  // Judged against the roof's OWN sustained reading it starts discarding real weather: a sheltered
+  // anemometer averages near nothing while still catching brief eddies, and over the 24 h to
+  // 2026-08-09 that rejected 89 of 1658 moments - "gust 19.4 km/h, roof wind 2.5 km/h" and
+  // similar. The filter exists for the ~1 bogus spike a day (143 km/h against a 9 km/h hour),
+  // which either basis still catches.
+  const gustBasisMs = forecastWindMs ?? stationWindMs;
+  const gustPlausible = rawGustMs !== undefined && gustBasisMs !== undefined && isPlausibleGustMs(rawGustMs, gustBasisMs);
   const gustMs = gustPlausible ? rawGustMs : undefined;
   const pillBasisMs = gustMs ?? windSpeedMs;
   const windWord = pillBasisMs !== undefined ? classifyGustWord(pillBasisMs) : undefined;
@@ -689,8 +1035,32 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
 
   const windSubParts: string[] = [];
   // Gusts only when they actually exceed the sustained wind - "9 km/h, gusts 9 km/h" is noise.
-  if (gustDisplay !== undefined && windSpeedMs !== undefined && gustMs !== undefined && gustMs > windSpeedMs * 1.05)
+  // The +1 m/s floor arrived with the roof-first switch (2026-08-09): the ratio alone was tuned
+  // against the forecast's smooth wind, and against the roof's own low sheltered average it
+  // fired on ~4 readings in 5, including physically meaningless pairs like 4.5 -> 5 km/h.
+  // Both sides are now the same anemometer, so the gap is real when it is more than a metre.
+  if (
+    gustDisplay !== undefined &&
+    windSpeedMs !== undefined &&
+    gustMs !== undefined &&
+    gustMs > windSpeedMs * 1.05 &&
+    gustMs - windSpeedMs >= GUST_CLAUSE_MIN_MARGIN_MS
+  )
     windSubParts.push(`gusts ${formatWindValue(gustDisplay, windUnitLabel)} ${windUnitLabel}`);
+  // What the model says, but only when the big number is the roof's and the two are far enough
+  // apart to be worth a line. Threshold is 3 km/h whatever unit the row happens to be showing.
+  const stationWindKmh = stationWindMs !== undefined ? stationWindMs * 3.6 : undefined;
+  const forecastWindKmh = forecastWindMs !== undefined ? forecastWindMs * 3.6 : undefined;
+  if (
+    windSource === 'roof' &&
+    stationWindKmh !== undefined &&
+    forecastWindKmh !== undefined &&
+    forecastWindMs !== undefined &&
+    Math.abs(stationWindKmh - forecastWindKmh) >= WIND_NOTE_MIN_DIFF_KMH
+  ) {
+    const forecastDisplay = showMsUnit ? forecastWindMs : forecastWindKmh;
+    windSubParts.push(`forecast says ${formatWindValue(forecastDisplay, windUnitLabel)} ${windUnitLabel}`);
+  }
   if (showPeak && peakGustDisplay !== undefined && peakGustNext12h) {
     windSubParts.push(
       `reaching ${formatWindValue(peakGustDisplay, windUnitLabel)} ${windUnitLabel} at ${formatHHMM(new Date(peakGustNext12h.atIso))}`
@@ -738,6 +1108,16 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
     heroParts.push(`up to ${Math.round(todayPeak.temp)}° at ${formatHHMM(new Date(todayPeak.atIso))}`);
   if (tonightLow != null) heroParts.push(`down to ${Math.round(tonightLow)}° tonight`);
   if (dewpoint !== undefined) heroParts.push(`dew ${Math.round(dewpoint)}°`);
+  // Provenance, said ONCE and only when the hero is not the roof's own reading. This replaces the
+  // old footer line, which reported the age in a different place from the number it explained.
+  const heroSourceNote =
+    tempSource === 'forecast'
+      ? stationQuiet && stationAgeMin != null
+        ? `from forecast · roof quiet ${stationAgeMin} min`
+        : 'from forecast'
+      : stationQuiet && stationAgeMin != null
+        ? `roof quiet ${stationAgeMin} min`
+        : null;
 
   // Ribbon window: a ROLLING 18 h from now-2h (user 2026-07-31 - it used to stop at midnight,
   // so rain during the night was literally off the end of the bar). 18 h always covers tonight
@@ -896,14 +1276,8 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   const pressureEntityId = entities?.[SENSOR_IDS.pressureRelative] ? SENSOR_IDS.pressureRelative : SENSOR_IDS.pressureAbsolute;
   const pressure = getNumber(getState(entities, pressureEntityId));
 
-  // Footer - sea temperature (existing entity/feel words) + roof station health.
-  const outdoorTempEntity = getEntity(entities, SENSOR_IDS.outdoorTemp);
-  const windSpeedEntity = getEntity(entities, SENSOR_IDS.windSpeed);
-  const stationChangeMs = [outdoorTempEntity, windSpeedEntity]
-    .map(e => Date.parse(e?.last_changed ?? e?.last_updated ?? ''))
-    .filter(Number.isFinite);
-  const stationAgeMin = stationChangeMs.length ? Math.round((nowMs - Math.max(...stationChangeMs)) / 60000) : null;
-  const stationQuiet = stationAgeMin != null && stationAgeMin > 30;
+  // Only while the sheet is up - otherwise the minute tick would re-walk both series for nothing.
+  const compareStats = compareOpen && compareSeries ? computeCompareStats(compareSeries) : null;
 
   const historyEntity = historyEntityId ? entities?.[historyEntityId] : undefined;
   const historyTitle = historyEntityId
@@ -949,11 +1323,37 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
       )}
 
       <div className='quick-weather-hero'>
-        <div className='quick-weather-hero-value'>
-          {currentTemp !== undefined ? Math.round(currentTemp) : '—'}
-          <sup className='quick-weather-hero-deg'>°</sup>
+        <div className='quick-weather-hero-row'>
+          <div
+            className='quick-weather-hero-value is-tappable'
+            role='button'
+            tabIndex={0}
+            aria-label='Open roof versus forecast'
+            onClick={openCompare}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                openCompare();
+              }
+            }}
+          >
+            {currentTemp !== undefined ? Math.round(currentTemp) : '—'}
+            <sup className='quick-weather-hero-deg'>°</sup>
+          </div>
+          {tempChipText && (
+            <button type='button' className='quick-weather-hero-chip' onClick={openCompare}>
+              <Icon icon='mdi:chart-line' aria-hidden='true' />
+              {tempChipText}
+            </button>
+          )}
         </div>
-        {heroParts.length > 0 && <div className='quick-weather-hero-sub'>{heroParts.join(' · ')}</div>}
+        {(heroSourceNote || heroParts.length > 0) && (
+          <div className='quick-weather-hero-sub'>
+            {heroSourceNote && <span className={`quick-weather-hero-source${stationQuiet ? ' is-quiet' : ''}`}>{heroSourceNote}</span>}
+            {heroSourceNote && heroParts.length > 0 && ' · '}
+            {heroParts.join(' · ')}
+          </div>
+        )}
       </div>
 
       {showRibbon && (
@@ -1056,6 +1456,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
           <div className='quick-weather-wind-mid'>
             <div className='quick-weather-wind-speed'>
               {windSpeedDisplay !== undefined ? `${formatWindValue(windSpeedDisplay, windUnitLabel)} ${windUnitLabel}` : '—'}
+              {windSource && <span className='quick-weather-wind-source'>{windSource}</span>}
             </div>
             {windSubParts.length > 0 && <div className='quick-weather-wind-sub'>{windSubParts.join(' · ')}</div>}
           </div>
@@ -1187,13 +1588,8 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
         </div>
       )}
 
-      {/* Station health only when there IS a problem - "roof live" was a whole line saying
-          nothing (user 2026-07-31). Silence means the roof is reporting. */}
-      {stationQuiet && stationAgeMin != null && (
-        <div className='quick-weather-footer'>
-          <span className='quick-weather-footer-station is-quiet'>roof quiet {stationAgeMin} min</span>
-        </div>
-      )}
+      {/* Station health used to live in a footer of its own. It now rides on the hero sub-line,
+          next to the number it explains - said once, where it means something. */}
 
       {historyEntityId &&
         typeof document !== 'undefined' &&
@@ -1225,6 +1621,78 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
                   hours={168}
                   limit={100}
                 />
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Roof vs forecast. MUST be portaled to document.body: the mobile room-detail panel carries
+          a CSS transform, and a position:fixed sheet inside it lands a whole viewport away. */}
+      {compareOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className='person-info-overlay'
+            role='presentation'
+            onClick={() => requestCloseCompare()}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <div
+              className='person-info-modal person-timeline-modal quick-weather-compare-modal'
+              role='dialog'
+              aria-label='Roof versus forecast'
+              onClick={e => e.stopPropagation()}
+              onMouseDown={e => e.stopPropagation()}
+              onTouchStart={handleCompareTouchStart}
+              onTouchMove={handleCompareTouchMove}
+              onTouchEnd={handleCompareTouchEnd}
+            >
+              <div className='modal-header'>
+                <span className='modal-title'>Roof vs forecast</span>
+                <button className='modal-close' onClick={() => requestCloseCompare()}>
+                  <Icon icon='mdi:close' />
+                </button>
+              </div>
+              <div className='modal-timeline-content quick-weather-compare-body'>
+                <div className='quick-weather-compare-switch'>
+                  <button
+                    type='button'
+                    className={`quick-weather-compare-tab${compareMetric === 'temperature' ? ' is-active' : ''}`}
+                    aria-pressed={compareMetric === 'temperature'}
+                    onClick={() => setCompareMetric('temperature')}
+                  >
+                    Temperature
+                  </button>
+                  <button
+                    type='button'
+                    className={`quick-weather-compare-tab${compareMetric === 'wind' ? ' is-active' : ''}`}
+                    aria-pressed={compareMetric === 'wind'}
+                    onClick={() => setCompareMetric('wind')}
+                  >
+                    Wind
+                  </button>
+                </div>
+
+                {compareStatus === 'loading' && (
+                  <p className='quick-weather-compare-note'>Loading the last {COMPARE_WINDOW_HOURS} hours…</p>
+                )}
+                {compareStatus === 'error' && <p className='quick-weather-compare-note'>History is not available right now.</p>}
+                {compareStatus === 'ready' && compareSeries && (
+                  <>
+                    <CompareChart series={compareSeries} />
+                    <div className='quick-weather-compare-legend'>
+                      <span className='quick-weather-compare-key is-measured'>Roof</span>
+                      <span className='quick-weather-compare-key is-modelled'>Forecast</span>
+                      <span className='quick-weather-compare-unit'>{compareUnitLabel(compareSeries.metric)}</span>
+                    </div>
+                    <p className='quick-weather-compare-summary'>
+                      {compareStats
+                        ? compareSummary(compareStats, compareSeries.metric)
+                        : `The roof and the forecast have no overlapping history in the last ${COMPARE_WINDOW_HOURS} h.`}
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </div>,
