@@ -183,6 +183,17 @@
 }
 
 
+/* Same button in the collapsed header: no auto-margin to fight the header's own gap, and sized
+   down to sit level with the 26px switch instead of towering over it. */
+.wakeup-header-right .wakeup-now-btn {
+  margin-left: 0;
+  width: 30px;
+  height: 30px;
+}
+.wakeup-header-right .wakeup-now-btn svg {
+  font-size: 1rem;
+}
+
 /* Press confirmed: the sequence is running even though the room takes a moment to show it */
 .wakeup-now-btn.is-fired {
   background: rgba(52, 199, 89, 0.18);

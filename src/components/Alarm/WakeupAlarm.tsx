@@ -143,8 +143,7 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
   const wakeNowEntity = entities?.[wakeNowId];
   // 'ok' is checked before 'timedOut', so the timeout firing after a successful confirmation is
   // inert - don't "fix" that by reordering these branches.
-  const wakeStatus: WakeStatus =
-    press == null ? 'idle' : wakeNowEntity?.state !== press.base ? 'ok' : timedOut ? 'failed' : 'pending';
+  const wakeStatus: WakeStatus = press == null ? 'idle' : wakeNowEntity?.state !== press.base ? 'ok' : timedOut ? 'failed' : 'pending';
   const handleWakeNow = useCallback(() => {
     if (!callService || !wakeNowEntity) return;
     setPress({ base: wakeNowEntity.state });
@@ -158,6 +157,27 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
       target: { entity_id: wakeNowId },
     });
   }, [callService, wakeNowEntity]);
+
+  // One element, two homes: the header when collapsed, the stepper row when expanded (user
+  // 2026-08-10 - reaching the wake button should not cost an expand first). stopPropagation
+  // keeps a press from also toggling the card, the way the header switch already does; it is
+  // harmless in the stepper row, where nothing is listening above it.
+  const wakeNowButton = wakeNowEntity ? (
+    <button
+      type='button'
+      className={`wakeup-now-btn${WAKE_STATUS_META[wakeStatus].cls}`}
+      onClick={e => {
+        e.stopPropagation();
+        handleWakeNow();
+      }}
+      onKeyDown={e => e.stopPropagation()}
+      aria-label='Wake up now'
+      title={WAKE_STATUS_META[wakeStatus].title}
+      disabled={wakeStatus === 'pending'}
+    >
+      <Icon icon={WAKE_STATUS_META[wakeStatus].icon} />
+    </button>
+  ) : null;
 
   if (!hasAlarmEntities) return null;
 
@@ -189,6 +209,7 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
         <span className='wakeup-title'>Wake-up</span>
         <span className='wakeup-header-right'>
           <span className='wakeup-current'>{displayTime}</span>
+          {collapsed && wakeNowButton}
           <button
             type='button'
             role='switch'
@@ -229,18 +250,7 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
                 <Icon icon='mdi:plus' />
               </button>
             </div>
-            {wakeNowEntity && (
-              <button
-                type='button'
-                className={`wakeup-now-btn${WAKE_STATUS_META[wakeStatus].cls}`}
-                onClick={handleWakeNow}
-                aria-label='Wake up now'
-                title={WAKE_STATUS_META[wakeStatus].title}
-                disabled={wakeStatus === 'pending'}
-              >
-                <Icon icon={WAKE_STATUS_META[wakeStatus].icon} />
-              </button>
-            )}
+            {wakeNowButton}
           </div>
         </div>
       )}
