@@ -14,6 +14,17 @@ interface WakeupAlarmProps {
   callService: CallServiceFunction | undefined;
 }
 
+type WakeStatus = 'idle' | 'pending' | 'ok' | 'failed';
+
+// Icon/title/class for each derived wake-now status - see handleWakeNow for how wakeStatus itself
+// is computed.
+const WAKE_STATUS_META: Record<WakeStatus, { icon: string; title: string; cls: string }> = {
+  idle: { icon: 'mdi:weather-sunset-up', title: 'Wake up now', cls: '' },
+  pending: { icon: 'mdi:loading', title: 'Sending...', cls: ' is-pending' },
+  ok: { icon: 'mdi:check', title: 'Wake sequence started', cls: ' is-fired' },
+  failed: { icon: 'mdi:alert-circle-outline', title: 'Press did not register - try again', cls: ' is-failed' },
+};
+
 export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProps) {
   const areaNameNormalized = areaName.toLowerCase().replace(/\s+/g, '_');
   const headerSlop = useTouchScrollSlopGuard();
@@ -111,10 +122,16 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
   // "Wake up now": starts the whole wake sequence immediately (lights ramp, covers, radio) and
   // counts as the wake moment for the morning briefing. Backed by input_button.wake_up_now --
   // only rendered where that helper exists.
-  // Press feedback (user 2026-08-03): the wake sequence takes seconds to reach the room, so
-  // the button confirms the press itself. input_button's state IS the last-press timestamp,
-  // so a changed state is real confirmation rather than an optimistic guess.
-  const [wakeFired, setWakeFired] = useState(false);
+  // Press feedback (user 2026-08-03, made real 2026-08-10 after three silent refusals looked
+  // identical to a successful press): input_button's state IS the last-press timestamp, so on
+  // click we snapshot it, then derive status during render by comparing the live entity state
+  // against that snapshot - a changed state is real confirmation the press reached HA, not an
+  // optimistic guess. A second, stronger signal lives one level up: on every press it actually
+  // handles, the AppDaemon app writes the wake time back to input_datetime.wakeup_bedroom
+  // (floored to the 5-minute slot), so the card's displayed time changing is app-level proof the
+  // press was handled, not just HA-level proof it was received.
+  const [press, setPress] = useState<{ base: string | undefined } | null>(null);
+  const [timedOut, setTimedOut] = useState(false);
   const wakeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
@@ -124,11 +141,17 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
   );
   const wakeNowId = 'input_button.wake_up_now';
   const wakeNowEntity = entities?.[wakeNowId];
+  // 'ok' is checked before 'timedOut', so the timeout firing after a successful confirmation is
+  // inert - don't "fix" that by reordering these branches.
+  const wakeStatus: WakeStatus =
+    press == null ? 'idle' : wakeNowEntity?.state !== press.base ? 'ok' : timedOut ? 'failed' : 'pending';
   const handleWakeNow = useCallback(() => {
     if (!callService || !wakeNowEntity) return;
-    setWakeFired(true);
+    setPress({ base: wakeNowEntity.state });
+    setTimedOut(false);
     if (wakeTimer.current) clearTimeout(wakeTimer.current);
-    wakeTimer.current = setTimeout(() => setWakeFired(false), 5000);
+    // Grace period for the state change to arrive before we call the press a failure.
+    wakeTimer.current = setTimeout(() => setTimedOut(true), 6000);
     callService({
       domain: 'input_button',
       service: 'press',
@@ -209,13 +232,13 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
             {wakeNowEntity && (
               <button
                 type='button'
-                className={`wakeup-now-btn${wakeFired ? ' is-fired' : ''}`}
+                className={`wakeup-now-btn${WAKE_STATUS_META[wakeStatus].cls}`}
                 onClick={handleWakeNow}
                 aria-label='Wake up now'
-                title={wakeFired ? 'Wake sequence started' : 'Wake up now'}
-                disabled={wakeFired}
+                title={WAKE_STATUS_META[wakeStatus].title}
+                disabled={wakeStatus === 'pending'}
               >
-                <Icon icon={wakeFired ? 'mdi:check' : 'mdi:weather-sunset-up'} />
+                <Icon icon={WAKE_STATUS_META[wakeStatus].icon} />
               </button>
             )}
           </div>

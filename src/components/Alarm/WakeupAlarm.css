@@ -188,3 +188,29 @@
   background: rgba(52, 199, 89, 0.18);
   color: #34c759;
 }
+
+/* Sending: muted/in-flight while we wait to hear back from the entity */
+.wakeup-now-btn.is-pending {
+  opacity: 0.6;
+}
+.wakeup-now-btn.is-pending svg {
+  display: inline-flex;
+  animation: wakeup-now-spin 1s linear infinite;
+}
+@keyframes wakeup-now-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wakeup-now-btn.is-pending svg {
+    animation: none;
+  }
+}
+
+/* Press did not register - read as a warning, not a silent no-op (user 2026-08-10: three
+   presses in a row looked identical to one that worked) */
+.wakeup-now-btn.is-failed {
+  background: rgba(255, 69, 58, 0.18);
+  color: #ff453a; /* iOS systemRed dark */
+}
