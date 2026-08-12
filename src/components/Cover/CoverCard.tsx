@@ -15,6 +15,35 @@ interface CoverCardProps {
   callService: CallServiceFunction | undefined;
 }
 
+// The bedroom blind's single-writer owner app (AppDaemon BedroomBlindOwner) publishes who
+// currently owns the blind and why. This CONTRACT is fixed on both sides (2026-08-12):
+// state = winning source key manual|vent|wake|shade|idle; attributes: position (number),
+// manual_pause_until (ISO string or ''), claims ([{source, position}]), reason (sentence).
+// The row renders nothing until the sensor exists and something is actually managing the
+// blind - silence means there is nothing to say, same rule as the weather footer.
+const BLIND_OWNER_ENTITY = 'sensor.bedroom_blind_owner';
+
+const OWNER_WORDS: Record<string, string> = {
+  manual: 'Yours',
+  vent: 'Held open for venting',
+  wake: 'Morning routine has it',
+  shade: 'Solar shade is balancing daylight',
+};
+
+const CLAIM_WORDS: Record<string, string> = {
+  manual: 'you',
+  vent: 'venting',
+  wake: 'morning routine',
+  shade: 'solar shade',
+};
+
+function pauseUntilLabel(raw: unknown): string | null {
+  if (typeof raw !== 'string' || !raw) return null;
+  const t = new Date(raw);
+  if (Number.isNaN(t.getTime())) return null;
+  return `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+}
+
 export function CoverCard({ areaName, entities, callService }: CoverCardProps) {
   const headerSlop = useTouchScrollSlopGuard();
   const areaNameNormalized = areaName.toLowerCase().replace(/\s+/g, '_');
@@ -48,6 +77,21 @@ export function CoverCard({ areaName, entities, callService }: CoverCardProps) {
 
   const positionWord = sliderValue <= 0 ? 'Open' : sliderValue >= 100 ? 'Closed' : `${sliderValue}%`;
   const movingWord = state === 'opening' ? 'Opening…' : 'Closing…';
+
+  // Who owns the blind right now (bedroom only, and only while something is managing it).
+  const ownerEntity = isBedroom ? entities?.[BLIND_OWNER_ENTITY] : undefined;
+  const ownerSource = String(ownerEntity?.state ?? '');
+  const ownerWord = OWNER_WORDS[ownerSource];
+  const ownerPause = pauseUntilLabel(ownerEntity?.attributes?.manual_pause_until);
+  const rawClaims = ownerEntity?.attributes?.claims;
+  const ownerClaims = Array.isArray(rawClaims)
+    ? (rawClaims as Array<Record<string, unknown>>).flatMap(c => {
+        const src = typeof c?.source === 'string' ? c.source : '';
+        const pos = Number(c?.position);
+        const word = CLAIM_WORDS[src];
+        return word && Number.isFinite(pos) ? [`${word} wants ${Math.round(pos)}`] : [];
+      })
+    : [];
 
   const handleOpen = () => {
     if (!callService) return;
@@ -194,6 +238,17 @@ export function CoverCard({ areaName, entities, callService }: CoverCardProps) {
               <span>Close</span>
             </button>
           </div>
+
+          {/* Owner line: who is managing the blind and why (words are states). Hidden until
+              the owner app publishes, and on idle - silence means nothing is managing it. */}
+          {ownerWord && (
+            <div className='cover-owner'>
+              <span className='cover-owner-word'>
+                {ownerSource === 'manual' && ownerPause ? `Yours — automations hold off until ${ownerPause}` : ownerWord}
+              </span>
+              {ownerClaims.length > 0 && <span className='cover-owner-claims'>{ownerClaims.join(' · ')}</span>}
+            </div>
+          )}
         </div>
       )}
     </div>
