@@ -26,6 +26,10 @@ export const VACUUM_MAP_IMAGE_ENTITY = 'image.rober2_rooftop';
 /** Path under HA /local/ for robot maps. Used in URLs like /local/rober2_maps/index.json. */
 export const ROBOT_MAPS_PATH = 'rober2_maps';
 
+/** Path under HA /local/ for archived doorbell ring snapshots (AbbWelcomeBridge).
+ * Used in URLs like /local/abb_doorbell/index.json. */
+export const DOORBELL_ARCHIVE_PATH = 'abb_doorbell';
+
 /**
  * Hallway / “main door” lock. lock.yale_bt (local Bluetooth) is authoritative — the cloud
  * twin lock.yale can miss re-lock pushes and stick "unlocked" (seen 2026-07-12, 1.5 h stale).

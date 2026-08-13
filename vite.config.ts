@@ -108,6 +108,11 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/local/abb_doorbell': {
+        target: HA_TARGET,
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
 });

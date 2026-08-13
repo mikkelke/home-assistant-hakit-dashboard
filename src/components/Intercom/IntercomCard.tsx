@@ -3,6 +3,8 @@ import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { APARTMENT_DOOR_OPEN_ENTITY, APARTMENT_ENTRY_SECURE_ENTITY, resolveHallwayDoorSensorId } from '../../config/entities';
 import { useLocalStorageBoolean, useTouchScrollSlopGuard } from '../../hooks';
+import { fetchDoorbellIndex, formatRingTime, type DoorbellImage } from './doorbellArchive';
+import { DoorbellGallery } from './DoorbellGallery';
 import './IntercomCard.css';
 
 // "Access" card - the apartment lock, the two building doors, and the auto-open ritual, in the
@@ -49,6 +51,26 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
     if (firedTimer.current) clearTimeout(firedTimer.current);
     firedTimer.current = setTimeout(() => setFired(null), FIRED_FLASH_MS);
   };
+
+  // "Who rang" archive: the AbbWelcomeBridge keeps one snapshot per ring episode under
+  // /local/abb_doorbell/ (fetched once per mount, like the Rober2 maps index). The archive
+  // only exists after the first ring - a 404 or any fetch failure just means the Doorbell
+  // row stays hidden, so both resolve to [] without a word in the console.
+  const [rings, setRings] = useState<DoorbellImage[]>([]);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetchDoorbellIndex()
+      .then(images => {
+        if (!cancelled) setRings(images);
+      })
+      .catch(() => {
+        if (!cancelled) setRings([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const autoOpenId = 'input_boolean.auto_open_intercom';
   const frontLockId = 'lock.intercomproxy_front_door';
@@ -259,6 +281,29 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
           </div>
         )}
 
+        {rings.length > 0 && (
+          // The ring history row: words are states (when the doorbell last rang), the action
+          // is an icon (ghost disc opening the "who rang" gallery). Sits with the Building
+          // row because that is whose doors ring; renders only once the archive has at least
+          // one snapshot, so a quiet house shows nothing.
+          <div className='access-row'>
+            <span className='access-row-name'>Doorbell</span>
+            <span className='access-doorbell-last'>Last ring {formatRingTime(rings[0])}</span>
+            <button
+              type='button'
+              className='access-doorbell-btn'
+              onClick={e => {
+                e.stopPropagation();
+                setGalleryOpen(true);
+              }}
+              aria-label='Who rang — see the ring snapshots'
+              title='Who rang'
+            >
+              <Icon icon='mdi:history' aria-hidden='true' />
+            </button>
+          </div>
+        )}
+
         {autoOpen && (
           <div
             className='access-row access-row--wide'
@@ -281,12 +326,15 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
     </>
   );
 
+  const gallery = galleryOpen && rings.length > 0 ? <DoorbellGallery images={rings} onClose={() => setGalleryOpen(false)} /> : null;
+
   if (!showHeader) {
     return (
       <div className='access-card is-embedded'>
         {ringRow}
         {alertRow}
         {body}
+        {gallery}
       </div>
     );
   }
@@ -329,6 +377,7 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
       {ringRow}
       {alertRow}
       {!collapsed && body}
+      {gallery}
     </div>
   );
 }
