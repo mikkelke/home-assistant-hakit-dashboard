@@ -500,6 +500,31 @@
   opacity: 0.8;
 }
 
+/* Wraps just the snapshot so the play badge can anchor to the image, not the meta row below */
+.doorbell-tile-image {
+  position: relative;
+  display: block;
+}
+
+/* Video-clip affordance - a dark scrim disc so mdi:play reads over any photo. Same recipe as
+   the other icon discs on this card, sized down to sit inside the tile's rounded corner. */
+.doorbell-play-badge {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.doorbell-play-badge svg {
+  font-size: 0.85rem;
+}
+
 .doorbell-tile-meta {
   display: flex;
   align-items: center;
@@ -577,7 +602,8 @@
   justify-content: center;
   padding: 0.9rem 1.1rem 1.1rem;
 }
-.doorbell-photo-content img {
+.doorbell-photo-content img,
+.doorbell-photo-content video {
   max-width: 100%;
   max-height: calc(90vh - 110px);
   object-fit: contain;
@@ -597,7 +623,8 @@
     border-radius: 0;
     border: none;
   }
-  .doorbell-photo-content img {
+  .doorbell-photo-content img,
+  .doorbell-photo-content video {
     max-height: calc(100vh - 110px);
   }
 }

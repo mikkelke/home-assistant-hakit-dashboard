@@ -41,7 +41,11 @@ function DoorbellPhoto({ image, onClose }: { image: DoorbellImage; onClose: () =
           </button>
         </div>
         <div className='doorbell-photo-content'>
-          <img src={image.url} alt={`Ring at the ${image.door || 'door'}, ${formatRingTime(image)}`} />
+          {image.clip_url ? (
+            <video controls autoPlay playsInline poster={image.url} src={image.clip_url} />
+          ) : (
+            <img src={image.url} alt={`Ring at the ${image.door || 'door'}, ${formatRingTime(image)}`} />
+          )}
         </div>
       </div>
     </>,
@@ -81,7 +85,14 @@ export function DoorbellGallery({ images, onClose }: { images: DoorbellImage[]; 
                 setPhoto(img);
               }}
             >
-              <img src={img.url} alt={`Ring at the ${img.door || 'door'}, ${formatRingTime(img)}`} loading='lazy' />
+              <span className='doorbell-tile-image'>
+                <img src={img.url} alt={`Ring at the ${img.door || 'door'}, ${formatRingTime(img)}`} loading='lazy' />
+                {img.clip_url && (
+                  <span className='doorbell-play-badge'>
+                    <Icon icon='mdi:play' aria-hidden='true' />
+                  </span>
+                )}
+              </span>
               <span className='doorbell-tile-meta'>
                 <span className='doorbell-tile-when'>{formatRingTime(img)}</span>
                 <span className='doorbell-tile-door'>{doorWord(img.door)}</span>

@@ -18,6 +18,10 @@ export type DoorbellImage = {
   event_type: DoorbellEventType | string;
   filename: string;
   url: string;
+  /** Video clip filename, if the bridge recorded one for this ring. Absent or "" = no clip. */
+  clip_filename?: string;
+  /** Video clip URL (h264 mp4), resolved the same way as `url`. Absent or "" = no clip. */
+  clip_url?: string;
 };
 
 const haBase = (
@@ -27,6 +31,17 @@ const haBase = (
       ? window.location.origin
       : ''
 )?.replace(/\/$/, '');
+
+const toHaUrl = (path: string) => (path.startsWith('http') ? path : `${haBase}${path}`);
+
+/** Resolve an archive-relative path (snapshot or clip) to a fetchable URL - relative in dev
+ * (Vite proxy) and same-origin prod, absolute (via toHaUrl) otherwise, the same rule
+ * fetchDoorbellIndex applies to `url`. Empty/absent paths pass through unchanged, so a missing
+ * clip_url stays falsy instead of becoming a bogus HA-origin URL. */
+export function resolveArchiveUrl(path: string | undefined, sameOrigin: boolean, isDev: boolean): string {
+  if (!path) return path ?? '';
+  return sameOrigin || isDev ? path : toHaUrl(path);
+}
 
 /** Fetch the ring archive index, newest first. Relative URLs in dev (Vite proxy) and
  * same-origin prod; absolute only in a cross-origin prod scenario - the same rules as the
@@ -42,7 +57,6 @@ export async function fetchDoorbellIndex(): Promise<DoorbellImage[]> {
   })();
   const sameOrigin = typeof window !== 'undefined' && haOrigin === window.location.origin;
   const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-  const toHaUrl = (path: string) => (path.startsWith('http') ? path : `${haBase}${path}`);
   const indexUrl =
     sameOrigin || isDev ? `/local/${DOORBELL_ARCHIVE_PATH}/index.json` : toHaUrl(`/local/${DOORBELL_ARCHIVE_PATH}/index.json`);
   const res = await fetch(indexUrl, { cache: 'no-cache' });
@@ -50,7 +64,11 @@ export async function fetchDoorbellIndex(): Promise<DoorbellImage[]> {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   const images: DoorbellImage[] = Array.isArray(data?.images)
-    ? data.images.map((m: DoorbellImage) => ({ ...m, url: sameOrigin || isDev ? m.url : toHaUrl(m.url) }))
+    ? data.images.map((m: DoorbellImage) => ({
+        ...m,
+        url: resolveArchiveUrl(m.url, sameOrigin, isDev),
+        clip_url: resolveArchiveUrl(m.clip_url, sameOrigin, isDev),
+      }))
     : [];
   const key = (e: DoorbellImage) => e.datetime || e.ts || '';
   return images.sort((a, b) => key(b).localeCompare(key(a)));
