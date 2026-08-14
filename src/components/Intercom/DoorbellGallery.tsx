@@ -42,7 +42,7 @@ function DoorbellPhoto({ image, onClose }: { image: DoorbellImage; onClose: () =
         </div>
         <div className='doorbell-photo-content'>
           {image.clip_url ? (
-            <video controls autoPlay playsInline poster={image.url} src={image.clip_url} />
+            <video controls autoPlay playsInline poster={image.url || undefined} src={image.clip_url} />
           ) : (
             <img src={image.url} alt={`Ring at the ${image.door || 'door'}, ${formatRingTime(image)}`} />
           )}
@@ -86,7 +86,15 @@ export function DoorbellGallery({ images, onClose }: { images: DoorbellImage[]; 
               }}
             >
               <span className='doorbell-tile-image'>
-                <img src={img.url} alt={`Ring at the ${img.door || 'door'}, ${formatRingTime(img)}`} loading='lazy' />
+                {img.url ? (
+                  <img src={img.url} alt={`Ring at the ${img.door || 'door'}, ${formatRingTime(img)}`} loading='lazy' />
+                ) : (
+                  // Clip-only entry (the bridge got a recording but no snapshot):
+                  // no photo to thumbnail, so a plain video placeholder stands in.
+                  <span className='doorbell-tile-cliponly' aria-label={`Ring clip at the ${img.door || 'door'}, ${formatRingTime(img)}`}>
+                    <Icon icon='mdi:video-outline' aria-hidden='true' />
+                  </span>
+                )}
                 {img.clip_url && (
                   <span className='doorbell-play-badge'>
                     <Icon icon='mdi:play' aria-hidden='true' />

@@ -16,7 +16,9 @@ export type DoorbellImage = {
   /** "front door" | "back door" | free label from the bridge. */
   door: string;
   event_type: DoorbellEventType | string;
+  /** Snapshot filename - "" for a clip-only entry (the ring's snapshot never arrived). */
   filename: string;
+  /** Snapshot URL - "" for a clip-only entry; the tile renders a video placeholder then. */
   url: string;
   /** Video clip filename, if the bridge recorded one for this ring. Absent or "" = no clip. */
   clip_filename?: string;

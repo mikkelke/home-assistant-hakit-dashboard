@@ -506,6 +506,22 @@
   display: block;
 }
 
+/* Clip-only entry (recording landed, snapshot never did): same box as the <img>,
+   with a centered video glyph instead of a photo. */
+.doorbell-tile-cliponly {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 12px;
+  background: #2c2c2e;
+  color: rgba(255, 255, 255, 0.45);
+}
+.doorbell-tile-cliponly svg {
+  font-size: 1.6rem;
+}
+
 /* Video-clip affordance - a dark scrim disc so mdi:play reads over any photo. Same recipe as
    the other icon discs on this card, sized down to sit inside the tile's rounded corner. */
 .doorbell-play-badge {
