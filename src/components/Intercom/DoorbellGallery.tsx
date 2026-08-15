@@ -88,10 +88,25 @@ export function DoorbellGallery({ images, onClose }: { images: DoorbellImage[]; 
               <span className='doorbell-tile-image'>
                 {img.url ? (
                   <img src={img.url} alt={`Ring at the ${img.door || 'door'}, ${formatRingTime(img)}`} loading='lazy' />
+                ) : img.clip_url ? (
+                  // Clip-only entry (the bridge got a recording but no snapshot): the clip's
+                  // own first frame is the thumbnail. muted + preload=metadata paints the
+                  // frame without downloading the whole file; #t=0.1 nudges Safari, which
+                  // won't paint anything at t=0 with metadata-only preload. Never plays -
+                  // the pointer-events:none span sits under the tile <button>'s tap.
+                  <video
+                    className='doorbell-tile-clipframe'
+                    src={`${img.clip_url}#t=0.1`}
+                    preload='metadata'
+                    muted
+                    playsInline
+                    tabIndex={-1}
+                    aria-label={`Ring clip at the ${img.door || 'door'}, ${formatRingTime(img)}`}
+                  />
                 ) : (
-                  // Clip-only entry (the bridge got a recording but no snapshot):
-                  // no photo to thumbnail, so a plain video placeholder stands in.
-                  <span className='doorbell-tile-cliponly' aria-label={`Ring clip at the ${img.door || 'door'}, ${formatRingTime(img)}`}>
+                  // Neither photo nor clip should not exist (the bridge drops such rings),
+                  // but a hand-edited index must degrade to the plain placeholder, not break.
+                  <span className='doorbell-tile-cliponly' aria-label={`Ring at the ${img.door || 'door'}, ${formatRingTime(img)}`}>
                     <Icon icon='mdi:video-outline' aria-hidden='true' />
                   </span>
                 )}

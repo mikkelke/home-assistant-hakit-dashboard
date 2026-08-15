@@ -506,8 +506,19 @@
   display: block;
 }
 
-/* Clip-only entry (recording landed, snapshot never did): same box as the <img>,
-   with a centered video glyph instead of a photo. */
+/* Clip-only entry (recording landed, snapshot never did): the clip's own first frame
+   fills the same box as the <img>. pointer-events off so the tile button gets the tap. */
+.doorbell-tile-clipframe {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 12px;
+  background: #2c2c2e;
+  pointer-events: none;
+}
+
+/* Degenerate entry (neither photo nor clip - hand-edited index): centered video glyph. */
 .doorbell-tile-cliponly {
   display: flex;
   align-items: center;
