@@ -327,9 +327,7 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   // actually start something (deployed + armed); the backend owns the countdown and
   // clears the toggle itself. The resume time comes out of the published reason verbatim.
   const showerPaused = entities?.[SMART_COOLING_SHOWER_PAUSE]?.state === 'on';
-  const showerResumeAt = statusState === 'shower_pause'
-    ? (attrStr(statusAttrs.reason).match(/until ~(\d{2}:\d{2})/)?.[1] ?? null)
-    : null;
+  const showerResumeAt = statusState === 'shower_pause' ? (attrStr(statusAttrs.reason).match(/until ~(\d{2}:\d{2})/)?.[1] ?? null) : null;
 
   const coolRunning = ACTIVE_COOLING_STATES.has(statusState);
   // The press is confirmed when the compressor actually stops - the app answers the
@@ -787,43 +785,37 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
               )}
             </button>
           )}
-          {buttonKind === 'nothing_to_do' && (
+          {(buttonKind === 'nothing_to_do' || (deployed && armed)) && (
             <div className='tonight-quiet-row'>
-              <button
-                type='button'
-                className={`tonight-icon-action${pressed?.kind === 'off' ? ' is-done' : ''}`}
-                onClick={() => {
-                  markPressed('off');
-                  call('input_boolean', 'turn_off', SMART_COOLING_ENABLE);
-                }}
-                aria-label='Turn the cooling off for tonight'
-                title='Turn off'
-              >
-                <Icon icon={pressed?.kind === 'off' ? 'mdi:check' : 'mdi:power'} aria-hidden='true' />
-              </button>
-            </div>
-          )}
-
-          {deployed && armed && (
-            <button
-              type='button'
-              className={`tonight-shower${showerPaused ? ' is-paused' : ''}`}
-              onClick={() => call('input_boolean', showerPaused ? 'turn_off' : 'turn_on', SMART_COOLING_SHOWER_PAUSE)}
-              aria-label={showerPaused ? 'Resume cooling now' : 'Pause the cooling for a shower'}
-            >
-              <Icon icon='mdi:shower-head' aria-hidden='true' />
-              {showerPaused ? (
-                <span>
-                  Paused for the shower{showerResumeAt ? ` — resumes ~${showerResumeAt}` : ''}
-                  <small>tap to resume now</small>
-                </span>
-              ) : (
-                <span>
-                  Taking a shower?
-                  <small>holds the AC for 30 min, resumes on its own</small>
-                </span>
+              {deployed && armed && (
+                // Pause: holds the compressor ~30 min (SmartCooling clears the toggle
+                // itself), amber while active. The condenser stands in the bathroom -
+                // this is the shower button, but it's just a pause to the eye.
+                <button
+                  type='button'
+                  className={`tonight-icon-action tonight-pause${showerPaused ? ' is-paused' : ''}`}
+                  onClick={() => call('input_boolean', showerPaused ? 'turn_off' : 'turn_on', SMART_COOLING_SHOWER_PAUSE)}
+                  aria-label={showerPaused ? 'Resume the cooling now' : 'Pause the cooling for 30 minutes'}
+                  title={showerPaused ? `Paused${showerResumeAt ? ` until ~${showerResumeAt}` : ''} — tap to resume` : 'Pause for 30 min'}
+                >
+                  <Icon icon={showerPaused ? 'mdi:play' : 'mdi:pause'} aria-hidden='true' />
+                </button>
               )}
-            </button>
+              {buttonKind === 'nothing_to_do' && (
+                <button
+                  type='button'
+                  className={`tonight-icon-action${pressed?.kind === 'off' ? ' is-done' : ''}`}
+                  onClick={() => {
+                    markPressed('off');
+                    call('input_boolean', 'turn_off', SMART_COOLING_ENABLE);
+                  }}
+                  aria-label='Turn the cooling off for tonight'
+                  title='Turn off'
+                >
+                  <Icon icon={pressed?.kind === 'off' ? 'mdi:check' : 'mdi:power'} aria-hidden='true' />
+                </button>
+              )}
+            </div>
           )}
 
           {sessionLive && (
