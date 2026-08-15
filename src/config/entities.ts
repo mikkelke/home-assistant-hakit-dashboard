@@ -180,6 +180,11 @@ export const SMART_COOLING_ENABLE = 'input_boolean.smart_cooling';
 /** Click right before physically removing the AC — seals the room for the night. Auto-resets. */
 export const SMART_COOLING_AC_REMOVED = 'input_boolean.smart_cooling_ac_removed';
 
+/** One tap holds the compressor off for ~30 min (the condenser stands in the bathroom, so a
+ * planner start mid-shower means hot exhaust in the shower room). SmartCooling clears it
+ * itself when the window ends; tap again to resume early. */
+export const SMART_COOLING_SHOWER_PAUSE = 'input_boolean.smart_cooling_shower_pause';
+
 /** Bedroom comfort middle layer (AppDaemon BedroomComfort): dew point, effective ceiling, vent advice. */
 export const BEDROOM_COMFORT_SENSOR = 'sensor.bedroom_comfort';
 

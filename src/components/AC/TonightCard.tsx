@@ -8,6 +8,7 @@ import {
   SMART_COOLING_STATUS_SENSOR,
   SMART_COOLING_ENABLE,
   SMART_COOLING_AC_REMOVED,
+  SMART_COOLING_SHOWER_PAUSE,
   SMART_COOLING_NIGHT_CEILING,
   BEDROOM_NIGHT_PROJECTION_SENSOR,
   SLEEP_PLAN_SENSOR,
@@ -320,6 +321,15 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
   // time (never guess a fallback end - that's scheduling, not a published number).
   const barEndMs = wakeMs;
   const nowPct = barEndMs != null ? pctOf(nowMs, barStartMs, barEndMs) : null;
+
+  // Shower pause - the condenser stands in the bathroom, so a planner start mid-shower
+  // blows hot exhaust into the shower room. The row only exists while the planner could
+  // actually start something (deployed + armed); the backend owns the countdown and
+  // clears the toggle itself. The resume time comes out of the published reason verbatim.
+  const showerPaused = entities?.[SMART_COOLING_SHOWER_PAUSE]?.state === 'on';
+  const showerResumeAt = statusState === 'shower_pause'
+    ? (attrStr(statusAttrs.reason).match(/until ~(\d{2}:\d{2})/)?.[1] ?? null)
+    : null;
 
   const coolRunning = ACTIVE_COOLING_STATES.has(statusState);
   // The press is confirmed when the compressor actually stops - the app answers the
@@ -792,6 +802,28 @@ export function TonightCard({ entities, callService }: TonightCardProps) {
                 <Icon icon={pressed?.kind === 'off' ? 'mdi:check' : 'mdi:power'} aria-hidden='true' />
               </button>
             </div>
+          )}
+
+          {deployed && armed && (
+            <button
+              type='button'
+              className={`tonight-shower${showerPaused ? ' is-paused' : ''}`}
+              onClick={() => call('input_boolean', showerPaused ? 'turn_off' : 'turn_on', SMART_COOLING_SHOWER_PAUSE)}
+              aria-label={showerPaused ? 'Resume cooling now' : 'Pause the cooling for a shower'}
+            >
+              <Icon icon='mdi:shower-head' aria-hidden='true' />
+              {showerPaused ? (
+                <span>
+                  Paused for the shower{showerResumeAt ? ` — resumes ~${showerResumeAt}` : ''}
+                  <small>tap to resume now</small>
+                </span>
+              ) : (
+                <span>
+                  Taking a shower?
+                  <small>holds the AC for 30 min, resumes on its own</small>
+                </span>
+              )}
+            </button>
           )}
 
           {sessionLive && (

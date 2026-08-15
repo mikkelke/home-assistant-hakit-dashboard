@@ -380,6 +380,48 @@
   color: rgba(255, 255, 255, 0.8);
 }
 
+/* Shower pause - a quiet ghost row while armed; amber while the hold is active. */
+.tonight-shower {
+  width: 100%;
+  margin-top: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  border: none;
+  border-radius: 14px;
+  background: #2c2c2e;
+  color: rgba(235, 235, 245, 0.75);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.tonight-shower svg {
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+.tonight-shower span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.tonight-shower small {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: rgba(235, 235, 245, 0.5);
+}
+.tonight-shower.is-paused {
+  background: rgba(251, 191, 36, 0.14);
+  color: #fbbf24;
+}
+.tonight-shower.is-paused small {
+  color: rgba(251, 191, 36, 0.75);
+}
+
 /* Lone quiet action, right-aligned to mirror the HeatCard footer */
 .tonight-quiet-row {
   margin-top: 1.1rem;
