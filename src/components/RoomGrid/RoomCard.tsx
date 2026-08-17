@@ -19,6 +19,15 @@ import { MultiEntitySelector } from './MultiEntitySelector';
 import { OfficeVacuumIndicator } from './OfficeVacuumIndicator';
 import './RoomGrid.css';
 
+/** A sensor is only useful here if it carries an actual measurement. HA publishes "unknown"
+ * (template returned None) and "unavailable" (device offline) as ordinary state strings, and
+ * both are truthy - so an existence check treats a dead sensor as a live one, and a raw render
+ * prints the word itself ("unknown°C"). Used both to PICK a sensor and to render its value. */
+function hasReading(entity: { state?: string | null } | undefined): boolean {
+  const s = entity?.state;
+  return s != null && s !== '' && s !== 'unknown' && s !== 'unavailable';
+}
+
 type IndicatorKey =
   | 'door'
   | 'window'
@@ -94,18 +103,24 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
   const getTempSensor = (): string | undefined => {
     if (isRooftop) return 'sensor.gw2000a_outdoor_temperature';
 
-    // Try exact sensor.{area}_temperature first
+    // Try exact sensor.{area}_temperature first - but only if it actually READS. A sensor
+    // that exists with no value used to win this priority and block the fallbacks below,
+    // so the card printed a literal "unknown°C" (Claudias Room, 2026-08-17: its template
+    // sensor mirrors a Salus thermostat that drops off the RF link, and the room's own
+    // mmWave sensor - which the fallback search finds - was sitting right there with a
+    // good reading). Existence is not a reading.
     const exactSensor = `sensor.${areaNameNormalized}_temperature`;
-    if (entities?.[exactSensor]) return exactSensor;
+    if (hasReading(entities?.[exactSensor])) return exactSensor;
 
     // Try climate entity's current_temperature (return special marker)
     if (climateEntity?.attributes?.current_temperature) return '__climate__';
 
-    // Fallback: search but exclude floor thermometers
+    // Fallback: search but exclude floor thermometers (floor mass lags room air)
     return entityKeys.find(
       key =>
         key.includes('temperature') &&
         !key.includes('floor') &&
+        hasReading(entities[key]) &&
         (String(entities[key]?.attributes?.friendly_name ?? '')
           .toLowerCase()
           .includes(areaName) ||
@@ -121,13 +136,14 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
   const exactHumiditySensor = `sensor.${areaNameNormalized}_humidity`;
   const humiditySensor = isRooftop
     ? 'sensor.gw2000a_humidity'
-    : entities?.[exactHumiditySensor]
+    : hasReading(entities?.[exactHumiditySensor])
       ? exactHumiditySensor
       : entityKeys.find(
           key =>
             key.includes('humidity') &&
             !key.includes('absolute') &&
             !key.includes('floor') &&
+            hasReading(entities[key]) &&
             entities[key]?.attributes?.unit_of_measurement === '%' &&
             (String(entities[key]?.attributes?.friendly_name ?? '')
               .toLowerCase()
@@ -353,12 +369,16 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
   const isMediaMuted = mediaPlayer?.attributes?.is_volume_muted === true;
   const hasMediaPlayer = !!mediaPlayer;
 
-  // Get temperature value - handle climate entity special case
+  // Get temperature value - handle climate entity special case. The selectors above already
+  // skip dead sensors, but a sensor can go unavailable AFTER selection (and the rooftop /
+  // __climate__ paths bypass the selectors entirely), so the value is re-checked here: the
+  // card shows "—" rather than the words "unknown" / "unavailable".
   const rawTemp =
     tempSensor === '__climate__' ? climateEntity?.attributes?.current_temperature : tempSensor ? entities[tempSensor]?.state : null;
-  const temp = rawTemp != null && rawTemp !== '' ? (typeof rawTemp === 'number' ? rawTemp : String(rawTemp)) : null;
+  const tempIsReadable = typeof rawTemp === 'number' || hasReading({ state: rawTemp as string | undefined });
+  const temp = tempIsReadable ? (typeof rawTemp === 'number' ? rawTemp : String(rawTemp)) : null;
   const rawHumidity = humiditySensor ? entities[humiditySensor]?.state : null;
-  const humidity = rawHumidity != null && rawHumidity !== '' ? String(rawHumidity) : null;
+  const humidity = hasReading({ state: rawHumidity }) ? String(rawHumidity) : null;
   const icon = area.icon || 'mdi:home';
 
   return (
