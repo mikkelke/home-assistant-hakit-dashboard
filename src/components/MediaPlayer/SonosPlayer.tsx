@@ -764,6 +764,8 @@ export function SonosPlayer({
 
   // Steps every current member together. Basing each step on pickerVolumes (not raw entity
   // state) is what makes rapid taps accumulate instead of re-reading stale HA state.
+  // Muted members are left alone: volume_set un-mutes them downstream, and a muted
+  // speaker in a group is meant to stay silent through group nudges.
   const handleGroupVolumeStep = (direction: 1 | -1) => {
     if (!callService) return;
     const updates: Record<string, number> = {};
@@ -771,7 +773,7 @@ export function SonosPlayer({
       const pend = pendingGroup[sp.id];
       const inFlight = pend !== undefined && pend !== sp.isMember;
       const shownIn = inFlight ? pend : sp.isMember;
-      if (!shownIn || !sp.available) return;
+      if (!shownIn || !sp.available || sp.isMuted) return;
       const base = pickerVolumes[sp.id] ?? sp.volume;
       const next = Math.max(0, Math.min(100, base + direction * 5));
       updates[sp.id] = next;
