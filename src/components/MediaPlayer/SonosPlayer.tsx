@@ -777,14 +777,20 @@ export function SonosPlayer({
       const base = pickerVolumes[sp.id] ?? sp.volume;
       const next = Math.max(0, Math.min(100, base + direction * 5));
       updates[sp.id] = next;
-      handleVolumeChange(sp.actualId, next);
       if (sp.isMuted) {
+        // Muted members write through the native twin: its SetVolume leaves mute alone,
+        // whereas the MA-flavor write was seen un-muting. Re-assert mute as a backstop.
+        const nativeId = rawSonosEntityId(sp.id);
+        const targetId = entities?.[nativeId] ? nativeId : sp.actualId;
+        handleVolumeChange(targetId, next);
         callService({
           domain: 'media_player',
           service: 'volume_mute',
-          target: { entity_id: sp.actualId },
+          target: { entity_id: targetId },
           serviceData: { is_volume_muted: true },
         });
+      } else {
+        handleVolumeChange(sp.actualId, next);
       }
     });
     setPickerVolumes(prev => ({ ...prev, ...updates }));
