@@ -628,6 +628,34 @@
   align-items: center;
   justify-content: center;
   padding: 0.9rem 1.1rem 1.1rem;
+  position: relative; /* anchors the play disc over the still */
+}
+
+/* Still-first viewer: the snapshot is the ring moment, the clip is the aftermath -
+   a centered play disc starts the video on demand. Same scrim recipe as the tile
+   badge, sized for a primary action. */
+.doorbell-photo-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.doorbell-photo-play svg {
+  font-size: 2rem;
+}
+.doorbell-photo-play:active {
+  transform: translate(-50%, -50%) scale(0.92);
 }
 .doorbell-photo-content img,
 .doorbell-photo-content video {
