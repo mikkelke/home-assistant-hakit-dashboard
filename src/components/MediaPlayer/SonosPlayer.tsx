@@ -762,10 +762,10 @@ export function SonosPlayer({
     });
   };
 
-  // Steps every current member together. Basing each step on pickerVolumes (not raw entity
-  // state) is what makes rapid taps accumulate instead of re-reading stale HA state.
-  // Muted members are left alone: volume_set un-mutes them downstream, and a muted
-  // speaker in a group is meant to stay silent through group nudges.
+  // Steps every current member together, muted ones included — volume moves, mute state
+  // stays as-is. Basing each step on pickerVolumes (not raw entity state) is what makes
+  // rapid taps accumulate instead of re-reading stale HA state. volume_set can un-mute a
+  // muted speaker downstream (observed 08-19), so mute is re-asserted right after it.
   const handleGroupVolumeStep = (direction: 1 | -1) => {
     if (!callService) return;
     const updates: Record<string, number> = {};
@@ -773,11 +773,19 @@ export function SonosPlayer({
       const pend = pendingGroup[sp.id];
       const inFlight = pend !== undefined && pend !== sp.isMember;
       const shownIn = inFlight ? pend : sp.isMember;
-      if (!shownIn || !sp.available || sp.isMuted) return;
+      if (!shownIn || !sp.available) return;
       const base = pickerVolumes[sp.id] ?? sp.volume;
       const next = Math.max(0, Math.min(100, base + direction * 5));
       updates[sp.id] = next;
       handleVolumeChange(sp.actualId, next);
+      if (sp.isMuted) {
+        callService({
+          domain: 'media_player',
+          service: 'volume_mute',
+          target: { entity_id: sp.actualId },
+          serviceData: { is_volume_muted: true },
+        });
+      }
     });
     setPickerVolumes(prev => ({ ...prev, ...updates }));
   };
