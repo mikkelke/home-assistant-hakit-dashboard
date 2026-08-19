@@ -548,6 +548,22 @@
   padding-left: 0.1rem;
 }
 
+/* Group volume row: steps every current member together, sits above the member list. */
+.sonos-groupvol {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sonos-groupvol-label {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(235, 235, 245, 0.6);
+}
+
 /* Source pop-up */
 .sonos-srcgrid {
   display: grid;

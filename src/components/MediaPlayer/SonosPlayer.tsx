@@ -762,6 +762,24 @@ export function SonosPlayer({
     });
   };
 
+  // Steps every current member together. Basing each step on pickerVolumes (not raw entity
+  // state) is what makes rapid taps accumulate instead of re-reading stale HA state.
+  const handleGroupVolumeStep = (direction: 1 | -1) => {
+    if (!callService) return;
+    const updates: Record<string, number> = {};
+    pickerSpeakers.forEach(sp => {
+      const pend = pendingGroup[sp.id];
+      const inFlight = pend !== undefined && pend !== sp.isMember;
+      const shownIn = inFlight ? pend : sp.isMember;
+      if (!shownIn || !sp.available) return;
+      const base = pickerVolumes[sp.id] ?? sp.volume;
+      const next = Math.max(0, Math.min(100, base + direction * 5));
+      updates[sp.id] = next;
+      handleVolumeChange(sp.actualId, next);
+    });
+    setPickerVolumes(prev => ({ ...prev, ...updates }));
+  };
+
   const parseRss = (xmlText: string) => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(xmlText, 'text/xml');
@@ -1193,6 +1211,14 @@ export function SonosPlayer({
   const tvSource = inputSources.find(isTVSourceName) ?? inputSources[0];
   const otherInputSources = inputSources.filter(s => s !== tvSource);
 
+  // Group volume row only earns its place once there are 2+ members actually shown in the group.
+  const groupVolumeEligibleCount = pickerSpeakers.filter(sp => {
+    const pend = pendingGroup[sp.id];
+    const inFlight = pend !== undefined && pend !== sp.isMember;
+    const shownIn = inFlight ? pend : sp.isMember;
+    return shownIn && sp.available;
+  }).length;
+
   const face = (
     <>
       {/* Now playing */}
@@ -1305,7 +1331,17 @@ export function SonosPlayer({
 
       {/* Doors */}
       <div className='sonos-doors'>
-        <button type='button' className='sonos-ibtn' onClick={() => setShowGroupModal(true)} aria-label='Speakers' title='Speakers'>
+        <button
+          type='button'
+          className='sonos-ibtn'
+          onClick={() => {
+            // Reopen shows current HA volumes, not values dragged in a previous session.
+            setPickerVolumes({});
+            setShowGroupModal(true);
+          }}
+          aria-label='Speakers'
+          title='Speakers'
+        >
           <Icon icon='mdi:speaker-multiple' aria-hidden='true' />
           {hasGroup && <span className='sonos-badge'>{groupMembers.length}</span>}
         </button>
@@ -1435,6 +1471,27 @@ export function SonosPlayer({
             </div>
 
             <div className='sonos-sheet-body'>
+              {groupVolumeEligibleCount >= 2 && (
+                <div className='sonos-groupvol'>
+                  <span className='sonos-groupvol-label'>Group volume</span>
+                  <button
+                    type='button'
+                    className='sonos-mute sonos-groupvol-btn'
+                    onClick={() => handleGroupVolumeStep(-1)}
+                    aria-label='Group volume down'
+                  >
+                    <Icon icon='mdi:volume-minus' aria-hidden='true' />
+                  </button>
+                  <button
+                    type='button'
+                    className='sonos-mute sonos-groupvol-btn'
+                    onClick={() => handleGroupVolumeStep(1)}
+                    aria-label='Group volume up'
+                  >
+                    <Icon icon='mdi:volume-plus' aria-hidden='true' />
+                  </button>
+                </div>
+              )}
               {/* Apple AirPlay-style picker: one list, one LINE per speaker, tap to toggle */}
               {pickerSpeakers.map(sp => {
                 // Optimistic display: pending wins until the entity's group state converges.
