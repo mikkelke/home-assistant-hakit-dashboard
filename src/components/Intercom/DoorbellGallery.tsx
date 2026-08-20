@@ -19,16 +19,14 @@ function RingTag({ eventType }: { eventType: string | undefined }) {
 /** Full-size viewer for one snapshot - a second portaled layer above the sheet with its own
  * back-button entry (distinct historyKey, so back closes the photo first, then the sheet).
  *
- * When a ring has BOTH a photo and a clip, the PHOTO shows first with a play disc
- * (user 2026-08-19: "the video is not from the ring, it's after - there is often no
- * person; it should be possible to view the still"). The station only streams while
- * dialed, so the clip physically starts seconds after the ring - the snapshot is the
- * ring-moment artifact, the clip is the aftermath. Clip-only entries (no snapshot
- * arrived) still open the video directly. */
+ * A ring with BOTH shows the clip BIG with the still beneath it, together (user
+ * 2026-08-19: "when open the clip i can see the clip big and the image"). The still
+ * is the ring moment - the station captures it at the ring itself - while the clip
+ * starts at the recording dial, so the pair is who-rang plus what-happened on one
+ * screen. Clip-only entries show the video alone; photo-only entries the still. */
 function DoorbellPhoto({ image, onClose }: { image: DoorbellImage; onClose: () => void }) {
   const { requestClose } = useModalBackButton({ isOpen: true, onRequestClose: onClose, historyKey: 'doorbell-photo' });
   const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestClose);
-  const [playing, setPlaying] = useState(false);
   return createPortal(
     <>
       <div className='doorbell-overlay doorbell-overlay--photo' onClick={requestClose} />
@@ -49,22 +47,19 @@ function DoorbellPhoto({ image, onClose }: { image: DoorbellImage; onClose: () =
           </button>
         </div>
         <div className='doorbell-photo-content'>
-          {image.clip_url && (playing || !image.url) ? (
-            <video controls autoPlay playsInline poster={image.url || undefined} src={image.clip_url} />
-          ) : (
-            <>
-              <img src={image.url} alt={`Ring at the ${image.door || 'door'}, ${formatRingTime(image)}`} />
-              {image.clip_url && (
-                <button
-                  type='button'
-                  className='doorbell-photo-play'
-                  onClick={() => setPlaying(true)}
-                  aria-label='Play the clip (starts seconds after the ring)'
-                >
-                  <Icon icon='mdi:play' aria-hidden='true' />
-                </button>
+          {image.clip_url ? (
+            <div className='doorbell-media'>
+              <video controls autoPlay playsInline poster={image.url || undefined} src={image.clip_url} />
+              {image.url && (
+                <img
+                  className='doorbell-media-still'
+                  src={image.url}
+                  alt={`Ring moment at the ${image.door || 'door'}, ${formatRingTime(image)}`}
+                />
               )}
-            </>
+            </div>
+          ) : (
+            <img src={image.url} alt={`Ring at the ${image.door || 'door'}, ${formatRingTime(image)}`} />
           )}
         </div>
       </div>

@@ -621,7 +621,11 @@
 }
 
 .doorbell-photo-content {
-  flex: 1;
+  /* flex-basis auto, not 0: .doorbell-photo is auto-height (sized by content up
+     to its 90vh cap), and a basis-0 child contributes NOTHING to that intrinsic
+     height - the whole viewer collapsed to the header + padding (measured 32px)
+     on any viewport not covered by the mobile full-screen rule below. */
+  flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
   display: flex;
@@ -631,31 +635,28 @@
   position: relative; /* anchors the play disc over the still */
 }
 
-/* Still-first viewer: the snapshot is the ring moment, the clip is the aftermath -
-   a centered play disc starts the video on demand. Same scrim recipe as the tile
-   badge, sized for a primary action. */
-.doorbell-photo-play {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
+/* Clip + still together (user 2026-08-19): the video big on top, the ring-moment
+   snapshot beneath it - who rang and what happened on one screen. */
+.doorbell-media {
+  /* No width:100% here: .doorbell-photo shrink-wraps its content, so a
+     percentage-sized wrapper is circular and collapses the whole viewer to 0
+     (measured). Children keep their intrinsic sizes - exactly how the old
+     single-<img> layout sized the box - and the generic
+     .doorbell-photo-content img/video rule still caps them. */
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+  gap: 0.7rem;
+  max-width: 100%;
+  min-height: 0;
 }
-.doorbell-photo-play svg {
-  font-size: 2rem;
+.doorbell-media video {
+  max-height: 56vh;
+  background: #000;
 }
-.doorbell-photo-play:active {
-  transform: translate(-50%, -50%) scale(0.92);
+.doorbell-media .doorbell-media-still {
+  width: auto;
+  max-height: 24vh;
 }
 .doorbell-photo-content img,
 .doorbell-photo-content video {
