@@ -127,6 +127,11 @@ interface SpeakerInfo {
   groupSize: number;
 }
 
+// Front street door open command (trial): ABB Welcome integration button, not the ESP lock -
+// see IntercomCard's pulseUnlock for the fast-vs-standard SIP-route reasoning. Back door and
+// lock STATE display (frontLock/backLock below) are unaffected: only the front command changes.
+const FRONT_DOOR_ABB_BUTTON = 'button.abb_welcome_gateway_outdoor_station_2_1';
+
 export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps) {
   const [openModal, setOpenModal] = useState<ModalType>(null);
   // Frozen at media-modal open: joins/unjoins change coordinators and flicker `playing`,
@@ -444,9 +449,14 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
   const fireDoor = useCallback(
     (entityId: string, lockEntity: typeof frontLock, lockToggle = false) => {
       if (!callService) return;
-      const supported = Number(lockEntity?.attributes?.supported_features ?? 0);
-      const service = lockToggle ? (aptLocked ? 'unlock' : 'lock') : (supported & 1) !== 0 ? 'open' : 'unlock';
-      callService({ domain: 'lock', service, target: { entity_id: entityId } });
+      if (!lockToggle && entityId === 'lock.intercomproxy_front_door') {
+        // Front street door: ABB button press, not a lock service - see FRONT_DOOR_ABB_BUTTON above.
+        callService({ domain: 'button', service: 'press', target: { entity_id: FRONT_DOOR_ABB_BUTTON } });
+      } else {
+        const supported = Number(lockEntity?.attributes?.supported_features ?? 0);
+        const service = lockToggle ? (aptLocked ? 'unlock' : 'lock') : (supported & 1) !== 0 ? 'open' : 'unlock';
+        callService({ domain: 'lock', service, target: { entity_id: entityId } });
+      }
       setDoorFired(entityId);
       if (firedTimer.current) clearTimeout(firedTimer.current);
       firedTimer.current = setTimeout(() => setDoorFired(null), 2000);

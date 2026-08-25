@@ -33,7 +33,12 @@ export const DOORBELL_ARCHIVE_PATH = 'abb_doorbell';
 /**
  * Hallway / “main door” lock. lock.yale_bt (local Bluetooth) is authoritative — the cloud
  * twin lock.yale can miss re-lock pushes and stick "unlocked" (seen 2026-07-12, 1.5 h stale).
- * Intercom building front is lock.intercomproxy_front_door.
+ * Intercom building front is split in two (trial): opening is commanded via the ABB Welcome
+ * integration's button (button.abb_welcome_gateway_outdoor_station_2_1), while
+ * lock.intercomproxy_front_door still reports the door's state — the ESP is the only side
+ * that sees the door controller's bus acknowledgement, so state stays there no matter who
+ * commanded the open. Building back door is unchanged: both command and state stay on
+ * lock.intercomproxy_back_door.
  */
 export const FRONT_DOOR_LOCK_ENTITY = 'lock.yale_bt';
 

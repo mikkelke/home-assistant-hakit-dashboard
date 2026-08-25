@@ -26,6 +26,15 @@ const FIRED_FLASH_MS = 2000;
 const DOORBELL_FRONT = 'binary_sensor.intercomproxy_doorbell_front_door';
 const DOORBELL_BACK = 'binary_sensor.intercomproxy_doorbell_back_door';
 
+// Front street door open command (trial): ABB Welcome integration button, not the ESP lock
+// below. ABB's front route is the "fast" unlock - a standalone SIP MESSAGE, harmless to an
+// in-progress ring - while the back door stays on its ESP lock, because ABB's back route places
+// its own SIP call and would kill the ring recording. Either way lock STATE keeps reading the
+// ESP entities (frontLock/backLock below): ABB reports nothing, and the ESP alone sees the door
+// controller's bus acknowledgement that the door actually opened. A companion AppDaemon watchdog
+// falls back to the ESP unlock if the door hasn't opened ~2.5s after this press.
+const FRONT_DOOR_ABB_BUTTON = 'button.abb_welcome_gateway_outdoor_station_2_1';
+
 export function IntercomCard({ entities, callService, showHeader = false }: IntercomCardProps) {
   // Now-tick: the unlocked-too-long alert is the only thing here that changes with time
   // (same pattern as TonightCard - lazy initializer for the first render, interval after).
@@ -131,6 +140,15 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
 
   const pulseUnlock = (entityId: string, lockEntity?: { state: string; attributes?: Record<string, unknown> }) => {
     if (!callService) return;
+    if (entityId === frontLockId) {
+      // Front street door: ABB button press, not a lock service - see FRONT_DOOR_ABB_BUTTON above.
+      callService({
+        domain: 'button',
+        service: 'press',
+        target: { entity_id: FRONT_DOOR_ABB_BUTTON },
+      });
+      return;
+    }
     // Prefer the HA lock "open" service when supported (bit 1), otherwise fall back to "unlock"
     const supported = Number(lockEntity?.attributes?.supported_features ?? 0);
     const supportsOpen = (supported & 1) !== 0;
