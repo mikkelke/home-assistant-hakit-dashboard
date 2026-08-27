@@ -111,7 +111,9 @@ const YALE_ACCESS_TIMELINE_IDS = new Set([
   'lock.yale',
   'lock.yale_bt',
 ]);
-const BED_OCCUPANCY_ENTITY_IDS = new Set<string>(BEDROOM_BED_OCCUPANCY_SENSORS.map(sensor => sensor.entityId));
+const BED_OCCUPANCY_ENTITY_IDS = new Set<string>(
+  BEDROOM_BED_OCCUPANCY_SENSORS.flatMap(sensor => [sensor.entityId, ...sensor.witnessEntityIds])
+);
 
 function formatAccessMethodLabel(text: string): string {
   return text

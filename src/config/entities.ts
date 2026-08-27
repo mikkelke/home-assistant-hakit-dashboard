@@ -99,17 +99,35 @@ export const TRANSIT_REFRESH_BUTTON = 'input_button.transit_refresh';
 /** Transit last updated sensor. */
 export const TRANSIT_LAST_UPDATED_SENSOR = 'sensor.transit_last_updated';
 
-/** Bedroom bedside occupancy sensors with display metadata for overview + timeline UI. */
-export const BEDROOM_BED_OCCUPANCY_SENSORS = [
+/**
+ * Bedroom bedside occupancy sensors with display metadata for overview + timeline UI.
+ * Each side's Withings sleep mat stays the canonical entity (selector rows + timelines);
+ * `witnessEntityIds` are extra fast/local witnesses (ESPHome pressure strip, installed
+ * 2026-08-12) OR'd into that side's occupancy display. Additive only — a witness may
+ * assert presence, never absence: the mats alone decide "bed empty", matching the
+ * backend's tandem rule for the same strip. The strip's left zone AND its whole-bed
+ * aggregate (`_either`) both map to the LEFT side: Mikkel sleeps left, only those two
+ * strip entities are validated/consumed anywhere, and right_bedside is currently dead
+ * (stuck "unknown") — without the strip the bed icon ran off a single live sensor.
+ */
+export const BEDROOM_BED_OCCUPANCY_SENSORS: ReadonlyArray<{
+  /** Withings sleep mat — the per-side entity shown in the selection modal and timeline. */
+  entityId: string;
+  side: string;
+  /** Additional occupied-only witnesses OR'd into this side (may be empty). */
+  witnessEntityIds: readonly string[];
+}> = [
   {
     entityId: 'binary_sensor.left_bedside',
     side: 'Left side',
+    witnessEntityIds: ['binary_sensor.bed_presence_6b9c94_bed_occupied_left', 'binary_sensor.bed_presence_6b9c94_bed_occupied_either'],
   },
   {
     entityId: 'binary_sensor.right_bedside',
     side: 'Right side',
+    witnessEntityIds: [],
   },
-] as const;
+];
 
 // --- Dryer (guest bathroom; matches AppDaemon / backend entity_ids) ---
 

@@ -151,10 +151,17 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
               key.toLowerCase().includes(areaNameNormalized))
         );
 
-  // Presence: PIR only
+  // Presence: PIR group per room. The bedroom's raw group (FP300 mmWave + PIR + bedside
+  // mats, zero debounce) flickers off for 30-90 s stretches when someone lies still
+  // (confirmed via HA history 2026-08-27), so the bedroom additionally ORs in
+  // input_boolean.bedroom_bed_session — AppDaemon bedroom_lights' 90 s debounced
+  // "someone is actually in bed" latch. Additive only: the bedroom can never read LESS
+  // occupied than the raw group alone would.
+  const isBedroom = areaNameNormalized === 'bedroom';
   const presenceSensorId = `binary_sensor.${areaNameNormalized}_pir_presence`;
   const presenceEntity = entities?.[presenceSensorId];
-  const isOccupied = presenceEntity?.state === 'on';
+  const bedSessionOn = isBedroom && entities?.['input_boolean.bedroom_bed_session']?.state === 'on';
+  const isOccupied = presenceEntity?.state === 'on' || bedSessionOn;
   const hasPresence = !!presenceEntity;
 
   // Climate/heating status - uses climateSensorId defined above
@@ -354,13 +361,19 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
   const isBathroom = areaNameNormalized === 'bathroom';
   const bathPresenceId = 'binary_sensor.bathroom_bath_presence_presence';
   const isInShower = isBathroom && entities?.[bathPresenceId]?.state === 'on';
-  // Bedroom specific: Alarm clock
-  const isBedroom = areaNameNormalized === 'bedroom';
+  // Bedroom specific: Alarm clock (isBedroom is defined up at the presence block)
   const alarmEnabled = isBedroom ? entities?.['input_boolean.wakeup_bedroom']?.state === 'on' : false;
   const alarmTime = isBedroom ? entities?.['input_datetime.wakeup_bedroom']?.state : null;
   const hasAlarm = !!(isBedroom && entities?.['input_boolean.wakeup_bedroom']);
-  const bedOccupancyIds = isBedroom ? BEDROOM_BED_OCCUPANCY_SENSORS.map(sensor => sensor.entityId).filter(id => entities?.[id]) : [];
-  const bedOccupancyActiveCount = bedOccupancyIds.filter(id => entities?.[id]?.state === 'on').length;
+  const bedOccupancySides = isBedroom ? BEDROOM_BED_OCCUPANCY_SENSORS.filter(sensor => entities?.[sensor.entityId]) : [];
+  const bedOccupancyIds = bedOccupancySides.map(sensor => sensor.entityId);
+  // A side counts as occupied if its mat is on OR any of its pressure-strip witnesses is
+  // on (additive only — witnesses assert presence, never absence). Counting occupied
+  // SIDES, not sensors, keeps the tooltip person-shaped ("Both in bed" = both sides)
+  // however many witnesses back a side.
+  const bedOccupancyActiveCount = bedOccupancySides.filter(
+    sensor => entities?.[sensor.entityId]?.state === 'on' || sensor.witnessEntityIds.some(id => entities?.[id]?.state === 'on')
+  ).length;
   const hasBedOccupancy = bedOccupancyIds.length > 0;
 
   // Media player - prefer the entity that currently has the live playback state.
