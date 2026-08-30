@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { APARTMENT_DOOR_OPEN_ENTITY, APARTMENT_ENTRY_SECURE_ENTITY, resolveHallwayDoorSensorId } from '../../config/entities';
@@ -22,6 +22,10 @@ interface IntercomCardProps {
 const UNLOCKED_ALERT_MINUTES = 10;
 /** How long a fired door shows its green check instead of its own icon. */
 const FIRED_FLASH_MS = 2000;
+/** When to re-read the ring archive after a ring ends. The bridge archives at EPISODE-CLOSE,
+ * a measured ring+75 s across every episode 2026-08-28..30; the later two catch an episode
+ * that re-rings extended past that, and cost one 14 kB fetch each. */
+const RING_ARCHIVE_SETTLE_MS = [30_000, 90_000, 180_000];
 
 const DOORBELL_FRONT = 'binary_sensor.intercomproxy_doorbell_front_door';
 const DOORBELL_BACK = 'binary_sensor.intercomproxy_doorbell_back_door';
@@ -62,24 +66,51 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
   };
 
   // "Who rang" archive: the AbbWelcomeBridge keeps one snapshot per ring episode under
-  // /local/abb_doorbell/ (fetched once per mount, like the Rober2 maps index). The archive
-  // only exists after the first ring - a 404 or any fetch failure just means the Doorbell
-  // row stays hidden, so both resolve to [] without a word in the console.
+  // /local/abb_doorbell/ (like the Rober2 maps index). The archive only exists after the
+  // first ring - a 404 or any fetch failure just means the Doorbell row stays hidden, so
+  // both resolve to [] without a word in the console.
   const [rings, setRings] = useState<DoorbellImage[]>([]);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const ringsMounted = useRef(true);
   useEffect(() => {
-    let cancelled = false;
-    fetchDoorbellIndex()
-      .then(images => {
-        if (!cancelled) setRings(images);
-      })
-      .catch(() => {
-        if (!cancelled) setRings([]);
-      });
+    ringsMounted.current = true;
     return () => {
-      cancelled = true;
+      ringsMounted.current = false;
     };
   }, []);
+  // A failed refresh keeps the list we already have: blanking a populated Doorbell row
+  // because one fetch hiccuped is worse than showing the previous ring a minute longer.
+  const refreshRings = useCallback(() => {
+    fetchDoorbellIndex()
+      .then(images => {
+        if (ringsMounted.current) setRings(images);
+      })
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    refreshRings();
+  }, [refreshRings]);
+
+  // index.json is a static file - nothing pushes when a ring lands. Fetched once per mount,
+  // the always-on tablet would keep showing yesterday's rings forever (user 2026-08-30:
+  // "someone just rang but i do not see it in the overview"). So refetch after every ring,
+  // on a ladder: the bridge writes the entry at EPISODE-CLOSE, ~75 s after the ring, and
+  // later still when re-rings extend the episode. The ring sensors are the same signal the
+  // ring row already renders from, so a ring the card reacts to is a ring the archive
+  // re-reads for. Opening the gallery refetches too - a deliberate look is never stale.
+  const ringingFront = entities?.[DOORBELL_FRONT]?.state === 'on';
+  const ringingBack = entities?.[DOORBELL_BACK]?.state === 'on';
+  const ringWasActive = useRef(false);
+  useEffect(() => {
+    if (ringingFront || ringingBack) {
+      ringWasActive.current = true;
+      return;
+    }
+    if (!ringWasActive.current) return;
+    ringWasActive.current = false;
+    const timers = RING_ARCHIVE_SETTLE_MS.map(ms => setTimeout(refreshRings, ms));
+    return () => timers.forEach(clearTimeout);
+  }, [ringingFront, ringingBack, refreshRings]);
 
   const autoOpenId = 'input_boolean.auto_open_intercom';
   const frontLockId = 'lock.intercomproxy_front_door';
@@ -120,9 +151,8 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
   const showStateWord = !aptLocked || aptDoorOpen;
 
   // A ring is the one moment this card gets loud on its own: the proxy exposes a doorbell
-  // sensor per door, so the row can name the door that actually rang.
-  const ringingFront = entities?.[DOORBELL_FRONT]?.state === 'on';
-  const ringingBack = entities?.[DOORBELL_BACK]?.state === 'on';
+  // sensor per door (read above, where the archive refresh watches the same edge), so the
+  // row can name the door that actually rang.
   const ringing = ringingFront
     ? { id: frontLockId, lock: frontLock, name: 'front' }
     : ringingBack
@@ -312,6 +342,7 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
               className='access-doorbell-btn'
               onClick={e => {
                 e.stopPropagation();
+                refreshRings();
                 setGalleryOpen(true);
               }}
               aria-label='Who rang — see the ring snapshots'
