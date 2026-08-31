@@ -1345,6 +1345,42 @@ export function SonosPlayer({
         <span className='sonos-volume-value'>{volumeUi}%</span>
       </div>
 
+      {/* Group volume - same step logic as the change-group sheet, but discreet: icon-led,
+          no label, small buttons - just a quiet hint that this steps the whole group. */}
+      {hasGroup && groupVolumeEligibleCount >= 2 && (
+        <div className='sonos-groupvol sonos-groupvol--card'>
+          <button
+            type='button'
+            className='sonos-groupvol-icon-btn'
+            onClick={() => {
+              // Reopen shows current HA volumes, not values dragged in a previous session.
+              setPickerVolumes({});
+              setShowGroupModal(true);
+            }}
+            aria-label='Speakers'
+            title='Speakers'
+          >
+            <Icon icon='mdi:speaker-multiple' className='sonos-groupvol-icon' aria-hidden='true' />
+          </button>
+          <button
+            type='button'
+            className='sonos-mute sonos-groupvol-btn sonos-groupvol-btn--sm'
+            onClick={() => handleGroupVolumeStep(-1)}
+            aria-label='Group volume down'
+          >
+            <Icon icon='mdi:volume-minus' aria-hidden='true' />
+          </button>
+          <button
+            type='button'
+            className='sonos-mute sonos-groupvol-btn sonos-groupvol-btn--sm'
+            onClick={() => handleGroupVolumeStep(1)}
+            aria-label='Group volume up'
+          >
+            <Icon icon='mdi:volume-plus' aria-hidden='true' />
+          </button>
+        </div>
+      )}
+
       {/* Doors */}
       <div className='sonos-doors'>
         <button

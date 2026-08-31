@@ -583,6 +583,42 @@
   color: rgba(235, 235, 245, 0.6);
 }
 
+/* Same row, standalone on the main card face - no list below it to divide from.
+   Discreet here: right-aligned, no label, smaller than the sheet's version. */
+.sonos-groupvol--card {
+  justify-content: flex-end;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.sonos-groupvol-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  padding: 0.2rem;
+  margin-right: 0.05rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sonos-groupvol-icon {
+  font-size: 0.75rem;
+  color: rgba(235, 235, 245, 0.3);
+}
+
+.sonos-groupvol-btn--sm {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: rgba(235, 235, 245, 0.4);
+}
+.sonos-groupvol-btn--sm svg {
+  font-size: 0.85rem;
+}
+
 /* Source pop-up */
 .sonos-srcgrid {
   display: grid;

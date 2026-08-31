@@ -26,6 +26,7 @@ const TEMP_ANCHORS: Array<{ k: number; hex: string }> = [
 ];
 
 const DEFAULT_ON_COLOR = '#fbbf24';
+const LONG_PRESS_DURATION = 500;
 
 function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.slice(1), 16);
@@ -186,18 +187,41 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
     [entities]
   );
 
-  // The dot is the color door for color-capable lights, and a plain switch for the rest.
-  const handleDotClick = useCallback(
-    (lightId: string, e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (supportsColor(lightId)) {
+  // The dot is a tap-to-toggle switch; long-press opens the color door for color-capable lights.
+  const dotLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dotLongPressTriggeredRef = useRef(false);
+
+  const handleLightDotPressStart = useCallback(
+    (lightId: string) => {
+      dotLongPressTriggeredRef.current = false;
+      if (!supportsColor(lightId)) return;
+      dotLongPressTimerRef.current = setTimeout(() => {
+        dotLongPressTriggeredRef.current = true;
         setColorPickerLightId(lightId);
-      } else {
+      }, LONG_PRESS_DURATION);
+    },
+    [supportsColor]
+  );
+
+  const handleLightDotPressEnd = useCallback(
+    (lightId: string) => {
+      if (dotLongPressTimerRef.current) {
+        clearTimeout(dotLongPressTimerRef.current);
+        dotLongPressTimerRef.current = null;
+      }
+      if (!dotLongPressTriggeredRef.current) {
         handleToggleLight(lightId);
       }
     },
-    [supportsColor, handleToggleLight]
+    [handleToggleLight]
   );
+
+  const handleLightDotPressCancel = useCallback(() => {
+    if (dotLongPressTimerRef.current) {
+      clearTimeout(dotLongPressTimerRef.current);
+      dotLongPressTimerRef.current = null;
+    }
+  }, []);
 
   const handleColorSelect = useCallback(
     (lightId: string, rgb: [number, number, number]) => {
@@ -471,9 +495,14 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
                   type='button'
                   className={`light-dot ${isOn ? '' : 'is-off'}`}
                   style={isOn ? { background: color, color: isLightColor(color) ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)' } : undefined}
-                  onClick={e => handleDotClick(lightId, e)}
-                  aria-label={supportsColorMode ? `Pick a color for ${getLightName(lightId)}` : `Toggle ${getLightName(lightId)}`}
-                  title={supportsColorMode ? 'Color' : 'Toggle'}
+                  onMouseDown={() => handleLightDotPressStart(lightId)}
+                  onMouseUp={() => handleLightDotPressEnd(lightId)}
+                  onMouseLeave={handleLightDotPressCancel}
+                  onTouchStart={() => handleLightDotPressStart(lightId)}
+                  onTouchEnd={() => handleLightDotPressEnd(lightId)}
+                  onTouchCancel={handleLightDotPressCancel}
+                  aria-label={supportsColorMode ? `Toggle ${getLightName(lightId)}, long-press for color` : `Toggle ${getLightName(lightId)}`}
+                  title={supportsColorMode ? 'Toggle · long-press for color' : 'Toggle'}
                 >
                   <Icon icon='mdi:lightbulb' aria-hidden='true' />
                 </button>
