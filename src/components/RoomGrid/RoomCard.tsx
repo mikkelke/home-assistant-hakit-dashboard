@@ -14,6 +14,7 @@ import {
 import { ROOM_LIGHTS } from '../../config/lights';
 import { resolveDishwasherSemanticState } from '../../utils/dishwasherSemanticState';
 import { resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
+import { resolveRoomActiveReason } from '../../utils/roomActiveReason';
 import { IndicatorWithTimeline } from './IndicatorWithTimeline';
 import { MultiEntitySelector } from './MultiEntitySelector';
 import { OfficeVacuumIndicator } from './OfficeVacuumIndicator';
@@ -156,6 +157,13 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
   const presenceEntity = entities?.[presenceSensorId];
   const isOccupied = presenceEntity?.state === 'on';
   const hasPresence = !!presenceEntity;
+  const presenceReason = resolveRoomActiveReason(presenceEntity, entities);
+  const presenceTitle = isOccupied
+    ? presenceReason
+      ? `Occupied via ${presenceReason.witnessLabel} - click for timeline`
+      : 'Occupied - click for timeline'
+    : 'Not occupied - click for timeline';
+  const presenceIcon = isOccupied && presenceReason ? presenceReason.icon : 'mdi:account';
 
   // Climate/heating status - uses climateSensorId defined above
   const hvacAction = climateEntity?.attributes?.hvac_action;
@@ -772,8 +780,8 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                 entities={entities}
                 hassUrl={hassUrl}
                 className={`indicator presence ${isOccupied ? 'active' : 'inactive'}`}
-                title={isOccupied ? 'Occupied - click for timeline' : 'Not occupied - click for timeline'}
-                icon='mdi:account'
+                title={presenceTitle}
+                icon={presenceIcon}
               />
             ),
             hasPresence,
@@ -1234,8 +1242,8 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
                   entities={entities}
                   hassUrl={hassUrl}
                   className={`indicator presence ${isOccupied ? 'active' : 'inactive'}`}
-                  title={isOccupied ? 'Occupied - click for timeline' : 'Not occupied - click for timeline'}
-                  icon='mdi:account'
+                  title={presenceTitle}
+                  icon={presenceIcon}
                 />
               ),
               hasPresence,

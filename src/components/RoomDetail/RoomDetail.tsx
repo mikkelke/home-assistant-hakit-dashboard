@@ -1,5 +1,6 @@
 import { Icon } from '@iconify/react';
 import type { RoomDetailProps } from '../../types';
+import { resolveRoomActiveReason } from '../../utils/roomActiveReason';
 import { SonosPlayer, TVCard } from '../MediaPlayer';
 import { HeatCard } from '../Heating';
 import { TonightCard } from '../AC';
@@ -37,6 +38,7 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
   const cleaningToggleId = `${ROBOT_CLEAN_PREFIX}${areaName}`;
 
   const presence = entities?.[presenceSensor]?.state === 'on';
+  const presenceReason = resolveRoomActiveReason(entities?.[presenceSensor], entities);
   const humidity = entities?.[humiditySensor]?.state;
   const climate = entities?.[climateSensor];
   const mediaPlayer = entities?.[mediaSensor];
@@ -93,7 +95,15 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
       <div className='room-detail-header'>
         <div className='room-detail-title'>
           <h2>{formatName(area.name)}</h2>
-          {presence && <span className='presence-badge'>Occupied</span>}
+          {presence && (
+            <span
+              className='presence-badge'
+              title={presenceReason ? `${presenceReason.tierLabel} · via ${presenceReason.witnessLabel}` : 'Occupied'}
+            >
+              {presenceReason && <Icon icon={presenceReason.icon} />}
+              Occupied{presenceReason ? ` · ${presenceReason.witnessLabel}` : ''}
+            </span>
+          )}
         </div>
         <button className='close-button' onClick={onClose}>
           <Icon icon='mdi:close' />
