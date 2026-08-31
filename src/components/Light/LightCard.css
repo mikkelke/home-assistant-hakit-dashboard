@@ -29,9 +29,13 @@
   flex-shrink: 0;
   width: 2.1rem;
   height: 2.1rem;
+  border: none;
+  padding: 0;
   border-radius: 50%;
   background: rgba(251, 191, 36, 0.16);
   color: #fbbf24;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 .light-glyph svg {
   font-size: 1rem;

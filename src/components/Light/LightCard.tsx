@@ -187,39 +187,82 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
     [entities]
   );
 
-  // The dot is a tap-to-toggle switch; long-press opens the color door for color-capable lights.
-  const dotLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const dotLongPressTriggeredRef = useRef(false);
+  // The expanded row's dot is the color door for color-capable lights, and a plain switch
+  // for the rest. Toggling that row also has its own dedicated name button.
+  const handleDotClick = useCallback(
+    (lightId: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (supportsColor(lightId)) {
+        setColorPickerLightId(lightId);
+      } else {
+        handleToggleLight(lightId);
+      }
+    },
+    [supportsColor, handleToggleLight]
+  );
 
-  const handleLightDotPressStart = useCallback(
+  // Toggle all of this room's lights together - the header glyph next to "Lights".
+  const handleToggleAllLights = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!callService) return;
+      const newState = someOn ? 'off' : 'on';
+      setOptimisticStates(prev => {
+        const next = { ...prev };
+        availableLights.forEach(lightId => {
+          next[lightId] = newState;
+        });
+        return next;
+      });
+      setTimeout(() => {
+        setOptimisticStates(prev => {
+          const next = { ...prev };
+          availableLights.forEach(lightId => delete next[lightId]);
+          return next;
+        });
+      }, 1000);
+      callService({
+        domain: 'light',
+        service: someOn ? 'turn_off' : 'turn_on',
+        target: { entity_id: availableLights },
+      });
+    },
+    [callService, someOn, availableLights]
+  );
+
+  // Quick-dots (collapsed header row): tap toggles that light; hold opens its color palette.
+  const quickDotLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const quickDotLongPressTriggeredRef = useRef(false);
+
+  const handleQuickDotPressStart = useCallback(
     (lightId: string) => {
-      dotLongPressTriggeredRef.current = false;
+      quickDotLongPressTriggeredRef.current = false;
       if (!supportsColor(lightId)) return;
-      dotLongPressTimerRef.current = setTimeout(() => {
-        dotLongPressTriggeredRef.current = true;
+      quickDotLongPressTimerRef.current = setTimeout(() => {
+        quickDotLongPressTriggeredRef.current = true;
         setColorPickerLightId(lightId);
       }, LONG_PRESS_DURATION);
     },
     [supportsColor]
   );
 
-  const handleLightDotPressEnd = useCallback(
+  const handleQuickDotPressEnd = useCallback(
     (lightId: string) => {
-      if (dotLongPressTimerRef.current) {
-        clearTimeout(dotLongPressTimerRef.current);
-        dotLongPressTimerRef.current = null;
+      if (quickDotLongPressTimerRef.current) {
+        clearTimeout(quickDotLongPressTimerRef.current);
+        quickDotLongPressTimerRef.current = null;
       }
-      if (!dotLongPressTriggeredRef.current) {
+      if (!quickDotLongPressTriggeredRef.current) {
         handleToggleLight(lightId);
       }
     },
     [handleToggleLight]
   );
 
-  const handleLightDotPressCancel = useCallback(() => {
-    if (dotLongPressTimerRef.current) {
-      clearTimeout(dotLongPressTimerRef.current);
-      dotLongPressTimerRef.current = null;
+  const handleQuickDotPressCancel = useCallback(() => {
+    if (quickDotLongPressTimerRef.current) {
+      clearTimeout(quickDotLongPressTimerRef.current);
+      quickDotLongPressTimerRef.current = null;
     }
   }, []);
 
@@ -431,9 +474,15 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
           }
         }}
       >
-        <span className={`light-glyph ${someOn ? '' : 'is-off'}`}>
+        <button
+          type='button'
+          className={`light-glyph ${someOn ? '' : 'is-off'}`}
+          onClick={handleToggleAllLights}
+          aria-label={someOn ? 'Turn off all lights' : 'Turn on all lights'}
+          title={someOn ? 'Turn off all' : 'Turn on all'}
+        >
           <Icon icon='mdi:lightbulb-on-outline' aria-hidden='true' />
-        </span>
+        </button>
         <span className='light-title'>Lights</span>
         <span className='light-top-right'>
           {/* Quick dots (user 2026-07-31, same idea as the Access card's doors): every light
@@ -453,7 +502,12 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
                   type='button'
                   className={`light-quick-dot ${isOn ? '' : 'is-off'}`}
                   style={isOn ? { color: hex, background: `rgba(${r}, ${g}, ${b}, 0.18)` } : undefined}
-                  onClick={() => handleToggleLight(lightId)}
+                  onMouseDown={() => handleQuickDotPressStart(lightId)}
+                  onMouseUp={() => handleQuickDotPressEnd(lightId)}
+                  onMouseLeave={handleQuickDotPressCancel}
+                  onTouchStart={() => handleQuickDotPressStart(lightId)}
+                  onTouchEnd={() => handleQuickDotPressEnd(lightId)}
+                  onTouchCancel={handleQuickDotPressCancel}
                   aria-label={`${isOn ? 'Turn off' : 'Turn on'} ${name}`}
                   title={name}
                 >
@@ -495,16 +549,9 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
                   type='button'
                   className={`light-dot ${isOn ? '' : 'is-off'}`}
                   style={isOn ? { background: color, color: isLightColor(color) ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)' } : undefined}
-                  onMouseDown={() => handleLightDotPressStart(lightId)}
-                  onMouseUp={() => handleLightDotPressEnd(lightId)}
-                  onMouseLeave={handleLightDotPressCancel}
-                  onTouchStart={() => handleLightDotPressStart(lightId)}
-                  onTouchEnd={() => handleLightDotPressEnd(lightId)}
-                  onTouchCancel={handleLightDotPressCancel}
-                  aria-label={
-                    supportsColorMode ? `Toggle ${getLightName(lightId)}, long-press for color` : `Toggle ${getLightName(lightId)}`
-                  }
-                  title={supportsColorMode ? 'Toggle · long-press for color' : 'Toggle'}
+                  onClick={e => handleDotClick(lightId, e)}
+                  aria-label={supportsColorMode ? `Pick a color for ${getLightName(lightId)}` : `Toggle ${getLightName(lightId)}`}
+                  title={supportsColorMode ? 'Color' : 'Toggle'}
                 >
                   <Icon icon='mdi:lightbulb' aria-hidden='true' />
                 </button>
