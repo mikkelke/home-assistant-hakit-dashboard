@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
-import type { HassEntity } from '../../types';
+import type { HassEntities, HassEntity } from '../../types';
 import { APARTMENT_DOOR_OPEN_ENTITY, BEDROOM_BED_OCCUPANCY_SENSORS } from '../../config/entities';
+import { parseRoomActiveReason } from '../../utils/roomActiveReason';
 import './Timeline.css';
 
 interface TimelineEvent {
@@ -16,11 +17,18 @@ interface TimelineEvent {
   /** Yale access session: lock time + method paired with this opening (door-contact timeline). */
   yaleLockedAt?: string;
   yaleLockMethodRaw?: string;
+  /** binary_sensor.<zone>_active only: which witness device drove this "on" reading, from
+   * the history item's own `reason` attribute at that point in time - never the live one. */
+  witnessLabel?: string;
+  witnessIcon?: string;
 }
 
 interface TimelineProps {
   entityId: string;
   entity: HassEntity;
+  /** Only used to resolve a witness device's friendly_name for room-active entities (see
+   * witnessLabel above) - falls back to a humanized entity_id when omitted. */
+  entities?: HassEntities;
   hassUrl: string | null;
   hours?: number;
   limit?: number;
@@ -245,7 +253,7 @@ interface ConnectionWithAuth {
   auth?: { accessToken?: string };
 }
 
-export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limit = 100, secondaryEntityId }: TimelineProps) {
+export function Timeline({ entityId, entity: _entity, entities, hassUrl, hours = 168, limit = 100, secondaryEntityId }: TimelineProps) {
   void _entity; // required by props, used for type; component uses entityId
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -307,7 +315,13 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
       const data = await response.json();
 
       // Extract entity history from nested format
-      type HistoryItem = { entity_id?: string; state?: string; last_changed?: string; last_updated?: string };
+      type HistoryItem = {
+        entity_id?: string;
+        state?: string;
+        last_changed?: string;
+        last_updated?: string;
+        attributes?: Record<string, unknown>;
+      };
       let entityHistory: HistoryItem[] = [];
       if (data && Array.isArray(data) && data.length > 0) {
         if (Array.isArray(data[0])) {
@@ -318,15 +332,23 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
       }
 
       // Convert to TimelineEvent format with eventType marker
-      return entityHistory.map((item: HistoryItem) => ({
-        entity_id: item.entity_id || targetEntityId,
-        state: item.state || 'unknown',
-        last_changed: item.last_changed || item.last_updated || new Date().toISOString(),
-        last_updated: item.last_updated || item.last_changed || new Date().toISOString(),
-        eventType,
-        // Mark secondary entity events (completion) with transitionType
-        transitionType: eventType === 'secondary' ? ('completed' as const) : undefined,
-      }));
+      return entityHistory.map((item: HistoryItem) => {
+        // binary_sensor.<zone>_active only: reads THIS history point's own `reason`
+        // attribute, not the live one, so an "on" entry from an hour ago still names
+        // whichever witness actually drove it at that moment.
+        const roomActiveReason = item.state === 'on' ? parseRoomActiveReason(item.attributes?.reason, entities) : null;
+        return {
+          entity_id: item.entity_id || targetEntityId,
+          state: item.state || 'unknown',
+          last_changed: item.last_changed || item.last_updated || new Date().toISOString(),
+          last_updated: item.last_updated || item.last_changed || new Date().toISOString(),
+          eventType,
+          // Mark secondary entity events (completion) with transitionType
+          transitionType: eventType === 'secondary' ? ('completed' as const) : undefined,
+          witnessLabel: roomActiveReason?.witnessLabel ?? undefined,
+          witnessIcon: roomActiveReason?.icon,
+        };
+      });
     };
 
     const fetchHistory = async () => {
@@ -1186,6 +1208,12 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
                     <span className='timeline-operator'>
                       <Icon icon='mdi:account' />
                       {event.operatorInfo}
+                    </span>
+                  )}
+                  {event.witnessLabel && (
+                    <span className='timeline-operator'>
+                      <Icon icon={event.witnessIcon ?? 'mdi:motion-sensor'} />
+                      {event.witnessLabel}
                     </span>
                   )}
                 </div>

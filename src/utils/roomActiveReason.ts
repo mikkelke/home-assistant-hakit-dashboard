@@ -33,13 +33,14 @@ function friendlyName(entity: HassEntity | undefined, entityId: string): string 
   return typeof raw === 'string' && raw.trim() !== '' ? raw : humanizeEntityId(entityId);
 }
 
-/** Reads binary_sensor.<zone>_active's `reason` attribute ("<tier>:<entity_id>", or
- * "all_clear" when nothing asserts) and resolves it to a pretty tier + device label.
- * Returns null when the room isn't occupied or the attribute is missing/malformed - callers
- * should fall back to plain "Occupied" in that case, never show a broken label. */
-export function resolveRoomActiveReason(presenceEntity: HassEntity | undefined, entities: HassEntities): RoomActiveReason | null {
-  if (!presenceEntity || presenceEntity.state !== 'on') return null;
-  const reason = presenceEntity.attributes?.reason;
+/** Parses binary_sensor.<zone>_active's `reason` attribute value ("<tier>:<entity_id>", or
+ * "all_clear" when nothing asserts) into a pretty tier + device label. `entities` is used
+ * only to look up the witness's live friendly_name for display - if it's not available (e.g.
+ * a past history entry, or a caller that doesn't track live state), the entity_id is
+ * humanized instead, so this still degrades gracefully rather than failing. Returns null
+ * when `reason` is missing, "all_clear", or malformed - callers should fall back to a plain
+ * "Occupied" label in that case, never show a broken one. */
+export function parseRoomActiveReason(reason: unknown, entities?: HassEntities): RoomActiveReason | null {
   if (typeof reason !== 'string' || reason === 'all_clear') return null;
 
   const sep = reason.indexOf(':');
@@ -56,4 +57,12 @@ export function resolveRoomActiveReason(presenceEntity: HassEntity | undefined, 
     witnessEntityId,
     witnessLabel: friendlyName(entities?.[witnessEntityId], witnessEntityId),
   };
+}
+
+/** Same as parseRoomActiveReason, but reads straight off a live presence entity (only
+ * returns a result while it's actually "on" - an "off" entity may still carry a stale
+ * `reason` attribute from its last active moment, which must never be shown as current). */
+export function resolveRoomActiveReason(presenceEntity: HassEntity | undefined, entities: HassEntities): RoomActiveReason | null {
+  if (!presenceEntity || presenceEntity.state !== 'on') return null;
+  return parseRoomActiveReason(presenceEntity.attributes?.reason, entities);
 }

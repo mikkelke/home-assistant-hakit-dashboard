@@ -143,7 +143,15 @@ export function IndicatorWithTimeline({
           </button>
         </div>
         <div className='modal-timeline-content'>
-          <Timeline entityId={entityId} entity={entity} hassUrl={hassUrl} hours={168} limit={100} secondaryEntityId={secondaryEntityId} />
+          <Timeline
+            entityId={entityId}
+            entity={entity}
+            entities={entities}
+            hassUrl={hassUrl}
+            hours={168}
+            limit={100}
+            secondaryEntityId={secondaryEntityId}
+          />
         </div>
       </div>
     </div>
