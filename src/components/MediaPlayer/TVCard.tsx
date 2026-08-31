@@ -20,7 +20,9 @@ interface TVCardProps {
   appleRemoteEntityId?: string; // For Apple TV remote popup, e.g., "remote.bedroom_apple_tv"
   appleMediaPlayerEntityId?: string; // For volume control via Apple TV media_player
   chromecastEntityId?: string; // For Chromecast, e.g., "media_player.living_room_cast"
-  wirelessUsbCEntityId?: string; // For Wireless USB-C, e.g., "media_player.bedroom_sony_tv"
+  wirelessUsbCSourceName?: string; // HDMI input the wireless USB-C/HDMI dongle is on, e.g. "HDMI4" — it's a
+  // source on the main TV, not a separate device, so it's selected via media_player.select_source rather
+  // than turn_on on its own entity.
 }
 
 const getFiniteNumber = (value: unknown): number | undefined => {
@@ -59,7 +61,7 @@ export function TVCard({
   appleRemoteEntityId,
   appleMediaPlayerEntityId,
   chromecastEntityId,
-  wirelessUsbCEntityId,
+  wirelessUsbCSourceName,
 }: TVCardProps) {
   const [showSourcePicker, setShowSourcePicker] = useState(false);
   const [volumeUi, setVolumeUi] = useState(0);
@@ -118,18 +120,19 @@ export function TVCard({
   const activeChild = attrStr(attributes.active_child);
   const isOn = state === 'on' || state === 'playing' || state === 'paused' || state === 'idle';
 
-  const highLevelSources: Array<{ name: string; entityId: string | null }> = [];
+  const highLevelSources: Array<{ name: string; entityId: string | null; sourceName?: string }> = [];
   if (appleMediaPlayerEntityId) highLevelSources.push({ name: 'Apple TV', entityId: appleMediaPlayerEntityId });
   if (chromecastEntityId) highLevelSources.push({ name: 'Chromecast', entityId: chromecastEntityId });
-  if (wirelessUsbCEntityId) highLevelSources.push({ name: 'Wireless USB-C', entityId: wirelessUsbCEntityId });
+  if (wirelessUsbCSourceName) highLevelSources.push({ name: 'Wireless USB-C', entityId: null, sourceName: wirelessUsbCSourceName });
 
   const appleTvEntity = appleMediaPlayerEntityId ? entities?.[appleMediaPlayerEntityId] : null;
   const appleTvActive = Boolean(appleTvEntity && hasMeaningfulMediaContext(appleTvEntity));
   const appleTvAvailable = Boolean(appleTvEntity && hasAvailableSourceState(appleTvEntity));
   const chromecastEntity = chromecastEntityId ? entities?.[chromecastEntityId] : null;
   const chromecastAvailable = Boolean(chromecastEntity && hasAvailableSourceState(chromecastEntity));
-  const wirelessUsbCEntity = wirelessUsbCEntityId ? entities?.[wirelessUsbCEntityId] : null;
-  const wirelessUsbCAvailable = Boolean(wirelessUsbCEntity && hasAvailableSourceState(wirelessUsbCEntity));
+  // The dongle is a source on the active child TV (e.g. Hisense), not its own entity — read the
+  // child's own `source` attribute rather than looking for a dedicated player.
+  const activeChildSource = attrStr(entities?.[activeChild]?.attributes?.source).trim().toLowerCase();
 
   const genericTvTitles = ['tv on', 'tv off', 'hdmi 1', 'hdmi 2', 'hdmi 3', 'hdmi 4', 'hdmi', 'tv', ''];
   const mainTvHasNoMeaningfulMedia = !tvMediaTitle || genericTvTitles.includes(tvMediaTitle.toLowerCase().trim());
@@ -137,19 +140,13 @@ export function TVCard({
   let currentSource = '';
   if (activeChild === appleMediaPlayerEntityId && appleTvAvailable) currentSource = 'Apple TV';
   else if (activeChild === chromecastEntityId && chromecastAvailable) currentSource = 'Chromecast';
-  else if (activeChild === wirelessUsbCEntityId && wirelessUsbCAvailable) currentSource = 'Wireless USB-C';
+  else if (wirelessUsbCSourceName && activeChildSource === wirelessUsbCSourceName.trim().toLowerCase()) currentSource = 'Wireless USB-C';
   else if (appleMediaPlayerEntityId && appleTvActive) {
-    if (activeChild !== chromecastEntityId && activeChild !== wirelessUsbCEntityId) currentSource = 'Apple TV';
+    if (activeChild !== chromecastEntityId) currentSource = 'Apple TV';
   }
 
   const currentSourceEntityId =
-    currentSource === 'Apple TV'
-      ? appleMediaPlayerEntityId || null
-      : currentSource === 'Chromecast'
-        ? chromecastEntityId || null
-        : currentSource === 'Wireless USB-C'
-          ? wirelessUsbCEntityId || null
-          : null;
+    currentSource === 'Apple TV' ? appleMediaPlayerEntityId || null : currentSource === 'Chromecast' ? chromecastEntityId || null : null;
   const currentSourceEntity = currentSourceEntityId ? entities?.[currentSourceEntityId] : null;
 
   const useAppleTvForDisplay = appleTvEntity && appleTvActive && (currentSource === 'Apple TV' || mainTvHasNoMeaningfulMedia);
@@ -162,6 +159,8 @@ export function TVCard({
   const displayMediaPictureLocal = displayAttrs.entity_picture_local;
   const displayState = displayTv?.state ?? state;
   const seekCandidates = [
+    // Wireless USB-C has no currentSourceEntityId (it's a source name, not a player), so it's
+    // naturally excluded here — it never reports position/duration.
     currentSourceEntityId && currentSourceEntity ? { entityId: currentSourceEntityId, entity: currentSourceEntity } : null,
     { entityId: displayEntityId, entity: displayTv },
     displayEntityId !== entityId ? { entityId, entity: tv } : null,
@@ -371,9 +370,16 @@ export function TVCard({
   const handleSelectSource = (sourceName: string) => {
     if (!callService) return;
 
-    // Find the entity ID for the selected high-level source
     const selectedSource = highLevelSources.find(s => s.name === sourceName);
-    if (selectedSource && selectedSource.entityId) {
+    if (selectedSource?.sourceName) {
+      // Wireless USB-C is an input on the main TV — switch to it via select_source, not turn_on.
+      callService({
+        domain: 'media_player',
+        service: 'select_source',
+        target: { entity_id: entityId },
+        serviceData: { source: selectedSource.sourceName },
+      });
+    } else if (selectedSource?.entityId) {
       // Turn on the corresponding media player entity to switch to that source
       callService({
         domain: 'media_player',

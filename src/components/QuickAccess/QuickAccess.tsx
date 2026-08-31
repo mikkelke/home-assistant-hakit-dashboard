@@ -687,7 +687,7 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
                                   appleRemoteEntityId='remote.living_room_apple_tv'
                                   appleMediaPlayerEntityId='media_player.living_room_apple_tv'
                                   chromecastEntityId='media_player.living_room_cast'
-                                  wirelessUsbCEntityId='media_player.bedroom_sony_tv'
+                                  wirelessUsbCSourceName='HDMI4'
                                 />
                               )}
                             </div>
