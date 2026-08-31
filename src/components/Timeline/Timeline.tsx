@@ -3,7 +3,7 @@ import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import type { HassEntities, HassEntity } from '../../types';
 import { APARTMENT_DOOR_OPEN_ENTITY, BEDROOM_BED_OCCUPANCY_SENSORS } from '../../config/entities';
-import { parseRoomActiveReason } from '../../utils/roomActiveReason';
+import { extractRoomActiveZone, parseRoomActiveReason } from '../../utils/roomActiveReason';
 import './Timeline.css';
 
 interface TimelineEvent {
@@ -336,7 +336,8 @@ export function Timeline({ entityId, entity: _entity, entities, hassUrl, hours =
         // binary_sensor.<zone>_active only: reads THIS history point's own `reason`
         // attribute, not the live one, so an "on" entry from an hour ago still names
         // whichever witness actually drove it at that moment.
-        const roomActiveReason = item.state === 'on' ? parseRoomActiveReason(item.attributes?.reason, entities) : null;
+        const roomActiveReason =
+          item.state === 'on' ? parseRoomActiveReason(item.attributes?.reason, entities, extractRoomActiveZone(targetEntityId)) : null;
         return {
           entity_id: item.entity_id || targetEntityId,
           state: item.state || 'unknown',
