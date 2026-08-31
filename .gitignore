@@ -18,6 +18,9 @@ home-assistant-hakit-dashboard@*
 # Regenerated locally with npm run sync (do not commit)
 supported-types.d.ts
 
+# Local deploy state (previous-deploy timestamp for asset pruning)
+.deploy-state.json
+
 # Logs
 logs
 *.log
