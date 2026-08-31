@@ -637,7 +637,10 @@ export function Timeline({ entityId, entity: _entity, hassUrl, hours = 168, limi
   const isDoorSensor =
     entityId.includes('_door') || entityId.endsWith('door') || (entityId.includes('door') && !entityId.includes('outdoor'));
   const isWindowSensor = entityId.includes('window');
-  const isPresenceSensor = entityId.includes('presence') || entityId.includes('occupancy');
+  // binary_sensor.<zone>_active — room_active.py's unified per-room presence primitive.
+  // Anchored so it doesn't also catch e.g. binary_sensor.*_heating_active or sensor.*_active_power.
+  const isRoomActiveSensor = /^binary_sensor\.[a-z_]+_active$/.test(entityId);
+  const isPresenceSensor = entityId.includes('presence') || entityId.includes('occupancy') || isRoomActiveSensor;
   const isDishwasher = entityId.includes('dishwasher');
   const isWasher = entityId.includes('washer') && !entityId.includes('dishwasher');
   const isDryer = entityId.includes('dryer');

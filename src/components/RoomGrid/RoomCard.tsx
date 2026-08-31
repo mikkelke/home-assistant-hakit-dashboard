@@ -151,17 +151,10 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
               key.toLowerCase().includes(areaNameNormalized))
         );
 
-  // Presence: PIR group per room. The bedroom's raw group (FP300 mmWave + PIR + bedside
-  // mats, zero debounce) flickers off for 30-90 s stretches when someone lies still
-  // (confirmed via HA history 2026-08-27), so the bedroom additionally ORs in
-  // input_boolean.bedroom_bed_session — AppDaemon bedroom_lights' 90 s debounced
-  // "someone is actually in bed" latch. Additive only: the bedroom can never read LESS
-  // occupied than the raw group alone would.
   const isBedroom = areaNameNormalized === 'bedroom';
-  const presenceSensorId = `binary_sensor.${areaNameNormalized}_pir_presence`;
+  const presenceSensorId = `binary_sensor.${areaNameNormalized}_active`;
   const presenceEntity = entities?.[presenceSensorId];
-  const bedSessionOn = isBedroom && entities?.['input_boolean.bedroom_bed_session']?.state === 'on';
-  const isOccupied = presenceEntity?.state === 'on' || bedSessionOn;
+  const isOccupied = presenceEntity?.state === 'on';
   const hasPresence = !!presenceEntity;
 
   // Climate/heating status - uses climateSensorId defined above

@@ -104,9 +104,11 @@ export const TRANSIT_LAST_UPDATED_SENSOR = 'sensor.transit_last_updated';
  * Each side's Withings sleep mat stays the canonical entity (selector rows + timelines);
  * `witnessEntityIds` are extra fast/local witnesses (ESPHome pressure strip, installed
  * 2026-08-12) OR'd into that side's occupancy display. Additive only — a witness may
- * assert presence, never absence: the mats alone decide "bed empty", matching the
- * backend's tandem rule for the same strip. The bed's sole occupant doesn't always
- * sleep left, so each side maps to its own strip zone (`_left` / `_right`) rather than
+ * assert presence, never absence: this display's own rule still lets the mat alone decide
+ * "bed empty". The backend's own rule no longer matches — it was reversed 2026-08-31
+ * (mikkel_sleep_mode's bed-empty release) to require the strip explicitly "off" too,
+ * not mats-only as before. The bed's sole occupant doesn't always sleep left, so each
+ * side maps to its own strip zone (`_left` / `_right`) rather than
  * sharing one. The whole-bed aggregate (`_either`) used to stand in on the left side
  * for the then-unvalidated `_right` zone; dropped as redundant now that `_right` has
  * its own live validation (2026-08-30: raw pressure tracked right-side occupancy

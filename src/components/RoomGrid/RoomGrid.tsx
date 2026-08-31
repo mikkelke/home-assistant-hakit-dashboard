@@ -88,7 +88,7 @@ function getIndicatorCounts(areas: Area[], entities: HassEntities): IndicatorCou
     const isBedroom = areaNameNormalized === 'bedroom';
 
     // Presence
-    const presenceEntity = entities?.[`binary_sensor.${areaNameNormalized}_pir_presence`];
+    const presenceEntity = entities?.[`binary_sensor.${areaNameNormalized}_active`];
     if (presenceEntity) counts.presence++;
 
     // Climate/heating

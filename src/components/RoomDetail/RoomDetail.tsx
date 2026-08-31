@@ -26,8 +26,8 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
   // Use standardized swipe-to-close hook
   const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(onClose);
 
-  // Get room-specific entities — presence: PIR only
-  const presenceSensor = `binary_sensor.${areaName}_pir_presence`;
+  // Get room-specific entities
+  const presenceSensor = `binary_sensor.${areaName}_active`;
 
   const humiditySensor = `sensor.${areaName}_humidity`;
   const climateSensor = `climate.${areaName}_thermostat`;
