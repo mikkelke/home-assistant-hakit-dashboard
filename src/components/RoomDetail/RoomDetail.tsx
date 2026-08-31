@@ -101,7 +101,7 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
               title={presenceReason ? `${presenceReason.tierLabel} · via ${presenceReason.witnessLabel}` : 'Occupied'}
             >
               {presenceReason && <Icon icon={presenceReason.icon} />}
-              Occupied{presenceReason ? ` · ${presenceReason.witnessLabel}` : ''}
+              Occupied{presenceReason ? ` · ${presenceReason.tierLabel}` : ''}
             </span>
           )}
         </div>
