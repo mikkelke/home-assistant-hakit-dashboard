@@ -501,7 +501,9 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
                   onTouchStart={() => handleLightDotPressStart(lightId)}
                   onTouchEnd={() => handleLightDotPressEnd(lightId)}
                   onTouchCancel={handleLightDotPressCancel}
-                  aria-label={supportsColorMode ? `Toggle ${getLightName(lightId)}, long-press for color` : `Toggle ${getLightName(lightId)}`}
+                  aria-label={
+                    supportsColorMode ? `Toggle ${getLightName(lightId)}, long-press for color` : `Toggle ${getLightName(lightId)}`
+                  }
                   title={supportsColorMode ? 'Toggle · long-press for color' : 'Toggle'}
                 >
                   <Icon icon='mdi:lightbulb' aria-hidden='true' />
