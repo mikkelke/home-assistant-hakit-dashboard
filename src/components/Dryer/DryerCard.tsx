@@ -227,7 +227,9 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
   if (state === 'Off' || state === 'Emptied') return null;
 
   const programmeValue = (programmeSelect?.state ?? '').trim();
-  const programmeLabel = (attrs.programme_label as string) || programmeValue || '—';
+  // Base programme name only — dryness/time/Skåne+ each get their own chip, so using the
+  // backend's combined programme_label here (e.g. "Bomuld - Ekstra tørt") would duplicate them.
+  const programmeLabel = programmeValue || (attrs.programme_label as string) || '—';
   const options: string[] = Array.isArray(programmeSelect?.attributes?.options) ? (programmeSelect.attributes.options as string[]) : [];
 
   // Visibility of controls by programme (physical panel rules)
