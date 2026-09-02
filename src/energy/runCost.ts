@@ -5,6 +5,17 @@ import type { StatisticValue } from './types';
 
 const HOUR_MS = 3_600_000;
 
+/** Sanity ceiling for a single kr/kWh reading. Real Danish retail prices don't get near this even
+ * at worst-case ToU peak plus a spot spike — it exists purely to catch a glitched upstream value
+ * (sensor.energi_data_service briefly published 109.57, an ~83x spike, on 2026-09-02) before it
+ * reaches a displayed run cost. Mirrors the same-value ceiling added server-side that day in
+ * washer_monitor.py and smart_cooling.py. */
+const PRICE_SANITY_CEILING_KR = 15;
+
+function isSanePrice(price: number): boolean {
+  return Number.isFinite(price) && price > 0 && price <= PRICE_SANITY_CEILING_KR;
+}
+
 /** Builds an epoch-hour-keyed price map spanning exactly the hours a finished run may need pricing
  * for. Precedence mirrors `assemblePriceSeries` in assemble.ts (LTS beats the live entity's raw
  * attributes, which is the settled-vs-provisional distinction), just built in the opposite
@@ -13,7 +24,9 @@ const HOUR_MS = 3_600_000;
  * `currentPrice` is known, it fills the in-progress hour, but only if nothing already covers it; (c)
  * every long-term-statistics row with a non-null `state` then unconditionally overwrites — it's the
  * settled value once the recorder has compiled it, so it always wins regardless of what raw data
- * already claimed that hour. */
+ * already claimed that hour. An implausible reading (see `isSanePrice`) is dropped at each source
+ * rather than inserted, so a glitched upstream value degrades to "no price for this hour" (excluded
+ * via `MIN_COVERAGE` below) instead of skewing the average. */
 export function buildWindowPriceMap(
   priceRows: StatisticValue[] | null,
   rawPointArrays: Array<RawTodayPoint[] | null>,
@@ -25,17 +38,17 @@ export function buildWindowPriceMap(
   for (const points of rawPointArrays) {
     for (const point of points ?? []) {
       const ms = Date.parse(point.hour);
-      if (Number.isFinite(ms)) priceByHourStart.set(ms, point.price);
+      if (Number.isFinite(ms) && isSanePrice(point.price)) priceByHourStart.set(ms, point.price);
     }
   }
 
-  if (currentPrice != null) {
+  if (currentPrice != null && isSanePrice(currentPrice)) {
     const currentHourStartMs = Math.floor(nowMs / HOUR_MS) * HOUR_MS;
     if (!priceByHourStart.has(currentHourStartMs)) priceByHourStart.set(currentHourStartMs, currentPrice);
   }
 
   for (const row of priceRows ?? []) {
-    if (row.state != null) priceByHourStart.set(row.start, row.state);
+    if (row.state != null && isSanePrice(row.state)) priceByHourStart.set(row.start, row.state);
   }
 
   return priceByHourStart;
