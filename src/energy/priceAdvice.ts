@@ -3,7 +3,7 @@
  * assemble.ts/bill.ts). Advises WHEN (today during the day, vs overnight) a housemate should start
  * an appliance, and how many hours to dial into its physical delay-start knob to land there. */
 import { PRICE_ADVICE } from '../config/energy';
-import { priceLevel } from './assemble';
+import { isSanePrice, priceLevel } from './assemble';
 import type { RawTodayPoint } from './assemble';
 
 const HOUR_MS = 3_600_000;
@@ -28,9 +28,10 @@ export interface PricePointMs {
  * settled-or-near-settled data always wins over a prediction for the same hour — and every hour it
  * fills is marked `estimated`, so the UI can flag whichever windows lean on it (better than nothing,
  * but not a firm price). Hours already in the past (before the current one) are dropped too —
- * nothing here should ever suggest starting an appliance in the past. Skips any point whose hour or
- * price fails to parse to a finite number — external attribute data, never trusted blind (mirrors
- * `assemblePriceSeries`'s own `Date.parse` guard). */
+ * nothing here should ever suggest starting an appliance in the past. Skips any point whose hour
+ * fails to parse to a finite number, or whose price isn't plausible (`isSanePrice`) — external
+ * attribute data, never trusted blind; a glitched price hour is left uncovered rather than allowed
+ * to price a window (mirrors `assemblePriceSeries`, which drops the same readings). */
 export function buildPriceTimeline(
   rawToday: RawTodayPoint[] | null,
   rawTomorrow: RawTodayPoint[] | null,
@@ -44,7 +45,7 @@ export function buildPriceTimeline(
   const addPoints = (points: RawTodayPoint[] | null, estimated: boolean) => {
     for (const point of points ?? []) {
       const ms = Date.parse(point.hour);
-      if (!Number.isFinite(ms) || !Number.isFinite(point.price) || ms < currentHourStartMs) continue;
+      if (!Number.isFinite(ms) || !isSanePrice(point.price) || ms < currentHourStartMs) continue;
       if (estimated && byMs.has(ms)) continue; // real data (added first, below) always wins over a forecast hour
       byMs.set(ms, estimated ? { ms, price: point.price, estimated: true } : { ms, price: point.price });
     }

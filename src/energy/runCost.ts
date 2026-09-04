@@ -1,20 +1,10 @@
 /** Pure math for pricing one finished appliance run — no React, no clock reads; every function
  * takes explicit ms args (or nullable data), mirroring assemble.ts/bill.ts's purity conventions. */
+import { isSanePrice } from './assemble';
 import type { RawTodayPoint } from './assemble';
 import type { StatisticValue } from './types';
 
 const HOUR_MS = 3_600_000;
-
-/** Sanity ceiling for a single kr/kWh reading. Real Danish retail prices don't get near this even
- * at worst-case ToU peak plus a spot spike — it exists purely to catch a glitched upstream value
- * (sensor.energi_data_service briefly published 109.57, an ~83x spike, on 2026-09-02) before it
- * reaches a displayed run cost. Mirrors the same-value ceiling added server-side that day in
- * washer_monitor.py and smart_cooling.py. */
-const PRICE_SANITY_CEILING_KR = 15;
-
-function isSanePrice(price: number): boolean {
-  return Number.isFinite(price) && price > 0 && price <= PRICE_SANITY_CEILING_KR;
-}
 
 /** Builds an epoch-hour-keyed price map spanning exactly the hours a finished run may need pricing
  * for. Precedence mirrors `assemblePriceSeries` in assemble.ts (LTS beats the live entity's raw

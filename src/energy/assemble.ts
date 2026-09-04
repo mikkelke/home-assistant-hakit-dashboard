@@ -1,6 +1,6 @@
 /** Pure view-model assembly for the Energy page — no React, no clock reads; every function takes
  * explicit ms args (or nullable data), so it stays independently testable. */
-import { LIVE_POWER_MIN_WATTS, PRICE_BAND_THRESHOLDS } from '../config/energy';
+import { LIVE_POWER_MIN_WATTS, PRICE_BAND_THRESHOLDS, PRICE_SANITY_CEILING_KR } from '../config/energy';
 import { addDays, bucketPeriodFor } from './period';
 import type {
   DevicePref,
@@ -30,6 +30,16 @@ export function priceLevel(price: number | null): EnergyBar['level'] {
   return 'high';
 }
 
+/** Whether a kr/kWh reading is plausible enough to use (see `PRICE_SANITY_CEILING_KR`). An
+ * implausible one is DROPPED at every source rather than clamped: a missing price degrades to "no
+ * price for this hour" — the `unknown` band, an excluded advice hour — which is honest, whereas a
+ * clamped 15.00 would read as a real price. Only values that ARRIVE as prices are checked; an
+ * effective rate derived from cost÷kWh is deliberately left alone, since clamping that would hide
+ * bad cost data while the totals built on it stayed wrong. */
+export function isSanePrice(price: number | null | undefined): price is number {
+  return price != null && Number.isFinite(price) && price > 0 && price <= PRICE_SANITY_CEILING_KR;
+}
+
 /** Joins grid/cost/price statistic rows (by bucket-start ms) into chart-ready bars. Day-view
  * price prefers the price stat's own hourly `state`; week/month/year (and any day hour missing a
  * price row) fall back to the effective price cost÷kWh. A missing cost row (no cost stat
@@ -51,7 +61,8 @@ export function assembleBars(
     .map(row => {
       const kWh = Math.max(0, row.change ?? 0);
       const costRow = costByStart.get(row.start);
-      const ltsPrice = period === 'day' ? (priceByStart.get(row.start)?.state ?? null) : null;
+      const ltsState = period === 'day' ? (priceByStart.get(row.start)?.state ?? null) : null;
+      const ltsPrice = isSanePrice(ltsState) ? ltsState : null;
 
       let costKr: number;
       let price: number | null;
@@ -83,11 +94,11 @@ export function assemblePriceSeries(
   const byMs = new Map<number, number>();
 
   for (const row of priceRows) {
-    if (row.state != null) byMs.set(row.start, row.state);
+    if (isSanePrice(row.state)) byMs.set(row.start, row.state);
   }
   for (const point of rawToday ?? []) {
     const ms = Date.parse(point.hour);
-    if (!Number.isNaN(ms) && !byMs.has(ms)) byMs.set(ms, point.price);
+    if (!Number.isNaN(ms) && isSanePrice(point.price) && !byMs.has(ms)) byMs.set(ms, point.price);
   }
 
   const points: PricePoint[] = Array.from(byMs, ([ms, price]) => ({ ms, price })).sort((a, b) => a.ms - b.ms);
@@ -102,7 +113,7 @@ export function assemblePriceSeries(
 
   const dayEndMs = addDays(anchorDayStartMs, 1);
   let now: { ms: number; price: number } | undefined;
-  if (nowMs != null && currentPrice != null && nowMs >= anchorDayStartMs && nowMs < dayEndMs) {
+  if (nowMs != null && isSanePrice(currentPrice) && nowMs >= anchorDayStartMs && nowMs < dayEndMs) {
     now = { ms: nowMs, price: currentPrice };
   }
 

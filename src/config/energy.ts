@@ -3,6 +3,15 @@
 // = billig, up to and including midMax = normal, above midMax = dyr.
 export const PRICE_BAND_THRESHOLDS = { lowMaxKrPerKWh: 1.0, midMaxKrPerKWh: 1.75 } as const;
 
+// Sanity ceiling for a single kr/kWh reading, applied wherever a price arrives from outside this
+// app — the price entity's `raw_today`/`raw_tomorrow`/`forecast` attributes and its long-term
+// statistics. Real Danish retail prices don't get near this even at worst-case ToU peak plus a spot
+// spike, so it exists purely to catch a glitched upstream value (sensor.energi_data_service briefly
+// published 109.57 — the raw spot in EUR/MWh, unconverted and un-tariffed — for one refresh on
+// 2026-09-02) before it reaches a chart, a bill or a "best time to run" suggestion. Mirrors the
+// same-value ceiling added that day in washer_monitor.py and smart_cooling.py on the AppDaemon side.
+export const PRICE_SANITY_CEILING_KR = 15;
+
 // "Regning" card constants (Phase 5). HA's cost stat (every `costKr` in this app) is built on the
 // EDS all-in price, which is already inkl. moms — only these fixed fee constants need ×MOMS_FACTOR
 // applied, in assembly (see `energy/bill.ts`).
