@@ -11,6 +11,14 @@ export const TRANSIT_UPCOMING_MIN_MINS = -1;
  */
 export const TRANSIT_DELAY_ALERT_MIN_MINUTES = 10;
 
+/**
+ * Mirrors AppDaemon `rescue_window_min` (5 on the S-tog route). On a busy corridor a cancelled
+ * departure that another train covers within this many minutes costs almost no waiting time, so it
+ * must not count toward line status — the backend already absorbs it ("cancellation absorbed by
+ * alternative departure") and the UI must not override that OK with a Disrupted.
+ */
+export const TRANSIT_RESCUE_WINDOW_MINUTES = 5;
+
 export interface TransitDepartureForDisplay {
   time: string;
   delay_min: number;
@@ -36,6 +44,20 @@ function sortUpcomingForNextViableTrain(upcoming: readonly TransitDepartureForDi
     if (a.cancelled !== b.cancelled) return a.cancelled ? 1 : -1;
     return 0;
   });
+}
+
+/**
+ * Cancellations that actually cost the traveller time: no non-cancelled departure follows within
+ * {@link TRANSIT_RESCUE_WINDOW_MINUTES}. A train leaving *before* the cancelled one does not rescue
+ * it — you cannot travel back in time to catch it.
+ */
+function countUnrescuedCancellations(upcoming: readonly TransitDepartureForDisplay[], now: Date): number {
+  const viableMins = upcoming.filter(d => !d.cancelled).map(d => minsFromNow(d.time, now));
+  return upcoming.filter(d => {
+    if (!d.cancelled) return false;
+    const cancelledAt = minsFromNow(d.time, now);
+    return !viableMins.some(v => v >= cancelledAt && v - cancelledAt < TRANSIT_RESCUE_WINDOW_MINUTES);
+  }).length;
 }
 
 /**
@@ -79,7 +101,9 @@ export function countDeparturesInDensityWindow(departures: readonly TransitDepar
 
 /**
  * **Busy corridor:** many departures in the next ~30 min — need several cancelled / delayed / combined
- * before line status changes. Thresholds: {@link TRANSIT_AGGREGATE_HEAVY_DEFAULT}.
+ * before line status changes. Thresholds: {@link TRANSIT_AGGREGATE_HEAVY_DEFAULT}. Cancellations only
+ * count when unrescued (see {@link countUnrescuedCancellations}); on a 2-minute headway a cancelled
+ * train that the next one absorbs is not a disruption.
  */
 function deriveAggregateTransitDisplayStatus(
   departures: readonly TransitDepartureForDisplay[],
@@ -95,7 +119,7 @@ function deriveAggregateTransitDisplayStatus(
     return 'OK';
   }
 
-  const cancelled = upcoming.filter(d => d.cancelled).length;
+  const cancelled = countUnrescuedCancellations(upcoming, now);
   const delayed = upcoming.filter(d => !d.cancelled && d.delay_min >= TRANSIT_DELAY_ALERT_MIN_MINUTES).length;
   const combined = cancelled + delayed;
 
