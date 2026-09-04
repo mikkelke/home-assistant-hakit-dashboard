@@ -141,7 +141,12 @@ function deriveAggregateTransitDisplayStatus(
   return 'OK';
 }
 
-/** AppDaemon `high_frequency` routes: no Delayed from delays; Disrupted if ≥2 upcoming cancellations. */
+/**
+ * AppDaemon `high_frequency` routes: no Delayed from delays; Disrupted if ≥2 upcoming cancellations
+ * that no following departure absorbs. On the M3's 2-4 minute headway a cancelled train the next
+ * one picks up is a non-event, and the backend's `high_frequency` evaluator applies the same
+ * `rescue_window_min`, so the two must agree.
+ */
 function deriveHighFrequencyTransitDisplayStatus(
   departures: readonly TransitDepartureForDisplay[],
   backendStatus: TransitStatus,
@@ -154,7 +159,7 @@ function deriveHighFrequencyTransitDisplayStatus(
   if (upcoming.length === 0) {
     return 'OK';
   }
-  if (upcoming.filter(d => d.cancelled).length >= 2) {
+  if (countUnrescuedCancellations(upcoming, now) >= 2) {
     return 'Disrupted';
   }
   return 'OK';
