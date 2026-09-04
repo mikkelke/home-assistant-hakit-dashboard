@@ -6,10 +6,15 @@ import type { HassEntities } from '../types';
 export const TRANSIT_UPCOMING_MIN_MINS = -1;
 
 /**
- * Must match AppDaemon `delay_threshold_min` on each route (e.g. 10 for S-tog / IC).
- * Smaller delays still show +Nm on chips but do not set line Delayed / badge / Home Pulse.
+ * How late a train must run before it counts toward line Delayed / badge / Home Pulse; smaller
+ * delays still show +Nm on the departure chips.
+ *
+ * The live value comes from the route sensor's `delay_threshold_min` attribute, so it follows
+ * whatever transit_alarm.yaml says per route (10 on S-tog and IC, 5 on the Metro). This constant is
+ * only the fallback for when that attribute is missing — chiefly the seconds after an AppDaemon
+ * restart, before the transient sensor is recreated.
  */
-export const TRANSIT_DELAY_ALERT_MIN_MINUTES = 10;
+export const TRANSIT_DELAY_ALERT_FALLBACK_MINUTES = 10;
 
 /**
  * On a busy corridor a cancelled departure that another train covers within a few minutes costs
@@ -64,11 +69,7 @@ function sortUpcomingForNextViableTrain(upcoming: readonly TransitDepartureForDi
  * `rescueWindow` minutes. A train leaving *before* the cancelled one does not rescue it — you
  * cannot travel back in time to catch it.
  */
-function countUnrescuedCancellations(
-  upcoming: readonly TransitDepartureForDisplay[],
-  now: Date,
-  rescueWindow: number
-): number {
+function countUnrescuedCancellations(upcoming: readonly TransitDepartureForDisplay[], now: Date, rescueWindow: number): number {
   const viableMins = upcoming.filter(d => !d.cancelled).map(d => minsFromNow(d.time, now));
   return upcoming.filter(d => {
     if (!d.cancelled) return false;
@@ -86,7 +87,8 @@ function countUnrescuedCancellations(
 export function deriveTransitDisplayStatus(
   departures: readonly TransitDepartureForDisplay[],
   backendStatus: TransitStatus,
-  now: Date
+  now: Date,
+  delayThreshold: number
 ): TransitStatus {
   if (departures.length === 0) {
     return backendStatus;
@@ -102,7 +104,7 @@ export function deriveTransitDisplayStatus(
   if (next.cancelled) {
     return 'Disrupted';
   }
-  if (next.delay_min >= TRANSIT_DELAY_ALERT_MIN_MINUTES) {
+  if (next.delay_min >= delayThreshold) {
     return 'Delayed';
   }
   return 'OK';
@@ -127,7 +129,8 @@ function deriveAggregateTransitDisplayStatus(
   backendStatus: TransitStatus,
   now: Date,
   thresholds: TransitAggregateAlertThresholds,
-  rescueWindow: number
+  rescueWindow: number,
+  delayThreshold: number
 ): TransitStatus {
   if (departures.length === 0) {
     return backendStatus;
@@ -138,7 +141,7 @@ function deriveAggregateTransitDisplayStatus(
   }
 
   const cancelled = countUnrescuedCancellations(upcoming, now, rescueWindow);
-  const delayed = upcoming.filter(d => !d.cancelled && d.delay_min >= TRANSIT_DELAY_ALERT_MIN_MINUTES).length;
+  const delayed = upcoming.filter(d => !d.cancelled && d.delay_min >= delayThreshold).length;
   const combined = cancelled + delayed;
 
   if (cancelled >= thresholds.minCancelledDisrupted) {
@@ -192,20 +195,14 @@ export function getTransitLineDisplayStatus(
   const sensor = entities?.[line.sensorEntityId];
   const departures = (sensor?.attributes?.departures ?? []) as TransitDepartureForDisplay[];
   const backend = (entities?.[line.statusEntityId]?.state ?? 'Unavailable') as TransitStatus;
-  const rescueWindow =
-    readPositiveNumber(sensor?.attributes?.rescue_window_min) ?? TRANSIT_RESCUE_WINDOW_FALLBACK_MINUTES;
+  const rescueWindow = readPositiveNumber(sensor?.attributes?.rescue_window_min) ?? TRANSIT_RESCUE_WINDOW_FALLBACK_MINUTES;
+  const delayThreshold = readPositiveNumber(sensor?.attributes?.delay_threshold_min) ?? TRANSIT_DELAY_ALERT_FALLBACK_MINUTES;
   if (line.highFrequency) {
     return deriveHighFrequencyTransitDisplayStatus(departures, backend, now, rescueWindow);
   }
   const dense = countDeparturesInDensityWindow(departures, now) >= TRANSIT_DENSE_DEPARTURE_COUNT_MIN;
   if (dense) {
-    return deriveAggregateTransitDisplayStatus(
-      departures,
-      backend,
-      now,
-      TRANSIT_AGGREGATE_HEAVY_DEFAULT,
-      rescueWindow
-    );
+    return deriveAggregateTransitDisplayStatus(departures, backend, now, TRANSIT_AGGREGATE_HEAVY_DEFAULT, rescueWindow, delayThreshold);
   }
-  return deriveTransitDisplayStatus(departures, backend, now);
+  return deriveTransitDisplayStatus(departures, backend, now, delayThreshold);
 }
