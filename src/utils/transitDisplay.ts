@@ -12,12 +12,25 @@ export const TRANSIT_UPCOMING_MIN_MINS = -1;
 export const TRANSIT_DELAY_ALERT_MIN_MINUTES = 10;
 
 /**
- * Mirrors AppDaemon `rescue_window_min` (5 on the S-tog route). On a busy corridor a cancelled
- * departure that another train covers within this many minutes costs almost no waiting time, so it
- * must not count toward line status — the backend already absorbs it ("cancellation absorbed by
- * alternative departure") and the UI must not override that OK with a Disrupted.
+ * On a busy corridor a cancelled departure that another train covers within a few minutes costs
+ * almost no waiting time, so it must not count toward line status — the backend already absorbs it
+ * ("cancellation absorbed by alternative departure") and the UI must not override that OK with a
+ * Disrupted.
+ *
+ * The live window comes from the route sensor's `rescue_window_min` attribute (`_rescue_window_for`
+ * in apps/transit/transit_alarm.py), so changing `rescue_window_min` in transit_alarm.yaml moves
+ * backend and dashboard together. This constant is only the fallback for when that attribute is
+ * missing — chiefly the seconds after an AppDaemon restart, before the transient sensor is
+ * recreated. Keep it equal to the yaml default.
  */
-export const TRANSIT_RESCUE_WINDOW_MINUTES = 5;
+export const TRANSIT_RESCUE_WINDOW_FALLBACK_MINUTES = 5;
+
+/** HA attributes arrive as strings as readily as numbers (`cancelled: "true"`); take a usable number or nothing. */
+function readPositiveNumber(raw: unknown): number | undefined {
+  if (raw === null || raw === undefined || raw === '') return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
 
 export interface TransitDepartureForDisplay {
   time: string;
@@ -48,15 +61,19 @@ function sortUpcomingForNextViableTrain(upcoming: readonly TransitDepartureForDi
 
 /**
  * Cancellations that actually cost the traveller time: no non-cancelled departure follows within
- * {@link TRANSIT_RESCUE_WINDOW_MINUTES}. A train leaving *before* the cancelled one does not rescue
- * it — you cannot travel back in time to catch it.
+ * `rescueWindow` minutes. A train leaving *before* the cancelled one does not rescue it — you
+ * cannot travel back in time to catch it.
  */
-function countUnrescuedCancellations(upcoming: readonly TransitDepartureForDisplay[], now: Date): number {
+function countUnrescuedCancellations(
+  upcoming: readonly TransitDepartureForDisplay[],
+  now: Date,
+  rescueWindow: number
+): number {
   const viableMins = upcoming.filter(d => !d.cancelled).map(d => minsFromNow(d.time, now));
   return upcoming.filter(d => {
     if (!d.cancelled) return false;
     const cancelledAt = minsFromNow(d.time, now);
-    return !viableMins.some(v => v >= cancelledAt && v - cancelledAt < TRANSIT_RESCUE_WINDOW_MINUTES);
+    return !viableMins.some(v => v >= cancelledAt && v - cancelledAt < rescueWindow);
   }).length;
 }
 
@@ -109,7 +126,8 @@ function deriveAggregateTransitDisplayStatus(
   departures: readonly TransitDepartureForDisplay[],
   backendStatus: TransitStatus,
   now: Date,
-  thresholds: TransitAggregateAlertThresholds
+  thresholds: TransitAggregateAlertThresholds,
+  rescueWindow: number
 ): TransitStatus {
   if (departures.length === 0) {
     return backendStatus;
@@ -119,7 +137,7 @@ function deriveAggregateTransitDisplayStatus(
     return 'OK';
   }
 
-  const cancelled = countUnrescuedCancellations(upcoming, now);
+  const cancelled = countUnrescuedCancellations(upcoming, now, rescueWindow);
   const delayed = upcoming.filter(d => !d.cancelled && d.delay_min >= TRANSIT_DELAY_ALERT_MIN_MINUTES).length;
   const combined = cancelled + delayed;
 
@@ -150,7 +168,8 @@ function deriveAggregateTransitDisplayStatus(
 function deriveHighFrequencyTransitDisplayStatus(
   departures: readonly TransitDepartureForDisplay[],
   backendStatus: TransitStatus,
-  now: Date
+  now: Date,
+  rescueWindow: number
 ): TransitStatus {
   if (departures.length === 0) {
     return backendStatus;
@@ -159,7 +178,7 @@ function deriveHighFrequencyTransitDisplayStatus(
   if (upcoming.length === 0) {
     return 'OK';
   }
-  if (countUnrescuedCancellations(upcoming, now) >= 2) {
+  if (countUnrescuedCancellations(upcoming, now, rescueWindow) >= 2) {
     return 'Disrupted';
   }
   return 'OK';
@@ -173,12 +192,20 @@ export function getTransitLineDisplayStatus(
   const sensor = entities?.[line.sensorEntityId];
   const departures = (sensor?.attributes?.departures ?? []) as TransitDepartureForDisplay[];
   const backend = (entities?.[line.statusEntityId]?.state ?? 'Unavailable') as TransitStatus;
+  const rescueWindow =
+    readPositiveNumber(sensor?.attributes?.rescue_window_min) ?? TRANSIT_RESCUE_WINDOW_FALLBACK_MINUTES;
   if (line.highFrequency) {
-    return deriveHighFrequencyTransitDisplayStatus(departures, backend, now);
+    return deriveHighFrequencyTransitDisplayStatus(departures, backend, now, rescueWindow);
   }
   const dense = countDeparturesInDensityWindow(departures, now) >= TRANSIT_DENSE_DEPARTURE_COUNT_MIN;
   if (dense) {
-    return deriveAggregateTransitDisplayStatus(departures, backend, now, TRANSIT_AGGREGATE_HEAVY_DEFAULT);
+    return deriveAggregateTransitDisplayStatus(
+      departures,
+      backend,
+      now,
+      TRANSIT_AGGREGATE_HEAVY_DEFAULT,
+      rescueWindow
+    );
   }
   return deriveTransitDisplayStatus(departures, backend, now);
 }
