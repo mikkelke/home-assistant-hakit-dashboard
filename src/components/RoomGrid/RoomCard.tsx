@@ -12,6 +12,7 @@ import {
   AC_THERMOSTAT_ENTITY,
   KITCHEN_TEMP_SENSOR,
   resolveKitchenHumiditySensorId,
+  roomFeelSensorId,
 } from '../../config/entities';
 import { ROOM_LIGHTS } from '../../config/lights';
 import { resolveDishwasherSemanticState } from '../../utils/dishwasherSemanticState';
@@ -389,16 +390,37 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
   const isMediaMuted = mediaPlayer?.attributes?.is_volume_muted === true;
   const hasMediaPlayer = !!mediaPlayer;
 
-  // Get temperature value - handle climate entity special case. The selectors above already
-  // skip dead sensors, but a sensor can go unavailable AFTER selection (and the rooftop /
-  // __climate__ paths bypass the selectors entirely), so the value is re-checked here: the
-  // card shows "—" rather than the words "unknown" / "unavailable".
-  const rawTemp =
-    tempSensor === '__climate__' ? climateEntity?.attributes?.current_temperature : tempSensor ? entities[tempSensor]?.state : null;
-  const tempIsReadable = typeof rawTemp === 'number' || hasReading({ state: rawTemp as string | undefined });
+  // Fused "feel" sensor (AppDaemon RoomFeel, per HA area): when its state reads as a number, it
+  // wins over the raw-sensor resolution above entirely - state is the fused temperature, and its
+  // `rh` attribute is the fused humidity. Keyed off area_id, like isRooftop/isDiningRoom above,
+  // because Claudias Room's area_id is still the historical `office`.
+  const feelSensorId = roomFeelSensorId(area.area_id);
+  const feelEntity = feelSensorId ? entities?.[feelSensorId] : undefined;
+  const feelAvailable = hasReading(feelEntity);
+  const feelTempNumber = Number(feelEntity?.state);
+  const hasFeelTemp = feelAvailable && Number.isFinite(feelTempNumber);
+  const feelRhNumber = Number(feelEntity?.attributes?.rh);
+  const hasFeelRh = hasFeelTemp && Number.isFinite(feelRhNumber);
+  // Only surfaced as a fallback tile indicator below when the room has no physical window
+  // contact sensor of its own - never a second, duplicate window icon.
+  const feelWindowOpen = feelAvailable && feelEntity?.attributes?.window_open === 'true';
+
+  // Get temperature value - the fused feel sensor above wins when readable; otherwise handle
+  // the climate entity special case. The selectors above already skip dead sensors, but a
+  // sensor can go unavailable AFTER selection (and the rooftop / __climate__ paths bypass the
+  // selectors entirely), so the value is re-checked here: the card shows "—" rather than the
+  // words "unknown" / "unavailable".
+  const rawTemp = hasFeelTemp
+    ? feelEntity?.state
+    : tempSensor === '__climate__'
+      ? climateEntity?.attributes?.current_temperature
+      : tempSensor
+        ? entities[tempSensor]?.state
+        : null;
+  const tempIsReadable = hasFeelTemp || typeof rawTemp === 'number' || hasReading({ state: rawTemp as string | undefined });
   const temp = tempIsReadable ? (typeof rawTemp === 'number' ? rawTemp : String(rawTemp)) : null;
-  const rawHumidity = humiditySensor ? entities[humiditySensor]?.state : null;
-  const humidity = hasReading({ state: rawHumidity }) ? String(rawHumidity) : null;
+  const rawHumidity = hasFeelTemp ? (hasFeelRh ? Math.round(feelRhNumber) : null) : humiditySensor ? entities[humiditySensor]?.state : null;
+  const humidity = rawHumidity != null && hasReading({ state: String(rawHumidity) }) ? String(rawHumidity) : null;
   const icon = area.icon || 'mdi:home';
 
   return (
@@ -997,6 +1019,21 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
               !!hasDiningWindows,
               diningWindowsOpen > 0 ? 1 : 0,
               'window_dining'
+            );
+
+            // Fallback only: a room with no physical window contact of its own still gets a
+            // subtle window-open hint, inferred by the feel sensor's fusion. Never shown
+            // alongside a real contact indicator above - that would be a duplicate.
+            make(
+              'window',
+              !hasRoomWindow && !hasDiningWindows && feelWindowOpen && (
+                <div className='indicator window active' title='Window may be open'>
+                  <Icon icon='mdi:window-open' />
+                </div>
+              ),
+              !hasRoomWindow && !hasDiningWindows && feelWindowOpen,
+              1, // Other active state
+              'window_feel'
             );
 
             make(

@@ -442,6 +442,18 @@ html.fire-hushed .room-detail.mobile {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+.air-card-note {
+  margin: 0;
+  padding: 0 1.25rem 0.6rem;
+  font-size: 0.78rem;
+  color: rgba(235, 235, 245, 0.55);
+}
+.air-card-note:last-child {
+  padding-bottom: 1.1rem;
+}
+.air-card-note-muted {
+  color: rgba(235, 235, 245, 0.35);
+}
 
 /* ---- Owner sheet ---- */
 .smoke-sheet-section {

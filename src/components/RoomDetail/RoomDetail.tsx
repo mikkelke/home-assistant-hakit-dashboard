@@ -13,6 +13,7 @@ import { WasherCard } from '../Washer';
 import { DishwasherCard } from '../Dishwasher';
 import { DryerCard } from '../Dryer';
 import { AirQualityCard } from '../FireSafety';
+import { RoomFeelCard } from './RoomFeelCard';
 import { ROBOT_CLEAN_PREFIX, VACUUM_ENTITY } from '../../config/entities';
 import { resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { useSwipeToClose } from '../../hooks';
@@ -154,6 +155,12 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
           />
         )}
 
+        {/* Feel - near the top, right after Sonos/TV. Kitchen merges this straight into its
+            existing AirQualityCard (which also owns the smoke alarm's IAQ/eCO2 reading) instead
+            of getting a second card; every other room gets the generic RoomFeelCard, which
+            hides itself when that area has no feel sensor yet. */}
+        {isKitchen ? <AirQualityCard entities={entities} /> : <RoomFeelCard entities={entities} areaId={area.area_id} />}
+
         {/* Washer (Guest Bathroom) */}
         {isGuestBathroom && washerStateEntity && <WasherCard entities={entities} callService={callService} />}
 
@@ -162,9 +169,6 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
 
         {/* Dishwasher (Kitchen) */}
         {isKitchen && dishwasherStateEntity && <DishwasherCard entities={entities} callService={callService} />}
-
-        {/* Air quality (Kitchen) */}
-        {isKitchen && <AirQualityCard entities={entities} />}
 
         {/* Wake-up Alarm (Bedroom) */}
         <WakeupAlarm areaName={area.name} entities={entities} callService={callService} />
