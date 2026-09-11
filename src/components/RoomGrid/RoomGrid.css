@@ -843,6 +843,29 @@
   font-weight: 500;
 }
 
+/* Temperature/humidity readout: opens the room's temperature history chart. The visible text
+   stays exactly as small as the design calls for; ::before pads the hit area to >=44px on each
+   side without affecting layout (absolutely positioned, out of flow) or the readout's look. */
+.room-climate-tappable {
+  position: relative;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.room-climate-tappable::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(44px, 100%);
+  height: max(44px, 100%);
+  transform: translate(-50%, -50%);
+}
+.room-climate-tappable:focus-visible {
+  outline: 2px solid #b8dfff;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
 .room-icon-container {
   width: clamp(110px, 26vw, 170px);
   height: clamp(110px, 26vw, 170px);

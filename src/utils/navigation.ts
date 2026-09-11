@@ -21,13 +21,23 @@ export function buildHistoryUrlWithHash(targetWindow: Window, hash: string | nul
   return hash ? `${pathname}${search}${hash}` : `${pathname}${search}`;
 }
 
-export type DashboardView = { kind: 'room'; roomId: string } | { kind: 'energy' } | { kind: 'none' };
+export type DashboardView = { kind: 'room'; roomId: string; openClimate?: boolean } | { kind: 'energy' } | { kind: 'none' };
+
+/** Build a `#room=<id>` hash, optionally with `&climate=1` to request the climate sheet open on
+ * arrival (deep link for the room-card temperature/humidity tap - see RoomCard/Dashboard). */
+export function buildRoomHash(roomId: string, openClimate?: boolean): string {
+  return openClimate ? `#room=${roomId}&climate=1` : `#room=${roomId}`;
+}
 
 export function getViewFromHistoryHash(targetWindow: Window | null = getAccessibleHistoryWindow()): DashboardView {
   if (!targetWindow) return { kind: 'none' };
   const { hash } = targetWindow.location;
   if (hash === '#energy' || hash.startsWith('#energy=')) return { kind: 'energy' };
-  if (hash.startsWith('#room=')) return { kind: 'room', roomId: hash.slice(6) };
+  if (hash.startsWith('#room=')) {
+    const [roomId, ...rest] = hash.slice(6).split('&');
+    const openClimate = rest.includes('climate=1');
+    return { kind: 'room', roomId, openClimate };
+  }
   return { kind: 'none' };
 }
 

@@ -87,7 +87,7 @@ const getRoomColor = (areaId: string) => {
   return DUSTY_COLORS[index];
 };
 
-export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicatorCounts }: RoomCardWithCountsProps) {
+export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, hassUrl, indicatorCounts }: RoomCardWithCountsProps) {
   const formatName = (text: string) => text.replace(/\b(\p{L})(\p{L}*)/gu, (_, a, b) => a.toUpperCase() + b.toLowerCase());
 
   const areaName = area.name.toLowerCase();
@@ -884,7 +884,34 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
       <div className='room-card-content'>
         <div className='room-left-section'>
           <h3 className='room-name'>{formatName(area.name)}</h3>
-          <div className='room-climate'>
+          {/* Not a <button> — the whole card is already one, and buttons can't nest. role="button"
+              gives it the same semantics/keyboard behaviour; the ::before pseudo-element in
+              RoomGrid.css pads the tap target to >=44px without changing the visible readout. */}
+          <span
+            className='room-climate room-climate-tappable'
+            role={onClimateClick ? 'button' : undefined}
+            tabIndex={onClimateClick ? 0 : undefined}
+            aria-label={onClimateClick ? `${formatName(area.name)} temperature history` : undefined}
+            onClick={
+              onClimateClick
+                ? e => {
+                    e.stopPropagation();
+                    onClimateClick();
+                  }
+                : undefined
+            }
+            onKeyDown={
+              onClimateClick
+                ? e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onClimateClick();
+                    }
+                  }
+                : undefined
+            }
+          >
             {temp && humidity ? (
               <>
                 <span className='climate-item'>{temp}°C</span>
@@ -897,7 +924,7 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
             ) : (
               <span className='climate-item'>—</span>
             )}
-          </div>
+          </span>
           <div className='room-icon-container' style={{ background: roomColor.iconBg }}>
             <Icon icon={icon} className='room-icon' style={{ color: roomColor.icon }} />
           </div>

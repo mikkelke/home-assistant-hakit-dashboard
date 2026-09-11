@@ -22,7 +22,16 @@ import './RoomDetail.css';
 /** hvac_mode values that mean the whole-apartment thermostat isn't calling for heat at all. */
 const HEATING_SEASON_OFF_STATES = new Set(['off', 'unavailable', 'unknown']);
 
-export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMobile }: RoomDetailProps) {
+export function RoomDetail({
+  area,
+  entities,
+  hassUrl,
+  callService,
+  onClose,
+  isMobile,
+  autoOpenClimate,
+  onAutoOpenClimateHandled,
+}: RoomDetailProps) {
   const areaName = area.name.toLowerCase().replace(/\s+/g, '_');
 
   // Rows remember their open state in localStorage; a closed panel should reopen tidy.
@@ -130,6 +139,8 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
           areaId={area.area_id}
           callService={callService}
           heatingSeason={heatingSeason}
+          autoOpen={autoOpenClimate}
+          onAutoOpenHandled={onAutoOpenClimateHandled}
         />
         {/* Phone: close moves to a floating thumb-reach button (below) so this row stays one line. */}
         {!isMobile && (

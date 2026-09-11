@@ -18,6 +18,7 @@ interface RoomGridProps {
   entities: HassEntities;
   selectedAreaId: string | null;
   onRoomClick: (area: Area) => void;
+  onRoomClimateClick?: (area: Area) => void;
   hassUrl: string | null;
   callService?: CallServiceFunction | undefined;
 }
@@ -179,7 +180,7 @@ function getIndicatorCounts(areas: Area[], entities: HassEntities): IndicatorCou
   return counts;
 }
 
-export function RoomGrid({ areas, entities, selectedAreaId, onRoomClick, hassUrl }: RoomGridProps) {
+export function RoomGrid({ areas, entities, selectedAreaId, onRoomClick, onRoomClimateClick, hassUrl }: RoomGridProps) {
   const allowedAreas = new Set(ROOM_ORDER);
 
   const filteredAreas = areas.filter(area => {
@@ -201,6 +202,7 @@ export function RoomGrid({ areas, entities, selectedAreaId, onRoomClick, hassUrl
             area={area}
             entities={entities}
             onClick={() => onRoomClick(area)}
+            onClimateClick={onRoomClimateClick ? () => onRoomClimateClick(area) : undefined}
             isSelected={selectedAreaId === area.area_id}
             hassUrl={hassUrl}
             indicatorCounts={indicatorCounts}

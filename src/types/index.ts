@@ -44,6 +44,9 @@ export interface RoomCardProps {
   area: Area;
   entities: HassEntities;
   onClick: () => void;
+  /** Tapping the temperature/humidity readout opens the room panel with the climate sheet
+   * (temperature history chart) already open, instead of the plain room view. */
+  onClimateClick?: () => void;
   isSelected: boolean;
   hassUrl: string | null;
 }
@@ -55,6 +58,11 @@ export interface RoomDetailProps {
   callService: CallServiceFunction | undefined;
   onClose: () => void;
   isMobile: boolean;
+  /** True for the one render where the climate sheet should open itself on mount/update - set by
+   * a room-card climate tap or a `#room=<id>&climate=1` deep link. One-shot: consumed via
+   * onAutoOpenClimateHandled. */
+  autoOpenClimate?: boolean;
+  onAutoOpenClimateHandled?: () => void;
 }
 
 export interface HomePulseProps {

@@ -3,7 +3,7 @@ import { useHass } from '@hakit/core';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { EXCLUDED_AREAS } from '../../config/dashboard';
 import type { Area, HassEntities } from '../../types';
-import { buildHistoryUrlWithHash, getAccessibleHistoryWindow, getViewFromHistoryHash } from '../../utils/navigation';
+import { buildHistoryUrlWithHash, buildRoomHash, getAccessibleHistoryWindow, getViewFromHistoryHash } from '../../utils/navigation';
 import { StatusBar } from '../StatusBar';
 import { HomePulse } from '../HomePulse';
 import { QuickAccess } from '../QuickAccess/QuickAccess';
@@ -351,6 +351,9 @@ export function Dashboard() {
   const callService = useHass(state => state.helpers?.callService);
 
   const [selectedRoom, setSelectedRoom] = useState<Area | null>(null);
+  // One-shot: which room's climate sheet should auto-open on arrival (room-card temp/humidity tap,
+  // or a `#room=<id>&climate=1` deep link). Cleared by RoomClimateHeader once it has acted on it.
+  const [climateAutoOpenAreaId, setClimateAutoOpenAreaId] = useState<string | null>(null);
   const [energyOpen, setEnergyOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isMobile = useIsMobile();
@@ -441,13 +444,17 @@ export function Dashboard() {
   );
 
   const replaceRoomHistory = useCallback(
-    (roomId: string | null) => {
+    (roomId: string | null, openClimate?: boolean) => {
       const targetWindow = getAccessibleHistoryWindow();
       if (!targetWindow) return;
 
       try {
         markHashUpdating();
-        targetWindow.history.replaceState({ room: roomId }, '', buildHistoryUrlWithHash(targetWindow, roomId ? `#room=${roomId}` : null));
+        targetWindow.history.replaceState(
+          { room: roomId },
+          '',
+          buildHistoryUrlWithHash(targetWindow, roomId ? buildRoomHash(roomId, openClimate) : null)
+        );
       } catch (err) {
         console.debug('Failed to replace room history:', err);
         isUpdatingHashRef.current = false;
@@ -457,13 +464,13 @@ export function Dashboard() {
   );
 
   const pushRoomHistory = useCallback(
-    (roomId: string) => {
+    (roomId: string, openClimate?: boolean) => {
       const targetWindow = getAccessibleHistoryWindow();
       if (!targetWindow) return;
 
       try {
         markHashUpdating();
-        targetWindow.history.pushState({ room: roomId }, '', buildHistoryUrlWithHash(targetWindow, `#room=${roomId}`));
+        targetWindow.history.pushState({ room: roomId }, '', buildHistoryUrlWithHash(targetWindow, buildRoomHash(roomId, openClimate)));
       } catch (err) {
         console.debug('Failed to push room history:', err);
         isUpdatingHashRef.current = false;
@@ -535,6 +542,7 @@ export function Dashboard() {
     if (selectedRoomRef.current?.area_id !== room.area_id) {
       setSelectedRoom(room);
     }
+    if (view.openClimate) setClimateAutoOpenAreaId(room.area_id);
   }, [areaList, findRoomById]);
 
   // Initialize from hash on mount and when areas load
@@ -625,6 +633,18 @@ export function Dashboard() {
     pushRoomHistory(area.area_id);
   };
 
+  // Room-card temperature/humidity tap: open the room panel with the climate sheet already open.
+  const handleRoomClimateClick = (area: Area) => {
+    const alreadySelected = selectedRoomRef.current?.area_id === area.area_id;
+    setSelectedRoom(area);
+    setClimateAutoOpenAreaId(area.area_id);
+    if (!alreadySelected) {
+      pushRoomHistory(area.area_id, true);
+    } else {
+      replaceRoomHistory(area.area_id, true);
+    }
+  };
+
   const handlePulseRoomSelect = (areaId: string) => {
     const room = findRoomById(areaId);
     if (!room) return;
@@ -673,6 +693,7 @@ export function Dashboard() {
             entities={displayEntities}
             selectedAreaId={selectedRoom?.area_id || null}
             onRoomClick={handleRoomClick}
+            onRoomClimateClick={handleRoomClimateClick}
             hassUrl={hassUrl}
           />
           {/* Fixed bar at z-index 1000 — would float above the Energy page (z-index 90), so it
@@ -695,6 +716,8 @@ export function Dashboard() {
                 callService={callService}
                 onClose={handleCloseRoom}
                 isMobile={isMobile}
+                autoOpenClimate={climateAutoOpenAreaId === selectedRoom.area_id}
+                onAutoOpenClimateHandled={() => setClimateAutoOpenAreaId(null)}
               />
             </Suspense>
           </>

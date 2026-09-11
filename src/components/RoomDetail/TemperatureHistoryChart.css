@@ -1,0 +1,157 @@
+/* Temperature history: top of the climate sheet, above the story/chips/numbers - see
+   RoomClimateHeader.tsx. Mirrors the Energy usage chart's idioms (chartGeometry, useChartScrub,
+   ChartCallout) but for a two-series line rather than bars. */
+
+.temp-history {
+  margin-bottom: 4px;
+}
+
+.temp-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 2px;
+}
+
+.temp-history-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.temp-history-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(235, 235, 245, 0.6);
+}
+
+.temp-history-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.temp-history-swatch--muted {
+  background: #71717a;
+}
+
+/* Segmented 24h/7d range control - each button is a full 44px touch target. */
+.temp-history-range-toggle {
+  display: flex;
+  gap: 0.2rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.temp-history-range-btn {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: rgba(235, 235, 245, 0.6);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.temp-history-range-btn.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #e4e4e7;
+}
+
+.temp-history-range-btn:focus-visible {
+  outline: 2px solid #b8dfff;
+  outline-offset: 2px;
+}
+
+.temp-history-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* Vertical pans stay with the browser (the sheet scrolls); horizontal drags reach the scrub hook. */
+  touch-action: pan-y;
+}
+
+.temp-history-empty {
+  aspect-ratio: 600 / 140;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #71717a;
+  font-size: 0.82rem;
+  text-align: center;
+  padding: 0 1rem;
+}
+
+.temp-history-gridline {
+  stroke: rgba(255, 255, 255, 0.07);
+  stroke-width: 1;
+}
+
+.temp-history-tick-label,
+.temp-history-axis-label {
+  fill: #71717a;
+  font-size: 9px;
+}
+
+.temp-history-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.temp-history-line--outdoor {
+  stroke: #71717a;
+  stroke-width: 1.5;
+  opacity: 0.7;
+}
+
+.temp-history-area {
+  opacity: 0.16;
+  stroke: none;
+}
+
+.temp-history-now-line {
+  stroke: rgba(255, 255, 255, 0.22);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+.temp-history-now-dot {
+  stroke: #141518;
+  stroke-width: 2;
+}
+
+.temp-history-guide {
+  stroke: rgba(255, 255, 255, 0.28);
+  stroke-width: 1;
+}
+
+.temp-history-guide-dot {
+  fill: #e4e4e7;
+  stroke: #141518;
+  stroke-width: 2;
+}
+
+/* Scrub focus: recede everything but the guide (the callout above already carries the emphasis). */
+.temp-history-svg--has-selection .temp-history-line--room {
+  opacity: 0.85;
+}

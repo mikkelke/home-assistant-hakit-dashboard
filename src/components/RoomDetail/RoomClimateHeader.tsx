@@ -9,6 +9,7 @@ import {
   SMART_COOLING_ENABLE,
   SMART_COOLING_STATUS_SENSOR,
   isAcDeployed,
+  roomFeelSensorId,
   roomThermostat,
 } from '../../config/entities';
 import { deriveRoomFeel } from '../../utils/roomFeel';
@@ -16,6 +17,7 @@ import { composeClimateStory, comfortTone } from '../../utils/roomClimateStory';
 import { deriveFireSafety, isCooking } from '../../utils/fireSafety';
 import { worstAirBand } from '../../utils/airQuality';
 import { ApplianceSheet } from '../Appliance';
+import { TemperatureHistoryChart } from './TemperatureHistoryChart';
 import '../Appliance/Appliance.css';
 import './RoomClimateHeader.css';
 
@@ -33,6 +35,10 @@ interface RoomClimateHeaderProps {
    * hidden unless this room's own zone is on or actually heating - a header must never hide
    * running heat. */
   heatingSeason: boolean;
+  /** True for the render where the sheet should open itself (room-card temperature/humidity tap,
+   * or a `#room=<id>&climate=1` deep link) - see RoomDetail/Dashboard. */
+  autoOpen?: boolean;
+  onAutoOpenHandled?: () => void;
 }
 
 const ZONE_OFF_STATES = new Set(['off', 'unavailable', 'unknown']);
@@ -76,7 +82,15 @@ function Stat({ label, value, unit, digits = 0 }: { label: string; value: number
   );
 }
 
-export function RoomClimateHeader({ roomName, entities, areaId, callService, heatingSeason }: RoomClimateHeaderProps) {
+export function RoomClimateHeader({
+  roomName,
+  entities,
+  areaId,
+  callService,
+  heatingSeason,
+  autoOpen,
+  onAutoOpenHandled,
+}: RoomClimateHeaderProps) {
   const normalizedArea = areaId.toLowerCase().replace(/\s+/g, '_');
   const isBedroom = normalizedArea === 'bedroom';
   const isKitchen = normalizedArea === 'kitchen';
@@ -85,6 +99,21 @@ export function RoomClimateHeader({ roomName, entities, areaId, callService, hea
   const fire = useMemo(() => (isKitchen ? deriveFireSafety(entities) : null), [entities, isKitchen]);
   const [open, setOpen] = useState(false);
   const closeSheet = useCallback(() => setOpen(false), []);
+
+  // One-shot: opens the sheet on mount (handles the lazy RoomDetail case, since `key={area.area_id}`
+  // remounts this whenever the room changes) and also on a later true->true-again transition while
+  // already mounted (same room, a second climate tap). Reported back so Dashboard clears the flag -
+  // otherwise a manual close+reopen of the same room would force the sheet back open.
+  useEffect(() => {
+    if (autoOpen) {
+      setOpen(true);
+      onAutoOpenHandled?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onAutoOpenHandled is re-created each render; only autoOpen's edge matters here
+  }, [autoOpen]);
+
+  const feelSensorId = roomFeelSensorId(areaId);
+  const temperatureHistorySensorId = feelSensorId && entities[feelSensorId] ? feelSensorId : null;
 
   const thermo = roomThermostat(areaId);
   const thermostat = thermo ? entities[thermo.entityId] : undefined;
@@ -234,6 +263,11 @@ export function RoomClimateHeader({ roomName, entities, areaId, callService, hea
           onClose={closeSheet}
         >
           <div className='climate-scroll' tabIndex={0} role='region' aria-label='Climate details'>
+            <TemperatureHistoryChart
+              roomSensorId={temperatureHistorySensorId}
+              outdoorSensorId={entities[OUTDOOR_TEMP_SENSOR] ? OUTDOOR_TEMP_SENSOR : null}
+              toneColor='var(--tone)'
+            />
             {story.clause && <p className='climate-full-story'>{story.clause}</p>}
             {story.advice && <p className='climate-detail-note'>{story.advice}</p>}
             {story.chips.length > 0 && (
