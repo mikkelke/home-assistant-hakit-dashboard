@@ -266,6 +266,8 @@ export function RoomClimateHeader({
             <TemperatureHistoryChart
               roomSensorId={temperatureHistorySensorId}
               outdoorSensorId={entities[OUTDOOR_TEMP_SENSOR] ? OUTDOOR_TEMP_SENSOR : null}
+              historyEntityId={feel.historyEntity}
+              historyAttribute={feel.historyAttribute}
               toneColor='var(--tone)'
             />
             {story.clause && <p className='climate-full-story'>{story.clause}</p>}

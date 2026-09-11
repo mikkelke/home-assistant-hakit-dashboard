@@ -19,6 +19,15 @@ export interface RoomFeelModel {
   mouldRisk: MouldRisk | null;
   stale: boolean;
   sourceCount: number;
+  /** Longer-lived entity to chart when this sensor's own recorder history is too sparse (it was
+   * created recently) - a plain sensor.* whose state is the temperature, or for a room whose only
+   * air source is a wall thermostat, a climate.* (see historyAttribute). Null when the backend
+   * hasn't published one. */
+  historyEntity: string | null;
+  /** Attribute to read off `historyEntity` for its temperature ("current_temperature" for a
+   * climate.*, whose state is the hvac mode instead) - null when the entity's own state is the
+   * temperature. */
+  historyAttribute: string | null;
   headline: string;
   detail: string;
   /** The comfort word the backend put after the " · " in `headline` ("comfortable", "warm", ...). */
@@ -46,6 +55,8 @@ export const EMPTY_ROOM_FEEL: RoomFeelModel = {
   mouldRisk: null,
   stale: false,
   sourceCount: 0,
+  historyEntity: null,
+  historyAttribute: null,
   headline: '',
   detail: '',
   comfortWord: '',
@@ -92,6 +103,13 @@ function toText(value: unknown): string {
   return text.length > 0 && text !== 'None' ? text : '';
 }
 
+/** Like toText, but a missing value (or the "<none>" placeholder empty lists use) parses to null,
+ * not "" - callers branch on presence rather than an empty string's truthiness. */
+function toOptionalText(value: unknown): string | null {
+  const text = toText(value);
+  return text && text !== '<none>' ? text : null;
+}
+
 function toMouldRisk(value: unknown): MouldRisk | null {
   const key = String(value ?? '')
     .trim()
@@ -131,6 +149,8 @@ export function deriveRoomFeel(entities: HassEntities | undefined, areaId: strin
     mouldRisk: toMouldRisk(a.mould_risk),
     stale: toBool(a.stale),
     sourceCount: sources.length,
+    historyEntity: toOptionalText(a.history_entity),
+    historyAttribute: toOptionalText(a.history_attribute),
     headline,
     detail: toText(a.detail),
     comfortWord: comfortWordOf(headline),

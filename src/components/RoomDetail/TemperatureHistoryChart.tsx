@@ -10,6 +10,10 @@ interface TemperatureHistoryChartProps {
   /** sensor.<area>_feel, or null when the area has none (chart doesn't render at all). */
   roomSensorId: string | null;
   outdoorSensorId: string | null;
+  /** RoomFeelModel's historyEntity/historyAttribute - the longer-lived entity charted instead of
+   * roomSensorId when its own recorder history is too sparse. */
+  historyEntityId: string | null;
+  historyAttribute: string | null;
   /** The chip's comfort-tone CSS value (e.g. `var(--tone)`) - the room series carries that colour
    * everywhere else in the sheet, so the chart matches rather than inventing a new hue. */
   toneColor: string;
@@ -87,9 +91,21 @@ function formatCalloutTime(ts: number, range: TemperatureRange): string {
   return range === '24h' ? time : `${d.toLocaleDateString('en-GB', { weekday: 'short' })} ${time}`;
 }
 
-export function TemperatureHistoryChart({ roomSensorId, outdoorSensorId, toneColor }: TemperatureHistoryChartProps) {
+export function TemperatureHistoryChart({
+  roomSensorId,
+  outdoorSensorId,
+  historyEntityId,
+  historyAttribute,
+  toneColor,
+}: TemperatureHistoryChartProps) {
   const [range, setRange] = useState<TemperatureRange>('24h');
-  const { roomSeries, outdoorSeries, loading, error } = useTemperatureHistory(roomSensorId, outdoorSensorId, range);
+  const { roomSeries, outdoorSeries, loading, error } = useTemperatureHistory(
+    roomSensorId,
+    outdoorSensorId,
+    historyEntityId,
+    historyAttribute,
+    range
+  );
   const [scrubTs, setScrubTs] = useState<number | null>(null);
 
   // Fixed for the lifetime of this mount (the sheet reopening remounts it) - the axis and the

@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useHass } from '@hakit/core';
-import { fetchTemperatureSeries, type TemperatureRange, type TempPoint } from '../../utils/temperatureHistory';
+import {
+  fetchRoomTemperatureSeries,
+  fetchTemperatureSeries,
+  type HistoryFallback,
+  type TemperatureRange,
+  type TempPoint,
+} from '../../utils/temperatureHistory';
 
 export interface TemperatureHistoryState {
   roomSeries: TempPoint[];
@@ -18,6 +24,8 @@ const EMPTY_STATE: TemperatureHistoryState = { roomSeries: [], outdoorSeries: []
 export function useTemperatureHistory(
   roomSensorId: string | null,
   outdoorSensorId: string | null,
+  historyEntityId: string | null,
+  historyAttribute: string | null,
   range: TemperatureRange
 ): TemperatureHistoryState {
   const connection = useHass(s => s.connection);
@@ -33,8 +41,10 @@ export function useTemperatureHistory(
       if (!cancelled) setState(prev => ({ ...prev, loading: true, error: false }));
     });
 
+    const fallback: HistoryFallback | null = historyEntityId ? { entityId: historyEntityId, attribute: historyAttribute } : null;
+
     Promise.all([
-      fetchTemperatureSeries(connection, roomSensorId, range),
+      fetchRoomTemperatureSeries(connection, roomSensorId, fallback, range),
       outdoorSensorId ? fetchTemperatureSeries(connection, outdoorSensorId, range) : Promise.resolve([] as TempPoint[]),
     ])
       .then(([roomSeries, outdoorSeries]) => {
@@ -49,7 +59,7 @@ export function useTemperatureHistory(
     return () => {
       cancelled = true;
     };
-  }, [connection, roomSensorId, outdoorSensorId, range]);
+  }, [connection, roomSensorId, outdoorSensorId, historyEntityId, historyAttribute, range]);
 
   return state;
 }
