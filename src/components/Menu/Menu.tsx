@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import type { HassEntities } from '../../types';
-import { useModalBackButton } from '../../hooks';
+import { useModalBackButton, useViewer } from '../../hooks';
+import { SmokeAlarmSheet } from '../FireSafety';
+import { FIRE_SAFETY_SENSOR } from '../../config/entities';
 import { deriveBatteryItems } from '../../utils/batteryAlerts';
 import './Menu.css';
 
@@ -42,6 +44,9 @@ function getBatteryColor(value: number): string {
 export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy }: MenuProps) {
   const [isKioskActive, setIsKioskActive] = useState(false);
   const [isBatteryOverviewOpen, setIsBatteryOverviewOpen] = useState(false);
+  const [isSmokeAlarmOpen, setIsSmokeAlarmOpen] = useState(false);
+  const viewer = useViewer();
+  const showSmokeAlarm = viewer.isAdmin === true && !!entities?.[FIRE_SAFETY_SENSOR];
   const batteryItems = useMemo(() => deriveBatteryItems(entities), [entities]);
   const lowBatteryCount = batteryItems.filter(item => item.isLow).length;
 
@@ -102,6 +107,11 @@ export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy }: M
   const handleOpenEnergy = () => {
     onClose();
     onOpenEnergy?.();
+  };
+
+  const handleOpenSmokeAlarm = () => {
+    onClose();
+    setIsSmokeAlarmOpen(true);
   };
 
   const batteryOverviewContent = isBatteryOverviewOpen ? (
@@ -181,6 +191,13 @@ export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy }: M
             {lowBatteryCount > 0 ? <span className='menu-section-badge is-alert'>{`${lowBatteryCount} low`}</span> : null}
           </button>
 
+          {showSmokeAlarm && (
+            <button className='menu-item' onClick={handleOpenSmokeAlarm}>
+              <Icon icon='mdi:smoke-detector-variant' />
+              <span>Smoke alarm</span>
+            </button>
+          )}
+
           <div className='menu-divider' />
 
           <button className={`menu-item menu-item-toggle ${isKioskActive ? 'active' : ''}`} onClick={handleToggleKioskMode}>
@@ -195,6 +212,9 @@ export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy }: M
         </div>
       </aside>
       {typeof document !== 'undefined' && batteryOverviewContent ? createPortal(batteryOverviewContent, document.body) : null}
+      {isSmokeAlarmOpen && showSmokeAlarm && (
+        <SmokeAlarmSheet entities={entities} callService={callService} onClose={() => setIsSmokeAlarmOpen(false)} />
+      )}
     </>
   );
 }

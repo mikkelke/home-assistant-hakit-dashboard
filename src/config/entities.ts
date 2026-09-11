@@ -250,3 +250,52 @@ export const BEDROOM_SOLAR_SHADE_STATUS = 'sensor.bedroom_solar_shade_status';
  * the list resets across HA restarts (nothing is persisted), so gaps are expected, not a bug.
  */
 export const HOUSE_EVENTS_ENTITY = 'sensor.house_events';
+
+// --- Fire safety (AppDaemon `FireSafety` app, apps/safety/fire_safety.py) ---
+
+/** Published phase sensor: state = clear | pre_alarm | alarm | hushed | cooldown | offline. */
+export const FIRE_SAFETY_SENSOR = 'sensor.fire_safety';
+
+/** Housemate action: silence the alarm for the hush window. */
+export const FIRE_HUSH_BUTTON = 'input_button.fire_safety_hush';
+
+/** Housemate action: end the hush and re-arm now. */
+export const FIRE_REARM_BUTTON = 'input_button.fire_safety_clear';
+
+/** Owner-only device controls (never render `select.kitchen_smoke_alarm_alarm` — it drives the siren). */
+export const SMOKE_ALARM_SELF_TEST_SWITCH = 'switch.kitchen_smoke_alarm_self_test';
+export const SMOKE_ALARM_SENSITIVITY_SELECT = 'select.kitchen_smoke_alarm_sensitivity';
+export const SMOKE_ALARM_HEARTBEAT_SWITCH = 'switch.kitchen_smoke_alarm_heartbeat';
+export const SMOKE_ALARM_PRE_ALARM_SWITCH = 'switch.kitchen_smoke_alarm_pre_alarm';
+export const KITCHEN_COOKING_MODE_BOOLEAN = 'input_boolean.kitchen_cooking_mode';
+
+/** Raw device sensors for the owner sheet. */
+export const SMOKE_ALARM_SENSORS = {
+  temperature: 'sensor.kitchen_smoke_alarm_temperature',
+  humidity: 'sensor.kitchen_smoke_alarm_humidity',
+  eco2: 'sensor.kitchen_smoke_alarm_eco2',
+  aqi: 'sensor.kitchen_smoke_alarm_aqi',
+  illuminance: 'sensor.kitchen_smoke_alarm_illuminance',
+  battery: 'sensor.kitchen_smoke_alarm_battery',
+  linkquality: 'sensor.kitchen_smoke_alarm_linkquality',
+  lastSeen: 'sensor.kitchen_smoke_alarm_last_seen',
+  sirenState: 'sensor.kitchen_smoke_alarm_siren_state',
+} as const;
+
+/** Kitchen tile temperature: the wall sensor, never the ceiling smoke alarm over the hob. */
+export const KITCHEN_TEMP_SENSOR = 'sensor.kitchen_temperature';
+
+/** Kitchen humidity candidates in preference order; the smoke alarm is deliberately absent. */
+export const KITCHEN_HUMIDITY_SENSORS = ['sensor.kitchen_humidity', 'sensor.kitchen_presence_humidity'] as const;
+
+function readsNumber(entity: { state?: string } | undefined): boolean {
+  if (!entity) return false;
+  const state = entity.state;
+  if (state == null || state === 'unknown' || state === 'unavailable' || state === '') return false;
+  return Number.isFinite(Number(state));
+}
+
+export function resolveKitchenHumiditySensorId(entities: HassEntities | undefined): string | null {
+  if (!entities) return null;
+  return KITCHEN_HUMIDITY_SENSORS.find(id => readsNumber(entities[id])) ?? null;
+}

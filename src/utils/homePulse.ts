@@ -4,6 +4,7 @@ import { getTransitLineDisplayStatus } from './transitDisplay';
 import type { Area, HassEntities, HassEntity, HomePulseSummary, PulseChip } from '../types';
 import { deriveBatteryItems } from './batteryAlerts';
 import { resolveDishwasherSemanticState } from './dishwasherSemanticState';
+import { deriveFireSafety, faultLabel } from './fireSafety';
 
 const APPLIANCE_READY_STATES = ['complete', 'finished', 'done', 'ready', 'end', 'completed', 'end of cycle', 'unemptied'];
 const APPLIANCE_INACTIVE_STATES = ['off', 'idle', 'emptied', 'standby', 'unknown', 'unavailable'];
@@ -170,6 +171,57 @@ function buildWeatherAlertChip(areas: Area[], entities: HassEntities): ChipCandi
   };
 }
 
+function buildFireSafetyChip(entities: HassEntities): ChipCandidate | null {
+  const fire = deriveFireSafety(entities);
+  if (!fire.present) return null;
+
+  switch (fire.phase) {
+    case 'pre_alarm':
+      return {
+        id: 'fire-pre-alarm',
+        icon: 'mdi:smoke-detector-variant-alert',
+        label: 'Smoke building in the kitchen',
+        tone: 'attention',
+        action: 'fire',
+        pulse: true,
+        priority: 130,
+      };
+    case 'hushed':
+      return {
+        id: 'fire-hushed',
+        icon: 'mdi:bell-off-outline',
+        label: fire.hushedBy ? `Kitchen alarm silenced by ${fire.hushedBy}` : 'Kitchen alarm silenced',
+        tone: 'attention',
+        action: 'fire',
+        priority: 126,
+      };
+    case 'cooldown':
+      return {
+        id: 'fire-cooldown',
+        icon: 'mdi:smoke-detector-variant',
+        label: 'Kitchen alarm clearing',
+        tone: 'active',
+        action: 'fire',
+        priority: 110,
+      };
+    case 'alarm':
+      return null;
+    default:
+      break;
+  }
+
+  const label = faultLabel(fire.fault);
+  if (!label) return null;
+  return {
+    id: `fire-fault-${fire.fault}`,
+    icon: fire.fault === 'battery_low' ? 'mdi:battery-alert-variant-outline' : 'mdi:smoke-detector-variant-off',
+    label,
+    tone: 'attention',
+    action: 'fire',
+    priority: 118,
+  };
+}
+
 function buildBatteryChip(entities: HassEntities): ChipCandidate | null {
   const lowBatteries = deriveBatteryItems(entities).filter(item => item.isLow);
   if (lowBatteries.length === 0) return null;
@@ -243,6 +295,7 @@ export function deriveHomePulseSummary(areas: Area[], entities: HassEntities): H
   ).length;
 
   const chips = [
+    buildFireSafetyChip(entities),
     buildWeatherAlertChip(areas, entities),
     buildTransitAlertChip(entities),
     buildLockChip(entities, homePeopleCount),

@@ -12,6 +12,7 @@ import { IntercomCard } from '../Intercom';
 import { WasherCard } from '../Washer';
 import { DishwasherCard } from '../Dishwasher';
 import { DryerCard } from '../Dryer';
+import { AirQualityCard } from '../FireSafety';
 import { ROBOT_CLEAN_PREFIX, VACUUM_ENTITY } from '../../config/entities';
 import { resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { useSwipeToClose } from '../../hooks';
@@ -161,6 +162,9 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
 
         {/* Dishwasher (Kitchen) */}
         {isKitchen && dishwasherStateEntity && <DishwasherCard entities={entities} callService={callService} />}
+
+        {/* Air quality (Kitchen) */}
+        {isKitchen && <AirQualityCard entities={entities} />}
 
         {/* Wake-up Alarm (Bedroom) */}
         <WakeupAlarm areaName={area.name} entities={entities} callService={callService} />

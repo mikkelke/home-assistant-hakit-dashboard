@@ -1,0 +1,554 @@
+/* Fire safety — calm by default, unmistakable when it matters. Shares the appliance shell
+   (#1c1c1e, 24px radius, SF Pro stack) so the kitchen card and the owner sheet read as one
+   family with the dishwasher card next to them. */
+
+:root {
+  --fire-alarm: #e11d48;
+  --fire-alarm-deep: #4c0519;
+  --fire-prealarm: #f59e0b;
+  --fire-hush: #f59e0b;
+  --fire-clearing: #34d399;
+  --air-fresh: #34d399;
+  --air-good: #38bdf8;
+  --air-stuffy: #fbbf24;
+  --air-poor: #fb7185;
+  --air-unknown: rgba(235, 235, 245, 0.35);
+}
+
+.appliance-accent-fire {
+  --appliance-accent: var(--fire-prealarm);
+  --appliance-accent-bg: rgba(245, 158, 11, 0.16);
+  --appliance-accent-gradient: linear-gradient(90deg, #7c3f16, #f59e0b);
+}
+
+/* ---- Hold-to-act pill ---- */
+.hold-to-act {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 64px;
+  padding: 0.9rem 1.25rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.hold-to-act.is-holding {
+  background: rgba(255, 255, 255, 0.22);
+  transform: scale(0.985);
+}
+.hold-to-act.is-done {
+  background: rgba(255, 255, 255, 0.3);
+}
+.hold-to-act:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.hold-to-act-ring {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  transform: rotate(-90deg);
+}
+.hold-to-act-ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+.hold-to-act-ring .track {
+  stroke: rgba(255, 255, 255, 0.28);
+}
+.hold-to-act-ring .fill {
+  stroke: #fff;
+  stroke-linecap: round;
+  stroke-dasharray: 75.4;
+  stroke-dashoffset: 75.4;
+  transition: stroke-dashoffset 0.15s ease-out;
+}
+.hold-to-act.is-holding .hold-to-act-ring .fill {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset var(--hold-ms, 800ms) linear;
+}
+.hold-to-act.is-done .hold-to-act-ring .fill {
+  stroke-dashoffset: 0;
+  transition: none;
+}
+.hold-to-act-label {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  line-height: 1.25;
+}
+.hold-to-act-hint {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 400;
+  opacity: 0.72;
+  margin-top: 1px;
+}
+.hold-to-act.tone-dark {
+  background: #2c2c2e;
+  color: rgba(255, 255, 255, 0.92);
+}
+.hold-to-act.tone-dark.is-holding {
+  background: #3a3a3c;
+}
+.hold-to-act.tone-dark .hold-to-act-ring .track {
+  stroke: rgba(255, 255, 255, 0.16);
+}
+.hold-to-act.tone-dark .hold-to-act-ring .fill {
+  stroke: var(--appliance-accent, #f59e0b);
+}
+
+/* ---- Alarm takeover (portaled to body, above every overlay) ---- */
+.fire-takeover {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: calc(1.25rem + env(safe-area-inset-top)) 1.25rem calc(1.5rem + env(safe-area-inset-bottom));
+  background: radial-gradient(120% 80% at 50% 0%, #9f1239 0%, var(--fire-alarm-deep) 55%, #1a0308 100%);
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
+  animation: fire-takeover-in 0.4s ease;
+}
+.fire-takeover::before {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background: radial-gradient(50% 40% at 50% 30%, rgba(225, 29, 72, 0.55), transparent 70%);
+  animation: fire-breathe 4.5s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes fire-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+@keyframes fire-takeover-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.fire-takeover-center {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 1rem;
+  width: 100%;
+  max-width: 480px;
+}
+.fire-takeover-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 0 10px rgba(255, 255, 255, 0.05);
+}
+.fire-takeover-glyph svg {
+  font-size: 2.2rem;
+}
+.fire-takeover-headline {
+  font-family: ui-serif, 'New York', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  font-size: clamp(2.4rem, 9vw, 3.4rem);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+  margin: 0;
+}
+.fire-takeover-detail {
+  font-size: 1.05rem;
+  color: rgba(255, 255, 255, 0.78);
+  margin: 0;
+}
+.fire-takeover-note {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+  max-width: 30ch;
+  margin: 0;
+}
+.fire-takeover-actions {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+}
+.fire-takeover .hold-to-act {
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.fire-rehearsal-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ---- Hushed bar (slim, top-anchored) ---- */
+.fire-hush-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: calc(0.55rem + env(safe-area-inset-top)) 1rem 0.55rem;
+  background: linear-gradient(180deg, #b45309, #92400e);
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.9rem;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  animation: fire-hush-in 0.3s ease;
+}
+@keyframes fire-hush-in {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.fire-hush-bar svg {
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+.fire-hush-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
+}
+.fire-hush-text strong {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.fire-hush-text small {
+  display: block;
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+.fire-hush-rearm {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 0.9rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.fire-hush-rearm:active {
+  background: rgba(255, 255, 255, 0.28);
+}
+.fire-hush-bar .fire-rehearsal-tag {
+  padding: 0.1rem 0.45rem;
+  font-size: 0.62rem;
+}
+
+/* ---- Fire sheet (chip tap: pre-alarm / hushed / clearing / fault) ---- */
+.fire-sheet-status {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.25rem 0 1rem;
+}
+.fire-sheet-dot {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--appliance-accent);
+  box-shadow: 0 0 0 5px var(--appliance-accent-bg);
+}
+.fire-sheet-headline {
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.fire-sheet-detail {
+  font-size: 0.85rem;
+  color: rgba(235, 235, 245, 0.6);
+  margin-top: 2px;
+}
+.fire-sheet-note {
+  font-size: 0.85rem;
+  color: rgba(235, 235, 245, 0.6);
+  line-height: 1.4;
+  margin: 0.25rem 0 1rem;
+}
+.fire-sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+.fire-sheet-text-btn {
+  min-height: 44px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--appliance-accent);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---- Air quality card (kitchen room detail) ---- */
+.air-card {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  background: #1c1c1e;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.92);
+}
+.air-card-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.1rem 1.25rem;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.air-dot {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--air-color, var(--air-unknown));
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--air-color, var(--air-unknown)) 18%, transparent);
+}
+.air-card-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.air-card-line {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.air-card-line .air-band {
+  color: var(--air-color, inherit);
+}
+.air-card-advice {
+  font-size: 0.82rem;
+  color: rgba(235, 235, 245, 0.6);
+}
+.air-card-chevron {
+  font-size: 1.1rem;
+  color: rgba(235, 235, 245, 0.4);
+  flex-shrink: 0;
+}
+.air-card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  padding: 0 1.25rem 1.1rem;
+}
+.air-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0.6rem 0.25rem;
+  border-radius: 14px;
+  background: #2c2c2e;
+}
+.air-stat-value {
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.air-stat-unit {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: rgba(235, 235, 245, 0.5);
+  margin-left: 1px;
+}
+.air-stat-label {
+  font-size: 0.68rem;
+  color: rgba(235, 235, 245, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+@media (max-width: 380px) {
+  .air-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---- Owner sheet ---- */
+.smoke-sheet-section {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(235, 235, 245, 0.45);
+  margin: 1rem 0 0.25rem;
+}
+.smoke-sheet-section:first-child {
+  margin-top: 0;
+}
+.smoke-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 48px;
+  padding: 0.55rem 0.2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.95rem;
+}
+.smoke-row:last-child {
+  border-bottom: none;
+}
+.smoke-row-label {
+  flex: 1;
+  min-width: 0;
+}
+.smoke-row-label small {
+  display: block;
+  font-size: 0.78rem;
+  color: rgba(235, 235, 245, 0.5);
+}
+.smoke-row-value {
+  color: rgba(235, 235, 245, 0.7);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.smoke-row-value.alert {
+  color: #fbbf24;
+}
+.smoke-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 42px;
+  height: 26px;
+  border-radius: 13px;
+  background: #3a3a3c;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
+}
+.smoke-switch::before {
+  content: '';
+  position: absolute;
+  inset: -9px 0;
+}
+.smoke-switch.on {
+  background: var(--appliance-accent);
+}
+.smoke-switch-dot {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.15s ease;
+}
+.smoke-switch.on .smoke-switch-dot {
+  left: 19px;
+}
+.smoke-segment {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 3px;
+  border-radius: 999px;
+  background: #2c2c2e;
+}
+.smoke-segment button {
+  min-height: 34px;
+  padding: 0 0.8rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(235, 235, 245, 0.6);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  text-transform: capitalize;
+}
+.smoke-segment button.on {
+  background: var(--appliance-accent-bg);
+  color: var(--appliance-accent);
+}
+.smoke-sheet-test {
+  margin-top: 1rem;
+}
+.smoke-sheet-test .hold-to-act {
+  min-height: 56px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fire-takeover::before,
+  .fire-takeover,
+  .fire-hush-bar {
+    animation: none;
+  }
+}

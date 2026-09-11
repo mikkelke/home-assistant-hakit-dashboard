@@ -9,6 +9,8 @@ import { HomePulse } from '../HomePulse';
 import { QuickAccess } from '../QuickAccess/QuickAccess';
 import { RoomGrid } from '../RoomGrid';
 import { Menu } from '../Menu';
+import { FireAlarmTakeover } from '../FireSafety';
+import { FIRE_SAFETY_SENSOR, KITCHEN_COOKING_MODE_BOOLEAN, SMOKE_ALARM_SENSORS } from '../../config/entities';
 import './Dashboard.css';
 
 // The Energy page and its chart tree only ever mount behind Menu → Energy (or a #energy hash), so it is
@@ -253,6 +255,95 @@ function getDryerDemoEntities(mode: string | null): HassEntities {
   return base;
 }
 
+/** Build mock fire-safety entities for ?fire_demo=pre_alarm|alarm|hushed|cooldown|offline|fault (for UI preview). */
+function getFireDemoEntities(mode: string | null): HassEntities {
+  if (!mode) return {};
+  const now = new Date();
+  const since = new Date(now.getTime() - 3 * 60 * 1000);
+  const hushedUntil = new Date(now.getTime() + 8 * 60 * 1000 + 42 * 1000);
+  const hhmm = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const sensor = (id: string, state: string, attributes: Record<string, unknown> = {}) => ({ entity_id: id, state, attributes });
+  const base: HassEntities = {
+    [SMOKE_ALARM_SENSORS.temperature]: sensor(SMOKE_ALARM_SENSORS.temperature, '25.7', { unit_of_measurement: '°C' }),
+    [SMOKE_ALARM_SENSORS.humidity]: sensor(SMOKE_ALARM_SENSORS.humidity, '41.8', { unit_of_measurement: '%' }),
+    [SMOKE_ALARM_SENSORS.eco2]: sensor(SMOKE_ALARM_SENSORS.eco2, '510', { unit_of_measurement: 'ppm' }),
+    [SMOKE_ALARM_SENSORS.aqi]: sensor(SMOKE_ALARM_SENSORS.aqi, '1'),
+    [SMOKE_ALARM_SENSORS.battery]: sensor(SMOKE_ALARM_SENSORS.battery, '100', { unit_of_measurement: '%' }),
+    [SMOKE_ALARM_SENSORS.sirenState]: sensor(SMOKE_ALARM_SENSORS.sirenState, 'clear'),
+    [KITCHEN_COOKING_MODE_BOOLEAN]: sensor(KITCHEN_COOKING_MODE_BOOLEAN, 'off'),
+  };
+  const common = {
+    since: since.toISOString(),
+    episode_id: 'demo',
+    hushed_until: null,
+    hushed_by: null,
+    hush_count: 0,
+    ack_by: null,
+    last_smoke: 'off',
+    battery: 100,
+    battery_low: 'false',
+    last_test: new Date(now.getTime() - 5 * 24 * 3600 * 1000).toISOString(),
+    test_overdue: 'false',
+    device_available: 'true',
+    cooking_until: null,
+    iaq: 1,
+    iaq_band: 'fresh',
+    eco2: 510,
+    eco2_band: 'fresh',
+    computed_at: now.toISOString(),
+    dry_run: 'true',
+  };
+  const fire = (state: string, attributes: Record<string, unknown>) => {
+    base[FIRE_SAFETY_SENSOR] = sensor(FIRE_SAFETY_SENSOR, state, { ...common, ...attributes });
+  };
+  switch (mode.toLowerCase()) {
+    case 'pre_alarm':
+      fire('pre_alarm', {
+        headline: 'Smoke building',
+        detail: `Kitchen ceiling · ${hhmm(since)}`,
+        last_smoke: 'off',
+        iaq_band: 'stuffy',
+        eco2_band: 'good',
+      });
+      base[SMOKE_ALARM_SENSORS.sirenState] = sensor(SMOKE_ALARM_SENSORS.sirenState, 'pre_alarm');
+      break;
+    case 'alarm':
+      fire('alarm', { headline: 'Smoke detected', detail: `Kitchen ceiling · ${hhmm(since)}`, last_smoke: 'on' });
+      base[SMOKE_ALARM_SENSORS.sirenState] = sensor(SMOKE_ALARM_SENSORS.sirenState, 'fire');
+      break;
+    case 'hushed':
+      fire('hushed', {
+        headline: 'Silenced by Kristine',
+        detail: `Re-arms at ${hhmm(hushedUntil)}`,
+        hushed_until: hushedUntil.toISOString(),
+        hushed_by: 'Kristine',
+        hush_count: 1,
+        last_smoke: 'on',
+      });
+      break;
+    case 'cooldown':
+      fire('cooldown', { headline: 'Clearing', detail: `Smoke off since ${hhmm(since)}` });
+      break;
+    case 'offline':
+      fire('offline', { headline: 'Alarm offline', detail: `No data since ${hhmm(since)}`, device_available: 'false', battery: null });
+      break;
+    case 'fault':
+      fire('clear', {
+        headline: 'All clear',
+        detail: 'Kitchen alarm normal',
+        battery: 9,
+        battery_low: 'true',
+        test_overdue: 'true',
+        last_test: null,
+      });
+      base[SMOKE_ALARM_SENSORS.battery] = sensor(SMOKE_ALARM_SENSORS.battery, '9', { unit_of_measurement: '%' });
+      break;
+    default:
+      return {};
+  }
+  return base;
+}
+
 export function Dashboard() {
   const areas = useHass(state => state.areas);
   const entities = useHass(state => state.entities);
@@ -278,15 +369,22 @@ export function Dashboard() {
   const washerDemo = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('washer_demo') : null;
   const dishwasherDemo = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('dishwasher_demo') : null;
   const dryerDemo = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('dryer_demo') : null;
+  const fireDemo = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('fire_demo') : null;
   const displayEntities = useMemo(() => {
     const base = entities || {};
     const washerMock = getWasherDemoEntities(washerDemo);
     const dishwasherMock = getDishwasherDemoEntities(dishwasherDemo);
     const dryerMock = getDryerDemoEntities(dryerDemo);
-    if (Object.keys(washerMock).length === 0 && Object.keys(dishwasherMock).length === 0 && Object.keys(dryerMock).length === 0)
+    const fireMock = getFireDemoEntities(fireDemo);
+    if (
+      Object.keys(washerMock).length === 0 &&
+      Object.keys(dishwasherMock).length === 0 &&
+      Object.keys(dryerMock).length === 0 &&
+      Object.keys(fireMock).length === 0
+    )
       return base;
-    return { ...base, ...washerMock, ...dishwasherMock, ...dryerMock };
-  }, [entities, washerDemo, dishwasherDemo, dryerDemo]);
+    return { ...base, ...washerMock, ...dishwasherMock, ...dryerMock, ...fireMock };
+  }, [entities, washerDemo, dishwasherDemo, dryerDemo, fireDemo]);
 
   // Fetch the room-detail chunk once the browser is idle after first paint, so the first room tap
   // costs nothing. requestIdleCallback is missing on Safari/iOS, which is most of this household's
@@ -565,6 +663,7 @@ export function Dashboard() {
         callService={callService}
         onOpenEnergy={handleOpenEnergy}
       />
+      <FireAlarmTakeover entities={displayEntities} callService={callService} />
       <div className='dashboard-main'>
         <div className='dashboard-content'>
           <StatusBar entities={displayEntities} hassUrl={hassUrl} onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />

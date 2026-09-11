@@ -10,6 +10,8 @@ import {
   ROBOT_CLEAN_KITCHEN_1,
   ROBOT_CLEAN_KITCHEN_2,
   AC_THERMOSTAT_ENTITY,
+  KITCHEN_TEMP_SENSOR,
+  resolveKitchenHumiditySensorId,
 } from '../../config/entities';
 import { ROOM_LIGHTS } from '../../config/lights';
 import { resolveDishwasherSemanticState } from '../../utils/dishwasherSemanticState';
@@ -101,8 +103,11 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
   const climateSensorId = `climate.${areaNameNormalized}_thermostat`;
   const climateEntity = entities?.[climateSensorId];
 
+  const isKitchen = areaNameNormalized === 'kitchen';
+
   const getTempSensor = (): string | undefined => {
     if (isRooftop) return 'sensor.gw2000a_outdoor_temperature';
+    if (isKitchen) return hasReading(entities?.[KITCHEN_TEMP_SENSOR]) ? KITCHEN_TEMP_SENSOR : undefined;
 
     // Try exact sensor.{area}_temperature first - but only if it actually READS. A sensor
     // that exists with no value used to win this priority and block the fallbacks below,
@@ -137,20 +142,22 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
   const exactHumiditySensor = `sensor.${areaNameNormalized}_humidity`;
   const humiditySensor = isRooftop
     ? 'sensor.gw2000a_humidity'
-    : hasReading(entities?.[exactHumiditySensor])
-      ? exactHumiditySensor
-      : entityKeys.find(
-          key =>
-            key.includes('humidity') &&
-            !key.includes('absolute') &&
-            !key.includes('floor') &&
-            hasReading(entities[key]) &&
-            entities[key]?.attributes?.unit_of_measurement === '%' &&
-            (String(entities[key]?.attributes?.friendly_name ?? '')
-              .toLowerCase()
-              .includes(areaName) ||
-              key.toLowerCase().includes(areaNameNormalized))
-        );
+    : isKitchen
+      ? (resolveKitchenHumiditySensorId(entities) ?? undefined)
+      : hasReading(entities?.[exactHumiditySensor])
+        ? exactHumiditySensor
+        : entityKeys.find(
+            key =>
+              key.includes('humidity') &&
+              !key.includes('absolute') &&
+              !key.includes('floor') &&
+              hasReading(entities[key]) &&
+              entities[key]?.attributes?.unit_of_measurement === '%' &&
+              (String(entities[key]?.attributes?.friendly_name ?? '')
+                .toLowerCase()
+                .includes(areaName) ||
+                key.toLowerCase().includes(areaNameNormalized))
+          );
 
   const isBedroom = areaNameNormalized === 'bedroom';
   const presenceSensorId = `binary_sensor.${areaNameNormalized}_active`;
@@ -225,7 +232,6 @@ export function RoomCard({ area, entities, onClick, isSelected, hassUrl, indicat
   const hasHallwayDoor = isHallway && !!frontDoor;
 
   // Vacuum - lives in Kitchen (entity from config/entities.ts)
-  const isKitchen = areaNameNormalized === 'kitchen';
   const vacuum = entities?.[VACUUM_ENTITY];
   const vacuumState = vacuum?.state;
   const isVacuumActive = vacuumState === 'cleaning' || vacuumState === 'returning';

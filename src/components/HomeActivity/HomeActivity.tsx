@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { useHass } from '@hakit/core';
-import { getUser, type Connection } from 'home-assistant-js-websocket';
 import type { HassEntities } from '../../types';
 import { HOUSE_EVENTS_ENTITY } from '../../config/entities';
-import { useSwipeToClose } from '../../hooks';
+import { useSwipeToClose, useViewer } from '../../hooks';
 import './HomeActivity.css';
 
 /** One published house-event row — see config/entities.ts's HOUSE_EVENTS_ENTITY doc for the
@@ -88,37 +86,6 @@ function parseHouseEvents(value: unknown): HouseEvent[] {
     if (events.length >= MAX_EVENTS) break;
   }
   return events;
-}
-
-interface Viewer {
-  /** null while the user lookup resolves (or if the connection isn't up yet). */
-  isAdmin: boolean | null;
-  /** The HA user's display name, for matching `audienceUsers` (case-insensitive). */
-  name: string | null;
-}
-
-/** Who is looking at the feed — the audience gate's input (see HouseEvent.audience/audienceUsers).
- * `isAdmin` stays `null` while resolving and `false` on failure: the restricted view is the safe
- * default, so a slow user fetch briefly hides admin rows from Mikkel rather than ever flashing
- * them at a housemate. */
-function useViewer(): Viewer {
-  const connection = useHass(s => s.connection);
-  const [viewer, setViewer] = useState<Viewer>({ isAdmin: null, name: null });
-  useEffect(() => {
-    if (!connection) return;
-    let cancelled = false;
-    getUser(connection as Connection)
-      .then(user => {
-        if (!cancelled) setViewer({ isAdmin: user.is_admin === true, name: typeof user.name === 'string' ? user.name : null });
-      })
-      .catch(() => {
-        if (!cancelled) setViewer({ isAdmin: false, name: null });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [connection]);
-  return viewer;
 }
 
 function sameLocalDay(a: Date, b: Date): boolean {

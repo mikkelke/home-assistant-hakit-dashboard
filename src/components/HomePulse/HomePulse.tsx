@@ -5,6 +5,7 @@ import { useModalBackButton } from '../../hooks';
 import { ROBOT_MAPS_PATH, ROBOT_PAUSED_BOOLEAN_ENTITY, ROBOT_PAUSE_REASON_ENTITY } from '../../config/entities';
 import { QUICK_ACCESS_OPEN_EVENT } from '../../config/transit';
 import { deriveHomePulseSummary } from '../../utils/homePulse';
+import { FIRE_SAFETY_OPEN_EVENT } from '../../utils/fireSafety';
 import '../Vacuum/VacuumCard.css';
 import './HomePulse.css';
 
@@ -24,7 +25,13 @@ function PulseChipButton({ chip, onRoomSelect }: { chip: PulseChip; onRoomSelect
       <button
         type='button'
         className={`home-pulse-chip tone-${chip.tone} ${chip.pulse ? 'is-pulsing' : ''}`}
-        onClick={() => window.dispatchEvent(new CustomEvent(QUICK_ACCESS_OPEN_EVENT, { detail: { modal: chip.action } }))}
+        onClick={() =>
+          window.dispatchEvent(
+            chip.action === 'fire'
+              ? new CustomEvent(FIRE_SAFETY_OPEN_EVENT)
+              : new CustomEvent(QUICK_ACCESS_OPEN_EVENT, { detail: { modal: chip.action } })
+          )
+        }
       >
         {content}
       </button>
