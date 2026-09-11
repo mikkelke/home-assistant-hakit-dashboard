@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import type { CallServiceFunction, HassEntities } from '../../types';
@@ -54,10 +54,35 @@ function AlarmScreen({ fire, onHush }: { fire: FireSafetyModel; onHush: () => vo
   );
 }
 
+const HUSH_BAR_CLASS = 'fire-hushed';
+const HUSH_BAR_HEIGHT_VAR = '--fire-hush-bar-h';
+
+/** Publishes the bar's measured height on <html> so the page pushes down under it instead of
+ * being covered (the status bar's avatar row and the price strip sit exactly where it lands). */
+function useHushBarInset(ref: React.RefObject<HTMLDivElement | null>) {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const root = document.documentElement;
+    if (!el) return;
+    const apply = () => root.style.setProperty(HUSH_BAR_HEIGHT_VAR, `${el.offsetHeight}px`);
+    root.classList.add(HUSH_BAR_CLASS);
+    apply();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(apply) : null;
+    observer?.observe(el);
+    return () => {
+      observer?.disconnect();
+      root.classList.remove(HUSH_BAR_CLASS);
+      root.style.removeProperty(HUSH_BAR_HEIGHT_VAR);
+    };
+  }, [ref]);
+}
+
 function HushBar({ fire, now, onRearm }: { fire: FireSafetyModel; now: Date; onRearm: () => void }) {
   const who = fire.hushedBy ? `Silenced by ${fire.hushedBy}` : 'Silenced';
+  const ref = useRef<HTMLDivElement | null>(null);
+  useHushBarInset(ref);
   return (
-    <div className='fire-hush-bar' role='status'>
+    <div className='fire-hush-bar' role='status' ref={ref}>
       <Icon icon='mdi:bell-off-outline' aria-hidden='true' />
       <span className='fire-hush-text'>
         {who} — <strong>{formatCountdown(fire.hushedUntil, now)}</strong> left

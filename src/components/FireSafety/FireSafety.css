@@ -292,6 +292,13 @@
   font-size: 0.62rem;
 }
 
+html.fire-hushed .dashboard {
+  padding-top: var(--fire-hush-bar-h, 0px);
+}
+html.fire-hushed .room-detail.mobile {
+  top: var(--fire-hush-bar-h, 0px);
+}
+
 /* ---- Fire sheet (chip tap: pre-alarm / hushed / clearing / fault) ---- */
 .fire-sheet-status {
   display: flex;
