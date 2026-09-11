@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import type { RoomDetailProps } from '../../types';
@@ -23,6 +24,23 @@ const HEATING_SEASON_OFF_STATES = new Set(['off', 'unavailable', 'unknown']);
 
 export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMobile }: RoomDetailProps) {
   const areaName = area.name.toLowerCase().replace(/\s+/g, '_');
+
+  // Rows remember their open state in localStorage; a closed panel should reopen tidy.
+  useEffect(
+    () => () => {
+      try {
+        for (let i = window.localStorage.length - 1; i >= 0; i--) {
+          const key = window.localStorage.key(i);
+          if (key && /^(lightcard|covercard|heatcard|wakeupalarm|tvcard|sonoscard|robercard)-collapsed/.test(key)) {
+            window.localStorage.setItem(key, 'true');
+          }
+        }
+      } catch {
+        /* storage unavailable */
+      }
+    },
+    []
+  );
   const formatName = (text: string) => text.replace(/\b(\p{L})(\p{L}*)/gu, (_, a, b) => a.toUpperCase() + b.toLowerCase());
 
   // Use standardized swipe-to-close hook
