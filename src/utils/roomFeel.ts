@@ -21,6 +21,17 @@ export interface RoomFeelModel {
   sourceCount: number;
   headline: string;
   detail: string;
+  /** The comfort word the backend put after the " · " in `headline` ("comfortable", "warm", ...). */
+  comfortWord: string;
+  /** Any of the room's contacts (windows, rooftop/terrace doors) reads open. Contacts are binary:
+   * ajar vs wide open is unknown, so copy must say "open", never "wide open". */
+  windowOpen: boolean;
+  /** What is open, in the backend's own words ("window", "rooftop door"). Empty when the backend
+   * doesn't publish `open_labels` yet - fall back to `windowOpen` then. */
+  openLabels: string[];
+  sunHit: boolean;
+  /** Kitchen only (Twinguard IAQ/eCO2 fused in); "unknown" elsewhere. */
+  airBand: string;
 }
 
 export const EMPTY_ROOM_FEEL: RoomFeelModel = {
@@ -37,7 +48,29 @@ export const EMPTY_ROOM_FEEL: RoomFeelModel = {
   sourceCount: 0,
   headline: '',
   detail: '',
+  comfortWord: '',
+  windowOpen: false,
+  openLabels: [],
+  sunHit: false,
+  airBand: 'unknown',
 };
+
+/** AppDaemon's set_state drops empty lists, so the backend publishes the placeholder "<none>"
+ * (documented for `excluded`, same convention for `open_labels`). Treat it as empty. */
+function toLabelList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(v => String(v ?? '').trim()).filter(v => v.length > 0 && v !== '<none>' && v !== 'None');
+}
+
+/** "23.3 °C · comfortable" -> "comfortable". The UI never re-derives comfort from the number. */
+function comfortWordOf(headline: string): string {
+  const idx = headline.indexOf('·');
+  if (idx < 0) return '';
+  return headline
+    .slice(idx + 1)
+    .trim()
+    .toLowerCase();
+}
 
 function toBool(value: unknown): boolean {
   if (typeof value === 'boolean') return value;
@@ -83,6 +116,8 @@ export function deriveRoomFeel(entities: HassEntities | undefined, areaId: strin
 
   const a = entity.attributes ?? {};
   const sources = Array.isArray(a.sources) ? a.sources : [];
+  const headline = toText(a.headline);
+  const openLabels = toLabelList(a.open_labels);
 
   return {
     present: true,
@@ -96,7 +131,12 @@ export function deriveRoomFeel(entities: HassEntities | undefined, areaId: strin
     mouldRisk: toMouldRisk(a.mould_risk),
     stale: toBool(a.stale),
     sourceCount: sources.length,
-    headline: toText(a.headline),
+    headline,
     detail: toText(a.detail),
+    comfortWord: comfortWordOf(headline),
+    windowOpen: toBool(a.window_open) || openLabels.length > 0,
+    openLabels,
+    sunHit: toBool(a.sun_hit),
+    airBand: toText(a.air_band).toLowerCase() || 'unknown',
   };
 }

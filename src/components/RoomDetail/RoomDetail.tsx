@@ -2,7 +2,6 @@ import { Icon } from '@iconify/react';
 import type { RoomDetailProps } from '../../types';
 import { resolveRoomActiveReason } from '../../utils/roomActiveReason';
 import { SonosPlayer, TVCard } from '../MediaPlayer';
-import { HeatCard } from '../Heating';
 import { TonightCard } from '../AC';
 import { CoverCard } from '../Cover';
 import { VacuumCard, RoomCleaningToggle } from '../Vacuum';
@@ -12,8 +11,7 @@ import { IntercomCard } from '../Intercom';
 import { WasherCard } from '../Washer';
 import { DishwasherCard } from '../Dishwasher';
 import { DryerCard } from '../Dryer';
-import { AirQualityCard } from '../FireSafety';
-import { RoomFeelCard } from './RoomFeelCard';
+import { ClimateCard } from './ClimateCard';
 import { ROBOT_CLEAN_PREFIX, VACUUM_ENTITY } from '../../config/entities';
 import { resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { useSwipeToClose } from '../../hooks';
@@ -53,12 +51,6 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
   // (TonightCard, which self-gates further) — the bedroom never shows both.
   const familyRoomThermostatState = entities?.['climate.family_room_thermostat']?.state;
   const heatingSeason = !!familyRoomThermostatState && !HEATING_SEASON_OFF_STATES.has(familyRoomThermostatState);
-  // Out of season an all-off HeatCard is wasted space (user 2026-07-29) -> hide it entirely.
-  // Safety valve: a zone someone turned on individually stays visible even off-season --
-  // a card must never be hidden while its own heat is running.
-  const zoneState = climate?.state;
-  const zoneOn = !!zoneState && !HEATING_SEASON_OFF_STATES.has(zoneState);
-  const showHeat = heatingSeason || zoneOn;
   const isHallway = area.name.toLowerCase() === 'hallway';
   const isRooftop = area.area_id === 'rooftop' || area.name.toLowerCase().replace(/\s+/g, '_') === 'rooftop';
   const isLivingRoom = area.name.toLowerCase() === 'living room' || area.name.toLowerCase() === 'living_room';
@@ -155,11 +147,16 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
           />
         )}
 
-        {/* Feel - near the top, right after Sonos/TV. Kitchen merges this straight into its
-            existing AirQualityCard (which also owns the smoke alarm's IAQ/eCO2 reading) instead
-            of getting a second card; every other room gets the generic RoomFeelCard, which
-            hides itself when that area has no feel sensor yet. */}
-        {isKitchen ? <AirQualityCard entities={entities} /> : <RoomFeelCard entities={entities} areaId={area.area_id} />}
+        {/* Climate - near the top, right after Sonos/TV: how the room feels, what the house is
+            doing about it, the heating target, the one thing to do. One card per room: it folds
+            in the kitchen's air quality and the per-room heating control (the heating block only
+            shows in season or while that zone runs). Hides itself for areas with neither a feel
+            sensor nor a thermostat (rooftop, technical room). */}
+        <ClimateCard entities={entities} areaId={area.area_id} callService={callService} heatingSeason={heatingSeason} />
+
+        {/* Bedroom: the Tonight card (A/C plan + its only control) sits directly under Climate so
+            the two read as one system; it self-gates to the unit being plugged in / AC season. */}
+        {isBedroom && <TonightCard entities={entities} callService={callService} />}
 
         {/* Washer (Guest Bathroom) */}
         {isGuestBathroom && washerStateEntity && <WasherCard entities={entities} callService={callService} />}
@@ -175,18 +172,6 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
 
         {/* Light Controls (bedroom moves this below the blind - see the Light Controls line after Cover) */}
         {!isBedroom && <LightCard areaName={area.name} entities={entities} callService={callService} />}
-
-        {/* Bedroom seasonal combo slot: floor heating in winter, the Tonight cooling card once AC
-            season starts (heatingSeason gates on the whole-apartment thermostat) - never both. */}
-        {isBedroom &&
-          (heatingSeason ? (
-            <HeatCard areaName={area.name} entities={entities} callService={callService} />
-          ) : (
-            <TonightCard entities={entities} callService={callService} />
-          ))}
-
-        {/* Heat Card (floor heating) */}
-        {climate && !isBedroom && showHeat && <HeatCard areaName={area.name} entities={entities} callService={callService} />}
 
         {/* Cover/Blinds Card */}
         {cover && <CoverCard areaName={area.name} entities={entities} callService={callService} />}

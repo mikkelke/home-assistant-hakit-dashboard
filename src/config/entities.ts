@@ -317,3 +317,43 @@ export function roomFeelSensorId(areaId: string | undefined | null): string | nu
   const suffix = normalized === 'office' ? 'claudias_room' : normalized;
   return `sensor.${suffix}_feel`;
 }
+
+// --- Rooftop weather station (Ecowitt GW2000A / WS90) - the outdoor context for climate advice ---
+
+export const OUTDOOR_TEMP_SENSOR = 'sensor.gw2000a_outdoor_temperature';
+export const OUTDOOR_HUMIDITY_SENSOR = 'sensor.gw2000a_humidity';
+
+// --- Underfloor heating thermostats (Salus iT600, one climate.* per zone) ---
+
+/** The living-area rooms are ONE physical zone on the Salus master at the hallway. HA still carries
+ * `climate.kitchen_/living_room_/dining_room_/hallway_thermostat` clones of it (slated for
+ * retirement once nothing reads them), so the dashboard targets the master directly. */
+const FAMILY_ZONE_AREAS = new Set(['kitchen', 'living_room', 'dining_room', 'hallway']);
+
+export interface RoomThermostat {
+  entityId: string;
+  /** True for the living-area rooms that share the family-room zone. */
+  shared: boolean;
+  /** Plain-words note shown next to the target control when the zone is shared. */
+  sharedNote: string | null;
+}
+
+/** Which thermostat a room's target control writes to, keyed off the HA area_id (Claudia's room
+ * is still `office` in the registry - see `roomFeelSensorId`). Returns null for areas with no
+ * underfloor zone (rooftop, technical room). */
+export function roomThermostat(areaId: string | undefined | null): RoomThermostat | null {
+  if (!areaId) return null;
+  const normalized = areaId.toLowerCase().replace(/\s+/g, '_');
+  if (FAMILY_ZONE_AREAS.has(normalized)) {
+    return {
+      entityId: 'climate.family_room_thermostat',
+      shared: true,
+      sharedNote: normalized === 'living_room' ? 'Shared with the kitchen, dining and hallway' : 'Shared with the living area',
+    };
+  }
+  const suffix = normalized === 'office' ? 'claudias_room' : normalized;
+  if (['bedroom', 'claudias_room', 'kristines_room', 'bathroom', 'guest_bathroom'].includes(suffix)) {
+    return { entityId: `climate.${suffix}_thermostat`, shared: false, sharedNote: null };
+  }
+  return null;
+}
