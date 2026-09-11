@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { useModalBackButton, useSwipeToClose } from '../../hooks';
@@ -16,6 +16,9 @@ export interface ApplianceSheetProps {
   children: ReactNode;
 }
 
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 /**
  * Shared portaled sheet shell for the appliance cards (picker + history sheets): overlay, sheet,
  * a top row with glyph/title/close, and a body slot. Always portaled to document.body — this is
@@ -25,14 +28,51 @@ export interface ApplianceSheetProps {
 export function ApplianceSheet({ accentClassName, glyphIcon, title, historyKey, onClose, children }: ApplianceSheetProps) {
   const { requestClose } = useModalBackButton({ isOpen: true, onRequestClose: onClose, historyKey });
   const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestClose);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const requestCloseRef = useRef(requestClose);
+  useEffect(() => {
+    requestCloseRef.current = requestClose;
+  }, [requestClose]);
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+    return () => {
+      previouslyFocused?.focus?.();
+    };
+  }, []);
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      requestCloseRef.current();
+      return;
+    }
+    if (e.key !== 'Tab' || !sheetRef.current) return;
+    const focusable = Array.from(sheetRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
 
   return createPortal(
     <div className={`appliance-modal-overlay ${accentClassName}`} onClick={requestClose}>
       <div
+        ref={sheetRef}
         className='appliance-sheet'
         role='dialog'
         aria-modal='true'
+        aria-label={title}
         onClick={e => e.stopPropagation()}
+        onKeyDown={handleKeyDown}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -42,7 +82,7 @@ export function ApplianceSheet({ accentClassName, glyphIcon, title, historyKey, 
             <Icon icon={glyphIcon} aria-hidden='true' />
           </span>
           <span className='appliance-title'>{title}</span>
-          <button className='appliance-sheet-close modal-close-button' onClick={requestClose} aria-label='Close'>
+          <button ref={closeButtonRef} className='appliance-sheet-close modal-close-button' onClick={requestClose} aria-label='Close'>
             <Icon icon='mdi:close' />
           </button>
         </div>

@@ -49,8 +49,11 @@ export interface ClimateStoryInput {
 }
 
 export interface ClimateStory {
-  /** The clause after the em dash. Null means the hero is just "temp · word". */
+  /** The full clause, shown in the climate sheet. Null means there is nothing to say. */
   clause: string | null;
+  /** An explicitly authored short form of `clause` for the collapsed header's one line. Null
+   * whenever `clause` is null; otherwise always set - never derived by truncating `clause`. */
+  shortClause: string | null;
   /** The one thing a person could do, or null for calm silence (never "Nothing to do"). */
   advice: string | null;
   chips: ClimateChip[];
@@ -73,6 +76,10 @@ function lowerFirst(text: string): string {
   return text.length > 0 ? text[0].toLowerCase() + text.slice(1) : text;
 }
 
+function upperFirst(text: string): string {
+  return text.length > 0 ? text[0].toUpperCase() + text.slice(1) : text;
+}
+
 export function composeClimateStory(input: ClimateStoryInput): ClimateStory {
   const { feel, outdoorTempC, heating, ac, air } = input;
   const outside = outsideText(outdoorTempC);
@@ -81,20 +88,26 @@ export function composeClimateStory(input: ClimateStoryInput): ClimateStory {
   const heatingNow = heating.zoneOn && heating.action === 'heating';
 
   let clause: string | null = null;
+  let shortClause: string | null = null;
   let advice: string | null = null;
 
-  // Priority: the A/C story (bedroom) > an opening (it explains the reading) > heating actually
-  // running > damp > airing > kitchen air > sun > heating idle > the backend's own detail.
+  // Priority: current adverse conditions outrank future plans. A/C cooling right now stays on
+  // top - it explains what the room is doing this instant - then a mould alert, an open opening,
+  // heating actually catching up, watch-level damp, airing, kitchen air, the A/C's own plans, sun,
+  // and idle heating, in that order; the backend's own detail is the last-resort fallback. Only
+  // what a backend value confirms is claimed - "window open, 14 °C outside" is fine, "heating
+  // waits" is not, since an open window plus an enabled zone doesn't prove the zone is waiting.
   if (ac && ac.cooling) {
     clause = 'A/C cooling';
-  } else if (ac && ac.deployed && ac.armed) {
-    clause = ac.nextStart ? `pre-cool planned ${ac.nextStart}` : 'A/C armed for tonight';
-  } else if (ac && !ac.deployed && (ac.rec === 'ac' || ac.rec === 'hybrid')) {
-    clause = ac.nextStart ? `pre-cool planned ${ac.nextStart}, deploy the A/C` : 'deploy the A/C';
-    advice = ac.verdictText || null;
+    shortClause = 'A/C cooling';
+  } else if (feel.mouldRisk === 'high') {
+    clause = 'damp, air it out';
+    shortClause = 'Damp, air it out';
+    advice = 'Open the window after showers';
   } else if (feel.windowOpen) {
+    shortClause = `${upperFirst(opening)} open`;
     if (heating.zoneOn) {
-      clause = `${opening} open, heating waits`;
+      clause = outside ? `${opening} open, ${outside}` : `${opening} open`;
       if (feel.airingHelps) advice = 'Leave it open a while';
       else if (outdoorTempC != null && outdoorTempC < 15) advice = `Close the ${opening} while the heating is on`;
     } else if (outside && WARM_WORDS.has(word) && outdoorTempC != null && feel.tempC != null && outdoorTempC <= feel.tempC - 2) {
@@ -106,29 +119,40 @@ export function composeClimateStory(input: ClimateStoryInput): ClimateStory {
       clause = `${opening} open`;
     }
   } else if (heatingNow) {
-    clause =
-      feel.floorSpreadC != null && feel.floorSpreadC > 0.3
-        ? `floor heating catching up (floor ${feel.floorSpreadC.toFixed(1)} °C cooler)`
-        : 'heating';
-  } else if (feel.mouldRisk === 'high') {
-    clause = 'damp, air it out';
-    advice = 'Open the window after showers';
+    if (feel.floorSpreadC != null && feel.floorSpreadC > 0.3) {
+      clause = `floor heating catching up (floor ${feel.floorSpreadC.toFixed(1)} °C cooler)`;
+      shortClause = 'Floor heating catching up';
+    } else {
+      clause = 'heating';
+      shortClause = 'Heating';
+    }
   } else if (feel.mouldRisk === 'watch') {
     clause = 'getting damp';
+    shortClause = 'Getting damp';
     advice = 'Air it out after showers';
   } else if (feel.airingHelps) {
     clause = outside ? `airing would help, it's ${outside}` : 'airing would help';
-  } else if (air && air.cooking && (air.band === 'stuffy' || air.band === 'poor')) {
-    clause = 'cooking, the air will settle';
+    shortClause = 'Airing would help';
   } else if (air && (air.band === 'stuffy' || air.band === 'poor')) {
-    clause = `air is ${air.band}`;
+    clause = air.cooking ? `cooking, air is ${air.band}` : `air is ${air.band}`;
+    shortClause = `Air ${air.band}`;
     advice = airBandInfo(air.band).advice;
+  } else if (ac && ac.deployed && ac.armed) {
+    clause = ac.nextStart ? `pre-cool planned ${ac.nextStart}` : 'A/C armed for tonight';
+    shortClause = ac.nextStart ? `Pre-cool planned ${ac.nextStart}` : 'A/C armed for tonight';
+  } else if (ac && !ac.deployed && (ac.rec === 'ac' || ac.rec === 'hybrid')) {
+    clause = ac.nextStart ? `pre-cool planned ${ac.nextStart}, deploy the A/C` : 'deploy the A/C';
+    shortClause = ac.nextStart ? `Pre-cool planned ${ac.nextStart}` : 'Deploy the A/C';
+    advice = ac.verdictText || null;
   } else if (feel.sunHit) {
     clause = 'sun on the window';
+    shortClause = 'Sun on the window';
   } else if (heating.zoneOn) {
     clause = 'heating idle';
+    shortClause = 'Heating idle';
   } else if (feel.detail && feel.detail.toLowerCase() !== 'nothing to do') {
     clause = lowerFirst(feel.detail);
+    shortClause = feel.detail;
   }
 
   const chips: ClimateChip[] = [];
@@ -151,7 +175,7 @@ export function composeClimateStory(input: ClimateStoryInput): ClimateStory {
     chips.push({ id: 'air', icon: 'mdi:air-filter', label: `Air ${air.band}`, tone });
   }
 
-  return { clause, advice, chips };
+  return { clause, shortClause, advice, chips };
 }
 
 /** Colour family for the comfort word next to the big temperature. */

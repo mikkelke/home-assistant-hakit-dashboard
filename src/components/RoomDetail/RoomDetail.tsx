@@ -11,8 +11,8 @@ import { IntercomCard } from '../Intercom';
 import { WasherCard } from '../Washer';
 import { DishwasherCard } from '../Dishwasher';
 import { DryerCard } from '../Dryer';
-import { ClimateCard } from './ClimateCard';
-import { ROBOT_CLEAN_PREFIX, VACUUM_ENTITY } from '../../config/entities';
+import { RoomClimateHeader } from './RoomClimateHeader';
+import { ROBOT_CLEAN_PREFIX, VACUUM_ENTITY, roomThermostat } from '../../config/entities';
 import { resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { useSwipeToClose } from '../../hooks';
 import './RoomDetail.css';
@@ -41,6 +41,11 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
   const presenceReason = resolveRoomActiveReason(entities?.[presenceSensor], entities);
   const humidity = entities?.[humiditySensor]?.state;
   const climate = entities?.[climateSensor];
+  // RoomClimateHeader already shows humidity (feel sensor or thermostat, incl. a shared one) - the
+  // standalone card below must not duplicate it for rooms whose only thermostat is shared.
+  const climateHeaderThermostat = roomThermostat(area.area_id);
+  const hasSharedOrOwnThermostat = !!climateHeaderThermostat && !!entities?.[climateHeaderThermostat.entityId];
+  const hasFeelSensor = !!entities?.[`sensor.${areaName}_feel`];
   const mediaPlayer = entities?.[mediaSensor];
   const cover = entities?.[coverId];
   const cleaningToggle = entities?.[cleaningToggleId];
@@ -90,18 +95,28 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
         <div className='room-detail-title'>
           <h2>{formatName(area.name)}</h2>
           {presence && (
-            <span
-              className='presence-badge'
-              title={presenceReason ? `${presenceReason.tierLabel} · via ${presenceReason.witnessLabel}` : 'Occupied'}
-            >
+            <span className='presence-badge'>
               {presenceReason && <Icon icon={presenceReason.icon} />}
-              Occupied{presenceReason ? ` · ${presenceReason.tierLabel}` : ''}
+              Occupied
             </span>
           )}
         </div>
         <button className='close-button' onClick={onClose}>
           <Icon icon='mdi:close' />
         </button>
+        {/* Climate: a two-line subtitle - temperature/comfort, then the one clause that matters
+            (an open window, heating catching up, ...) - that opens the full picture (numbers,
+            chips, the heating target) in a bottom sheet. Full-width second header row so it stays
+            put while the content below scrolls; hides itself for areas with neither a feel sensor
+            nor a thermostat (rooftop, technical room). */}
+        <RoomClimateHeader
+          key={area.area_id}
+          roomName={formatName(area.name)}
+          entities={entities}
+          areaId={area.area_id}
+          callService={callService}
+          heatingSeason={heatingSeason}
+        />
       </div>
 
       <div className='room-detail-content'>
@@ -147,15 +162,9 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
           />
         )}
 
-        {/* Climate - near the top, right after Sonos/TV: how the room feels, what the house is
-            doing about it, the heating target, the one thing to do. One card per room: it folds
-            in the kitchen's air quality and the per-room heating control (the heating block only
-            shows in season or while that zone runs). Hides itself for areas with neither a feel
-            sensor nor a thermostat (rooftop, technical room). */}
-        <ClimateCard entities={entities} areaId={area.area_id} callService={callService} heatingSeason={heatingSeason} />
-
-        {/* Bedroom: the Tonight card (A/C plan + its only control) sits directly under Climate so
-            the two read as one system; it self-gates to the unit being plugged in / AC season. */}
+        {/* Bedroom: the Tonight card (A/C plan + its only control) sits directly under the header's
+            climate line so the two read as one system; it self-gates to the unit being plugged
+            in / AC season. */}
         {isBedroom && <TonightCard entities={entities} callService={callService} />}
 
         {/* Washer (Guest Bathroom) */}
@@ -185,8 +194,9 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
         {/* Room Cleaning Toggle - for rooms that have it */}
         {cleaningToggle && <RoomCleaningToggle areaName={area.name} entities={entities} callService={callService} />}
 
-        {/* Humidity (if no climate, show standalone) */}
-        {!climate && humidity && (
+        {/* Humidity (only when RoomClimateHeader isn't already showing one, incl. via a shared
+            thermostat) */}
+        {!climate && !hasSharedOrOwnThermostat && !hasFeelSensor && humidity && (
           <div className='room-stat-card'>
             <Icon icon='mdi:water-percent' />
             <span className='stat-value'>{humidity}%</span>

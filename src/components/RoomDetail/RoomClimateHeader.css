@@ -1,0 +1,344 @@
+/* Room climate header - the two-line subtitle under the room name (see RoomDetail.tsx) that
+   opens the full climate picture in a bottom sheet built on the shared ApplianceSheet shell.
+   Borrows the fire takeover's restraint - one calm number, a serif comfort word, one sentence -
+   without its glow or continuous animation. */
+
+.climate-sheet .appliance-sheet-close {
+  width: 44px !important;
+  height: 44px !important; /* Override index.css's 32px !important. */
+}
+
+.room-climate,
+.climate-sheet {
+  --tone: #c5c5cc;
+}
+.room-climate {
+  grid-column: 1 / -1;
+}
+.tone-fresh {
+  --tone: var(--air-fresh, #34d399);
+}
+.tone-good {
+  --tone: var(--air-good, #38bdf8);
+}
+.tone-warn {
+  --tone: var(--air-stuffy, #fbbf24);
+}
+.tone-alert {
+  --tone: var(--air-poor, #fb7185);
+}
+
+/* ---- Collapsed header trigger ---- */
+.room-climate-trigger {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px;
+  align-content: center;
+  align-items: center;
+  gap: 2px 8px;
+  width: 100%;
+  height: 64px;
+  padding: 6px 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.room-climate-reading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.room-climate-number {
+  flex-shrink: 0;
+  font-size: 28px;
+  line-height: 30px;
+  font-weight: 300;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+}
+.room-climate-number small {
+  margin-left: 2px;
+  font-size: 14px;
+  font-weight: 400;
+  color: #b3b3bd;
+}
+.room-climate-word {
+  font-family: ui-serif, 'New York', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 24px;
+  color: var(--tone);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.room-climate-word.is-old {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 24px;
+  color: #c5c5cc;
+}
+.room-climate-clause {
+  grid-column: 1;
+  font-size: 14px;
+  line-height: 20px;
+  color: #b3b3bd;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.room-climate-chevron {
+  font-size: 20px;
+  color: #b3b3bd;
+}
+.room-climate-trigger:active {
+  background: rgba(255, 255, 255, 0.04);
+}
+.room-climate-trigger:focus-visible,
+.climate-sheet button:focus-visible,
+.climate-scroll:focus-visible {
+  outline: 2px solid #b8dfff;
+  outline-offset: 3px;
+}
+
+@media (min-width: 360px) {
+  .room-climate-trigger {
+    height: auto;
+    min-height: 64px;
+  }
+}
+
+/* ---- Sheet: bottom-aligned modifier over the shared appliance sheet shell ---- */
+.climate-sheet {
+  --appliance-accent: var(--tone);
+  --appliance-accent-bg: rgba(255, 255, 255, 0.06);
+  align-items: flex-end;
+  padding: 12px 12px max(12px, env(safe-area-inset-bottom));
+}
+.climate-sheet .appliance-sheet {
+  max-width: 430px;
+  max-height: min(640px, 85dvh);
+  padding: 20px;
+  animation: climate-sheet-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.climate-sheet .appliance-sheet-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.climate-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.climate-full-story {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* ---- Chips - carried over from the old climate card ---- */
+.climate-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+}
+.climate-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 30px;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(235, 235, 245, 0.75);
+}
+.climate-chip svg {
+  font-size: 0.95rem;
+}
+.climate-chip.chip-heat {
+  background: rgba(255, 159, 10, 0.16);
+  color: #ff9f0a;
+}
+.climate-chip.chip-cool {
+  background: rgba(100, 210, 255, 0.16);
+  color: #64d2ff;
+}
+.climate-chip.chip-fresh {
+  background: color-mix(in srgb, var(--air-fresh, #34d399) 16%, transparent);
+  color: var(--air-fresh, #34d399);
+}
+.climate-chip.chip-good {
+  background: color-mix(in srgb, var(--air-good, #38bdf8) 16%, transparent);
+  color: var(--air-good, #38bdf8);
+}
+.climate-chip.chip-warn {
+  background: color-mix(in srgb, var(--air-stuffy, #fbbf24) 16%, transparent);
+  color: var(--air-stuffy, #fbbf24);
+}
+.climate-chip.chip-alert {
+  background: color-mix(in srgb, var(--air-poor, #fb7185) 18%, transparent);
+  color: var(--air-poor, #fb7185);
+}
+
+/* ---- Numbers grid - carried over from the old climate card ---- */
+.climate-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 16px;
+}
+.climate-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0.6rem 0.25rem;
+  border-radius: 14px;
+  background: #2c2c2e;
+}
+.climate-stat-value {
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.climate-stat-unit {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: rgba(235, 235, 245, 0.5);
+  margin-left: 1px;
+}
+.climate-stat-label {
+  font-size: 12px;
+  color: rgba(235, 235, 245, 0.5);
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: normal;
+}
+.climate-detail-note {
+  margin: 0.6rem 0 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #b3b3bd;
+}
+
+/* ---- Footer: pinned heating stepper + toggle ---- */
+.climate-controls {
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  margin-top: 16px;
+  padding-top: 8px;
+}
+.climate-control-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+}
+.climate-zone-toggle {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 0.6rem;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #ff9f0a;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.climate-zone-toggle:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.climate-shared {
+  font-size: 13px;
+  line-height: 18px;
+  color: #b3b3bd;
+  margin-bottom: 10px;
+}
+.climate-stepper {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.climate-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: #3a3a3c;
+  color: #fff;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.climate-step:active {
+  background: #48484a;
+  transform: scale(0.94);
+}
+.climate-step:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.climate-step svg {
+  font-size: 1.3rem;
+}
+.climate-target-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1px;
+}
+.climate-target-value {
+  font-size: 26px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.climate-target-label {
+  font-size: 13px;
+  color: rgba(235, 235, 245, 0.5);
+  line-height: 1.25;
+}
+
+@keyframes climate-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .climate-sheet .appliance-sheet {
+    animation: none;
+  }
+  .climate-step {
+    transition: none;
+  }
+}
