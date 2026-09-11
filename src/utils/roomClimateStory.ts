@@ -107,7 +107,7 @@ export function composeClimateStory(input: ClimateStoryInput): ClimateStory {
   } else if (feel.windowOpen) {
     shortClause = `${upperFirst(opening)} open`;
     if (heating.zoneOn) {
-      clause = outside ? `${upperFirst(opening)} open, ${outside}` : `${opening} open`;
+      clause = outside ? `${upperFirst(opening)} open, ${outside}` : `${upperFirst(opening)} open`;
       if (feel.airingHelps) advice = 'Leave it open a while';
       else if (outdoorTempC != null && outdoorTempC < 15) advice = `Close the ${opening} while the heating is on`;
     } else if (outside && WARM_WORDS.has(word) && outdoorTempC != null && feel.tempC != null && outdoorTempC <= feel.tempC - 2) {
