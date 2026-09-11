@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import type { RoomDetailProps } from '../../types';
 import { resolveRoomActiveReason } from '../../utils/roomActiveReason';
@@ -101,14 +102,9 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
             </span>
           )}
         </div>
-        <button className='close-button' onClick={onClose}>
-          <Icon icon='mdi:close' />
-        </button>
-        {/* Climate: a two-line subtitle - temperature/comfort, then the one clause that matters
-            (an open window, heating catching up, ...) - that opens the full picture (numbers,
-            chips, the heating target) in a bottom sheet. Full-width second header row so it stays
-            put while the content below scrolls; hides itself for areas with neither a feel sensor
-            nor a thermostat (rooftop, technical room). */}
+        {/* Climate chip: icon + temperature, colour carries the comfort word. Tap opens the full
+            picture (numbers, chips, the heating target) in a bottom sheet. Hides itself for areas
+            with neither a feel sensor nor a thermostat (rooftop, technical room). */}
         <RoomClimateHeader
           key={area.area_id}
           roomName={formatName(area.name)}
@@ -117,6 +113,12 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
           callService={callService}
           heatingSeason={heatingSeason}
         />
+        {/* Phone: close moves to a floating thumb-reach button (below) so this row stays one line. */}
+        {!isMobile && (
+          <button className='close-button' onClick={onClose} aria-label='Close'>
+            <Icon icon='mdi:close' />
+          </button>
+        )}
       </div>
 
       <div className='room-detail-content'>
@@ -204,6 +206,16 @@ export function RoomDetail({ area, entities, hassUrl, callService, onClose, isMo
           </div>
         )}
       </div>
+
+      {/* Phone: floating close, thumb-reachable bottom-right. A lower z-index than any sheet
+          overlay (see Appliance.css/FireSafety.css) so an open sheet already covers it. */}
+      {isMobile &&
+        createPortal(
+          <button type='button' className='room-detail-floating-close' onClick={onClose} aria-label='Close'>
+            <Icon icon='mdi:close' />
+          </button>,
+          document.body
+        )}
     </div>
   );
 }

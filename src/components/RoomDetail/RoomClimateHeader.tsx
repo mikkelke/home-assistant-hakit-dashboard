@@ -191,6 +191,12 @@ export function RoomClimateHeader({ roomName, entities, areaId, callService, hea
   const word = tempC == null ? 'Unavailable' : feel.stale ? 'Reading old' : heroWord;
   const brief = story.shortClause;
 
+  const isUnavailable = tempC == null;
+  const isStale = !isUnavailable && feel.stale;
+  const chipMuted = isUnavailable || isStale;
+  const chipIcon = isUnavailable ? 'mdi:thermometer' : isStale ? 'mdi:clock-outline' : story.icon;
+  const chipTemp = isUnavailable ? '—°' : `${tempC.toFixed(1)}°`;
+
   const floorNote =
     feel.floorSpreadC == null
       ? null
@@ -207,7 +213,7 @@ export function RoomClimateHeader({ roomName, entities, areaId, callService, hea
     >
       <button
         type='button'
-        className='room-climate-trigger'
+        className={`room-climate-chip ${chipMuted ? 'is-muted' : ''}`}
         aria-haspopup='dialog'
         aria-expanded={open}
         aria-label={`${roomName} climate: ${
@@ -215,15 +221,8 @@ export function RoomClimateHeader({ roomName, entities, areaId, callService, hea
         }${word ? `, ${word}` : ''}${brief ? `, ${brief}` : ''}. Open controls and details`}
         onClick={() => setOpen(true)}
       >
-        <span className='room-climate-reading'>
-          <span className='room-climate-number'>
-            {tempC == null ? '—' : tempC.toFixed(1)}
-            <small>°C</small>
-          </span>
-          {word && <span className={`room-climate-word ${feel.stale ? 'is-old' : ''}`}>{word}</span>}
-        </span>
-        <Icon className='room-climate-chevron' icon='mdi:chevron-right' aria-hidden='true' />
-        {brief && <span className='room-climate-clause'>{brief}</span>}
+        <Icon className='room-climate-chip-icon' icon={chipIcon} aria-hidden='true' />
+        <span className='room-climate-chip-temp'>{chipTemp}</span>
       </button>
 
       {open && (

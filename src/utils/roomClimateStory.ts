@@ -57,6 +57,10 @@ export interface ClimateStory {
   /** The one thing a person could do, or null for calm silence (never "Nothing to do"). */
   advice: string | null;
   chips: ClimateChip[];
+  /** Single icon standing in for whichever reason above led the clause - shown next to the
+   * temperature in the collapsed header chip. Always set; 'mdi:thermometer' when nothing else
+   * applies. */
+  icon: string;
 }
 
 const WARM_WORDS = new Set(['warm', 'hot', 'muggy', 'stuffy']);
@@ -90,6 +94,7 @@ export function composeClimateStory(input: ClimateStoryInput): ClimateStory {
   let clause: string | null = null;
   let shortClause: string | null = null;
   let advice: string | null = null;
+  let icon = 'mdi:thermometer';
 
   // Priority: current adverse conditions outrank future plans. A/C cooling right now stays on
   // top - it explains what the room is doing this instant - then a mould alert, an open opening,
@@ -100,12 +105,15 @@ export function composeClimateStory(input: ClimateStoryInput): ClimateStory {
   if (ac && ac.cooling) {
     clause = 'A/C cooling';
     shortClause = 'A/C cooling';
+    icon = 'mdi:snowflake';
   } else if (feel.mouldRisk === 'high') {
     clause = 'damp, air it out';
     shortClause = 'Damp, air it out';
     advice = 'Open the window after showers';
+    icon = 'mdi:water-alert';
   } else if (feel.windowOpen) {
     shortClause = `${upperFirst(opening)} open`;
+    icon = /door/i.test(opening) ? 'mdi:door-open' : 'mdi:window-open-variant';
     if (heating.zoneOn) {
       clause = outside ? `${upperFirst(opening)} open, ${outside}` : `${upperFirst(opening)} open`;
       if (feel.airingHelps) advice = 'Leave it open a while';
@@ -126,27 +134,34 @@ export function composeClimateStory(input: ClimateStoryInput): ClimateStory {
       clause = 'heating';
       shortClause = 'Heating';
     }
+    icon = 'mdi:fire';
   } else if (feel.mouldRisk === 'watch') {
     clause = 'getting damp';
     shortClause = 'Getting damp';
     advice = 'Air it out after showers';
+    icon = 'mdi:water-alert';
   } else if (feel.airingHelps) {
     clause = outside ? `airing would help, it's ${outside}` : 'airing would help';
     shortClause = 'Airing would help';
+    icon = 'mdi:weather-windy';
   } else if (air && (air.band === 'stuffy' || air.band === 'poor')) {
     clause = air.cooking ? `cooking, air is ${air.band}` : `air is ${air.band}`;
     shortClause = `Air ${air.band}`;
     advice = airBandInfo(air.band).advice;
+    icon = 'mdi:air-filter';
   } else if (ac && ac.deployed && ac.armed) {
     clause = ac.nextStart ? `pre-cool planned ${ac.nextStart}` : 'A/C armed for tonight';
     shortClause = ac.nextStart ? `Pre-cool planned ${ac.nextStart}` : 'A/C armed for tonight';
+    icon = 'mdi:snowflake';
   } else if (ac && !ac.deployed && (ac.rec === 'ac' || ac.rec === 'hybrid')) {
     clause = ac.nextStart ? `pre-cool planned ${ac.nextStart}, deploy the A/C` : 'deploy the A/C';
     shortClause = ac.nextStart ? `Pre-cool planned ${ac.nextStart}` : 'Deploy the A/C';
     advice = ac.verdictText || null;
+    icon = 'mdi:snowflake';
   } else if (feel.sunHit) {
     clause = 'sun on the window';
     shortClause = 'Sun on the window';
+    icon = 'mdi:white-balance-sunny';
   } else if (heating.zoneOn) {
     clause = 'heating idle';
     shortClause = 'Heating idle';
@@ -175,7 +190,7 @@ export function composeClimateStory(input: ClimateStoryInput): ClimateStory {
     chips.push({ id: 'air', icon: 'mdi:air-filter', label: `Air ${air.band}`, tone });
   }
 
-  return { clause, shortClause, advice, chips };
+  return { clause, shortClause, advice, chips, icon };
 }
 
 /** Colour family for the comfort word next to the big temperature. */

@@ -12,9 +12,6 @@
 .climate-sheet {
   --tone: #c5c5cc;
 }
-.room-climate {
-  grid-column: 1 / -1;
-}
 .tone-fresh {
   --tone: var(--air-fresh, #34d399);
 }
@@ -28,91 +25,49 @@
   --tone: var(--air-poor, #fb7185);
 }
 
-/* ---- Collapsed header trigger ---- */
-.room-climate-trigger {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 24px;
-  align-content: center;
+/* ---- Collapsed header chip: icon + temperature, colour carries the comfort word ---- */
+.room-climate-chip {
+  display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
-  gap: 2px 8px;
-  width: 100%;
-  height: 64px;
-  padding: 6px 0;
+  gap: 6px;
+  height: 44px;
+  padding: 0 12px;
   border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: inherit;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tone) 18%, transparent);
+  color: var(--tone);
   font: inherit;
-  text-align: left;
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
-.room-climate-reading {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  min-width: 0;
-}
-.room-climate-number {
-  flex-shrink: 0;
-  font-size: 28px;
-  line-height: 30px;
-  font-weight: 300;
-  letter-spacing: -0.025em;
-  font-variant-numeric: tabular-nums;
-}
-.room-climate-number small {
-  margin-left: 2px;
-  font-size: 14px;
-  font-weight: 400;
-  color: #b3b3bd;
-}
-.room-climate-word {
-  font-family: ui-serif, 'New York', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
-  font-size: 18px;
-  font-weight: 500;
-  line-height: 24px;
-  color: var(--tone);
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.room-climate-word.is-old {
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 24px;
-  color: #c5c5cc;
-}
-.room-climate-clause {
-  grid-column: 1;
-  font-size: 14px;
-  line-height: 20px;
-  color: #b3b3bd;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.room-climate-chevron {
+.room-climate-chip-icon {
   font-size: 20px;
+  flex-shrink: 0;
+}
+.room-climate-chip-temp {
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.room-climate-chip.is-muted {
+  background: rgba(255, 255, 255, 0.08);
   color: #b3b3bd;
 }
-.room-climate-trigger:active {
-  background: rgba(255, 255, 255, 0.04);
+.room-climate-chip:active {
+  background: color-mix(in srgb, var(--tone) 28%, transparent);
 }
-.room-climate-trigger:focus-visible,
+.room-climate-chip.is-muted:active {
+  background: rgba(255, 255, 255, 0.14);
+}
+.room-climate-chip:focus-visible,
 .climate-sheet button:focus-visible,
 .climate-scroll:focus-visible {
   outline: 2px solid #b8dfff;
   outline-offset: 3px;
-}
-
-@media (min-width: 360px) {
-  .room-climate-trigger {
-    height: auto;
-    min-height: 64px;
-  }
 }
 
 /* ---- Sheet: bottom-aligned modifier over the shared appliance sheet shell ---- */
