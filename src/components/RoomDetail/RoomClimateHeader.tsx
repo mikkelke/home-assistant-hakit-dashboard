@@ -269,6 +269,8 @@ export function RoomClimateHeader({
               historyEntityId={feel.historyEntity}
               historyAttribute={feel.historyAttribute}
               toneColor='var(--tone)'
+              roomNow={tempC}
+              outdoorNow={outdoorTempC}
             />
             {story.clause && <p className='climate-full-story'>{story.clause}</p>}
             {story.advice && <p className='climate-detail-note'>{story.advice}</p>}

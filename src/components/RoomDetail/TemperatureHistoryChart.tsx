@@ -17,6 +17,16 @@ interface TemperatureHistoryChartProps {
   /** The chip's comfort-tone CSS value (e.g. `var(--tone)`) - the room series carries that colour
    * everywhere else in the sheet, so the chart matches rather than inventing a new hue. */
   toneColor: string;
+  /** Live readings: change-only sensors record nothing while steady, so each line is held from
+   * its last recorded point to now at the current value (only when that value is known). */
+  roomNow?: number | null;
+  outdoorNow?: number | null;
+}
+
+function holdToNow(series: TempPoint[], current: number | null | undefined, nowMs: number): TempPoint[] {
+  if (current == null || !Number.isFinite(current) || series.length === 0) return series;
+  const last = series[series.length - 1];
+  return last.ts >= nowMs - 60_000 ? series : [...series, { ts: nowMs, value: current }];
 }
 
 const VIEW_WIDTH = CHART_VIEW_WIDTH;
@@ -97,9 +107,11 @@ export function TemperatureHistoryChart({
   historyEntityId,
   historyAttribute,
   toneColor,
+  roomNow,
+  outdoorNow,
 }: TemperatureHistoryChartProps) {
   const [range, setRange] = useState<TemperatureRange>('24h');
-  const { roomSeries, outdoorSeries, loading, error } = useTemperatureHistory(
+  const { roomSeries: roomRecorded, outdoorSeries: outdoorRecorded, loading, error } = useTemperatureHistory(
     roomSensorId,
     outdoorSensorId,
     historyEntityId,
@@ -112,6 +124,8 @@ export function TemperatureHistoryChart({
   // scrub math both need one stable "now" rather than one that drifts mid-gesture.
   const [nowMs] = useState(() => Date.now());
   const startMs = rangeStartMs(range, nowMs);
+  const roomSeries = useMemo(() => holdToNow(roomRecorded, roomNow, nowMs), [roomRecorded, roomNow, nowMs]);
+  const outdoorSeries = useMemo(() => holdToNow(outdoorRecorded, outdoorNow, nowMs), [outdoorRecorded, outdoorNow, nowMs]);
 
   const plotWidth = VIEW_WIDTH - PAD.left - PAD.right;
   const plotBottom = VIEW_HEIGHT - PAD.bottom;
