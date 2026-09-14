@@ -11,7 +11,7 @@ export interface Viewer {
 
 /** Who is looking at the dashboard. `isAdmin` stays `null` while resolving and `false` on
  * failure: the restricted view is the safe default, so a slow user fetch briefly hides admin
- * surfaces from Mikkel rather than ever flashing them at a housemate. */
+ * surfaces from the admin user rather than ever flashing them at a housemate. */
 export function useViewer(): Viewer {
   const connection = useHass(s => s.connection);
   const [viewer, setViewer] = useState<Viewer>({ isAdmin: null, name: null });

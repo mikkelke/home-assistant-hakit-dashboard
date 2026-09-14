@@ -65,8 +65,8 @@ function normalizeHistory(entries: RawHistoryEntry[] | undefined, attribute?: st
 }
 
 /** 24h path: HA's history endpoint on this instance only ever returns ~24h of data from
- * start_time no matter how far back it's asked to go (see memory: ha-history-api-24h-cap), so it
- * is only used for the range it's actually good for. */
+ * start_time no matter how far back it's asked to go, so it is only used for the range it's
+ * actually good for. */
 async function fetchHistory24h(conn: Connection, entityId: string, nowMs: number, attribute?: string | null): Promise<TempPoint[]> {
   const response = await conn.sendMessagePromise<Record<string, RawHistoryEntry[]>>({
     type: 'history/history_during_period',

@@ -307,9 +307,8 @@ export function resolveKitchenHumiditySensorId(entities: HassEntities | undefine
 /**
  * Per-area fused comfort sensor id. Keyed off the HA area_id (not the display name) - same
  * convention as `isRooftop`/`isDiningRoom` elsewhere - because area_id is stable across renames.
- * Claudia's room is the one exception: its area_id is still the historical `office`
- * (see [[claudias-room-rename]]), while its feel sensor, like everything else renamed that day,
- * uses the current room name.
+ * Claudia's room is the one exception: its area_id is still the historical `office`, while its
+ * feel sensor uses the current room name like everything else.
  */
 export function roomFeelSensorId(areaId: string | undefined | null): string | null {
   if (!areaId) return null;

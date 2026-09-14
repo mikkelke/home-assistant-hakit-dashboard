@@ -101,7 +101,7 @@
   color: rgba(255, 255, 255, 0.92);
 }
 
-/* ---- Chips - carried over from the old climate card ---- */
+/* ---- Chips ---- */
 .climate-chips {
   display: flex;
   flex-wrap: wrap;
@@ -149,7 +149,7 @@
   color: var(--air-poor, #fb7185);
 }
 
-/* ---- Numbers grid - carried over from the old climate card ---- */
+/* ---- Numbers grid ---- */
 .climate-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
