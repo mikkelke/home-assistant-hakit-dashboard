@@ -111,13 +111,12 @@ export function TemperatureHistoryChart({
   outdoorNow,
 }: TemperatureHistoryChartProps) {
   const [range, setRange] = useState<TemperatureRange>('24h');
-  const { roomSeries: roomRecorded, outdoorSeries: outdoorRecorded, loading, error } = useTemperatureHistory(
-    roomSensorId,
-    outdoorSensorId,
-    historyEntityId,
-    historyAttribute,
-    range
-  );
+  const {
+    roomSeries: roomRecorded,
+    outdoorSeries: outdoorRecorded,
+    loading,
+    error,
+  } = useTemperatureHistory(roomSensorId, outdoorSensorId, historyEntityId, historyAttribute, range);
   const [scrubTs, setScrubTs] = useState<number | null>(null);
 
   // Fixed for the lifetime of this mount (the sheet reopening remounts it) - the axis and the

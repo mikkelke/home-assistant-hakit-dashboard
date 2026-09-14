@@ -90,6 +90,7 @@ export function composeClimateStory(input: ClimateStoryInput): ClimateStory {
   const opening = openingLabel(feel);
   const word = feel.comfortWord;
   const heatingNow = heating.zoneOn && heating.action === 'heating';
+  const openingMatters = heating.zoneOn || heating.action === 'heating' || word === 'cold' || word === 'cool';
 
   let clause: string | null = null;
   let shortClause: string | null = null;
@@ -111,7 +112,7 @@ export function composeClimateStory(input: ClimateStoryInput): ClimateStory {
     shortClause = 'Damp, air it out';
     advice = 'Open the window after showers';
     icon = 'mdi:water-alert';
-  } else if (feel.windowOpen) {
+  } else if (feel.windowOpen && openingMatters) {
     shortClause = `${upperFirst(opening)} open`;
     icon = /door/i.test(opening) ? 'mdi:door-open' : 'mdi:window-open-variant';
     if (heating.zoneOn) {
