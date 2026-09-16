@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { assembleBill, assembleBillPriceStats, type BillPriceStats, type EnergyBar, type EnergyView } from '../../energy';
-import { formatClockHour, formatKr, formatPrice } from '../../utils/format';
+import { formatClockHour, formatKr, formatKWh, formatPrice } from '../../utils/format';
 import './BillCard.css';
 
 interface BillCardProps {
@@ -52,7 +52,10 @@ export function BillCard({ view, nowMs }: BillCardProps) {
       <div className='bill-card-rows'>
         <div className='bill-card-row'>
           <span className='bill-card-row-label'>Consumption</span>
-          <span className='bill-card-row-value'>{formatKr(bill.variableKr)}</span>
+          <span className='bill-card-row-value'>
+            {formatKr(bill.variableKr)}
+            <span className='bill-card-row-sub'>{formatKWh(view.totals.kWh)}</span>
+          </span>
         </div>
 
         <div className='bill-card-row-group'>
