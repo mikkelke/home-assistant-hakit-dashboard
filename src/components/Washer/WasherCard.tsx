@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Icon } from '@iconify/react';
-import { useHass } from '@hakit/core';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { formatKr } from '../../utils/format';
-import { fireHaEvent } from '../../utils/haEvents';
 import { useRunCost } from '../../energy';
 import { ApplianceCycleTiming } from '../ApplianceCycleTiming';
 import { useLocalStorageBoolean } from '../../hooks';
@@ -19,6 +17,7 @@ const PROGRAMME_SELECT_ID = 'input_select.washer_confirmed_programme';
 const ANNOUNCE_TOGGLE_ID = 'input_boolean.washer_announce';
 const SPIN_SELECT_ID = 'input_select.washer_spin_speed';
 const TEMPERATURE_SELECT_ID = 'input_select.washer_temperature';
+const EMPTIED_BUTTON_ID = 'input_button.washer_emptied';
 
 const SPIN_OPTIONS_ORDER = ['—', '1400 rpm', '1200 rpm', '900 rpm', '700 rpm', 'No spin'];
 /** Union of every programme's allowed_temperatures (washer_monitor.py _DEFAULT_PROFILES) - stable,
@@ -65,10 +64,6 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
   const temperatureSelect = entities?.[TEMPERATURE_SELECT_ID];
 
   const [collapsed, setCollapsed] = useLocalStorageBoolean('washercard-collapsed', true);
-  const connection = useHass((s: { connection?: unknown }) => s.connection);
-  // `connection` is typed `unknown` (see energy/ws.ts / VacuumCard) — narrow to boolean once so
-  // it can gate JSX directly (`unknown && <Jsx/>` doesn't type-check as ReactNode).
-  const hasConnection = Boolean(connection);
 
   // Which picker/history sheet is open (at most one at a time — chips/footer icons open them).
   const [openPicker, setOpenPicker] = useState<WasherPicker>(null);
@@ -332,11 +327,15 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
   };
 
   const handleForceEmptied = () => {
-    if (!connection) return;
+    if (!callService) return;
     setEmptiedPressed(true);
     if (emptiedTimerRef.current) clearTimeout(emptiedTimerRef.current);
     emptiedTimerRef.current = setTimeout(() => setEmptiedPressed(false), 5000);
-    fireHaEvent(connection, 'washer_force_emptied', { reason: 'Dashboard' });
+    callService({
+      domain: 'input_button',
+      service: 'press',
+      target: { entity_id: EMPTIED_BUTTON_ID },
+    });
   };
 
   // Tap the prediction disc: adopt the matching programme option directly (flash to confirm), or
@@ -399,7 +398,7 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
       >
         <Icon icon='mdi:bell' aria-hidden='true' />
       </button>
-    ) : collapsed && state === 'Unemptied' && hasConnection ? (
+    ) : collapsed && state === 'Unemptied' && callService ? (
       <button
         type='button'
         className='appliance-quick-btn'
@@ -532,7 +531,7 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
               {doneAtDisplay && <span className='appliance-hero-line1'>Done {doneAtDisplay}</span>}
               {heroLine2 && <span className='appliance-hero-line2'>{heroLine2}</span>}
             </span>
-            {hasConnection && (
+            {callService && (
               <button
                 type='button'
                 className='appliance-emptied-pill'
