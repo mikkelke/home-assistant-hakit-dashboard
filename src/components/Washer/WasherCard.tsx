@@ -18,6 +18,7 @@ const ANNOUNCE_TOGGLE_ID = 'input_boolean.washer_announce';
 const SPIN_SELECT_ID = 'input_select.washer_spin_speed';
 const TEMPERATURE_SELECT_ID = 'input_select.washer_temperature';
 const EMPTIED_BUTTON_ID = 'input_button.washer_emptied';
+const SOAK_TOGGLE_ID = 'input_boolean.washer_option_soak';
 
 const SPIN_OPTIONS_ORDER = ['—', '1400 rpm', '1200 rpm', '900 rpm', '700 rpm', 'No spin'];
 /** Union of every programme's allowed_temperatures (washer_monitor.py _DEFAULT_PROFILES) - stable,
@@ -62,6 +63,7 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
   const announceToggle = entities?.[ANNOUNCE_TOGGLE_ID];
   const spinSelect = entities?.[SPIN_SELECT_ID];
   const temperatureSelect = entities?.[TEMPERATURE_SELECT_ID];
+  const soakToggle = entities?.[SOAK_TOGGLE_ID];
 
   const [collapsed, setCollapsed] = useLocalStorageBoolean('washercard-collapsed', true);
 
@@ -270,6 +272,10 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
 
   const isInteractive = state === 'Running' || state === 'Unemptied';
   const announceOn = announceToggle?.state === 'on';
+  // supports_soak comes from washer_monitor.py (washer_programmes.yaml is the single source
+  // of truth for which programmes support it) - true/'true' handles either HA attribute form.
+  const supportsSoak = attrs.supports_soak === true || attrs.supports_soak === 'true';
+  const soakOn = soakToggle?.state === 'on';
 
   const handleProgrammeChange = (option: string) => {
     if (!callService || !programmeSelect) return;
@@ -287,6 +293,15 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
       domain: 'input_boolean',
       service: announceOn ? 'turn_off' : 'turn_on',
       target: { entity_id: ANNOUNCE_TOGGLE_ID },
+    });
+  };
+
+  const handleSoakToggle = () => {
+    if (!callService || !soakToggle) return;
+    callService({
+      domain: 'input_boolean',
+      service: soakOn ? 'turn_off' : 'turn_on',
+      target: { entity_id: SOAK_TOGGLE_ID },
     });
   };
 
@@ -383,6 +398,7 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
         <WasherChip label={temperatureSelect.state ?? '-'} isInteractive={isInteractive} onClick={() => setOpenPicker('temperature')} />
       )}
       {spinSelect && <WasherChip label={spinChipValue} isInteractive={isInteractive} onClick={() => setOpenPicker('spin')} />}
+      {soakToggle && supportsSoak && <SoakChip on={soakOn} isInteractive={isInteractive} onClick={handleSoakToggle} />}
     </div>
   );
 
@@ -648,6 +664,30 @@ function WasherChip({ label, isInteractive, onClick }: { label: string; isIntera
   return (
     <button type='button' className='appliance-chip' onClick={onClick}>
       {label}
+    </button>
+  );
+}
+
+/** Icon-only toggle chip for the soak (Iblødsætning) option - same pill family as the
+ * programme/temperature/spin chips, but tap toggles input_boolean.washer_option_soak directly
+ * instead of opening a picker. Highlighted via the shared .appliance-chip.on accent tint. */
+function SoakChip({ on, isInteractive, onClick }: { on: boolean; isInteractive: boolean; onClick: () => void }) {
+  if (!isInteractive) {
+    return (
+      <span className={`appliance-chip washer-soak-chip muted ${on ? 'on' : ''}`} aria-hidden='true'>
+        <Icon icon='mdi:water-sync' aria-hidden='true' />
+      </span>
+    );
+  }
+  return (
+    <button
+      type='button'
+      className={`appliance-chip washer-soak-chip ${on ? 'on' : ''}`}
+      onClick={onClick}
+      aria-pressed={on}
+      aria-label={on ? 'Turn off soak' : 'Turn on soak'}
+    >
+      <Icon icon='mdi:water-sync' aria-hidden='true' />
     </button>
   );
 }

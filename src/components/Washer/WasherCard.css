@@ -1,6 +1,18 @@
 /* Washer-only styling. Everything else (card shell, header, chips, hero, footer, sheets — accent
    #38bdf8 throughout) lives in the shared src/components/Appliance/Appliance.css. */
 
+/* Soak toggle chip: icon-only variant of the shared .appliance-chip pill (background/.on tint
+   come from there) - just centers the icon and keeps a comfortable touch width. */
+.washer-soak-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+}
+.washer-soak-chip svg {
+  font-size: 15px;
+}
+
 /* Prediction confirm row: the washer is the only card that shows a classifier guess with an
    inline confirm disc, so this stays here rather than in the shared stylesheet. */
 .washer-predict-row {
