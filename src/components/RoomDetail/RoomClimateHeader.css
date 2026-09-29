@@ -81,7 +81,7 @@
   max-width: 430px;
   max-height: min(640px, 85dvh);
   padding: 20px;
-  animation: climate-sheet-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: climate-sheet-in 220ms var(--ease-out);
 }
 .climate-sheet .appliance-sheet-body {
   display: flex;

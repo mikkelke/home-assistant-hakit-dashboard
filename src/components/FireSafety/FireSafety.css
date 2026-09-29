@@ -76,7 +76,7 @@
   stroke-linecap: round;
   stroke-dasharray: 75.4;
   stroke-dashoffset: 75.4;
-  transition: stroke-dashoffset 0.15s ease-out;
+  transition: stroke-dashoffset 0.15s var(--ease-out);
 }
 .hold-to-act.is-holding .hold-to-act-ring .fill {
   stroke-dashoffset: 0;
