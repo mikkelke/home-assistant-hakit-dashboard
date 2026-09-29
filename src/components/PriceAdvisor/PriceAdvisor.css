@@ -188,7 +188,7 @@
   font-weight: 600;
   text-align: center;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
 
 .price-advisor-toggle-btn:hover {

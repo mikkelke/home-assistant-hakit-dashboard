@@ -188,7 +188,7 @@
   border-radius: 0.4rem;
   color: #e4e4e7;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
   font-size: 0.8rem;
 }
 .tv-lift-quick-btn:hover {
@@ -210,7 +210,7 @@
   border-radius: 0.5rem;
   color: #a1a1aa;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 .tv-lift-toggle:hover {
   background: rgba(59, 130, 246, 0.16);
@@ -238,7 +238,7 @@
   border-radius: 0.5rem;
   color: #e4e4e7;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 .tv-lift-btn:hover {
   background: rgba(59, 130, 246, 0.16);
@@ -349,7 +349,7 @@
   border-radius: 0.75rem;
   color: #a1a1aa;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
   margin-bottom: 1rem;
 }
 .overnight-guest-toggle:hover {
@@ -392,7 +392,7 @@
   height: 18px;
   border-radius: 50%;
   background: #71717a;
-  transition: all 0.2s;
+  transition: left 0.2s, background 0.2s;
 }
 .toggle-switch.on {
   background: rgba(59, 130, 246, 0.45);

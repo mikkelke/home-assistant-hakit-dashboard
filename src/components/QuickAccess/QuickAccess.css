@@ -36,7 +36,7 @@
   border-radius: 0.75rem;
   color: #e4e4e7;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s, box-shadow 0.2s, opacity 0.2s;
   width: 48px;
   height: 48px;
   min-width: 48px;
@@ -384,7 +384,7 @@
   color: #e4e4e7;
   font-size: 0.85rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s, transform 0.2s, opacity 0.2s;
 }
 
 .qa-speaker-quick-btn:hover:not(:disabled) {
@@ -421,7 +421,7 @@
   color: #a1a1aa;
   font-size: 0.85rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, color 0.2s, opacity 0.2s;
   text-align: left;
   margin: 0;
 }
@@ -470,7 +470,7 @@
   border-radius: 0.4rem;
   color: #3b82f6;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s;
 }
 
 .qa-media-sync-indicator {
@@ -527,7 +527,7 @@
   color: #e4e4e7;
   font-size: 0.85rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s;
   margin-bottom: 0.75rem;
 }
 
@@ -613,7 +613,7 @@
   color: #e4e4e7;
   text-align: left;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease;
 }
 
 .qa-podcast-episode:hover {
@@ -792,7 +792,7 @@
   border-radius: 0.4rem;
   color: #a1a1aa;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s;
 }
 
 .info-refresh-btn:hover:not(:disabled) {
