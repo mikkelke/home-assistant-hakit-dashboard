@@ -270,8 +270,10 @@ body.modal-open .room-card {
   cursor: pointer;
 }
 
-.person-info-modal .modal-close:hover {
-  background: rgba(255, 255, 255, 0.15);
+@media (hover: hover) and (pointer: fine) {
+  .person-info-modal .modal-close:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
 }
 
 .person-info-modal .modal-row {
@@ -320,10 +322,12 @@ body.modal-open .room-card {
   flex-shrink: 0;
 }
 
-.sidebar-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: #f4f4f5;
+@media (hover: hover) and (pointer: fine) {
+  .sidebar-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #f4f4f5;
+  }
 }
 
 .sidebar-toggle-btn:active {

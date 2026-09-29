@@ -31,9 +31,11 @@
   font-size: 16px;
 }
 
-.office-vacuum-modal__tab:hover {
-  color: #e4e4e7;
-  background: rgba(255, 255, 255, 0.06);
+@media (hover: hover) and (pointer: fine) {
+  .office-vacuum-modal__tab:hover {
+    color: #e4e4e7;
+    background: rgba(255, 255, 255, 0.06);
+  }
 }
 
 .office-vacuum-modal__tab.active {

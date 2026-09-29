@@ -168,8 +168,10 @@
   transition: background 0.15s;
 }
 
-.energy-page-state-error button:hover {
-  background: rgba(56, 189, 248, 0.25);
+@media (hover: hover) and (pointer: fine) {
+  .energy-page-state-error button:hover {
+    background: rgba(56, 189, 248, 0.25);
+  }
 }
 
 /* Phone layout (≤768px, matches useIsMobile) — reaches into UnitToggle's own class too, mirroring

@@ -70,9 +70,11 @@
   transition: background 0.2s ease;
 }
 
-.menu-close-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.1);
+@media (hover: hover) and (pointer: fine) {
+  .menu-close-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
 }
 
 .menu-close-btn svg {
@@ -120,10 +122,12 @@
   text-decoration: none;
 }
 
-.menu-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: #f4f4f5;
+@media (hover: hover) and (pointer: fine) {
+  .menu-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #f4f4f5;
+  }
 }
 
 .menu-item:active {
@@ -161,10 +165,12 @@
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.menu-item-toggle:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: #f4f4f5;
+@media (hover: hover) and (pointer: fine) {
+  .menu-item-toggle:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #f4f4f5;
+  }
 }
 
 .menu-item-toggle.active {
@@ -173,9 +179,11 @@
   color: #4ade80;
 }
 
-.menu-item-toggle.active:hover {
-  background: rgba(34, 197, 94, 0.12);
-  border-color: rgba(74, 222, 128, 0.32);
+@media (hover: hover) and (pointer: fine) {
+  .menu-item-toggle.active:hover {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(74, 222, 128, 0.32);
+  }
 }
 
 .menu-section-badge {

@@ -191,9 +191,11 @@
   transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
 
-.price-advisor-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #e4e4e7;
+@media (hover: hover) and (pointer: fine) {
+  .price-advisor-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #e4e4e7;
+  }
 }
 
 .price-advisor-toggle-btn.active {
@@ -202,9 +204,11 @@
   color: #38bdf8;
 }
 
-.price-advisor-toggle-btn.active:hover {
-  background: rgba(56, 189, 248, 0.18);
-  border-color: rgba(56, 189, 248, 0.45);
+@media (hover: hover) and (pointer: fine) {
+  .price-advisor-toggle-btn.active:hover {
+    background: rgba(56, 189, 248, 0.18);
+    border-color: rgba(56, 189, 248, 0.45);
+  }
 }
 
 .price-advisor-modal-body {

@@ -43,8 +43,10 @@
   transition: background 0.2s;
 }
 
-.apple-remote-close:hover {
-  background: rgba(255, 255, 255, 0.18);
+@media (hover: hover) and (pointer: fine) {
+  .apple-remote-close:hover {
+    background: rgba(255, 255, 255, 0.18);
+  }
 }
 
 .apple-remote-close svg {
@@ -132,8 +134,10 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-.power-btn:hover {
-  background: linear-gradient(180deg, #c62828 0%, #b71c1c 100%);
+@media (hover: hover) and (pointer: fine) {
+  .power-btn:hover {
+    background: linear-gradient(180deg, #c62828 0%, #b71c1c 100%);
+  }
 }
 
 .power-btn:active {
@@ -172,14 +176,16 @@
   transition: background 0.12s;
 }
 
-.clickpad:hover {
-  /* Match button hover highlight */
-  background: radial-gradient(
-    circle at 30% 30%,
-    #4a4b50 0%,
-    #3a3b40 50%,
-    #35363a 100%
-  );
+@media (hover: hover) and (pointer: fine) {
+  .clickpad:hover {
+    /* Match button hover highlight */
+    background: radial-gradient(
+      circle at 30% 30%,
+      #4a4b50 0%,
+      #3a3b40 50%,
+      #35363a 100%
+    );
+  }
 }
 
 /* Subtle lighting overlay - matches button style */
@@ -210,8 +216,10 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.clickpad-sector:hover {
-  background: rgba(255, 255, 255, 0.06);
+@media (hover: hover) and (pointer: fine) {
+  .clickpad-sector:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
 }
 
 .clickpad-sector:active {
@@ -302,14 +310,16 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-.clickpad-center:hover {
-  /* Match button hover highlight */
-  background: radial-gradient(
-    circle at 30% 30%,
-    #4a4a4f 0%,
-    #3a3a3f 50%,
-    #35363a 100%
-  );
+@media (hover: hover) and (pointer: fine) {
+  .clickpad-center:hover {
+    /* Match button hover highlight */
+    background: radial-gradient(
+      circle at 30% 30%,
+      #4a4a4f 0%,
+      #3a3a3f 50%,
+      #35363a 100%
+    );
+  }
 }
 
 .clickpad-center:active {
@@ -356,8 +366,10 @@
   transform: translateX(-50%);
 }
 
-.remote-btn:hover {
-  background: linear-gradient(180deg, #4a4a4f 0%, #3a3a3f 100%);
+@media (hover: hover) and (pointer: fine) {
+  .remote-btn:hover {
+    background: linear-gradient(180deg, #4a4a4f 0%, #3a3a3f 100%);
+  }
 }
 
 .remote-btn:active {
@@ -413,8 +425,10 @@
   transition: background 0.12s;
 }
 
-.volume-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+@media (hover: hover) and (pointer: fine) {
+  .volume-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
 }
 
 .volume-btn:active {

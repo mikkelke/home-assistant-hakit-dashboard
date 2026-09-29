@@ -86,10 +86,16 @@
   cursor: pointer;
 }
 
-.device-row--tappable:hover,
 .device-row--tappable:focus-visible {
   background: rgba(255, 255, 255, 0.05);
   outline: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .device-row--tappable:hover {
+    background: rgba(255, 255, 255, 0.05);
+    outline: none;
+  }
 }
 
 .device-row--child {
@@ -176,8 +182,10 @@
   transition: background 0.15s;
 }
 
-.device-breakdown-state-error button:hover {
-  background: rgba(56, 189, 248, 0.25);
+@media (hover: hover) and (pointer: fine) {
+  .device-breakdown-state-error button:hover {
+    background: rgba(56, 189, 248, 0.25);
+  }
 }
 
 .device-breakdown-skeleton {

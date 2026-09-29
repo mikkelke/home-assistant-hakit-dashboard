@@ -78,9 +78,11 @@ body::-webkit-scrollbar,
   flex-shrink: 0 !important;
 }
 
-.modal-close-button:hover,
-.close-button:hover {
-  background: rgba(255, 255, 255, 0.2) !important;
+@media (hover: hover) and (pointer: fine) {
+  .modal-close-button:hover,
+  .close-button:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+  }
 }
 
 .modal-close-button:active,

@@ -467,8 +467,10 @@
   background: rgba(255, 255, 255, 0.16);
   border-radius: 999px;
 }
-.sonos-sheet-body::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+@media (hover: hover) and (pointer: fine) {
+  .sonos-sheet-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
 }
 
 /* Speakers pop-up */

@@ -134,8 +134,10 @@
   cursor: pointer;
   transition: background 0.2s;
 }
-.close-button:hover {
-  background: rgba(255, 255, 255, 0.2);
+@media (hover: hover) and (pointer: fine) {
+  .close-button:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
 }
 .room-detail-content {
   flex: 1;
@@ -191,9 +193,11 @@
   transition: background 0.15s ease, border-color 0.15s ease;
   font-size: 0.8rem;
 }
-.tv-lift-quick-btn:hover {
-  background: rgba(59, 130, 246, 0.16);
-  border-color: rgba(59, 130, 246, 0.3);
+@media (hover: hover) and (pointer: fine) {
+  .tv-lift-quick-btn:hover {
+    background: rgba(59, 130, 246, 0.16);
+    border-color: rgba(59, 130, 246, 0.3);
+  }
 }
 .tv-lift-quick-btn svg {
   font-size: 1rem;
@@ -212,9 +216,11 @@
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
-.tv-lift-toggle:hover {
-  background: rgba(59, 130, 246, 0.16);
-  border-color: rgba(59, 130, 246, 0.28);
+@media (hover: hover) and (pointer: fine) {
+  .tv-lift-toggle:hover {
+    background: rgba(59, 130, 246, 0.16);
+    border-color: rgba(59, 130, 246, 0.28);
+  }
 }
 .tv-lift-row {
   display: grid;
@@ -240,9 +246,11 @@
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
-.tv-lift-btn:hover {
-  background: rgba(59, 130, 246, 0.16);
-  border-color: rgba(59, 130, 246, 0.3);
+@media (hover: hover) and (pointer: fine) {
+  .tv-lift-btn:hover {
+    background: rgba(59, 130, 246, 0.16);
+    border-color: rgba(59, 130, 246, 0.3);
+  }
 }
 .tv-lift-btn svg {
   font-size: 1.3rem;
@@ -352,9 +360,11 @@
   transition: background 0.2s, border-color 0.2s, color 0.2s;
   margin-bottom: 1rem;
 }
-.overnight-guest-toggle:hover {
-  background: rgba(36, 38, 43, 0.9);
-  border-color: rgba(59, 130, 246, 0.3);
+@media (hover: hover) and (pointer: fine) {
+  .overnight-guest-toggle:hover {
+    background: rgba(36, 38, 43, 0.9);
+    border-color: rgba(59, 130, 246, 0.3);
+  }
 }
 .overnight-guest-toggle.on {
   background: rgba(59, 130, 246, 0.18);

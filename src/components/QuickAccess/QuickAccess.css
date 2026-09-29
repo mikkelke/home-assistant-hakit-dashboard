@@ -42,11 +42,13 @@
   min-width: 48px;
 }
 
-.qa-button:hover:not(:disabled) {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.4);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+@media (hover: hover) and (pointer: fine) {
+  .qa-button:hover:not(:disabled) {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+  }
 }
 
 .qa-button:active:not(:disabled) {
@@ -206,8 +208,10 @@
   cursor: pointer;
 }
 
-.qa-close:hover {
-  background: rgba(255, 255, 255, 0.15);
+@media (hover: hover) and (pointer: fine) {
+  .qa-close:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
 }
 
 .qa-modal-body {
@@ -387,10 +391,12 @@
   transition: background 0.2s, border-color 0.2s, transform 0.2s, opacity 0.2s;
 }
 
-.qa-speaker-quick-btn:hover:not(:disabled) {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.3);
-  transform: translateY(-1px);
+@media (hover: hover) and (pointer: fine) {
+  .qa-speaker-quick-btn:hover:not(:disabled) {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.3);
+    transform: translateY(-1px);
+  }
 }
 
 .qa-speaker-quick-btn:disabled {
@@ -426,9 +432,11 @@
   margin: 0;
 }
 
-.qa-speaker-line:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  color: #e4e4e7;
+@media (hover: hover) and (pointer: fine) {
+  .qa-speaker-line:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+    color: #e4e4e7;
+  }
 }
 
 .qa-speaker-line:disabled {
@@ -453,8 +461,10 @@
   margin-left: auto;
 }
 
-.qa-speaker-line:hover:not(:disabled) .qa-chevron {
-  color: #a1a1aa;
+@media (hover: hover) and (pointer: fine) {
+  .qa-speaker-line:hover:not(:disabled) .qa-chevron {
+    color: #a1a1aa;
+  }
 }
 
 /* Add Speaker Icon Button in Header */
@@ -490,9 +500,11 @@
   font-size: 1rem;
 }
 
-.qa-add-speaker-icon-btn:hover {
-  background: rgba(59, 130, 246, 0.25);
-  border-color: rgba(59, 130, 246, 0.4);
+@media (hover: hover) and (pointer: fine) {
+  .qa-add-speaker-icon-btn:hover {
+    background: rgba(59, 130, 246, 0.25);
+    border-color: rgba(59, 130, 246, 0.4);
+  }
 }
 
 .qa-add-speaker-icon-btn svg:first-child {
@@ -531,8 +543,10 @@
   margin-bottom: 0.75rem;
 }
 
-.qa-back-button:hover {
-  background: rgba(255, 255, 255, 0.12);
+@media (hover: hover) and (pointer: fine) {
+  .qa-back-button:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
 }
 
 .qa-quick-start-header {
@@ -616,8 +630,10 @@
   transition: background 0.15s ease;
 }
 
-.qa-podcast-episode:hover {
-  background: rgba(255, 255, 255, 0.08);
+@media (hover: hover) and (pointer: fine) {
+  .qa-podcast-episode:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
 }
 
 .qa-podcast-episode-cover {
@@ -795,10 +811,12 @@
   transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s;
 }
 
-.info-refresh-btn:hover:not(:disabled) {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.3);
-  color: #3b82f6;
+@media (hover: hover) and (pointer: fine) {
+  .info-refresh-btn:hover:not(:disabled) {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.3);
+    color: #3b82f6;
+  }
 }
 
 .info-refresh-btn:disabled {

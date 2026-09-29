@@ -31,9 +31,11 @@
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
-.period-picker-seg-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #e4e4e7;
+@media (hover: hover) and (pointer: fine) {
+  .period-picker-seg-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #e4e4e7;
+  }
 }
 
 .period-picker-seg-btn.active {
@@ -65,10 +67,12 @@
   transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
 }
 
-.period-picker-nav-btn:hover:not(:disabled) {
-  background: rgba(56, 189, 248, 0.15);
-  border-color: rgba(56, 189, 248, 0.35);
-  color: #38bdf8;
+@media (hover: hover) and (pointer: fine) {
+  .period-picker-nav-btn:hover:not(:disabled) {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: rgba(56, 189, 248, 0.35);
+    color: #38bdf8;
+  }
 }
 
 .period-picker-nav-btn:disabled {

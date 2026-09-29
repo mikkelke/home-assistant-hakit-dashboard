@@ -24,9 +24,11 @@
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
-.unit-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #e4e4e7;
+@media (hover: hover) and (pointer: fine) {
+  .unit-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #e4e4e7;
+  }
 }
 
 .unit-toggle-btn.active {

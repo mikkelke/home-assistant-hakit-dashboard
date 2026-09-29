@@ -470,9 +470,11 @@
   transition: background 0.2s, border-color 0.2s;
 }
 
-.vacuum-map-modal-close:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
+@media (hover: hover) and (pointer: fine) {
+  .vacuum-map-modal-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
 }
 
 .vacuum-map-modal-close svg {
@@ -524,9 +526,11 @@
   white-space: nowrap;
 }
 
-.vacuum-battery-graph-range-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #e4e4e7;
+@media (hover: hover) and (pointer: fine) {
+  .vacuum-battery-graph-range-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #e4e4e7;
+  }
 }
 
 .vacuum-battery-graph-range-btn.active {

@@ -422,9 +422,11 @@
   cursor: pointer;
   font: inherit;
 }
-.quick-weather-card__day-popup-close:hover {
-  color: #e4e4e7;
-  background: rgba(255, 255, 255, 0.12);
+@media (hover: hover) and (pointer: fine) {
+  .quick-weather-card__day-popup-close:hover {
+    color: #e4e4e7;
+    background: rgba(255, 255, 255, 0.12);
+  }
 }
 .quick-weather-card__day-popup-body {
   flex: 1;

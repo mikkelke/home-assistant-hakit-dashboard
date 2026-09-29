@@ -58,8 +58,10 @@ button.home-pulse-chip {
   cursor: pointer;
 }
 
-button.home-pulse-chip:hover {
-  transform: translateY(-1px);
+@media (hover: hover) and (pointer: fine) {
+  button.home-pulse-chip:hover {
+    transform: translateY(-1px);
+  }
 }
 
 .home-pulse-chip.is-disabled {
