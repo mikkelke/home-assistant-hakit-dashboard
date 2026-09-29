@@ -83,7 +83,7 @@ export function ApplianceCard({
 
       {collapsed && showCollapsedStrip && (
         <div className='appliance-collapsed-strip'>
-          <div className='appliance-collapsed-strip-fill' style={{ width: `${progressPct}%` }} />
+          <div className='appliance-collapsed-strip-fill' style={{ '--progress': progressPct } as React.CSSProperties} />
         </div>
       )}
 

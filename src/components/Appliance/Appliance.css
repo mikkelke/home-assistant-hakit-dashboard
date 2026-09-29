@@ -148,8 +148,8 @@
 .appliance-collapsed-strip-fill {
   height: 100%;
   background: var(--appliance-accent);
-  border-radius: 2px;
-  transition: width 0.3s ease;
+  clip-path: inset(0 calc(100% - var(--progress, 0) * 1%) 0 0 round 2px);
+  transition: clip-path 0.3s ease;
 }
 
 /* Expanded content */
@@ -183,9 +183,12 @@
   left: 0;
   top: 0;
   bottom: 0;
-  border-radius: 6px;
+  right: 0;
   background: var(--appliance-accent-gradient);
-  transition: width 0.3s ease;
+  background-size: calc(var(--progress, 0) * 1%) 100%;
+  background-repeat: no-repeat;
+  clip-path: inset(0 calc(100% - var(--progress, 0) * 1%) 0 0 round 6px);
+  transition: clip-path 0.3s ease, background-size 0.3s ease;
 }
 
 .appliance-cycle-now {

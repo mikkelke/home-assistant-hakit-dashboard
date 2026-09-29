@@ -100,6 +100,8 @@ const toPercent = (value: string | number | undefined, min: number, max: number)
   return Math.round(((clamped - min) / (max - min)) * 100);
 };
 
+const fillScale = (pct: number) => ({ transform: `scaleX(${pct / 100})` });
+
 // Weather item with timeline support (no history API – avoids embed/popstate closing the modal)
 function WeatherItemWithTimeline({
   entityId,
@@ -358,7 +360,7 @@ export function WeatherCard({ entities, hassUrl }: WeatherCardProps) {
           value={withUnit(temp, '°C')}
         >
           <div className='metric-bar'>
-            <div className={`metric-fill temp ${tempLevel}`} style={{ width: `${tempPct}%` }} />
+            <div className={`metric-fill temp ${tempLevel}`} style={fillScale(tempPct)} />
           </div>
         </WeatherItemWithTimeline>
 
@@ -371,7 +373,7 @@ export function WeatherCard({ entities, hassUrl }: WeatherCardProps) {
           value={withUnit(feelsLike, '°C')}
         >
           <div className='metric-bar'>
-            <div className={`metric-fill temp ${feelsLevel}`} style={{ width: `${feelsPct}%` }} />
+            <div className={`metric-fill temp ${feelsLevel}`} style={fillScale(feelsPct)} />
           </div>
         </WeatherItemWithTimeline>
 
@@ -384,7 +386,7 @@ export function WeatherCard({ entities, hassUrl }: WeatherCardProps) {
           value={withUnit(humidity, '%')}
         >
           <div className='metric-bar'>
-            <div className='metric-fill humidity' style={{ width: `${humidityPct}%` }} />
+            <div className='metric-fill humidity' style={fillScale(humidityPct)} />
           </div>
         </WeatherItemWithTimeline>
 
@@ -406,7 +408,7 @@ export function WeatherCard({ entities, hassUrl }: WeatherCardProps) {
           value={windMs !== undefined ? `${windMs.toFixed(1)} m/s` : '—'}
         >
           <div className='metric-bar'>
-            <div className={`metric-fill wind ${windLevel}`} style={{ width: `${windPct}%` }} />
+            <div className={`metric-fill wind ${windLevel}`} style={fillScale(windPct)} />
           </div>
         </WeatherItemWithTimeline>
 
@@ -419,7 +421,7 @@ export function WeatherCard({ entities, hassUrl }: WeatherCardProps) {
           value={gustMs !== undefined ? `${gustMs.toFixed(1)} m/s` : '—'}
         >
           <div className='metric-bar'>
-            <div className={`metric-fill wind ${gustLevel}`} style={{ width: `${gustPct}%` }} />
+            <div className={`metric-fill wind ${gustLevel}`} style={fillScale(gustPct)} />
           </div>
         </WeatherItemWithTimeline>
 
@@ -455,7 +457,7 @@ export function WeatherCard({ entities, hassUrl }: WeatherCardProps) {
           value={withUnit(rainRate, ' mm/h')}
         >
           <div className='metric-bar'>
-            <div className={`metric-fill rain ${rainLevel}`} style={{ width: `${toPercent(rainRate, 0, 30)}%` }} />
+            <div className={`metric-fill rain ${rainLevel}`} style={fillScale(toPercent(rainRate, 0, 30))} />
           </div>
         </WeatherItemWithTimeline>
 
@@ -488,7 +490,7 @@ export function WeatherCard({ entities, hassUrl }: WeatherCardProps) {
           childrenFirst
         >
           <div className='bar'>
-            <div className='bar-fill uv' style={{ width: `${Math.min(Number(uv ?? 0) * 10, 100)}%` }} />
+            <div className='bar-fill uv' style={fillScale(Math.min(Number(uv ?? 0) * 10, 100))} />
           </div>
         </WeatherItemWithTimeline>
 
@@ -503,7 +505,7 @@ export function WeatherCard({ entities, hassUrl }: WeatherCardProps) {
           childrenFirst
         >
           <div className='bar'>
-            <div className='bar-fill lux' style={{ width: `${Math.min((Number(lux ?? 0) / 100000) * 100, 100)}%` }} />
+            <div className='bar-fill lux' style={fillScale(Math.min((Number(lux ?? 0) / 100000) * 100, 100))} />
           </div>
         </WeatherItemWithTimeline>
 
@@ -518,7 +520,7 @@ export function WeatherCard({ entities, hassUrl }: WeatherCardProps) {
           childrenFirst
         >
           <div className='bar'>
-            <div className='bar-fill irr' style={{ width: `${Math.min((Number(irradiance ?? 0) / 1200) * 100, 100)}%` }} />
+            <div className='bar-fill irr' style={fillScale(Math.min((Number(irradiance ?? 0) / 1200) * 100, 100))} />
           </div>
         </WeatherItemWithTimeline>
 

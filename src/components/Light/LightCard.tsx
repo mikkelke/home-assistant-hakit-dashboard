@@ -565,7 +565,10 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
                     <div className='light-strip'>
                       <div
                         className='light-strip-fill'
-                        style={{ width: `${value}%`, background: `linear-gradient(90deg, ${darken(color, 0.45)}, ${color})` }}
+                        style={{
+                          transform: `scaleX(${value / 100})`,
+                          background: `linear-gradient(90deg, ${darken(color, 0.45)}, ${color})`,
+                        }}
                       />
                       <input
                         type='range'

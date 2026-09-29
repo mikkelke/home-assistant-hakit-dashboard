@@ -134,8 +134,10 @@
 
 .metric-fill {
   height: 100%;
-  width: 0%;
-  transition: width 0.2s;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.2s;
 }
 
 .metric-fill.temp {
@@ -322,8 +324,10 @@
 
 .bar-fill {
   height: 100%;
-  width: 0%;
-  transition: width 0.2s;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.2s;
 }
 
 .bar-fill.uv {

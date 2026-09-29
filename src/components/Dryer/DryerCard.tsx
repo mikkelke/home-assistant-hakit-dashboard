@@ -450,7 +450,7 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
             <div className='appliance-cycle-strip'>
               <div className='appliance-cycle-bar'>
                 <div className='appliance-cycle-track'>
-                  <div className='appliance-cycle-fill' style={{ width: `${progressPct}%` }} />
+                  <div className='appliance-cycle-fill' style={{ '--progress': progressPct } as React.CSSProperties} />
                 </div>
                 <div className='appliance-cycle-now' style={{ left: `${progressPct}%` }} />
               </div>
