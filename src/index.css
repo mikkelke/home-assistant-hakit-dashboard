@@ -92,22 +92,12 @@ body::-webkit-scrollbar,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
+  :where(*:not(.timeline-spinner, .info-refresh-btn.spinning svg, .device-row--skeleton, .energy-chart-skeleton, .device-breakdown-refreshing-dot, .energy-page-refreshing-dot)),
   *::before,
   *::after {
     animation-iteration-count: 1 !important;
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
-  }
-
-  :where([class*='spin'], [class*='spin'] *) {
-    animation-duration: 1s !important;
-    animation-iteration-count: infinite !important;
-  }
-
-  :where([class*='skeleton'], [class*='refreshing']) {
-    animation-duration: 1.4s !important;
-    animation-iteration-count: infinite !important;
   }
 }
