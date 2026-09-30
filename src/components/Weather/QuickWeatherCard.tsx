@@ -367,8 +367,9 @@ function findTonightLow(hours: WeatherForecastEntry[], nowMs: number, tonightEnd
  * binary_sensor.<area>_window_contact naming convention (no house-wide list to keep in sync). */
 function countOpenWindows(entities: HassEntities): number {
   let n = 0;
-  for (const [id, entity] of Object.entries(entities ?? {})) {
-    if (/^binary_sensor\..+_window_contact$/.test(id) && entity?.state === 'on') n++;
+  // Match on the id first: only the contacts themselves are read, not every entity in the house.
+  for (const id of Object.keys(entities ?? {})) {
+    if (/^binary_sensor\..+_window_contact$/.test(id) && entities[id]?.state === 'on') n++;
   }
   return n;
 }

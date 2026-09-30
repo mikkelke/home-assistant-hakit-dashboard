@@ -79,6 +79,8 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
   const [sliderValues, setSliderValues] = useState<Record<string, number>>({});
   // "Finger is on this light's strip" - suppresses the entity->slider sync while dragging.
   const [dragging, setDragging] = useState<Record<string, boolean>>({});
+  // Bumped to re-run the slider sync once a recent-commit window has passed (see the sync effect below).
+  const [syncTick, setSyncTick] = useState(0);
   const [colorPickerLightId, setColorPickerLightId] = useState<string | null>(null);
   // Optimistic state for immediate UI feedback
   const [optimisticStates, setOptimisticStates] = useState<Record<string, 'on' | 'off' | null>>({});
@@ -409,6 +411,7 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
   // Sync slider values with entity brightness when not actively dragging
   // But keep local value for a short time after commit to prevent UI flicker
   useEffect(() => {
+    let recheckInMs = 0;
     availableLights.forEach(lightId => {
       if (!dragging[lightId]) {
         const entity = entities[lightId];
@@ -436,7 +439,9 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
               setSliderValues(prev => ({ ...prev, [lightId]: entityBrightness }));
             }
           }
-          // Otherwise, keep our committed value - don't sync
+          // Otherwise, keep our committed value - don't sync yet, but look again when the window is over: nothing else
+          // re-renders this card just because time passed, and the light may have settled somewhere else (a clamp, a refused command).
+          else recheckInMs = Math.max(recheckInMs, 2000 - timeSinceCommit + 50);
           return;
         }
 
@@ -447,7 +452,11 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
         }
       }
     });
-  }, [entities, availableLights, dragging, sliderValues]);
+    if (recheckInMs > 0) {
+      const id = window.setTimeout(() => setSyncTick(tick => tick + 1), recheckInMs);
+      return () => window.clearTimeout(id);
+    }
+  }, [entities, availableLights, dragging, sliderValues, syncTick]);
 
   if (availableLights.length === 0) return null;
 
