@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { ThemeProvider } from '@hakit/components';
 import { HassConnect } from '@hakit/core';
 import { Dashboard } from './components/Dashboard';
 
@@ -46,7 +45,6 @@ function App() {
         hassToken={hassToken}
         options={inheritsParentConnection ? { handleResumeOptions: { suspendWhenHidden: false } } : undefined}
       >
-        <ThemeProvider />
         <Dashboard />
       </HassConnect>
     </>
