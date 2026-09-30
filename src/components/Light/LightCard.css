@@ -380,6 +380,7 @@ button.light-glyph:active {
 }
 
 .light-quick-dot {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -394,6 +395,11 @@ button.light-glyph:active {
   color: #fbbf24;
   -webkit-tap-highlight-color: transparent;
   transition: transform 120ms var(--ease-out), background 0.2s ease, color 0.2s ease;
+}
+.light-quick-dot::before {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
 }
 .light-quick-dot svg {
   font-size: 0.95rem;

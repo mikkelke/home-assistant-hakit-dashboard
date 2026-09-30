@@ -1176,6 +1176,11 @@
 .qa-door:active {
   transform: scale(0.88);
 }
+.qa-door::before {
+  content: '';
+  position: absolute;
+  inset: -2px 0;
+}
 .qa-door svg {
   font-size: 1.1rem;
 }

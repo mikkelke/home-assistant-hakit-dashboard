@@ -894,6 +894,7 @@
 }
 
 .sonos-quick-btn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -908,6 +909,11 @@
   color: rgba(235, 235, 245, 0.6);
   -webkit-tap-highlight-color: transparent;
   transition: transform 120ms var(--ease-out), background 0.2s ease, color 0.2s ease;
+}
+.sonos-quick-btn::before {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
 }
 .sonos-quick-btn svg {
   font-size: 0.95rem;

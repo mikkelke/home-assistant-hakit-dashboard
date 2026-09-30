@@ -101,6 +101,11 @@
 .access-quick-btn:active {
   transform: scale(0.88);
 }
+.access-quick-btn::before {
+  content: '';
+  position: absolute;
+  inset: -4px 0;
+}
 .access-quick-btn svg {
   font-size: 1.05rem;
 }
