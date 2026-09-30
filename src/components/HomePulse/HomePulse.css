@@ -51,12 +51,11 @@
   color: #e2e8f0;
   font-size: 0.78rem;
   line-height: 1.1;
-  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  transition: transform 120ms var(--ease-out), border-color 0.2s ease, background 0.2s ease;
 }
 
 button.home-pulse-chip {
   cursor: pointer;
-  transition: transform 120ms var(--ease-out);
 }
 
 @media (hover: hover) and (pointer: fine) {
