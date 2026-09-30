@@ -491,6 +491,7 @@
 }
 
 .tonight-stepper-btn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -502,6 +503,11 @@
   color: #ffffff;
   cursor: pointer;
   transition: transform 120ms var(--ease-out);
+}
+.tonight-stepper-btn::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
 }
 .tonight-stepper-btn:active {
   transform: scale(0.97);

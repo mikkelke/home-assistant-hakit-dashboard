@@ -33,6 +33,7 @@
   color: rgba(235, 235, 245, 0.6);
 }
 .washer-predict-confirm {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -46,6 +47,11 @@
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: transform 120ms var(--ease-out);
+}
+.washer-predict-confirm::before {
+  content: '';
+  position: absolute;
+  inset: -9px;
 }
 .washer-predict-confirm:active {
   transform: scale(0.97);

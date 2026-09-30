@@ -549,6 +549,7 @@ button.appliance-chip:active {
   cursor: pointer;
 }
 .appliance-history-confirm-btn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -562,6 +563,11 @@ button.appliance-chip:active {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: transform 120ms var(--ease-out);
+}
+.appliance-history-confirm-btn::before {
+  content: '';
+  position: absolute;
+  inset: -9px;
 }
 .appliance-history-confirm-btn:active:not(:disabled) {
   transform: scale(0.97);

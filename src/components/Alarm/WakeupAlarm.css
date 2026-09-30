@@ -77,6 +77,11 @@
   -webkit-tap-highlight-color: transparent;
   transition: background 0.15s ease, transform 120ms var(--ease-out);
 }
+.wakeup-switch::before {
+  content: '';
+  position: absolute;
+  inset: -9px 0;
+}
 .wakeup-switch:active {
   transform: scale(0.97);
 }

@@ -1097,6 +1097,12 @@
   padding: 0;
 }
 
+.info-transit-toggle::before {
+  content: '';
+  position: absolute;
+  inset: -13px -6px;
+}
+
 .info-transit-toggle:active {
   transform: scale(0.97);
 }
