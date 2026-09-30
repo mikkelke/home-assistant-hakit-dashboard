@@ -476,7 +476,6 @@
   border-radius: 0.5rem;
   color: #e4e4e7;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
 }
 
 @media (hover: hover) and (pointer: fine) {

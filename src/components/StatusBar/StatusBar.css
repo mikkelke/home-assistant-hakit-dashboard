@@ -273,7 +273,7 @@ body.modal-open .room-card {
   justify-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 120ms var(--ease-out);
+  transition: background 0.2s, transform 120ms var(--ease-out);
 }
 
 .person-info-modal .modal-close:active {

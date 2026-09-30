@@ -135,7 +135,6 @@
   color: #e4e4e7;
   font-size: 1.1rem;
   cursor: pointer;
-  transition: background 0.2s;
 }
 @media (hover: hover) and (pointer: fine) {
   .close-button:hover {

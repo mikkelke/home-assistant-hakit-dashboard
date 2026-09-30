@@ -74,7 +74,7 @@ body::-webkit-scrollbar,
   color: #e4e4e7 !important;
   font-size: 1.1rem !important;
   cursor: pointer !important;
-  transition: background 0.2s, transform 120ms var(--ease-out) !important;
+  transition: background 0.2s, transform 120ms var(--ease-out);
   flex-shrink: 0 !important;
 }
 

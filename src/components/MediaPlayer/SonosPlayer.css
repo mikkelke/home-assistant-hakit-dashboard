@@ -446,7 +446,6 @@
   border-radius: 50%;
   color: rgba(235, 235, 245, 0.4);
   cursor: pointer;
-  transition: transform 120ms var(--ease-out);
 }
 .sonos-sheet-back:active {
   transform: scale(0.97);
@@ -457,6 +456,7 @@
 }
 .sonos-sheet-back {
   margin-left: -0.4rem;
+  transition: transform 120ms var(--ease-out);
 }
 
 .sonos-sheet-body {
