@@ -3,6 +3,32 @@ declare const __APP_BUILD_VERSION__: string;
 const VERSION_POLL_INTERVAL_MS = 60_000;
 const VERSION_REQUEST_TIMEOUT_MS = 8_000;
 
+// One reload attempt per published version per window. If the page that loads afterwards still reports a different build
+// (a deploy still being copied, a cache serving old files, or a build whose two version stamps disagree) an unguarded check
+// would reload again immediately, forever. The window is bounded so a later poll can still retry once the files have settled.
+const RELOAD_GUARD_KEY = 'ha-dashboard:update-reload';
+const RELOAD_RETRY_AFTER_MS = 5 * 60_000;
+
+function reloadedRecentlyFor(version: string): boolean {
+  try {
+    const saved = JSON.parse(window.sessionStorage.getItem(RELOAD_GUARD_KEY) ?? 'null') as { version?: string; at?: number } | null;
+    if (saved?.version !== version || typeof saved.at !== 'number') return false;
+    const elapsed = Date.now() - saved.at;
+    // A negative elapsed time means the clock moved backwards since the attempt; that must not block updates until it catches up.
+    return elapsed >= 0 && elapsed < RELOAD_RETRY_AFTER_MS;
+  } catch {
+    return false;
+  }
+}
+
+function rememberReloadFor(version: string) {
+  try {
+    window.sessionStorage.setItem(RELOAD_GUARD_KEY, JSON.stringify({ version, at: Date.now() }));
+  } catch {
+    // Storage unavailable: no guard, as before.
+  }
+}
+
 function getVersionUrl() {
   return new URL('version.json', window.location.href).toString();
 }
@@ -40,7 +66,8 @@ async function checkForUpdate() {
 
   try {
     const latestVersion = await fetchVersion(controller.signal);
-    if (latestVersion && latestVersion !== __APP_BUILD_VERSION__) {
+    if (latestVersion && latestVersion !== __APP_BUILD_VERSION__ && !reloadedRecentlyFor(latestVersion)) {
+      rememberReloadFor(latestVersion);
       window.location.replace(getReloadUrl());
     }
   } finally {
