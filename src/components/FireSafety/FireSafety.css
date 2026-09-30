@@ -283,9 +283,11 @@
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
 }
 .fire-hush-rearm:active {
   background: rgba(255, 255, 255, 0.28);
+  transform: scale(0.97);
 }
 .fire-hush-bar .fire-rehearsal-tag {
   padding: 0.1rem 0.45rem;
@@ -347,6 +349,11 @@ html.fire-hushed .room-detail.mobile {
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+
+.fire-sheet-text-btn:active {
+  transform: scale(0.97);
 }
 
 /* ---- Owner sheet ---- */
@@ -403,7 +410,10 @@ html.fire-hushed .room-detail.mobile {
   padding: 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, transform 120ms var(--ease-out);
+}
+.smoke-switch:active {
+  transform: scale(0.97);
 }
 .smoke-switch::before {
   content: '';
@@ -446,6 +456,10 @@ html.fire-hushed .room-detail.mobile {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   text-transform: capitalize;
+  transition: transform 120ms var(--ease-out);
+}
+.smoke-segment button:active {
+  transform: scale(0.97);
 }
 .smoke-segment button.on {
   background: var(--appliance-accent-bg);

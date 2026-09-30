@@ -179,7 +179,11 @@
   font: inherit;
   font-size: 0.8rem;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, transform 120ms var(--ease-out);
+}
+
+.device-breakdown-state-error button:active {
+  transform: scale(0.97);
 }
 
 @media (hover: hover) and (pointer: fine) {

@@ -27,6 +27,11 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transition: transform 120ms var(--ease-out);
+}
+
+.price-advisor-segment:active {
+  transform: scale(0.97);
 }
 
 .price-advisor-dot {
@@ -188,7 +193,11 @@
   font-weight: 600;
   text-align: center;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 120ms var(--ease-out);
+}
+
+.price-advisor-toggle-btn:active {
+  transform: scale(0.97);
 }
 
 @media (hover: hover) and (pointer: fine) {

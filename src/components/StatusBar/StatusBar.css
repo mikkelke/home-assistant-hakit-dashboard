@@ -43,6 +43,11 @@
   align-items: center;
   gap: 0.25rem;
   min-width: 60px;
+  transition: transform 120ms var(--ease-out);
+}
+
+.person-card:active {
+  transform: scale(0.97);
 }
 
 .person-avatar {
@@ -268,6 +273,11 @@ body.modal-open .room-card {
   justify-items: center;
   justify-content: center;
   cursor: pointer;
+  transition: transform 120ms var(--ease-out);
+}
+
+.person-info-modal .modal-close:active {
+  transform: scale(0.97);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -318,7 +328,7 @@ body.modal-open .room-card {
   border-radius: 0.5rem;
   color: #a1a1aa;
   cursor: pointer;
-  transition: color 0.15s ease, transform 0.15s ease;
+  transition: color 0.15s ease, transform 120ms var(--ease-out);
   flex-shrink: 0;
 }
 

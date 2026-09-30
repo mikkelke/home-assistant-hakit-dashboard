@@ -96,7 +96,7 @@
   color: #f59e0b;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.08s ease, background 0.15s ease, color 0.15s ease;
+  transition: transform 120ms var(--ease-out), background 0.15s ease, color 0.15s ease;
 }
 .access-quick-btn:active {
   transform: scale(0.88);
@@ -177,6 +177,7 @@
   font-weight: 700;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
 }
 .access-ring-btn:active {
   transform: scale(0.97);
@@ -283,6 +284,10 @@
   color: #f59e0b;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+.access-ibtn:active {
+  transform: scale(0.97);
 }
 .access-ibtn svg {
   width: 17px;
@@ -369,6 +374,7 @@
   flex-shrink: 0;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
 }
 .access-doorbell-btn svg {
   font-size: 1.05rem;
@@ -376,6 +382,7 @@
 .access-doorbell-btn:active {
   background: rgba(255, 255, 255, 0.14);
   color: rgba(255, 255, 255, 0.9);
+  transform: scale(0.97);
 }
 
 /* Sheet chrome - portaled to <body> (see DoorbellGallery.tsx for why that is mandatory) */
@@ -487,6 +494,10 @@
   cursor: pointer;
   min-width: 0;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+.doorbell-tile:active {
+  transform: scale(0.985);
 }
 .doorbell-tile img {
   display: block;

@@ -45,6 +45,10 @@
   color: #22c55e;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+.washer-predict-confirm:active {
+  transform: scale(0.97);
 }
 .washer-predict-confirm svg {
   font-size: 0.9rem;

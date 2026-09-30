@@ -112,6 +112,10 @@
   border: none;
   color: rgba(235, 235, 245, 0.6);
   cursor: pointer;
+  transition: transform 120ms var(--ease-out);
+}
+.cover-btn:active {
+  transform: scale(0.97);
 }
 .cover-btn svg {
   font-size: 1.25rem;
@@ -155,7 +159,7 @@
   background: #2c2c2e;
   color: rgba(235, 235, 245, 0.6);
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.08s ease, background 0.2s ease, color 0.2s ease;
+  transition: transform 120ms var(--ease-out), background 0.2s ease, color 0.2s ease;
 }
 .cover-quick-btn svg {
   font-size: 0.95rem;

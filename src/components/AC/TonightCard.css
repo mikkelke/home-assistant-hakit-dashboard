@@ -501,6 +501,10 @@
   border: none;
   color: #ffffff;
   cursor: pointer;
+  transition: transform 120ms var(--ease-out);
+}
+.tonight-stepper-btn:active {
+  transform: scale(0.97);
 }
 .tonight-stepper-btn svg {
   font-size: 0.85rem;
@@ -549,7 +553,7 @@
   color: rgba(235, 235, 245, 0.6);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.08s ease, background 0.15s ease, color 0.15s ease;
+  transition: transform 120ms var(--ease-out), background 0.15s ease, color 0.15s ease;
 }
 .tonight-icon-action:active {
   transform: scale(0.88);

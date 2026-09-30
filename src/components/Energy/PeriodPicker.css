@@ -28,7 +28,11 @@
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 120ms var(--ease-out);
+}
+
+.period-picker-seg-btn:active {
+  transform: scale(0.97);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -64,7 +68,11 @@
   color: #e4e4e7;
   font-size: 1.2rem;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 120ms var(--ease-out);
+}
+
+.period-picker-nav-btn:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 @media (hover: hover) and (pointer: fine) {

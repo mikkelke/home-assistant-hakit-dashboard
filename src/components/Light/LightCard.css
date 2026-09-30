@@ -36,6 +36,10 @@
   color: #fbbf24;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+button.light-glyph:active {
+  transform: scale(0.97);
 }
 .light-glyph svg {
   font-size: 1rem;
@@ -115,7 +119,10 @@
   background: #2c2c2e;
   color: rgba(235, 235, 245, 0.3);
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.2s var(--ease-out);
+  transition: background 0.2s var(--ease-out), transform 120ms var(--ease-out);
+}
+.light-dot:active {
+  transform: scale(0.97);
 }
 .light-dot svg {
   width: 15px;
@@ -137,6 +144,10 @@
   text-align: left;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+.light-name:active {
+  transform: scale(0.97);
 }
 .light-row:not(.is-on) .light-name {
   color: rgba(235, 235, 245, 0.6);
@@ -289,6 +300,10 @@
   font-weight: 600;
   color: rgba(235, 235, 245, 0.6);
   cursor: pointer;
+  transition: transform 120ms var(--ease-out);
+}
+.color-picker-tab:active {
+  transform: scale(0.97);
 }
 .color-picker-tab.active {
   background: #3a3a3c; /* iOS systemGray4 dark */
@@ -312,6 +327,10 @@
   border: 2px solid transparent;
   padding: 0;
   cursor: pointer;
+  transition: transform 120ms var(--ease-out);
+}
+.color-swatch:active {
+  transform: scale(0.97);
 }
 .color-swatch.selected {
   border-color: rgba(255, 255, 255, 0.85);
@@ -332,6 +351,10 @@
   border: 2px solid transparent;
   padding: 0;
   cursor: pointer;
+  transition: transform 120ms var(--ease-out);
+}
+.color-temp-preset:active {
+  transform: scale(0.97);
 }
 .color-temp-preset.selected {
   border-color: rgba(255, 255, 255, 0.85);
@@ -370,7 +393,7 @@
   background: rgba(251, 191, 36, 0.18);
   color: #fbbf24;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.08s ease, background 0.2s ease, color 0.2s ease;
+  transition: transform 120ms var(--ease-out), background 0.2s ease, color 0.2s ease;
 }
 .light-quick-dot svg {
   font-size: 0.95rem;

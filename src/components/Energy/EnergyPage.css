@@ -43,10 +43,12 @@
   cursor: pointer;
   backdrop-filter: blur(8px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  transition: transform 120ms var(--ease-out);
 }
 
 .energy-page-exit:active {
   background: rgba(40, 42, 46, 0.95);
+  transform: scale(0.97);
 }
 
 .energy-page-inner {

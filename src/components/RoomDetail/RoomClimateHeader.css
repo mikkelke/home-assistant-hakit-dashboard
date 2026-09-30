@@ -41,6 +41,7 @@
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
 }
 .room-climate-chip-icon {
   font-size: 20px;
@@ -59,6 +60,7 @@
 }
 .room-climate-chip:active {
   background: color-mix(in srgb, var(--tone) 28%, transparent);
+  transform: scale(0.97);
 }
 .room-climate-chip.is-muted:active {
   background: rgba(255, 255, 255, 0.14);
@@ -215,6 +217,10 @@
   color: #ff9f0a;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+.climate-zone-toggle:active:not(:disabled) {
+  transform: scale(0.97);
 }
 .climate-zone-toggle:disabled {
   opacity: 0.4;
@@ -245,7 +251,7 @@
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition: background 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease, transform 120ms var(--ease-out);
 }
 .climate-step:active {
   background: #48484a;

@@ -24,7 +24,11 @@
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 120ms var(--ease-out);
+}
+
+.energy-tabs-btn:active {
+  transform: scale(0.97);
 }
 
 @media (hover: hover) and (pointer: fine) {

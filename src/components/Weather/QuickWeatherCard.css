@@ -342,6 +342,11 @@
   text-align: left;
   cursor: pointer;
   min-width: 0;
+  transition: transform 120ms var(--ease-out);
+}
+
+.quick-weather-fact:active {
+  transform: scale(0.985);
 }
 
 .quick-weather-fact-label {
@@ -421,6 +426,10 @@
   color: #a1a1aa;
   cursor: pointer;
   font: inherit;
+  transition: transform 120ms var(--ease-out);
+}
+.quick-weather-card__day-popup-close:active {
+  transform: scale(0.97);
 }
 @media (hover: hover) and (pointer: fine) {
   .quick-weather-card__day-popup-close:hover {
@@ -638,6 +647,10 @@
   white-space: nowrap;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+.quick-weather-hero-chip:active {
+  transform: scale(0.97);
 }
 .quick-weather-hero-chip svg {
   font-size: 0.95em;
@@ -696,6 +709,10 @@
   color: rgba(235, 235, 245, 0.6);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+.quick-weather-compare-tab:active {
+  transform: scale(0.97);
 }
 .quick-weather-compare-tab.is-active {
   background: #48484a;

@@ -24,7 +24,11 @@
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease;
+  transition: color 0.15s ease, background 0.15s ease, transform 120ms var(--ease-out);
+}
+
+.office-vacuum-modal__tab:active {
+  transform: scale(0.97);
 }
 
 .office-vacuum-modal__tab svg {

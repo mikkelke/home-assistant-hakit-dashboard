@@ -36,7 +36,7 @@
   border-radius: 0.75rem;
   color: #e4e4e7;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 120ms var(--ease-out), box-shadow 0.2s, opacity 0.2s;
   width: 48px;
   height: 48px;
   min-width: 48px;
@@ -52,7 +52,7 @@
 }
 
 .qa-button:active:not(:disabled) {
-  transform: translateY(0);
+  transform: scale(0.97);
 }
 
 .qa-button:disabled {
@@ -480,7 +480,11 @@
   border-radius: 0.4rem;
   color: #3b82f6;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition: background 0.2s, border-color 0.2s, transform 120ms var(--ease-out);
+}
+
+.qa-add-speaker-icon-btn:active {
+  transform: scale(0.97);
 }
 
 .qa-media-sync-indicator {
@@ -539,8 +543,12 @@
   color: #e4e4e7;
   font-size: 0.85rem;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.2s, transform 120ms var(--ease-out);
   margin-bottom: 0.75rem;
+}
+
+.qa-back-button:active {
+  transform: scale(0.97);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -808,7 +816,11 @@
   border-radius: 0.4rem;
   color: #a1a1aa;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, transform 120ms var(--ease-out);
+}
+
+.info-refresh-btn:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -1081,8 +1093,12 @@
   cursor: pointer;
   position: relative;
   flex-shrink: 0;
-  transition: background 0.2s;
+  transition: background 0.2s, transform 120ms var(--ease-out);
   padding: 0;
+}
+
+.info-transit-toggle:active {
+  transform: scale(0.97);
 }
 
 .info-transit-toggle::after {
@@ -1149,7 +1165,7 @@
   color: #f59e0b;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.08s ease, background 0.15s ease, color 0.15s ease;
+  transition: transform 120ms var(--ease-out), background 0.15s ease, color 0.15s ease;
 }
 .qa-door:active {
   transform: scale(0.88);

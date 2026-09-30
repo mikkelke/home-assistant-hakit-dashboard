@@ -150,6 +150,10 @@
   border: none;
   color: #ffffff;
   cursor: pointer;
+  transition: transform 120ms var(--ease-out);
+}
+.heat-stepper-btn:active {
+  transform: scale(0.97);
 }
 .heat-stepper-btn svg {
   font-size: 1.15rem;
@@ -179,4 +183,8 @@
   color: #ff9f0a;
   text-decoration: underline;
   cursor: pointer;
+  transition: transform 120ms var(--ease-out);
+}
+.heat-footer-action:active {
+  transform: scale(0.97);
 }

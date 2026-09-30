@@ -305,7 +305,7 @@
   border: 1px solid var(--room-border, rgba(255, 255, 255, 0.08));
   border-radius: clamp(0.75rem, 2vw, 1rem);
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 120ms var(--ease-out);
   aspect-ratio: 1;
   position: relative;
   min-height: 0;
@@ -314,6 +314,10 @@
   overflow: hidden; /* Clip the icon circle on left and bottom */
   /* Ensure room cards stay below modals */
   z-index: 1;
+}
+
+.room-card:active {
+  transform: scale(0.985);
 }
 
 .room-card.occupied {

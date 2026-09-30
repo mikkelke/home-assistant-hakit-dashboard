@@ -74,7 +74,7 @@ body::-webkit-scrollbar,
   color: #e4e4e7 !important;
   font-size: 1.1rem !important;
   cursor: pointer !important;
-  transition: background 0.2s !important;
+  transition: background 0.2s, transform 120ms var(--ease-out) !important;
   flex-shrink: 0 !important;
 }
 
@@ -88,4 +88,5 @@ body::-webkit-scrollbar,
 .modal-close-button:active,
 .close-button:active {
   background: rgba(255, 255, 255, 0.15) !important;
+  transform: scale(0.97);
 }

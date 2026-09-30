@@ -99,9 +99,11 @@
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  transition: transform 120ms var(--ease-out);
 }
 .room-detail-floating-close:active {
   background: rgba(40, 42, 46, 0.95);
+  transform: scale(0.97);
 }
 .presence-badge {
   display: inline-flex;
@@ -244,7 +246,10 @@
   border-radius: 0.5rem;
   color: #e4e4e7;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 120ms var(--ease-out);
+}
+.tv-lift-btn:active {
+  transform: scale(0.97);
 }
 @media (hover: hover) and (pointer: fine) {
   .tv-lift-btn:hover {

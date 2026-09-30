@@ -231,6 +231,10 @@
   color: rgba(235, 235, 245, 0.6);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+.rober-ibtn:active {
+  transform: scale(0.97);
 }
 .rober-ibtn svg {
   width: 17px;
@@ -269,6 +273,11 @@
   color: rgba(255, 255, 255, 0.92);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+
+.rober-room-tile:active {
+  transform: scale(0.985);
 }
 
 .rober-room-img {
@@ -522,8 +531,12 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 0.3rem;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 120ms var(--ease-out);
   white-space: nowrap;
+}
+
+.vacuum-battery-graph-range-btn:active {
+  transform: scale(0.97);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -640,6 +653,7 @@
   flex-shrink: 0;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
 }
 .rober-request-map svg {
   font-size: 1.05rem;
@@ -647,4 +661,5 @@
 .rober-request-map:active {
   background: rgba(255, 255, 255, 0.14);
   color: rgba(255, 255, 255, 0.9);
+  transform: scale(0.97);
 }

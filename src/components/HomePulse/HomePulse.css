@@ -56,12 +56,17 @@
 
 button.home-pulse-chip {
   cursor: pointer;
+  transition: transform 120ms var(--ease-out);
 }
 
 @media (hover: hover) and (pointer: fine) {
   button.home-pulse-chip:hover {
     transform: translateY(-1px);
   }
+}
+
+button.home-pulse-chip:active {
+  transform: scale(0.97);
 }
 
 .home-pulse-chip.is-disabled {
