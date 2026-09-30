@@ -328,7 +328,7 @@ body.modal-open .room-card {
   border-radius: 0.5rem;
   color: #a1a1aa;
   cursor: pointer;
-  transition: color 0.15s ease, transform 120ms var(--ease-out);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 120ms var(--ease-out);
   flex-shrink: 0;
 }
 
