@@ -478,4 +478,7 @@ html.fire-hushed .room-detail.mobile {
   .fire-hush-bar {
     animation: none;
   }
+  .hold-to-act.is-holding .hold-to-act-ring .fill {
+    transition-duration: var(--hold-ms, 800ms) !important;
+  }
 }
