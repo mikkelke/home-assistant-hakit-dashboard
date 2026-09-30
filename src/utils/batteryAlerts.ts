@@ -1,4 +1,5 @@
 import type { HassEntities } from '../types';
+import { peekEntities } from '../hooks/useTrackedEntities';
 
 export interface BatteryAlertItem {
   entityId: string;
@@ -13,10 +14,16 @@ const MOBILE_BATTERY_EXCLUDE_KEYWORDS = ['iphone', 'ipad', 'oppopad', 'ofx9p', '
 export function deriveBatteryItems(entities: HassEntities): BatteryAlertItem[] {
   const grouped = new Map<string, { entityId: string; name: string; value: number; isBt: boolean }>();
 
-  for (const [entityId, entity] of Object.entries(entities || {})) {
+  // Finding the battery sensors means looking at the attributes of every sensor. Do that on the untracked map and read only the
+  // ones that turn out to be batteries through `entities`, so it is their changes (not every sensor's) that re-render the caller.
+  // A sensor that only starts qualifying later (attributes gained after a restart) is picked up on the next re-render, which
+  // useTrackedEntities' heartbeat keeps from being far away.
+  for (const [entityId, candidate] of Object.entries(peekEntities(entities || {}))) {
     if (!entityId.startsWith('sensor.')) continue;
-    if (entity.attributes?.device_class !== 'battery') continue;
-    if (entity.attributes?.unit_of_measurement !== '%') continue;
+    if (candidate.attributes?.device_class !== 'battery') continue;
+    if (candidate.attributes?.unit_of_measurement !== '%') continue;
+
+    const entity = entities[entityId];
 
     const value = Number(entity.state);
     if (!Number.isFinite(value) || value < 0) continue;

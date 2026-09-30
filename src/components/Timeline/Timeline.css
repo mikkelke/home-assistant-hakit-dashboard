@@ -24,8 +24,7 @@
 .timeline-container .status-item,
 .timeline-container .status-icon-svg,
 .timeline-container .status-section,
-.timeline-container .room-card,
-.timeline-container .room-indicators {
+.timeline-container .room-card {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;

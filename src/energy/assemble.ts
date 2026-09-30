@@ -92,13 +92,16 @@ export function assemblePriceSeries(
   currentPrice: number | null
 ): PriceSeries | null {
   const byMs = new Map<number, number>();
+  const dayEndMs = addDays(anchorDayStartMs, 1);
 
   for (const row of priceRows) {
     if (isSanePrice(row.state)) byMs.set(row.start, row.state);
   }
   for (const point of rawToday ?? []) {
     const ms = Date.parse(point.hour);
-    if (!Number.isNaN(ms) && isSanePrice(point.price) && !byMs.has(ms)) byMs.set(ms, point.price);
+    // `raw_today` describes the current day only, so any other anchor day must not pick up its hours.
+    if (Number.isNaN(ms) || ms < anchorDayStartMs || ms >= dayEndMs) continue;
+    if (isSanePrice(point.price) && !byMs.has(ms)) byMs.set(ms, point.price);
   }
 
   const points: PricePoint[] = Array.from(byMs, ([ms, price]) => ({ ms, price })).sort((a, b) => a.ms - b.ms);
@@ -111,7 +114,6 @@ export function assemblePriceSeries(
   const peakStartMs = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate(), 17).getTime();
   const peakEndMs = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate(), 21).getTime();
 
-  const dayEndMs = addDays(anchorDayStartMs, 1);
   let now: { ms: number; price: number } | undefined;
   if (nowMs != null && isSanePrice(currentPrice) && nowMs >= anchorDayStartMs && nowMs < dayEndMs) {
     now = { ms: nowMs, price: currentPrice };

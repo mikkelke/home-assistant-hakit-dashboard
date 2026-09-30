@@ -77,10 +77,13 @@ const indicatorKeys: IndicatorKey[] = [
 function getIndicatorCounts(areas: Area[], entities: HassEntities): IndicatorCounts {
   const counts = indicatorKeys.reduce((acc, key) => ({ ...acc, [key]: 0 }), {} as IndicatorCounts);
 
+  // Only a room with no ROOM_LIGHTS mapping (the rooftop) needs the key list, so build it once, and only if asked.
+  let entityKeysCache: string[] | undefined;
+  const entityKeys = () => (entityKeysCache ??= Object.keys(entities || {}));
+
   areas.forEach(area => {
     const areaName = area.name.toLowerCase();
     const areaNameNormalized = areaName.replace(/\s+/g, '_');
-    const entityKeys = Object.keys(entities || {});
     const isRooftop = area.area_id === 'rooftop' || areaNameNormalized === 'rooftop';
     const isHallway = areaNameNormalized === 'hallway';
     const isKitchen = areaNameNormalized === 'kitchen';
@@ -165,7 +168,7 @@ function getIndicatorCounts(areas: Area[], entities: HassEntities): IndicatorCou
     const availableLights =
       mappedLights.length > 0
         ? mappedLights.filter(id => entities?.[id])
-        : entityKeys.filter(key => {
+        : entityKeys().filter(key => {
             if (!key.startsWith('light.')) return false;
             const lightName = key.slice(6);
             return (

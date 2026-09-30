@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useHass } from '@hakit/core';
 import { useIsMobile } from '../../hooks/useMediaQuery';
+import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { EXCLUDED_AREAS } from '../../config/dashboard';
 import type { Area, HassEntities } from '../../types';
 import { buildHistoryUrlWithHash, buildRoomHash, getAccessibleHistoryWindow, getViewFromHistoryHash } from '../../utils/navigation';
@@ -346,7 +347,7 @@ function getFireDemoEntities(mode: string | null): HassEntities {
 
 export function Dashboard() {
   const areas = useHass(state => state.areas);
-  const entities = useHass(state => state.entities);
+  const entities = useTrackedEntities();
   const hassUrl = useHass(state => state.hassUrl);
   const callService = useHass(state => state.helpers?.callService);
 
@@ -360,13 +361,20 @@ export function Dashboard() {
   // Flag to prevent hash change handler from running during programmatic updates
   const isUpdatingHashRef = useRef(false);
   const hashUpdateTimeoutRef = useRef<number | null>(null);
+  // The hash as last processed or set by this component. The poll below only reacts to a hash nothing has handled yet
+  // (a parent frame navigating the iframe), not to one the app pushed itself.
+  const lastHandledHashRef = useRef('');
   // Ref to track current selected room without causing dependency issues
   const selectedRoomRef = useRef<Area | null>(null);
   // Ref to track energy view open state without causing dependency issues
   const energyOpenRef = useRef(false);
 
-  // Filter out excluded areas
-  const areaList = Object.values(areas || {}).filter(area => !EXCLUDED_AREAS.includes(area.name.toLowerCase())) as Area[];
+  // Filter out excluded areas. Memoised on `areas`: a fresh array on every render would give findRoomById and syncStateFromHash a
+  // new identity each time, which tears down and re-creates the hash listeners and the 500 ms poll below on every update.
+  const areaList = useMemo(
+    () => Object.values(areas || {}).filter(area => !EXCLUDED_AREAS.includes(area.name.toLowerCase())) as Area[],
+    [areas]
+  );
 
   // Optional: ?washer_demo=... / ?dishwasher_demo=... / ?dryer_demo=... to preview appliance cards (merge mock entities)
   const washerDemo = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('washer_demo') : null;
@@ -429,6 +437,7 @@ export function Dashboard() {
     hashUpdateTimeoutRef.current = window.setTimeout(() => {
       isUpdatingHashRef.current = false;
       hashUpdateTimeoutRef.current = null;
+      lastHandledHashRef.current = getAccessibleHistoryWindow()?.location.hash ?? lastHandledHashRef.current;
     }, 120);
   }, []);
 
@@ -510,6 +519,7 @@ export function Dashboard() {
     if (areaList.length === 0) return;
     if (isUpdatingHashRef.current) return; // Skip if we're updating hash programmatically
 
+    lastHandledHashRef.current = getAccessibleHistoryWindow()?.location.hash ?? lastHandledHashRef.current;
     const view = getViewFromHistoryHash();
 
     if (view.kind === 'energy') {
@@ -575,14 +585,12 @@ export function Dashboard() {
     const targetWindow = getAccessibleHistoryWindow();
     if (!targetWindow) return;
 
-    let lastHash = targetWindow.location.hash;
+    lastHandledHashRef.current = targetWindow.location.hash;
 
     const checkHash = () => {
       if (isUpdatingHashRef.current) return; // Skip if we're updating
 
-      const currentHash = targetWindow.location.hash;
-      if (currentHash !== lastHash) {
-        lastHash = currentHash;
+      if (targetWindow.location.hash !== lastHandledHashRef.current) {
         syncStateFromHash();
       }
     };
@@ -669,10 +677,10 @@ export function Dashboard() {
     setSelectedRoom(null);
   };
 
-  const handleCloseEnergy = () => {
+  const handleCloseEnergy = useCallback(() => {
     setEnergyOpen(false);
     replaceEnergyHistory();
-  };
+  }, [replaceEnergyHistory]);
 
   return (
     <div className={`dashboard ${selectedRoom ? 'has-detail' : ''}`}>
