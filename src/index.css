@@ -63,6 +63,7 @@ body::-webkit-scrollbar,
 /* Standardized close button for all popups and modals */
 .modal-close-button,
 .close-button {
+  position: relative;
   width: 32px !important;
   height: 32px !important;
   display: flex !important;
@@ -76,6 +77,13 @@ body::-webkit-scrollbar,
   cursor: pointer !important;
   transition: background 0.2s, transform 120ms var(--ease-out);
   flex-shrink: 0 !important;
+}
+
+.modal-close-button::before,
+.close-button::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
 }
 
 @media (hover: hover) and (pointer: fine) {

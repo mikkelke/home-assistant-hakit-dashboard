@@ -262,6 +262,7 @@ body.modal-open .room-card {
 }
 
 .person-info-modal .modal-close {
+  position: relative;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 0.35rem;
@@ -274,6 +275,12 @@ body.modal-open .room-card {
   justify-content: center;
   cursor: pointer;
   transition: background 0.2s, transform 120ms var(--ease-out);
+}
+
+.person-info-modal .modal-close::before {
+  content: '';
+  position: absolute;
+  inset: -9px;
 }
 
 .person-info-modal .modal-close:active {
