@@ -90,3 +90,24 @@ body::-webkit-scrollbar,
   background: rgba(255, 255, 255, 0.15) !important;
   transform: scale(0.97);
 }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-iteration-count: 1 !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  :where([class*='spin'], [class*='spin'] *) {
+    animation-duration: 1s !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  :where([class*='skeleton'], [class*='refreshing']) {
+    animation-duration: 1.4s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
