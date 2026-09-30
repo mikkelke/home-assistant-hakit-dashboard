@@ -75,6 +75,12 @@ export function TVCard({
   // Collapsed by default, same toggle-row pattern as HeatCard/TonightCard/CoverCard — bedroom and
   // living room collapse independently (keyed by entity id, not by room name).
   const [collapsed, setCollapsed] = useLocalStorageBoolean(`tvcard-collapsed-${entityId.replace(/\./g, '_')}`, true);
+  // The seek clock does not tick while collapsed, so refresh it in the same batch as the toggle: the first expanded frame
+  // is then drawn from a current reading instead of one taken before the card was collapsed.
+  const toggleCollapsed = () => {
+    setLiveClockMs(Date.now());
+    setCollapsed(v => !v);
+  };
 
   // Check if Apple TV remote entity exists
   const hasAppleRemote = appleRemoteEntityId && entities?.[appleRemoteEntityId];
@@ -262,11 +268,20 @@ export function TVCard({
     };
   }, [volume]);
 
+  // Keep the seek position moving between HA updates — only while the seek bar is on screen (the body is mounted when
+  // expanded) and the page is visible. One reading is taken as soon as the tick starts so an expanding card does not
+  // show a stale position until the first interval fires.
   useEffect(() => {
-    if (!showSeeker || seekState !== 'playing') return;
-    const id = setInterval(() => setLiveClockMs(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [showSeeker, seekState]);
+    if (collapsed || !showSeeker || seekState !== 'playing') return;
+    const first = setTimeout(() => setLiveClockMs(Date.now()), 0);
+    const id = setInterval(() => {
+      if (!document.hidden) setLiveClockMs(Date.now());
+    }, 1000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(id);
+    };
+  }, [collapsed, showSeeker, seekState]);
 
   if (!tv) return null;
 
@@ -413,7 +428,7 @@ export function TVCard({
           className='tv-header-toggle'
           onClick={() => {
             if (headerSlop.consumeBlockClick()) return;
-            setCollapsed(v => !v);
+            toggleCollapsed();
           }}
           onTouchStart={headerSlop.onTouchStart}
           onTouchMove={headerSlop.onTouchMove}
@@ -422,7 +437,7 @@ export function TVCard({
           onKeyDown={e => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              setCollapsed(v => !v);
+              toggleCollapsed();
             }
           }}
           role='button'
