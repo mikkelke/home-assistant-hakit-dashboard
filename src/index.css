@@ -86,3 +86,44 @@ body::-webkit-scrollbar,
 .close-button:active {
   background: rgba(255, 255, 255, 0.15) !important;
 }
+
+/* The global look that @hakit/components' ThemeProvider used to inject at runtime. It was appended to <head> after this
+   stylesheet, so where the two overlapped it won: the page background and text colour, and — through the universal selector —
+   the font of everything under body (so the Inter stack above never applied there). Nothing in the app uses the library's components or its
+   --ha-* variables, so the provider, and the whole component library it dragged into the first-load bundle, is gone and the
+   effective values are kept here as plain CSS. */
+* {
+  font-family: Roboto, Helvetica, Arial, sans-serif;
+  scrollbar-width: thin;
+  scrollbar-color: #20345c #10192b;
+}
+
+* ::-webkit-scrollbar-corner {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+*::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #10192b;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #20345c;
+  border-radius: 20px;
+  border: 3px solid #10192b;
+}
+
+body {
+  font-family: Roboto, Helvetica, Arial, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+  background-color: #0a101b;
+  color: #e4eaf5;
+  font-size: 1rem;
+  overflow-x: hidden;
+  overflow-y: inherit;
+}

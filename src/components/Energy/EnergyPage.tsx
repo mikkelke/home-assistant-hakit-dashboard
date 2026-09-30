@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { useEnergyConfig, type Period } from '../../energy';
 import { nextDisabled, startOfLocalDay, startOfPeriod, stepAnchor } from '../../energy/period';
@@ -33,7 +33,7 @@ function tabFromHash(): EnergyTab {
   return isEnergyTab(candidate) ? candidate : 'live';
 }
 
-export function EnergyPage({ onClose }: EnergyPageProps) {
+function EnergyPageView({ onClose }: EnergyPageProps) {
   const [tab, setTab] = useState<EnergyTab>(() => tabFromHash());
   const [period, setPeriod] = useState<Period>('day');
   const [anchorStartMs, setAnchorStartMs] = useState(() => startOfLocalDay(Date.now()));
@@ -140,3 +140,6 @@ export function EnergyPage({ onClose }: EnergyPageProps) {
     </div>
   );
 }
+
+/** Memoised: its only prop is a stable callback, so a Dashboard re-render does not re-render the whole page. */
+export const EnergyPage = memo(EnergyPageView);

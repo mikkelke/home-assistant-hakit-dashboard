@@ -1,6 +1,6 @@
-import { useHass } from '@hakit/core';
 import { assembleLivePower, useEnergyView, type EnergyConfig } from '../../energy';
 import { formatKr, formatKWh, formatW } from '../../utils/format';
+import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import './LiveTab.css';
 import './StatTiles.css'; // hero row below reuses .stat-tiles/.stat-tile* directly (see render)
 
@@ -47,11 +47,11 @@ function LiveRow({ name, watts, maxWatts, indent, untracked }: LiveRowProps) {
 }
 
 /** Tab "Live": what's happening right now, power-wise. The hero row and "Drawing now" list are
- * derived purely from live entity states (no statistics calls — updates arrive via the `useHass`
- * store automatically); today's running kWh/kr total reuses the day view's own hook (sharing its
+ * derived purely from live entity states (no statistics calls — a re-render is due whenever one of the
+ * power entities it reads changes); today's running kWh/kr total reuses the day view's own hook (sharing its
  * module cache with the Usage tab when it's viewing today). Price lives on its own tab now. */
 export function LiveTab({ config, todayStartMs }: LiveTabProps) {
-  const entities = useHass(s => s.entities);
+  const entities = useTrackedEntities();
   const { data: todayView } = useEnergyView('day', todayStartMs);
 
   function powerOf(entityId?: string | null): number | null {

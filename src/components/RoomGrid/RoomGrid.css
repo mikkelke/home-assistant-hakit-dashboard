@@ -335,11 +335,6 @@
   border-color: rgba(34, 197, 94, 0.4);
 }
 
-/* Status Indicators Container - Hidden since we moved them to the right */
-.room-indicators {
-  display: none;
-}
-
 /* Door Open Indicator */
 .room-door-indicator {
   width: 18px;

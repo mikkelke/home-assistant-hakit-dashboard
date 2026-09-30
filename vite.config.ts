@@ -66,6 +66,48 @@ function hakitEnglishLocalesOnly(): Plugin {
   };
 }
 
+/**
+ * `@hakit/core` keeps every entity in one store and, on each incoming WebSocket frame, decides which entities
+ * "changed" with `JSON.stringify(previous) === JSON.stringify(next)` (timestamps and context excluded) for ALL of
+ * them — thousands of stringify pairs per frame, several frames a second, for as long as a dashboard is open.
+ * `home-assistant-js-websocket` hands back the SAME object for every entity that did not change, so an identity
+ * check answers nearly all of those comparisons in O(1); only the few entities that actually changed pay for the
+ * stringify. The result is identical — same reference always means equal.
+ *
+ * The library is bundled into hashed chunks, so the function is found by its shape rather than by file name.
+ * Throws if no module matched: a `@hakit/core` upgrade that reshapes the store must fail the build loudly, not
+ * quietly bring back the per-frame cost.
+ */
+function hakitEntityEqualityFastPath(): Plugin {
+  const corePath = '/@hakit/core/dist/';
+  // (a, b) => { const { last_changed, last_updated, context, ...x } = a, {...} = b; return JSON.stringify(x) === JSON.stringify(y); }
+  const equality =
+    /(\(\s*(\w+)\s*,\s*(\w+)\s*\)\s*=>\s*\{)(\s*const\s*\{\s*last_changed\s*:\s*\w+\s*,\s*last_updated\s*:\s*\w+\s*,\s*context\s*:\s*\w+\s*,\s*\.\.\.\w+\s*\}\s*=\s*\2\s*,[^;]*;\s*return\s+JSON\.stringify\(\w+\)\s*===\s*JSON\.stringify\(\w+\)\s*;?\s*\})/;
+  let patched = 0;
+
+  return {
+    name: 'hakit-entity-equality-fast-path',
+    apply: 'build',
+    transform(code, id) {
+      if (!id.split('\\').join('/').includes(corePath) || !code.includes('last_changed')) return null;
+      const next = code.replace(
+        equality,
+        (_match, head: string, a: string, b: string, body: string) => `${head} if (${a} === ${b}) return true;${body}`
+      );
+      if (next === code) return null;
+      patched += 1;
+      return { code: next, map: null };
+    },
+    buildEnd(error) {
+      if (!error && patched === 0) {
+        this.error(
+          'hakit-entity-equality-fast-path: found no entity-equality function in @hakit/core. It probably changed its store — update the plugin or drop it (the dashboard will spend a large share of idle CPU on per-frame JSON.stringify comparisons).'
+        );
+      }
+    },
+  };
+}
+
 if (typeof VITE_FOLDER_NAME === 'undefined' || VITE_FOLDER_NAME === '') {
   console.error(
     'VITE_FOLDER_NAME environment variable is not set, update your .env file with a value naming your dashboard, eg "VITE_FOLDER_NAME=home-assistant-hakit-dashboard"'
@@ -76,7 +118,7 @@ if (typeof VITE_FOLDER_NAME === 'undefined' || VITE_FOLDER_NAME === '') {
 // https://vite.dev/config/
 export default defineConfig({
   base: `/local/${VITE_FOLDER_NAME}/`,
-  plugins: [hakitEnglishLocalesOnly(), react()],
+  plugins: [hakitEnglishLocalesOnly(), hakitEntityEqualityFastPath(), react()],
   define: {
     __APP_BUILD_VERSION__: JSON.stringify(buildVersion),
   },

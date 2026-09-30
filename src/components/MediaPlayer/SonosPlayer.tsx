@@ -682,12 +682,17 @@ export function SonosPlayer({
     setSeekerPreview(null);
   };
 
-  // Update progress bar every second when playing (so position moves without waiting for HA state)
+  // Update progress bar every second when playing (so position moves without waiting for HA state). Only while the seek bar
+  // is on screen — the face is mounted when embedded or expanded; ticking a collapsed card re-rendered this whole component
+  // every second for a bar nobody could see — and not while the page is hidden.
+  const seekerOnScreen = embedded || !collapsed;
   useEffect(() => {
-    if (!showSeeker || state !== 'playing') return;
-    const id = setInterval(() => setSeekerTick(t => t + 1), 1000);
+    if (!seekerOnScreen || !showSeeker || state !== 'playing') return;
+    const id = setInterval(() => {
+      if (!document.hidden) setSeekerTick(t => t + 1);
+    }, 1000);
     return () => clearInterval(id);
-  }, [showSeeker, state]);
+  }, [seekerOnScreen, showSeeker, state]);
 
   // Service calls
   const handlePlayPause = () => {
