@@ -131,13 +131,13 @@
 .indicator.power.active { color: #ea580c; }
 .indicator.power.running { 
   color: #ea580c; 
-  animation: appliance-moving 1.2s ease-in-out infinite;
+  animation: appliance-moving 2.4s ease-in-out infinite;
 }
 .indicator.power.running svg {
   filter: drop-shadow(0 0 3px currentColor);
 }
 .indicator.appliance.active { 
-  animation: appliance-moving 1.2s ease-in-out infinite;
+  animation: appliance-moving 2.4s ease-in-out infinite;
 }
 .indicator.appliance.active svg {
   filter: drop-shadow(0 0 3px currentColor);
@@ -167,7 +167,7 @@
 .indicator.light.active { color: #fbbf24; }
 .indicator.vacuum.working {
   color: #22c55e;
-  animation: vacuum-wobble 0.8s ease-in-out infinite;
+  animation: vacuum-wobble 1.6s ease-in-out infinite;
 }
 .indicator.vacuum.working svg {
   filter: drop-shadow(0 0 3px currentColor);
@@ -212,25 +212,14 @@
 .indicator.light.inactive { color: #71717a; }
 /* Vacuum wobble animation for working state */
 @keyframes vacuum-wobble {
-  0%, 100% { transform: translateX(0) rotate(0deg); }
-  25% { transform: translateX(2px) rotate(5deg); }
-  75% { transform: translateX(-2px) rotate(-5deg); }
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
 }
 
 /* Appliance moving animation - indicates appliance is running/working */
 @keyframes appliance-moving {
-  0%, 100% { 
-    transform: translateX(0) rotate(0deg);
-  }
-  25% { 
-    transform: translateX(1px) rotate(-2deg);
-  }
-  50% { 
-    transform: translateX(0) rotate(0deg);
-  }
-  75% { 
-    transform: translateX(-1px) rotate(2deg);
-  }
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg); }
 }
 
 @keyframes dishwasher-indicator-paused {
@@ -445,7 +434,7 @@
 }
 
 .room-vacuum-indicator.active {
-  animation: vacuum-wobble 0.8s ease-in-out infinite;
+  animation: vacuum-wobble 1.6s ease-in-out infinite;
 }
 
 /* Overnight Guest Indicator (Office) */
