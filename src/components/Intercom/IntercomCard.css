@@ -683,7 +683,9 @@
     width: 100vw;
     max-width: 100vw;
     height: 100vh;
+    height: 100dvh;
     max-height: 100vh;
+    max-height: 100dvh;
     top: 0;
     left: 0;
     transform: none;
@@ -693,5 +695,6 @@
   .doorbell-photo-content img,
   .doorbell-photo-content video {
     max-height: calc(100vh - 110px);
+    max-height: calc(100dvh - 110px);
   }
 }
