@@ -1,0 +1,21 @@
+name: No AI attribution
+
+on:
+  pull_request:
+
+jobs:
+  commits:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reject AI authorship and attribution in commits
+        run: |
+          range="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          bad=$(git log "$range" --format='%h|%an <%ae>|%cn <%ce>|%B' | grep -iE 'noreply@anthropic\.com|^[0-9a-f]+\|claude |co-authored-by:.*(claude|anthropic)|generated with.*claude|claude\.ai/code' || true)
+          if [ -n "$bad" ]; then
+            echo "Commits carry a Claude identity or attribution:"
+            echo "$bad"
+            exit 1
+          fi
