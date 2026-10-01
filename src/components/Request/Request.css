@@ -1,0 +1,630 @@
+/* Media requests: the Request tile on the Media modal's TV tab, plus the search and title-detail bottom
+   sheets. The sheets are portaled to document.body, so nothing here may rely on an ancestor's custom
+   properties. Tone classes set --rq-tone / --rq-tone-bg for whatever status icon or chip they sit on. */
+
+.rq-tone--available {
+  --rq-tone: #22c55e;
+  --rq-tone-bg: rgba(34, 197, 94, 0.16);
+}
+.rq-tone--pending {
+  --rq-tone: #fbbf24;
+  --rq-tone-bg: rgba(251, 191, 36, 0.16);
+}
+.rq-tone--processing,
+.rq-tone--partial {
+  --rq-tone: #3b82f6;
+  --rq-tone-bg: rgba(59, 130, 246, 0.16);
+}
+
+/* ---- Tile (TV tab) ---- */
+.rq-tile {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 1.25rem;
+  background: #1c1c1e; /* iOS systemGray6 dark, like .tv-card */
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: 24px;
+  color: rgba(255, 255, 255, 0.92);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 120ms var(--ease-out);
+}
+.rq-tile:active {
+  transform: scale(0.98);
+}
+.rq-tile-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.16);
+  color: #3b82f6;
+}
+.rq-tile-glyph svg {
+  font-size: 1rem;
+}
+.rq-tile-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.rq-tile-chevron {
+  flex-shrink: 0;
+  font-size: 1.1rem;
+  color: rgba(235, 235, 245, 0.4);
+}
+
+/* ---- Sheets ---- */
+.rq-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  animation: rq-fade 0.2s ease-out;
+}
+.rq-overlay--detail {
+  z-index: 10000;
+}
+
+.rq-sheet {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  height: 88vh;
+  height: 88dvh;
+  background: #0f1117;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: none;
+  border-radius: 0.9rem 0.9rem 0 0;
+  box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.55);
+  color: #e4e4e7;
+  overflow: hidden;
+  outline: none;
+  animation: rq-rise 0.38s var(--ease-out);
+}
+.rq-sheet--detail {
+  height: 92vh;
+  height: 92dvh;
+}
+
+@media (min-width: 601px) {
+  .rq-overlay {
+    align-items: center;
+    padding: 1rem;
+  }
+  .rq-sheet {
+    height: min(88vh, 820px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.9rem;
+  }
+  .rq-sheet--detail {
+    height: min(92vh, 860px);
+  }
+}
+
+@keyframes rq-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes rq-rise {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes rq-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes rq-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.rq-spin {
+  animation: rq-spin 0.8s linear infinite;
+}
+
+.rq-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.rq-head-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+.rq-head-title svg {
+  font-size: 1.25rem;
+  color: #3b82f6;
+}
+
+.rq-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 0.75rem 1rem calc(1.25rem + env(safe-area-inset-bottom));
+}
+.rq-body--detail {
+  padding-top: 0;
+  padding-bottom: 1rem;
+}
+
+.rq-foot {
+  flex-shrink: 0;
+  padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ---- Search + filters ---- */
+.rq-tools {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem 0.25rem;
+}
+
+.rq-search {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  height: 44px;
+  padding: 0 0.85rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.75rem;
+  color: #a1a1aa;
+  transition: border-color 0.2s;
+}
+.rq-search:focus-within {
+  border-color: rgba(59, 130, 246, 0.5);
+}
+.rq-search svg {
+  flex-shrink: 0;
+  font-size: 1.2rem;
+}
+.rq-search input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  color: #e4e4e7;
+  font: inherit;
+  font-size: 1rem; /* 16px keeps iOS from zooming the page on focus */
+}
+.rq-search input::placeholder {
+  color: #71717a;
+}
+
+.rq-filters {
+  display: flex;
+  gap: 0.5rem;
+}
+.rq-filter {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  background: rgba(24, 25, 28, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.75rem;
+  color: #a1a1aa;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 120ms var(--ease-out);
+}
+.rq-filter:active {
+  transform: scale(0.97);
+}
+.rq-filter svg {
+  font-size: 1.2rem;
+}
+.rq-filter.is-active {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #3b82f6;
+}
+
+/* ---- Poster grid ---- */
+.rq-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  transition: opacity 0.2s;
+}
+.rq-grid.is-stale {
+  opacity: 0.45;
+}
+
+.rq-cell {
+  position: relative;
+  display: block;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0.9rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 120ms var(--ease-out);
+}
+.rq-cell:active {
+  transform: scale(0.96);
+}
+
+.rq-poster {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  border-radius: 0.9rem;
+  overflow: hidden;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.rq-poster img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.rq-poster-title {
+  position: absolute;
+  left: 0.5rem;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #fff;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+}
+
+.rq-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--rq-tone);
+}
+.rq-badge svg {
+  font-size: 0.85rem;
+}
+
+.rq-skeleton {
+  display: block;
+  aspect-ratio: 2 / 3;
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.05);
+  animation: rq-pulse 1.2s ease-in-out infinite;
+}
+
+.rq-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  color: #71717a;
+}
+.rq-more > svg {
+  font-size: 1.4rem;
+}
+
+/* ---- My requests ---- */
+.rq-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.rq-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.4rem 0;
+  background: none;
+  border: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.rq-row .rq-poster {
+  width: 44px;
+  flex-shrink: 0;
+  border-radius: 0.5rem;
+}
+.rq-row .rq-poster-title {
+  display: none;
+}
+.rq-row-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+.rq-ring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--rq-tone-bg);
+  color: var(--rq-tone);
+}
+.rq-ring svg {
+  font-size: 1.05rem;
+}
+
+/* ---- Empty / error ---- */
+.rq-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 3rem 1rem;
+  color: #52525b;
+}
+.rq-state > svg {
+  font-size: 3rem;
+}
+
+.rq-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 40px;
+  padding: 0 1rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  color: #e4e4e7;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+.rq-retry:active {
+  transform: scale(0.97);
+}
+.rq-retry svg {
+  font-size: 1.1rem;
+}
+
+/* ---- Title detail ---- */
+.rq-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: clamp(180px, 28vh, 250px);
+  height: clamp(180px, 28dvh, 250px);
+  margin: 0 -1rem;
+  overflow: hidden;
+}
+.rq-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(transparent 40%, #0f1117);
+  pointer-events: none;
+}
+.rq-hero-bg {
+  position: absolute;
+  inset: -24px;
+  width: calc(100% + 48px);
+  height: calc(100% + 48px);
+  object-fit: cover;
+  filter: blur(24px) saturate(1.2);
+  opacity: 0.55;
+}
+.rq-hero .rq-poster {
+  z-index: 1;
+  width: auto;
+  height: calc(100% - 48px);
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.rq-title {
+  margin: 0.25rem 0 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  color: #f4f4f5;
+}
+
+.rq-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.75rem 0 1rem;
+}
+.rq-chips:empty {
+  display: none;
+}
+.rq-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: #e4e4e7;
+}
+.rq-chip svg {
+  font-size: 0.9rem;
+}
+.rq-chip--rating svg {
+  color: #fbbf24;
+}
+
+.rq-overview {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  width: 100%;
+  margin: 0 0 1rem;
+  padding: 0;
+  background: none;
+  border: none;
+  color: #a1a1aa;
+  font: inherit;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.rq-overview.is-open {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+
+.rq-seasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.rq-season {
+  position: relative;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 0.5rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.75rem;
+  color: #a1a1aa;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 120ms var(--ease-out);
+}
+.rq-season:active:not(:disabled) {
+  transform: scale(0.95);
+}
+.rq-season:disabled {
+  cursor: default;
+}
+.rq-season.is-on {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+.rq-season--status {
+  background: var(--rq-tone-bg);
+  border-color: transparent;
+  color: var(--rq-tone);
+}
+.rq-season-mark {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  display: flex;
+  color: var(--rq-tone);
+}
+.rq-season-mark svg {
+  font-size: 0.7rem;
+}
+
+/* ---- Request button ---- */
+.rq-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  height: 54px;
+  background: #3b82f6;
+  border: none;
+  border-radius: 0.9rem;
+  color: #fff;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s, color 0.2s, opacity 0.2s, transform 120ms var(--ease-out);
+}
+.rq-cta:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.rq-cta:disabled {
+  cursor: default;
+}
+.rq-cta svg {
+  font-size: 1.3rem;
+}
+.rq-cta.is-dim {
+  opacity: 0.5;
+}
+.rq-cta--sent {
+  background: #22c55e;
+  color: #06230f;
+}
+.rq-cta--static {
+  background: rgba(255, 255, 255, 0.08);
+  color: #a1a1aa;
+}
+.rq-cta--static svg {
+  color: var(--rq-tone);
+}
+.rq-cta--error {
+  background: rgba(239, 68, 68, 0.16);
+  color: #f87171;
+}

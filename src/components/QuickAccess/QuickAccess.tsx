@@ -11,6 +11,7 @@ import { isMediaPlayerOutOfSync, resolvePreferredMediaPlayer } from '../../utils
 import { SONOS_SPEAKERS } from '../../config/speakers';
 import { useModalBackButton, useSwipeToClose } from '../../hooks';
 import { HouseEventsModal } from '../HomeActivity';
+import { RequestSheet, RequestTile, useRequestAccess } from '../Request';
 import './QuickAccess.css';
 
 interface QuickAccessProps {
@@ -20,6 +21,7 @@ interface QuickAccessProps {
 }
 
 type ModalType = 'intercom' | 'media' | 'weather' | 'transit' | 'activity' | null;
+type MediaTab = 'audio' | 'tv';
 
 interface TransitLine {
   name: string;
@@ -109,10 +111,16 @@ interface PlayingSpeaker {
   groupSize: number;
 }
 
-interface PlayingTV {
+interface TvEntry {
   entityId: string;
   name: string;
 }
+
+// Alphabetical by name, which is the order the TV tab lists them in.
+const TV_ENTITIES: TvEntry[] = [
+  { entityId: 'media_player.bedroom_tv', name: 'Bedroom TV' },
+  { entityId: 'media_player.living_room_tv', name: 'Living Room TV' },
+];
 
 function hasVisibleTvState(entity: HassEntities[string] | undefined): boolean {
   if (!entity) return false;
@@ -139,6 +147,9 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
   const [mediaPlayersSnapshot, setMediaPlayersSnapshot] = useState<PlayingSpeaker[] | null>(null);
   const [selectedSpeakerForQuickStart, setSelectedSpeakerForQuickStart] = useState<string | null>(null);
   const [showSpeakerSelector, setShowSpeakerSelector] = useState(false);
+  const [mediaTab, setMediaTab] = useState<MediaTab>('audio');
+  const [requestOpen, setRequestOpen] = useState(false);
+  const requestAllowed = useRequestAccess();
   const [expandedLine, setExpandedLine] = useState<string | null>(null);
   const [isTransitRefreshing, setIsTransitRefreshing] = useState(false);
   const [now, setNow] = useState(() => new Date());
@@ -226,22 +237,29 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
     });
   }, [entities]);
 
+  const allTVs = useMemo(() => TV_ENTITIES.filter(tv => entities?.[tv.entityId]), [entities]);
+  const playingTVs = useMemo(() => allTVs.filter(tv => hasVisibleTvState(entities?.[tv.entityId])), [allTVs, entities]);
+
   const resetModalState = useCallback(() => {
     setSelectedSpeakerForQuickStart(null);
     setShowSpeakerSelector(false);
     setExpandedLine(null);
     setMediaPlayersSnapshot(null);
+    setRequestOpen(false);
   }, []);
 
   const openQuickAccess = useCallback(
     (type: Exclude<ModalType, null>) => {
       resetModalState();
-      // Freeze the media player list for the modal's lifetime: group operations change
-      // coordinators and flicker `playing`, which would unmount an open speaker picker.
-      if (type === 'media') setMediaPlayersSnapshot(playingSpeakers);
+      if (type === 'media') {
+        // Freeze the media player list for the modal's lifetime: group operations change
+        // coordinators and flicker `playing`, which would unmount an open speaker picker.
+        setMediaPlayersSnapshot(playingSpeakers);
+        setMediaTab(playingSpeakers.length === 0 && playingTVs.length > 0 ? 'tv' : 'audio');
+      }
       setOpenModal(type);
     },
-    [resetModalState, playingSpeakers]
+    [resetModalState, playingSpeakers, playingTVs]
   );
 
   const handleClose = useCallback(() => {
@@ -282,31 +300,6 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
       setTimeout(() => setIsTransitRefreshing(false), 2000);
     }
   };
-
-  // Find all active/playing TVs
-  const playingTVs = useMemo<PlayingTV[]>(() => {
-    const tvs: PlayingTV[] = [];
-    const tvEntities = [
-      { entityId: 'media_player.bedroom_tv', name: 'Bedroom TV' },
-      { entityId: 'media_player.living_room_tv', name: 'Living Room TV' },
-    ];
-
-    tvEntities.forEach(tv => {
-      const entity = entities?.[tv.entityId];
-      if (!entity) return;
-
-      const isActive = hasVisibleTvState(entity);
-
-      if (isActive) {
-        tvs.push({
-          entityId: tv.entityId,
-          name: tv.name,
-        });
-      }
-    });
-
-    return tvs.sort((a, b) => a.name.localeCompare(b.name));
-  }, [entities]);
 
   // Get all speakers with their states, sorted alphabetically
   const allSpeakers = useMemo<SpeakerInfo[]>(() => {
@@ -417,7 +410,6 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
   // Inside the media modal, render from the open-time snapshot so cards (and any open
   // speaker picker inside them) survive regrouping; fall back to live when no snapshot.
   const displayedSpeakers = mediaPlayersSnapshot ?? playingSpeakers;
-  const hasMediaForModal = displayedSpeakers.length > 0 || hasPlayingTVs;
   const liveGroupSize = (id: string): number => {
     const gm = entities?.[id]?.attributes?.group_members;
     const n = Array.isArray(gm) ? gm.filter(m => typeof m === 'string' && m.length > 0).length : 0;
@@ -572,7 +564,7 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
                     <Icon icon='mdi:refresh' />
                   </button>
                 )}
-                {openModal === 'media' && outOfSyncSpeakerNames.length > 0 && (
+                {openModal === 'media' && mediaTab === 'audio' && outOfSyncSpeakerNames.length > 0 && (
                   <div
                     className='qa-media-sync-indicator'
                     title={`Music Assistant and Sonos disagree for: ${outOfSyncSpeakerNames.join(', ')}`}
@@ -581,7 +573,7 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
                     <Icon icon='mdi:information-outline' />
                   </div>
                 )}
-                {openModal === 'media' && !selectedSpeakerForQuickStart && !showSpeakerSelector && (
+                {openModal === 'media' && mediaTab === 'audio' && !selectedSpeakerForQuickStart && !showSpeakerSelector && (
                   <button className='qa-add-speaker-icon-btn' onClick={() => setShowSpeakerSelector(true)} title='Start music on a speaker'>
                     <Icon icon='mdi:cast-audio' />
                     <Icon icon='mdi:plus' className='qa-plus-icon-small' />
@@ -596,65 +588,37 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
               {openModal === 'intercom' && <IntercomCard entities={entities} callService={callService} />}
               {openModal === 'media' && (
                 <div className='qa-media-content'>
-                  {selectedSpeakerForQuickStart ? (
-                    <div className='qa-media-section'>
-                      <button className='qa-back-button' onClick={() => setSelectedSpeakerForQuickStart(null)}>
-                        <Icon icon='mdi:arrow-left' />
-                        <span>Back</span>
-                      </button>
-                      <SonosPlayer
-                        entityId={selectedSpeakerForQuickStart}
-                        entities={entities}
-                        hassUrl={hassUrl}
-                        callService={callService}
-                        embedded
-                      />
-                    </div>
-                  ) : showSpeakerSelector || !hasMediaForModal ? (
-                    // Show speaker list when "add speaker" button is clicked OR when nothing is playing
-                    <div className='qa-media-section'>
-                      <div className='qa-speaker-list'>
-                        {allSpeakers.map(speaker => (
-                          <button
-                            key={speaker.entityId}
-                            className='qa-speaker-line'
-                            onClick={() => speaker.state !== 'unavailable' && setSelectedSpeakerForQuickStart(speaker.entityId)}
-                            disabled={speaker.state === 'unavailable'}
-                          >
-                            <Icon icon='mdi:speaker' />
-                            <span className='qa-speaker-name'>{speaker.name}</span>
-                            {speaker.groupSize > 1 && <span className='qa-media-group-badge'>{speaker.groupSize} speakers</span>}
-                            {speaker.state !== 'unavailable' && <Icon icon='mdi:chevron-right' className='qa-chevron' />}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    // Show playing speakers and TVs when something is playing
+                  <div className='qa-media-tabs' role='group' aria-label='Media type'>
+                    <button
+                      type='button'
+                      className={`qa-media-tab ${mediaTab === 'audio' ? 'is-active' : ''}`}
+                      aria-pressed={mediaTab === 'audio'}
+                      aria-label={hasPlayingSpeakers ? 'Audio, playing' : 'Audio'}
+                      onClick={() => setMediaTab('audio')}
+                    >
+                      <span className='qa-media-tab-icon'>
+                        <Icon icon='mdi:music-note' />
+                        {hasPlayingSpeakers && <span className='qa-media-tab-dot' />}
+                      </span>
+                    </button>
+                    <button
+                      type='button'
+                      className={`qa-media-tab ${mediaTab === 'tv' ? 'is-active' : ''}`}
+                      aria-pressed={mediaTab === 'tv'}
+                      aria-label={hasPlayingTVs ? 'TV, playing' : 'TV'}
+                      onClick={() => setMediaTab('tv')}
+                    >
+                      <span className='qa-media-tab-icon'>
+                        <Icon icon='mdi:television' />
+                        {hasPlayingTVs && <span className='qa-media-tab-dot' />}
+                      </span>
+                    </button>
+                  </div>
+                  {mediaTab === 'tv' ? (
                     <div className='qa-media-section'>
                       <div className='qa-media-list'>
-                        {displayedSpeakers.map(speaker => {
-                          const groupSize = liveGroupSize(speaker.entityId);
-                          return (
-                            <div key={speaker.entityId} className='qa-media-item'>
-                              <div className='qa-media-identity'>
-                                <div className='qa-media-label'>
-                                  <Icon icon='mdi:speaker' />
-                                  <span className='qa-media-label-text'>{speaker.name}</span>
-                                </div>
-                                {groupSize > 1 && <span className='qa-media-badge qa-media-badge--group'>{groupSize} speakers</span>}
-                              </div>
-                              <SonosPlayer
-                                entityId={speaker.entityId}
-                                entities={entities}
-                                hassUrl={hassUrl}
-                                callService={callService}
-                                embedded
-                              />
-                            </div>
-                          );
-                        })}
-                        {playingTVs.map(tv => {
+                        {requestAllowed && <RequestTile onOpen={() => setRequestOpen(true)} />}
+                        {allTVs.map(tv => {
                           // Get TV-specific props based on entity ID
                           const isBedroom = tv.entityId === 'media_player.bedroom_tv';
                           const isLivingRoom = tv.entityId === 'media_player.living_room_tv';
@@ -690,6 +654,66 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
                                   wirelessUsbCSourceName='HDMI4'
                                 />
                               )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : selectedSpeakerForQuickStart ? (
+                    <div className='qa-media-section'>
+                      <button className='qa-back-button' onClick={() => setSelectedSpeakerForQuickStart(null)}>
+                        <Icon icon='mdi:arrow-left' />
+                        <span>Back</span>
+                      </button>
+                      <SonosPlayer
+                        entityId={selectedSpeakerForQuickStart}
+                        entities={entities}
+                        hassUrl={hassUrl}
+                        callService={callService}
+                        embedded
+                      />
+                    </div>
+                  ) : showSpeakerSelector || displayedSpeakers.length === 0 ? (
+                    // Show speaker list when "add speaker" button is clicked OR when nothing is playing
+                    <div className='qa-media-section'>
+                      <div className='qa-speaker-list'>
+                        {allSpeakers.map(speaker => (
+                          <button
+                            key={speaker.entityId}
+                            className='qa-speaker-line'
+                            onClick={() => speaker.state !== 'unavailable' && setSelectedSpeakerForQuickStart(speaker.entityId)}
+                            disabled={speaker.state === 'unavailable'}
+                          >
+                            <Icon icon='mdi:speaker' />
+                            <span className='qa-speaker-name'>{speaker.name}</span>
+                            {speaker.groupSize > 1 && <span className='qa-media-group-badge'>{speaker.groupSize} speakers</span>}
+                            {speaker.state !== 'unavailable' && <Icon icon='mdi:chevron-right' className='qa-chevron' />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    // Show playing speakers
+                    <div className='qa-media-section'>
+                      <div className='qa-media-list'>
+                        {displayedSpeakers.map(speaker => {
+                          const groupSize = liveGroupSize(speaker.entityId);
+                          return (
+                            <div key={speaker.entityId} className='qa-media-item'>
+                              <div className='qa-media-identity'>
+                                <div className='qa-media-label'>
+                                  <Icon icon='mdi:speaker' />
+                                  <span className='qa-media-label-text'>{speaker.name}</span>
+                                </div>
+                                {groupSize > 1 && <span className='qa-media-badge qa-media-badge--group'>{groupSize} speakers</span>}
+                              </div>
+                              <SonosPlayer
+                                entityId={speaker.entityId}
+                                entities={entities}
+                                hassUrl={hassUrl}
+                                callService={callService}
+                                embedded
+                              />
                             </div>
                           );
                         })}
@@ -853,6 +877,10 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
           (see HouseEventsModal's own doc) — open/close/back are still driven by this same
           openModal state and requestCloseQuickAccess, so it behaves like every other QA modal. */}
       {openModal === 'activity' && <HouseEventsModal entities={entities} onClose={requestCloseQuickAccess} />}
+
+      {/* A sibling of the media modal, not a child: React bubbles the sheet's touch events up the component
+          tree, which would otherwise feed its swipes into the media modal's own swipe-to-close. */}
+      {openModal === 'media' && requestAllowed && requestOpen && <RequestSheet onClose={() => setRequestOpen(false)} />}
     </>
   );
 }

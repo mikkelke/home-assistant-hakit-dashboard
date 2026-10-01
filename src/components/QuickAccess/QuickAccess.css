@@ -233,7 +233,59 @@
 .qa-media-content {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
+}
+
+/* Audio | TV toggle at the top of the media modal */
+.qa-media-tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.qa-media-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  background: rgba(24, 25, 28, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.75rem;
+  color: #a1a1aa;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 120ms var(--ease-out);
+}
+
+.qa-media-tab:active {
+  transform: scale(0.97);
+}
+
+.qa-media-tab.is-active {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #3b82f6;
+}
+
+.qa-media-tab-icon {
+  position: relative;
+  display: inline-flex;
+}
+
+.qa-media-tab-icon svg {
+  font-size: 1.3rem;
+}
+
+/* Something on this side is playing */
+.qa-media-tab-dot {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #22c55e;
+  border: 1.5px solid #0f1117;
 }
 
 .qa-media-section {
