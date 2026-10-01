@@ -11,7 +11,7 @@ export const ROOM_LIGHTS: Record<string, string[]> = {
   hallway: ['light.hallway_lights'],
   // Floor lamp physically removed from the room (user 2026-07-29) — re-add
   // light.claudias_room_floor_light here if it ever returns.
-  claudias_room: ['light.claudias_room_ceiling_lights'],
+  claudias_room: ['light.claudias_room_ceiling_lights', 'light.claudias_room_string_lights'],
   kristines_room: ['light.floor_lamp', 'light.small_lamp'],
 };
 
