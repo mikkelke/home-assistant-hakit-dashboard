@@ -1,4 +1,9 @@
 {
   "attribution": { "commit": "", "pr": "" },
-  "includeCoAuthoredBy": false
+  "env": {
+    "GIT_AUTHOR_NAME": "Mikkel Eskildsen",
+    "GIT_AUTHOR_EMAIL": "mke@visotia.com",
+    "GIT_COMMITTER_NAME": "Mikkel Eskildsen",
+    "GIT_COMMITTER_EMAIL": "mke@visotia.com"
+  }
 }
