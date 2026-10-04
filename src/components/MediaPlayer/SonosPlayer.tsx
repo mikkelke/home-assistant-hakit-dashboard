@@ -8,6 +8,7 @@ import { AUDIOCAST_STREAM_URI, rawSonosEntityId } from '../../config/audiocast';
 import { isMediaPlayerOutOfSync } from '../../utils/mediaPlayer';
 import { getAccessibleHistoryWindow, getHistoryUrl } from '../../utils/navigation';
 import { useLocalStorageBoolean, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
+import { VolumeStrip } from './VolumeStrip';
 import './SonosPlayer.css';
 
 type SonosAttributes = {
@@ -111,7 +112,8 @@ export function SonosPlayer({
   const sourcePendingOpenRef = useRef(false);
   const showSourcePickerRef = useRef(false);
   const [imageError, setImageError] = useState(false);
-  const [volumeUi, setVolumeUi] = useState(0);
+  // Optimistic card volume: held until HA's level moves off `base`.
+  const [pendingVolume, setPendingVolume] = useState<{ value: number; base: number } | null>(null);
   // Apple-style picker: optimistic membership per speaker. Shown while it differs from the
   // entity's actual group state, ignored once HA converges (derive-during-render, no effects).
   const [pendingGroup, setPendingGroup] = useState<Record<string, boolean>>({});
@@ -128,7 +130,6 @@ export function SonosPlayer({
   const viewingEpisodesRef = useRef(false);
   const [selectedPodcastId, setSelectedPodcastId] = useState<string | null>(null);
   const [viewingEpisodes, setViewingEpisodes] = useState(false);
-  const [volumeDragging, setVolumeDragging] = useState(false);
   const [seekerPreview, setSeekerPreview] = useState<number | null>(null); // position in seconds while dragging
   const [, setSeekerTick] = useState(0); // force re-render for live position when playing
   const player = entities?.[entityId];
@@ -156,6 +157,8 @@ export function SonosPlayer({
   const mediaPicture = attributes.entity_picture;
   const mediaPictureLocal = attributes.entity_picture_local;
   const volume = Math.round((attributes.volume_level ?? 0) * 100);
+  if (pendingVolume && pendingVolume.base !== volume) setPendingVolume(null);
+  const shownVolume = pendingVolume && pendingVolume.base === volume ? pendingVolume.value : volume;
   const isMuted = attributes.is_volume_muted;
   const groupMembers = useMemo(() => {
     const raw: Array<string | null | undefined> = Array.isArray(attributes.group_members) ? attributes.group_members : [entityId];
@@ -446,11 +449,6 @@ export function SonosPlayer({
     const others = speakers.filter(s => !s.isMaster).sort((a, b) => a.name.localeCompare(b.name));
     return master ? [master, ...others] : others;
   }, [groupMembers, entities]);
-
-  useEffect(() => {
-    if (volumeDragging) return;
-    setVolumeUi(volume);
-  }, [volume, volumeDragging]);
 
   // Close group modal
   const closeGroupModal = () => {
@@ -767,6 +765,25 @@ export function SonosPlayer({
     });
   };
 
+  // Muted speakers write through the native twin: its SetVolume leaves mute alone,
+  // whereas the MA-flavor write was seen un-muting. Re-assert mute as a backstop.
+  const writeVolume = (baseId: string, actualId: string, muted: boolean, pct: number) => {
+    if (!callService) return;
+    if (!muted) {
+      handleVolumeChange(actualId, pct);
+      return;
+    }
+    const nativeId = rawSonosEntityId(baseId);
+    const targetId = entities?.[nativeId] ? nativeId : actualId;
+    handleVolumeChange(targetId, pct);
+    callService({
+      domain: 'media_player',
+      service: 'volume_mute',
+      target: { entity_id: targetId },
+      serviceData: { is_volume_muted: true },
+    });
+  };
+
   // Steps every current member together, muted ones included — volume moves, mute state
   // stays as-is. Basing each step on pickerVolumes (not raw entity state) is what makes
   // rapid taps accumulate instead of re-reading stale HA state. volume_set can un-mute a
@@ -782,21 +799,7 @@ export function SonosPlayer({
       const base = pickerVolumes[sp.id] ?? sp.volume;
       const next = Math.max(0, Math.min(100, base + direction * 5));
       updates[sp.id] = next;
-      if (sp.isMuted) {
-        // Muted members write through the native twin: its SetVolume leaves mute alone,
-        // whereas the MA-flavor write was seen un-muting. Re-assert mute as a backstop.
-        const nativeId = rawSonosEntityId(sp.id);
-        const targetId = entities?.[nativeId] ? nativeId : sp.actualId;
-        handleVolumeChange(targetId, next);
-        callService({
-          domain: 'media_player',
-          service: 'volume_mute',
-          target: { entity_id: targetId },
-          serviceData: { is_volume_muted: true },
-        });
-      } else {
-        handleVolumeChange(sp.actualId, next);
-      }
+      writeVolume(sp.id, sp.actualId, sp.isMuted, next);
     });
     setPickerVolumes(prev => ({ ...prev, ...updates }));
   };
@@ -1207,7 +1210,6 @@ export function SonosPlayer({
   const stateWord = isPlaying ? `Playing · ${groupMembers.length}` : state === 'paused' ? 'Paused' : 'Quiet';
   const otherMemberNames = groupedSpeakers.filter(s => !s.isMaster).map(s => s.name);
   const subtitleParts = [mediaArtist, displaySource !== 'Select source' ? displaySource : ''].filter(Boolean);
-  const volumePct = Math.max(0, Math.min(100, volumeUi));
   const seekPct = seekDuration > 0 ? Math.max(0, Math.min(100, ((seekerPreview ?? currentPosition) / seekDuration) * 100)) : 0;
 
   // The source door wears the CURRENT source's mark - brands as logos, everything else as a glyph.
@@ -1323,31 +1325,15 @@ export function SonosPlayer({
         <button type='button' className='sonos-mute' onClick={handleMuteToggle} aria-label={isMuted ? 'Unmute' : 'Mute'}>
           <Icon icon={isMuted ? 'mdi:volume-off' : volume > 50 ? 'mdi:volume-high' : 'mdi:volume-medium'} aria-hidden='true' />
         </button>
-        <div className='sonos-strip'>
-          <div className='sonos-strip-fill' style={{ width: `${volumePct}%` }} />
-          <input
-            type='range'
-            className='sonos-strip-input'
-            min={0}
-            max={100}
-            step={1}
-            value={volumeUi}
-            onChange={e => {
-              setVolumeDragging(true);
-              setVolumeUi(Number(e.target.value));
-            }}
-            onMouseUp={() => {
-              handleVolumeChange(entityId, volumeUi);
-              setVolumeDragging(false);
-            }}
-            onTouchEnd={() => {
-              handleVolumeChange(entityId, volumeUi);
-              setVolumeDragging(false);
-            }}
-            aria-label='Volume'
-          />
-        </div>
-        <span className='sonos-volume-value'>{volumeUi}%</span>
+        <VolumeStrip
+          value={shownVolume}
+          muted={Boolean(isMuted)}
+          label='Volume'
+          onCommit={next => {
+            setPendingVolume({ value: next, base: volume });
+            writeVolume(baseEntityId(entityId), entityId, Boolean(isMuted), next);
+          }}
+        />
       </div>
 
       {/* Group volume - same step logic as the change-group sheet, but discreet: icon-led,
@@ -1568,7 +1554,6 @@ export function SonosPlayer({
                 }
 
                 const sliderValue = pickerVolumes[sp.id] ?? sp.volume;
-                const memberPct = Math.max(0, Math.min(100, sliderValue));
 
                 return (
                   <div key={sp.id} className={`sonos-sp ${shownIn ? 'is-member' : ''} ${!sp.available ? 'is-unavailable' : ''}`}>
@@ -1605,22 +1590,16 @@ export function SonosPlayer({
                         >
                           <Icon icon={sp.isMuted ? 'mdi:volume-off' : 'mdi:volume-high'} aria-hidden='true' />
                         </button>
-                        <div className='sonos-strip sonos-strip--mini'>
-                          <div className='sonos-strip-fill' style={{ width: `${memberPct}%` }} />
-                          <input
-                            type='range'
-                            className='sonos-strip-input'
-                            min={0}
-                            max={100}
-                            step={1}
-                            value={sliderValue}
-                            onChange={e => setPickerVolumes(prev => ({ ...prev, [sp.id]: Number(e.target.value) }))}
-                            onMouseUp={() => handleVolumeChange(sp.actualId, pickerVolumes[sp.id] ?? sp.volume)}
-                            onTouchEnd={() => handleVolumeChange(sp.actualId, pickerVolumes[sp.id] ?? sp.volume)}
-                            aria-label={`${sp.name} volume`}
-                          />
-                        </div>
-                        <span className='sonos-volume-value'>{sliderValue}%</span>
+                        <VolumeStrip
+                          mini
+                          value={sliderValue}
+                          muted={sp.isMuted}
+                          label={`${sp.name} volume`}
+                          onCommit={next => {
+                            setPickerVolumes(prev => ({ ...prev, [sp.id]: next }));
+                            writeVolume(sp.id, sp.actualId, sp.isMuted, next);
+                          }}
+                        />
                       </div>
                     )}
                   </div>

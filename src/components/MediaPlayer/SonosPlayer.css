@@ -209,7 +209,7 @@
   font-size: 1.5rem;
 }
 
-/* Strips - the native range input still drags (HA app WebView + useSwipeToClose's
+/* Strips - the seek strip's native range input still drags (HA app WebView + useSwipeToClose's
    input[type=range] exemption); it rides invisibly on top of the gradient fill. */
 .sonos-strip {
   position: relative;
@@ -272,6 +272,27 @@
   background: #fff;
 }
 
+/* Volume strips - VolumeStrip handles the drag itself, so the strip must be the only pointer target
+   (a child as target would lose its implicit touch capture to the strip's). The range input only
+   serves keyboard and assistive tech. */
+.sonos-strip--drag {
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+.sonos-strip--drag > * {
+  pointer-events: none;
+}
+.sonos-strip--drag.is-dragging {
+  transform: scaleY(1.25);
+}
+.sonos-strip--drag.is-muted .sonos-strip-fill {
+  background: linear-gradient(90deg, #48484a, #636366);
+}
+
 /* Seek */
 .sonos-seek {
   margin-top: 1rem;
@@ -326,6 +347,9 @@
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
   color: rgba(235, 235, 245, 0.6);
+}
+.sonos-volume-value.is-live {
+  color: rgba(255, 255, 255, 0.92);
 }
 
 /* Doors */
