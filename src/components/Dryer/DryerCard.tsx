@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Icon } from '@iconify/react';
-import { useHass } from '@hakit/core';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { formatKr } from '../../utils/format';
-import { fireHaEvent } from '../../utils/haEvents';
 import { useRunCost } from '../../energy';
 import { ApplianceCycleTiming } from '../ApplianceCycleTiming';
 import { useLocalStorageBoolean } from '../../hooks';
@@ -27,6 +25,7 @@ const DRYNESS_SELECT_ID = DRYER_DRYNESS_SELECT;
 const SKANE_PLUS_TOGGLE_ID = DRYER_SKANE_PLUS_BOOLEAN;
 const TIME_SELECT_ID = DRYER_TIME_MINUTES_SELECT;
 const ANNOUNCE_TOGGLE_ID = DRYER_ANNOUNCE_BOOLEAN;
+const EMPTIED_BUTTON_ID = 'input_button.dryer_emptied';
 
 /** Programmes that show the Dryness dropdown */
 const PROGRAMMES_WITH_DRYNESS = ['Bomuld', 'Strygelet', 'Finvask', 'Skjorter', 'Ekspres', 'Denim', 'Sengetøj', 'Udglatning'];
@@ -85,10 +84,6 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
   const announceToggle = entities?.[ANNOUNCE_TOGGLE_ID];
 
   const [collapsed, setCollapsed] = useLocalStorageBoolean('dryercard-collapsed', true);
-  const connection = useHass((s: { connection?: unknown }) => s.connection);
-  // `connection` is typed `unknown` (see energy/ws.ts / VacuumCard) — narrow to boolean once so
-  // it can gate JSX directly (`unknown && <Jsx/>` doesn't type-check as ReactNode).
-  const hasConnection = Boolean(connection);
 
   // Which picker/history sheet is open (at most one at a time — chips/footer icons open them).
   const [openPicker, setOpenPicker] = useState<DryerPicker>(null);
@@ -355,11 +350,15 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
   };
 
   const handleForceEmptied = () => {
-    if (!connection) return;
+    if (!callService) return;
     setEmptiedPressed(true);
     if (emptiedTimerRef.current) clearTimeout(emptiedTimerRef.current);
     emptiedTimerRef.current = setTimeout(() => setEmptiedPressed(false), 5000);
-    fireHaEvent(connection, 'dryer_force_emptied', { reason: 'Dashboard' });
+    callService({
+      domain: 'input_button',
+      service: 'press',
+      target: { entity_id: EMPTIED_BUTTON_ID },
+    });
   };
 
   const stateWord = state === 'Running' ? 'Running' : state === 'Paused' ? 'Paused' : 'Empty it';
@@ -414,7 +413,7 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
       >
         <Icon icon='mdi:bell' aria-hidden='true' />
       </button>
-    ) : collapsed && state === 'Unemptied' && hasConnection ? (
+    ) : collapsed && state === 'Unemptied' && callService ? (
       <button
         type='button'
         className='appliance-quick-btn'
@@ -532,7 +531,7 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
               {doneAtDisplay && <span className='appliance-hero-line1'>Done {doneAtDisplay}</span>}
               {heroLine2 && <span className='appliance-hero-line2'>{heroLine2}</span>}
             </span>
-            {hasConnection && (
+            {callService && (
               <button
                 type='button'
                 className='appliance-emptied-pill'

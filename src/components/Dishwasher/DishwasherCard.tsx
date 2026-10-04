@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Icon } from '@iconify/react';
-import { useHass } from '@hakit/core';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { resolveDishwasherSemanticState } from '../../utils/dishwasherSemanticState';
 import { formatKr } from '../../utils/format';
-import { fireHaEvent } from '../../utils/haEvents';
 import { useRunCost } from '../../energy';
 import { ApplianceCycleTiming } from '../ApplianceCycleTiming';
 import { useLocalStorageBoolean } from '../../hooks';
@@ -18,6 +16,7 @@ const DISHWASHER_STATE_ID = 'sensor.dishwasher_state';
 const DISHWASHER_INPUT_STATE_ID = 'input_select.dishwasher_state';
 const PROGRAMME_SELECT_ID = 'input_select.dishwasher_confirmed_programme';
 const SHORT_SELECT_ID = 'input_select.dishwasher_short';
+const EMPTIED_BUTTON_ID = 'input_button.dishwasher_emptied';
 
 const SHORT_OPTIONS = ['—', 'Yes', 'No'] as const;
 
@@ -70,10 +69,6 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
   const shortSelect = entities?.[SHORT_SELECT_ID];
 
   const [collapsed, setCollapsed] = useLocalStorageBoolean('dishwashercard-collapsed', true);
-  const connection = useHass((s: { connection?: unknown }) => s.connection);
-  // `connection` is typed `unknown` (see energy/ws.ts / VacuumCard) — narrow to boolean once so
-  // it can gate JSX directly (`unknown && <Jsx/>` doesn't type-check as ReactNode).
-  const hasConnection = Boolean(connection);
 
   // Which picker/history sheet is open (at most one at a time — chips/footer icons open them).
   const [openPicker, setOpenPicker] = useState<DishwasherPicker>(null);
@@ -268,11 +263,15 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
   };
 
   const handleForceEmptied = () => {
-    if (!connection) return;
+    if (!callService) return;
     setEmptiedPressed(true);
     if (emptiedTimerRef.current) clearTimeout(emptiedTimerRef.current);
     emptiedTimerRef.current = setTimeout(() => setEmptiedPressed(false), 5000);
-    fireHaEvent(connection, 'dishwasher_force_emptied', { reason: 'Dashboard' });
+    callService({
+      domain: 'input_button',
+      service: 'press',
+      target: { entity_id: EMPTIED_BUTTON_ID },
+    });
   };
 
   const stateWord = state === 'Running' ? 'Running' : state === 'Paused' ? 'Paused' : 'Empty it';
@@ -301,7 +300,7 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
   );
 
   const quickButton =
-    collapsed && state === 'Unemptied' && hasConnection ? (
+    collapsed && state === 'Unemptied' && callService ? (
       <button
         type='button'
         className='appliance-quick-btn'
@@ -406,7 +405,7 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
               {doneAtDisplay && <span className='appliance-hero-line1'>Done {doneAtDisplay}</span>}
               {heroLine2 && <span className='appliance-hero-line2'>{heroLine2}</span>}
             </span>
-            {hasConnection && (
+            {callService && (
               <button
                 type='button'
                 className='appliance-emptied-pill'
