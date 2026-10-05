@@ -41,15 +41,6 @@ export const RADIO_STATIONS: RadioStation[] = [
     logo: DRP4Logo,
     color: '#ff7f00', // P4 orange
   },
-  {
-    id: 'tomorrowland',
-    name: 'Tomorrowland',
-    // Redirect endpoint: the node hostname it 302s to rotates, so never hardcode that.
-    mediaId: 'https://playerservices.streamtheworld.com/api/livestream-redirect/OWR_INTERNATIONAL.mp3',
-    mediaType: 'music',
-    icon: 'mdi:party-popper',
-    color: '#f4b41a', // Tomorrowland gold
-  },
 ];
 
 // To add more stations, use this format:
