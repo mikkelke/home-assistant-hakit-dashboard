@@ -655,6 +655,9 @@
   margin-right: 0.05rem;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
   transition: transform 120ms var(--ease-out);
 }
 

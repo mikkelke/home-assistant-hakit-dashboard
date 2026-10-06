@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
+import { hapticTick } from '../../utils/haptics';
 
 const TOUCH_SLOP_PX = 8;
 const MOUSE_SLOP_PX = 4;
@@ -22,21 +23,6 @@ interface VolumeStripProps {
   label: string;
   mini?: boolean;
   muted?: boolean;
-}
-
-/** HA's frontend turns window `haptic` events into native haptics in the companion app. Only reachable
- *  when this page is embedded same-origin; anywhere else fall back to the Vibration API. */
-function hapticTick() {
-  try {
-    const top = window.top as (Window & typeof globalThis) | null;
-    if (top && top !== window) {
-      top.dispatchEvent(new top.CustomEvent('haptic', { detail: 'selection' }));
-      return;
-    }
-  } catch {
-    // cross-origin parent
-  }
-  navigator.vibrate?.(5);
 }
 
 /** Relative-drag volume strip. A tap does nothing; a horizontal drag moves the level by the finger's travel

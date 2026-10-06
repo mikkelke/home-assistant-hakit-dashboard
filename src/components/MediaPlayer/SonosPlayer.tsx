@@ -7,7 +7,8 @@ import { PODCAST_FEEDS } from '../../config/podcasts';
 import { AUDIOCAST_STREAM_URI, rawSonosEntityId } from '../../config/audiocast';
 import { isMediaPlayerOutOfSync } from '../../utils/mediaPlayer';
 import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
-import { useLocalStorageBoolean, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
+import { hapticTick } from '../../utils/haptics';
+import { useLocalStorageBoolean, useLongPress, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
 import { VolumeStrip } from './VolumeStrip';
 import './SonosPlayer.css';
 
@@ -71,6 +72,28 @@ const getMasterFromEntity = (entity: { attributes?: { group_members?: unknown[] 
  */
 const baseEntityId = (id: string): string => (id.endsWith('_2') ? id.slice(0, -2) : id);
 
+/** While on, the family-room volume sync stays out of the way. */
+const FAMILY_SYNC_PARTY_ENTITY = 'input_boolean.family_volume_sync_party';
+
+/** A level this card sent for a speaker that HA has not settled on yet. `seen` is every level HA may still report on
+ *  the way there (the one before the first send plus each send), which tells an echo of our own writes from something
+ *  else moving the speaker. */
+type SentVolume = { value: number; seen: number[] };
+
+/** Levels HA may report for a level sent as volume_level / 100: Music Assistant truncates, so 29 comes back as 28. */
+const reportedLevels = (pct: number): number[] => [pct, Math.trunc((pct / 100) * 100)];
+
+const isUnsettled = (sent: SentVolume | undefined, live: number): sent is SentVolume =>
+  sent !== undefined && sent.seen.includes(live) && !reportedLevels(sent.value).includes(live);
+
+/** Where a speaker is heading while HA still catches up, otherwise where it really is. */
+const runningVolume = (sent: SentVolume | undefined, live: number): number => (isUnsettled(sent, live) ? sent.value : live);
+
+const sendVolume = (sent: SentVolume | undefined, live: number, next: number): SentVolume => ({
+  value: next,
+  seen: [...(isUnsettled(sent, live) ? sent.seen : [live]), ...reportedLevels(next)],
+});
+
 /** pushState/replaceState must keep #room=… or Dashboard hash sync closes the room (iframe / rooftop). */
 function podcastHistoryUrl(): string {
   return getHistoryUrl();
@@ -120,8 +143,10 @@ export function SonosPlayer({
   // Apple-style picker: optimistic membership per speaker. Shown while it differs from the
   // entity's actual group state, ignored once HA converges (derive-during-render, no effects).
   const [pendingGroup, setPendingGroup] = useState<Record<string, boolean>>({});
-  // Local slider values for the picker (slider owns its value once touched, like the mixer)
-  const [pickerVolumes, setPickerVolumes] = useState<Record<string, number>>({});
+  // Per speaker, the level this card last sent while HA is still catching up. Group steps and the picker sliders start
+  // from it, so rapid taps accumulate and a dragged slider holds; once HA settles or something else moves the speaker
+  // it is dropped and the live level is used.
+  const [sentVolumes, setSentVolumes] = useState<Record<string, SentVolume>>({});
   const [podcastEpisodes, setPodcastEpisodes] = useState<Record<string, Array<{ title: string; url: string; pubDate?: string }>>>({});
   const [podcastLoading, setPodcastLoading] = useState<string | null>(null);
   const [podcastError, setPodcastError] = useState<string | null>(null);
@@ -151,6 +176,16 @@ export function SonosPlayer({
       target: { entity_id: keepPlayingEntityId },
     });
   };
+
+  // Hidden on purpose: long-pressing the group-volume icon toggles party mode, which switches the family-room volume
+  // sync off; the icon becomes a party popper while it is on. Does nothing until the helper exists.
+  const partyState = entities?.[FAMILY_SYNC_PARTY_ENTITY]?.state;
+  const partyOn = partyState === 'on';
+  const syncPartyHold = useLongPress(() => {
+    if (!callService || (partyState !== 'on' && partyState !== 'off')) return;
+    hapticTick();
+    callService({ domain: 'input_boolean', service: 'toggle', target: { entity_id: FAMILY_SYNC_PARTY_ENTITY } });
+  });
 
   // Use safe fallbacks when player is missing so all hooks run unconditionally (avoids React #300 when switching rooms)
   const state = player?.state ?? 'unavailable';
@@ -794,23 +829,24 @@ export function SonosPlayer({
   };
 
   // Steps every current member together, muted ones included — volume moves, mute state
-  // stays as-is. Basing each step on pickerVolumes (not raw entity state) is what makes
-  // rapid taps accumulate instead of re-reading stale HA state. volume_set can un-mute a
-  // muted speaker downstream (observed 08-19), so mute is re-asserted right after it.
+  // stays as-is. Each step starts from the level this card last sent while HA is still
+  // catching up (so rapid taps accumulate), otherwise from the speaker's live level (so a
+  // speaker moved by something else is stepped from where it really is). volume_set can
+  // un-mute a muted speaker downstream (observed 08-19), so mute is re-asserted right after it.
   const handleGroupVolumeStep = (direction: 1 | -1) => {
     if (!callService) return;
-    const updates: Record<string, number> = {};
+    const updates: Record<string, SentVolume> = {};
     pickerSpeakers.forEach(sp => {
       const pend = pendingGroup[sp.id];
       const inFlight = pend !== undefined && pend !== sp.isMember;
       const shownIn = inFlight ? pend : sp.isMember;
       if (!shownIn || !sp.available) return;
-      const base = pickerVolumes[sp.id] ?? sp.volume;
-      const next = Math.max(0, Math.min(100, base + direction * 3));
-      updates[sp.id] = next;
+      const sent = sentVolumes[sp.id];
+      const next = Math.max(0, Math.min(100, runningVolume(sent, sp.volume) + direction * 3));
+      updates[sp.id] = sendVolume(sent, sp.volume, next);
       writeVolume(sp.id, sp.actualId, sp.isMuted, next);
     });
-    setPickerVolumes(prev => ({ ...prev, ...updates }));
+    setSentVolumes(prev => ({ ...prev, ...updates }));
   };
 
   const parseRss = (xmlText: string) => {
@@ -1213,6 +1249,12 @@ export function SonosPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entities, groupMembers, masterId, entityId, idFlavor]);
 
+  // Derive during render, no effect: drop a sent level once HA has settled on it or something else moved the speaker.
+  const settledIds = pickerSpeakers.filter(sp => sentVolumes[sp.id] && !isUnsettled(sentVolumes[sp.id], sp.volume)).map(sp => sp.id);
+  if (settledIds.length > 0) {
+    setSentVolumes(prev => Object.fromEntries(Object.entries(prev).filter(([id]) => !settledIds.includes(id))));
+  }
+
   if (!player) return <div className='sonos-card'>Speaker not found</div>;
 
   // The state word compresses the whole card; green while something is actually playing.
@@ -1352,15 +1394,12 @@ export function SonosPlayer({
           <button
             type='button'
             className='sonos-groupvol-icon-btn'
-            onClick={() => {
-              // Reopen shows current HA volumes, not values dragged in a previous session.
-              setPickerVolumes({});
-              setShowGroupModal(true);
-            }}
+            onClick={() => setShowGroupModal(true)}
             aria-label='Speakers'
             title='Speakers'
+            {...syncPartyHold}
           >
-            <Icon icon='mdi:speaker-multiple' className='sonos-groupvol-icon' aria-hidden='true' />
+            <Icon icon={partyOn ? 'mdi:party-popper' : 'mdi:speaker-multiple'} className='sonos-groupvol-icon' aria-hidden='true' />
           </button>
           <button
             type='button'
@@ -1383,17 +1422,7 @@ export function SonosPlayer({
 
       {/* Doors */}
       <div className='sonos-doors'>
-        <button
-          type='button'
-          className='sonos-ibtn'
-          onClick={() => {
-            // Reopen shows current HA volumes, not values dragged in a previous session.
-            setPickerVolumes({});
-            setShowGroupModal(true);
-          }}
-          aria-label='Speakers'
-          title='Speakers'
-        >
+        <button type='button' className='sonos-ibtn' onClick={() => setShowGroupModal(true)} aria-label='Speakers' title='Speakers'>
           <Icon icon='mdi:speaker-multiple' aria-hidden='true' />
           {hasGroup && <span className='sonos-badge'>{groupMembers.length}</span>}
         </button>
@@ -1562,7 +1591,7 @@ export function SonosPlayer({
                   else subtitle = 'Not playing';
                 }
 
-                const sliderValue = pickerVolumes[sp.id] ?? sp.volume;
+                const sliderValue = runningVolume(sentVolumes[sp.id], sp.volume);
 
                 return (
                   <div key={sp.id} className={`sonos-sp ${shownIn ? 'is-member' : ''} ${!sp.available ? 'is-unavailable' : ''}`}>
@@ -1605,7 +1634,7 @@ export function SonosPlayer({
                           muted={sp.isMuted}
                           label={`${sp.name} volume`}
                           onCommit={next => {
-                            setPickerVolumes(prev => ({ ...prev, [sp.id]: next }));
+                            setSentVolumes(prev => ({ ...prev, [sp.id]: sendVolume(sentVolumes[sp.id], sp.volume, next) }));
                             writeVolume(sp.id, sp.actualId, sp.isMuted, next);
                           }}
                         />
