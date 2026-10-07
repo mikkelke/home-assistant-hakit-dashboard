@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import type { SonosPlayerProps } from '../../types';
-import { SONOS_SPEAKERS } from '../../config/speakers';
+import { FAMILY_ZONE, SONOS_SPEAKERS } from '../../config/speakers';
 import { RADIO_STATIONS } from '../../config/radio';
 import { PODCAST_FEEDS } from '../../config/podcasts';
 import { AUDIOCAST_STREAM_URI, rawSonosEntityId } from '../../config/audiocast';
@@ -177,8 +177,9 @@ export function SonosPlayer({
     });
   };
 
-  // Hidden on purpose: long-pressing the group-volume icon toggles party mode, which switches the family-room volume
-  // sync off; the icon becomes a party popper while it is on. Does nothing until the helper exists.
+  // Hidden on purpose: in a group with a family-room speaker, long-pressing the group-volume icon toggles party mode,
+  // which switches the family-room volume sync off; the icon becomes a party popper while it is on. Does nothing
+  // until the helper exists.
   const partyState = entities?.[FAMILY_SYNC_PARTY_ENTITY]?.state;
   const partyOn = partyState === 'on';
   const syncPartyHold = useLongPress(() => {
@@ -468,6 +469,7 @@ export function SonosPlayer({
   if (pendingPlay && pendingPlay.base !== state) setPendingPlay(null);
   const isPlaying = pendingPlay && pendingPlay.base === state ? pendingPlay.playing : state === 'playing';
   const hasGroup = groupMembers.length > 1;
+  const familyGroup = groupMembers.some(m => FAMILY_ZONE.includes(baseEntityId(m)));
 
   const isOutOfSync = isMediaPlayerOutOfSync(entities, entityId);
 
@@ -832,7 +834,7 @@ export function SonosPlayer({
   // stays as-is. Each step starts from the level this card last sent while HA is still
   // catching up (so rapid taps accumulate), otherwise from the speaker's live level (so a
   // speaker moved by something else is stepped from where it really is). volume_set can
-  // un-mute a muted speaker downstream (observed 08-19), so mute is re-asserted right after it.
+  // un-mute a muted speaker downstream, so mute is re-asserted right after it.
   const handleGroupVolumeStep = (direction: 1 | -1) => {
     if (!callService) return;
     const updates: Record<string, SentVolume> = {};
@@ -1397,9 +1399,13 @@ export function SonosPlayer({
             onClick={() => setShowGroupModal(true)}
             aria-label='Speakers'
             title='Speakers'
-            {...syncPartyHold}
+            {...(familyGroup ? syncPartyHold : {})}
           >
-            <Icon icon={partyOn ? 'mdi:party-popper' : 'mdi:speaker-multiple'} className='sonos-groupvol-icon' aria-hidden='true' />
+            <Icon
+              icon={partyOn && familyGroup ? 'mdi:party-popper' : 'mdi:speaker-multiple'}
+              className='sonos-groupvol-icon'
+              aria-hidden='true'
+            />
           </button>
           <button
             type='button'

@@ -12,3 +12,11 @@ export const SONOS_SPEAKERS: Speaker[] = [
   { id: 'media_player.kristines_room', name: 'Kristines room' },
   { id: 'media_player.rooftop', name: 'Rooftop' },
 ];
+
+/** The speakers the family-room volume sync covers (`speakers` in family_room_volume_sync.yaml). */
+export const FAMILY_ZONE: string[] = [
+  'media_player.living_room',
+  'media_player.kitchen',
+  'media_player.dining_room',
+  'media_player.rooftop',
+];

@@ -20,11 +20,6 @@ export function useLongPress(onHold: () => void, holdMs = 1500) {
   const press = useRef<Press | null>(null);
   const timer = useRef<number | null>(null);
   const held = useRef(false);
-  const latest = useRef(onHold);
-
-  useEffect(() => {
-    latest.current = onHold;
-  });
 
   const cancel = useCallback(() => {
     if (timer.current !== null) window.clearTimeout(timer.current);
@@ -48,7 +43,7 @@ export function useLongPress(onHold: () => void, holdMs = 1500) {
         timer.current = null;
         press.current = null;
         held.current = true;
-        latest.current();
+        onHold();
       }, holdMs);
     },
     onPointerMove: (e: ReactPointerEvent) => {
