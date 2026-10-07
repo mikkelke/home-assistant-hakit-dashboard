@@ -1786,13 +1786,14 @@ export function SonosPlayer({
                           className='sonos-row'
                           onClick={() => {
                             if (!callService) return;
+                            // Music Assistant entity of the coordinator: native Sonos rejects audio/mpeg.
                             callService({
                               domain: 'media_player',
                               service: 'play_media',
-                              target: { entity_id: entityId },
+                              target: { entity_id: baseEntityId(hasGroup ? groupMembers[0] : entityId) },
                               serviceData: {
                                 media_content_id: ep.url,
-                                media_content_type: 'audio/mpeg',
+                                media_content_type: 'music',
                               },
                             });
                             handleCloseSourceSheet();
