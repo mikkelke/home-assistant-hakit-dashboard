@@ -114,6 +114,9 @@ export function SonosPlayer({
   const [imageError, setImageError] = useState(false);
   // Optimistic card volume: held until HA's level moves off `base`.
   const [pendingVolume, setPendingVolume] = useState<{ value: number; base: number } | null>(null);
+  // Optimistic play/pause: held until HA's state moves off `base`, or dropped by the timer.
+  const [pendingPlay, setPendingPlay] = useState<{ playing: boolean; base: string } | null>(null);
+  const pendingPlayTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // Apple-style picker: optimistic membership per speaker. Shown while it differs from the
   // entity's actual group state, ignored once HA converges (derive-during-render, no effects).
   const [pendingGroup, setPendingGroup] = useState<Record<string, boolean>>({});
@@ -427,7 +430,8 @@ export function SonosPlayer({
       ? resolvedImage
       : undefined;
   const showImage = safeImage && !imageError;
-  const isPlaying = state === 'playing';
+  if (pendingPlay && pendingPlay.base !== state) setPendingPlay(null);
+  const isPlaying = pendingPlay && pendingPlay.base === state ? pendingPlay.playing : state === 'playing';
   const hasGroup = groupMembers.length > 1;
 
   const isOutOfSync = isMediaPlayerOutOfSync(entities, entityId);
@@ -693,8 +697,13 @@ export function SonosPlayer({
   }, [seekerOnScreen, showSeeker, state]);
 
   // Service calls
+  useEffect(() => () => clearTimeout(pendingPlayTimer.current), []);
+
   const handlePlayPause = () => {
     if (!callService) return;
+    setPendingPlay({ playing: !isPlaying, base: state });
+    clearTimeout(pendingPlayTimer.current);
+    pendingPlayTimer.current = setTimeout(() => setPendingPlay(null), 10000);
 
     // Line-in/Audiocast does not support play/pause – use media_stop to stop playback
     if (isPlaying && isLineIn(currentSource)) {
