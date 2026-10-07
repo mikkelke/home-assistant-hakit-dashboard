@@ -177,9 +177,9 @@ export function SonosPlayer({
     });
   };
 
-  // Hidden on purpose: in a group with a family-room speaker, long-pressing the group-volume icon toggles party mode,
-  // which switches the family-room volume sync off; the icon becomes a party popper while it is on. Does nothing
-  // until the helper exists.
+  // Hidden on purpose: in a group of two or more family-room speakers (where the sync acts), long-pressing the
+  // group-volume icon toggles party mode, which switches the family-room volume sync off; the icon becomes a party
+  // popper while it is on. Does nothing until the helper exists.
   const partyState = entities?.[FAMILY_SYNC_PARTY_ENTITY]?.state;
   const partyOn = partyState === 'on';
   const syncPartyHold = useLongPress(() => {
@@ -469,7 +469,7 @@ export function SonosPlayer({
   if (pendingPlay && pendingPlay.base !== state) setPendingPlay(null);
   const isPlaying = pendingPlay && pendingPlay.base === state ? pendingPlay.playing : state === 'playing';
   const hasGroup = groupMembers.length > 1;
-  const familyGroup = groupMembers.some(m => FAMILY_ZONE.includes(baseEntityId(m)));
+  const familyGroup = groupMembers.filter(m => FAMILY_ZONE.includes(baseEntityId(m))).length >= 2;
 
   const isOutOfSync = isMediaPlayerOutOfSync(entities, entityId);
 
