@@ -61,6 +61,24 @@ describe('usage comparison and band share', () => {
     expect(changeVsPrevious(current, null, now, 'kwh')).toBeNull();
   });
 
+  it('compares a closed period with the whole previous one', () => {
+    const DAY = 24 * HOUR;
+    const days = (startMs: number, n: number): EnergyBar[] =>
+      Array.from({ length: n }, (_, i) => ({
+        startMs: startMs + i * DAY,
+        endMs: startMs + (i + 1) * DAY,
+        kWh: 1,
+        costKr: 2,
+        price: 2,
+        level: 'normal',
+      }));
+    const january = { ...view(0, days(0, 31), 31 * DAY), period: 'month' as const };
+    const february = { ...view(31 * DAY, days(31 * DAY, 28), 59 * DAY), period: 'month' as const };
+    expect(changeVsPrevious(february, january, 60 * DAY, 'kwh')).toBe(-10);
+    const halfFebruary = { ...view(31 * DAY, days(31 * DAY, 14), 59 * DAY), period: 'month' as const };
+    expect(changeVsPrevious(halfFebruary, january, 45 * DAY, 'kwh')).toBe(0);
+  });
+
   it('splits kWh by band and leaves unknown hours out', () => {
     const bars = [...hours(0, [1], 'cheap'), ...hours(HOUR, [3], 'expensive'), ...hours(2 * HOUR, [6], 'unknown')];
     expect(bandShares(bars)).toEqual({ cheap: 0.25, normal: 0, pricey: 0, expensive: 0.75 });

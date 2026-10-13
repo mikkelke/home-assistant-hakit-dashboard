@@ -45,13 +45,15 @@ export function comparableTotal(previous: EnergyView, elapsedMs: number, unit: '
   return sum;
 }
 
-/** Change against the previous period, in whole percent, compared like for like: an in-progress
- * period against the previous one cut at the same point. Null without a basis. */
+/** Change against the previous period, in whole percent: a closed period against the whole
+ * previous one, an in-progress period against the previous one cut at the same point. Null without
+ * a basis. */
 export function changeVsPrevious(view: EnergyView, previous: EnergyView | null, nowMs: number, unit: 'kwh' | 'kr'): number | null {
   if (!previous || previous.bars.length === 0) return null;
-  const elapsedMs = Math.min(nowMs, view.endMs) - view.startMs;
+  const elapsedMs = nowMs - view.startMs;
   if (elapsedMs <= 0) return null;
-  const before = comparableTotal(previous, elapsedMs, unit);
+  const before =
+    nowMs >= view.endMs ? (unit === 'kr' ? previous.totals.costKr : previous.totals.kWh) : comparableTotal(previous, elapsedMs, unit);
   if (before <= 0) return null;
   const now = unit === 'kr' ? view.totals.costKr : view.totals.kWh;
   return Math.round(((now - before) / before) * 100);
