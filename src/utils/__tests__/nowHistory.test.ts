@@ -4,6 +4,7 @@ import {
   leaveNowEntry,
   NOW_ENTRY_KEY,
   nowEntryBelow,
+  nowEntryItem,
   pushNowEntry,
   settleNowEntry,
   type RouteHistory,
@@ -196,6 +197,21 @@ describe('opening and leaving the timeline in the app', () => {
     expect(history.length).toBe(2);
   });
 
+  it('keeps the exact item an in-app tap opens on, through Back and Forward', () => {
+    const history = new FakeHistory(GRID, { root: true });
+    pushNowEntry(history, history.location, { kind: 'evt', epochS: 1791881730 }, 'grid', '1791881730638');
+    expect(nowEntryItem(history.state)).toBe('1791881730638');
+    expect(nowEntryBelow(history.state)).toBe('grid');
+    history.back();
+    expect(nowEntryItem(history.state)).toBeNull();
+    history.forward();
+    expect(nowEntryItem(history.state)).toBe('1791881730638');
+    expect(settleNowEntry(history, history.location, 'navigation', 'grid')).toBe('none');
+
+    pushNowEntry(history, history.location, null, 'other');
+    expect(nowEntryItem(history.state)).toBeNull();
+  });
+
   it('leaves a cold-opened timeline by going back to the seeded grid', () => {
     const history = new FakeHistory(WASHER_LINK, { root: true });
     settleNowEntry(history, history.location, 'load');
@@ -215,7 +231,7 @@ describe('opening and leaving the timeline in the app', () => {
     expect(history.urls).toEqual([GRID, `${GRID}#room=kitchen`, GRID]);
     expect(history.state).toEqual({ from: '/dashboard-rooftop/home' });
 
-    pushNowEntry(history, history.location, null, 'other');
+    pushNowEntry(history, history.location, null, 'other', '1791881730638');
     expect(leaveNowEntry(history, history.location)).toBe('replaced');
     expect(history.state).toBeNull();
   });

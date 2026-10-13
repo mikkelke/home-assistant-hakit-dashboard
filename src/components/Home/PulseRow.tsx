@@ -55,7 +55,7 @@ function NextChip({ onOpenNow }: { onOpenNow: OpenNow }) {
     <button
       type='button'
       className={`pulse-chip pulse-next ${next ? '' : 'is-empty'}`}
-      onClick={() => onOpenNow(next ? upcomingFocus(next) : null)}
+      onClick={() => onOpenNow(next ? upcomingFocus(next) : null, next?.id)}
       aria-label={next && time ? `Next: ${itemName(next)} ${time}, open timeline` : 'Open timeline'}
     >
       <Icon icon='mdi:timeline-outline' className='pulse-rail' aria-hidden='true' />

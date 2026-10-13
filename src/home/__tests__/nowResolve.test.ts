@@ -90,6 +90,17 @@ describe('resolveNowFocus', () => {
     expect(resolveNowFocus(at('washer', nextCycle.atMs), [nextCycle, ...mine], true)).toEqual({ status: 'found', id: 'washer' });
   });
 
+  it('focuses the exact episode an in-app tap names, not another row of the same second', () => {
+    const emptiedMs = Date.parse('2026-10-13T10:55:30.638596+02:00');
+    expect(resolveNowFocus(at('evt', emptiedMs), mine, true)).toEqual({ status: 'found', id: String(WASHER_FINISHED_MS) });
+    expect(resolveNowFocus(at('evt', emptiedMs), mine, true, String(emptiedMs))).toEqual({ status: 'found', id: String(emptiedMs) });
+    expect(resolveNowFocus(at('evt', emptiedMs), mine, true, 'gone')).toEqual({ status: 'found', id: String(WASHER_FINISHED_MS) });
+    expect(resolveNowFocus(at('washer', WASHER_FINISHED_MS), mine, true, String(emptiedMs))).toEqual({
+      status: 'found',
+      id: String(WASHER_FINISHED_MS),
+    });
+  });
+
   it('takes the nearest of several matches', () => {
     const rows: NowCandidate[] = [
       { id: 'a', kind: 'ring', atMs: 1_000_000, live: false },

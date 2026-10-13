@@ -306,6 +306,8 @@ function NowLine({ nowMs, missing }: { nowMs: number; missing: boolean }) {
 
 export interface NowViewProps {
   focus: NowFocus | null;
+  /** The exact item to focus, which an in-app tap knows; a link only names a kind and a second. */
+  itemId?: string | null;
   /** `cold`: the app opened on this link, or Back returned to it; `warm`: pushed in from the grid. */
   arrival: 'cold' | 'warm';
   onBack: () => void;
@@ -314,7 +316,7 @@ export interface NowViewProps {
 
 /** The `#now` timeline: what the house did, what runs now, and what comes next, opened on the item a
  * link names. */
-export function NowView({ focus, arrival, onBack, onOpenRoom }: NowViewProps) {
+export function NowView({ focus, itemId, arrival, onBack, onOpenRoom }: NowViewProps) {
   const entities = useTrackedEntities();
   const hassUrl = useHass(s => s.hassUrl);
   const viewer = useViewer();
@@ -332,7 +334,7 @@ export function NowView({ focus, arrival, onBack, onOpenRoom }: NowViewProps) {
   }, []);
   const settled = gaveUp || (viewer.isAdmin !== null && feedEntity !== undefined);
   const candidates = useMemo(() => [...episodeCandidates(episodes), ...upcomingCandidates(upcoming)], [episodes, upcoming]);
-  const liveResolution = resolveNowFocus(focus, candidates, settled);
+  const liveResolution = resolveNowFocus(focus, candidates, settled, itemId);
   const [resolution, setResolution] = useState<NowResolution | null>(null);
   if (resolution == null && liveResolution.status !== 'pending') setResolution(liveResolution);
   const focusedId = resolution?.status === 'found' ? resolution.id : null;

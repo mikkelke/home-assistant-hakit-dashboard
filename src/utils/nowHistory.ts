@@ -19,6 +19,9 @@ export interface RouteLocation {
 
 export const NOW_ENTRY_KEY = 'dashboardNow';
 
+/** The exact timeline item an in-app tap opened the entry on; the hash only names a second. */
+export const NOW_ITEM_KEY = 'dashboardNowItem';
+
 /** What the entry directly below a `#now` entry shows: the grid, or anything else. */
 export type NowEntryBelow = 'grid' | 'other';
 
@@ -42,6 +45,12 @@ function gridUrl(location: RouteLocation): string {
 }
 
 /** Below-marker of a `#now` entry this dashboard owns; null for any other entry. */
+export function nowEntryItem(state: unknown): string | null {
+  if (!isRecord(state)) return null;
+  const item = state[NOW_ITEM_KEY];
+  return typeof item === 'string' && item.length > 0 ? item : null;
+}
+
 export function nowEntryBelow(state: unknown): NowEntryBelow | null {
   if (!isRecord(state)) return null;
   const below = state[NOW_ENTRY_KEY];
@@ -80,9 +89,16 @@ export function settleNowEntry(
   return 'adopted';
 }
 
-/** Opens the timeline from inside the app, on top of what is showing. */
-export function pushNowEntry(history: RouteHistory, location: RouteLocation, focus: NowFocus | null, shownBefore: NowEntryBelow): void {
-  history.pushState({ [NOW_ENTRY_KEY]: shownBefore }, '', `${gridUrl(location)}${buildNowHash(focus)}`);
+/** Opens the timeline from inside the app, on top of what is showing, on `itemId` when given. */
+export function pushNowEntry(
+  history: RouteHistory,
+  location: RouteLocation,
+  focus: NowFocus | null,
+  shownBefore: NowEntryBelow,
+  itemId?: string | null
+): void {
+  const state = itemId ? { [NOW_ENTRY_KEY]: shownBefore, [NOW_ITEM_KEY]: itemId } : { [NOW_ENTRY_KEY]: shownBefore };
+  history.pushState(state, '', `${gridUrl(location)}${buildNowHash(focus)}`);
 }
 
 /** Leaves the current `#now` entry for the grid without adding an entry: back to the grid below it,
@@ -93,7 +109,9 @@ export function leaveNowEntry(history: RouteHistory, location: RouteLocation): '
     history.back();
     return 'back';
   }
-  const rest = isRecord(history.state) ? Object.fromEntries(Object.entries(history.state).filter(([key]) => key !== NOW_ENTRY_KEY)) : {};
+  const rest = isRecord(history.state)
+    ? Object.fromEntries(Object.entries(history.state).filter(([key]) => key !== NOW_ENTRY_KEY && key !== NOW_ITEM_KEY))
+    : {};
   history.replaceState(Object.keys(rest).length > 0 ? rest : null, '', gridUrl(location));
   return 'replaced';
 }

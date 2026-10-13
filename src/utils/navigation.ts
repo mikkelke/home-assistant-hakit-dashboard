@@ -43,8 +43,9 @@ export interface NowFocus {
   epochS: number;
 }
 
-/** Opens the timeline, focused on `focus` when one is given. */
-export type OpenNow = (focus?: NowFocus | null) => void;
+/** Opens the timeline, focused on `focus` when one is given; `itemId` names the exact timeline item
+ * when the app knows it. */
+export type OpenNow = (focus?: NowFocus | null, itemId?: string | null) => void;
 
 export type NowView = { kind: 'now'; focus: NowFocus | null };
 

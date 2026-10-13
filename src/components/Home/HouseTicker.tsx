@@ -61,7 +61,7 @@ export function HouseTicker({ onOpenNow }: { onOpenNow: OpenNow }) {
           key={episode.id}
           episode={episode}
           isNew={episode.endMs > shownSinceMs && nowMs - episode.endMs < NEW_FOR_MS}
-          onOpen={() => onOpenNow(nowFocusAt('evt', episode.startMs))}
+          onOpen={() => onOpenNow(nowFocusAt('evt', episode.startMs), episode.id)}
         />
       ))}
     </div>

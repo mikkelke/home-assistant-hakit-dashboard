@@ -15,7 +15,7 @@ import {
   type NowFocus,
   type OpenNow,
 } from '../../utils/navigation';
-import { leaveNowEntry, pushNowEntry, settleNowEntry, type NowEntryBelow, type NowEntryChange } from '../../utils/nowHistory';
+import { leaveNowEntry, nowEntryItem, pushNowEntry, settleNowEntry, type NowEntryBelow, type NowEntryChange } from '../../utils/nowHistory';
 import { onIdle } from '../../utils/idle';
 import type { EnergyTab } from '../Energy/energyTab';
 import { HomeHeader } from '../Home/HomeHeader';
@@ -53,12 +53,14 @@ if (isNowHash(getAccessibleHistoryWindow()?.location.hash ?? '')) warmNowView();
 
 interface NowRoute {
   focus: NowFocus | null;
+  /** The exact item an in-app tap opened on, kept in the entry's history state. */
+  itemId: string | null;
   /** `cold`: shown in place, as on an app opened by a link or Back; `warm`: pushed in from the grid. */
   arrival: 'cold' | 'warm';
 }
 
 const sameFocus = (a: NowFocus | null, b: NowFocus | null) => a?.kind === b?.kind && a?.epochS === b?.epochS;
-const focusKey = (focus: NowFocus | null) => (focus ? `${focus.kind}-${focus.epochS}` : 'now');
+const routeKey = (route: NowRoute) => `${route.focus ? `${route.focus.kind}-${route.focus.epochS}` : 'now'}:${route.itemId ?? ''}`;
 
 /** Build mock washer entities for ?washer_demo=running|unemptied|paused|emptied|off (for UI preview). */
 function getWasherDemoEntities(mode: string | null): HassEntities {
@@ -589,9 +591,10 @@ export function Dashboard() {
           console.debug('Failed to settle the timeline history entry:', err);
         }
       }
+      const itemId = targetWindow ? nowEntryItem(targetWindow.history.state) : null;
       const current = nowRouteRef.current;
-      if (!current || !sameFocus(current.focus, view.focus))
-        showNow({ focus: view.focus, arrival: change === 'adopted' ? 'warm' : 'cold' });
+      if (!current || !sameFocus(current.focus, view.focus) || current.itemId !== itemId)
+        showNow({ focus: view.focus, itemId, arrival: change === 'adopted' ? 'warm' : 'cold' });
       if (selectedRoomRef.current) setSelectedRoom(null);
       if (energyOpenRef.current) setEnergyOpen(false);
       return;
@@ -767,7 +770,7 @@ export function Dashboard() {
   }, [replaceEnergyHistory]);
 
   const openNow: OpenNow = useCallback(
-    focus => {
+    (focus, itemId) => {
       const targetWindow = getAccessibleHistoryWindow();
       if (targetWindow) {
         try {
@@ -776,14 +779,15 @@ export function Dashboard() {
             targetWindow.history,
             targetWindow.location,
             focus ?? null,
-            selectedRoomRef.current || energyOpenRef.current ? 'other' : 'grid'
+            selectedRoomRef.current || energyOpenRef.current ? 'other' : 'grid',
+            itemId
           );
         } catch (err) {
           console.debug('Failed to push the timeline history entry:', err);
           isUpdatingHashRef.current = false;
         }
       }
-      showNow({ focus: focus ?? null, arrival: 'warm' });
+      showNow({ focus: focus ?? null, itemId: itemId ?? null, arrival: 'warm' });
       setSelectedRoom(null);
       setEnergyOpen(false);
     },
@@ -895,8 +899,9 @@ export function Dashboard() {
             }
           >
             <NowView
-              key={focusKey(nowRoute.focus)}
+              key={routeKey(nowRoute)}
               focus={nowRoute.focus}
+              itemId={nowRoute.itemId}
               arrival={nowRoute.arrival}
               onBack={closeNow}
               onOpenRoom={openRoomFromNow}
