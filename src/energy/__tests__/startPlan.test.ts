@@ -162,7 +162,25 @@ describe('press window (A4)', () => {
     expect(plan.plan?.knobMin).toBe(240);
     expect(plan.plan?.pressFromMs).toBe(home(2026, 10, 9, 20, 58));
     expect(plan.plan?.pressUntilMs).toBe(home(2026, 10, 9, 20, 59));
-    expect(plan.plan?.costKr).toBeCloseTo(0.04);
+    expect(plan.plan?.costKr).toBeCloseTo(0.08);
+  });
+});
+
+describe('advertised plan (A15 at the advertised start)', () => {
+  it('prices the advertised start and keeps the saving rule for every press in the window', () => {
+    const p = programme(Array(60).fill(10));
+    const timeline = hourly(home(2026, 10, 9, 20), [2, 2, 2.22, 2.22, 1.78, 2.22, 2.22, 2.22]);
+    const plan = planStart(p, timeline, { nowMs: home(2026, 10, 9, 20, 30), knobStepsMin: dryerSteps });
+    const choice = plan.plan!;
+    expect(choice.kind).toBe('wait');
+    expect(choice.knobMin).toBe(180);
+    expect(choice.costKr).toBeCloseTo(cost(p, timeline, choice.startMs), 9);
+    expect(plan.savingKr).toBeCloseTo(plan.noDelay!.kr - choice.costKr, 9);
+    expect(passesSavingRule(plan.noDelay!.kr, choice.costKr)).toBe(true);
+    for (let t = choice.pressFromMs; t <= choice.pressUntilMs; t += MINUTE_MS) {
+      expect(passesSavingRule(plan.noDelay!.kr, cost(p, timeline, t + choice.knobMin * MINUTE_MS))).toBe(true);
+    }
+    expect(choice.pressFromMs).toBe(home(2026, 10, 9, 20, 58));
   });
 });
 

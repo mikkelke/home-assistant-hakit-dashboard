@@ -85,12 +85,13 @@ export interface PlanChoice {
   kind: PlanKind;
   knobMin: number;
   /** Press window, inclusive at both ends, never past the end of the hour it starts in. Every press
-   * in it is feasible and costs at most `PRESS_WINDOW_TOLERANCE_KR` more than `costKr`. */
+   * in it is feasible, costs at most `PRESS_WINDOW_TOLERANCE_KR` more than the cheapest one, and
+   * passes the saving rule against the alternative the plan is offered over. */
   pressFromMs: number;
   pressUntilMs: number;
   /** The window closes early enough in the hour to be worth saying "press by". */
   showPressBy: boolean;
-  /** Start and completion when pressed at `pressFromMs`; completion null when unknown. */
+  /** Start, completion (null when unknown) and cost when pressed at `pressFromMs`. */
   startMs: number;
   doneMs: number | null;
   costKr: number;
@@ -169,7 +170,13 @@ export function planStart(programme: PlanProgramme, timeline: readonly PricePoin
   const row = costs[chosen.k];
   const ref = chosen.cost;
   const chosenP = chosen.p;
-  const within = (c: CostResult | null) => c != null && c.kr <= ref.kr + PRESS_WINDOW_TOLERANCE_KR + EPSILON_KR;
+  // What the plan has to beat by the saving rule at every press in its window: pressing now (with
+  // the best knob) for a wait plan, starting right away for a knob plan.
+  const baselineKr = chosenP > 0 ? (nowChoice?.cost.kr ?? null) : steps[chosen.k] > 0 ? (noDelay?.kr ?? null) : null;
+  const within = (c: CostResult | null) =>
+    c != null &&
+    c.kr <= ref.kr + PRESS_WINDOW_TOLERANCE_KR + EPSILON_KR &&
+    (baselineKr == null || passesSavingRule(baselineKr, c.kr));
   let first = chosenP;
   while (first > 0 && within(row[first - 1])) first--;
   let last = chosenP;
@@ -178,6 +185,7 @@ export function planStart(programme: PlanProgramme, timeline: readonly PricePoin
   const knobMin = steps[chosen.k];
   const kind: PlanKind = first > 0 ? 'wait' : knobMin > 0 ? 'knob' : 'now';
   const startMs = grid[first] + knobMin * MINUTE_MS;
+  const costKr = row[first]!.kr;
   const hourEndMs = floorHour(pressFromMs) + HOUR_MS;
   const plan: PlanChoice = {
     kind,
@@ -187,10 +195,10 @@ export function planStart(programme: PlanProgramme, timeline: readonly PricePoin
     showPressBy: grid[last] < hourEndMs - PRESS_BY_MIN_SLACK_MIN * MINUTE_MS,
     startMs,
     doneMs: completionMs(programme, startMs),
-    costKr: ref.kr,
+    costKr,
     estimated: row.slice(first, last + 1).some(c => c?.estimated),
   };
-  const savingKr = noDelay && passesSavingRule(noDelay.kr, ref.kr) ? noDelay.kr - ref.kr : null;
+  const savingKr = noDelay && passesSavingRule(noDelay.kr, costKr) ? noDelay.kr - costKr : null;
   return { pressFromMs, noDelay, plan, savingKr, doneByMissed, pricedUntilMs };
 }
 
