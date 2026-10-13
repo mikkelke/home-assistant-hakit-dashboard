@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import { HOUSE_EVENTS_ENTITY } from '../../config/entities';
+import { HOME_TIME_ZONE } from '../../config/plan';
 import { formatApplianceEta } from '../../energy/applianceRun';
 import { formatHomeClock, homeDayKey } from '../../energy/homeTime';
 import {
@@ -29,8 +30,8 @@ import './NowView.css';
 const FOCUS_MS = 10_000;
 const FOCUS_GLOW_MS = 3 * 3200;
 
-const DAY_LABEL = new Intl.DateTimeFormat('en-GB', { weekday: 'long', timeZone: 'Europe/Copenhagen' });
-const DAY_DATE = new Intl.DateTimeFormat('da-DK', { day: '2-digit', month: '2-digit', timeZone: 'Europe/Copenhagen' });
+const DAY_LABEL = new Intl.DateTimeFormat('en-GB', { weekday: 'long', timeZone: HOME_TIME_ZONE });
+const DAY_DATE = new Intl.DateTimeFormat('da-DK', { day: '2-digit', month: '2-digit', timeZone: HOME_TIME_ZONE });
 
 function dayLabel(atMs: number, nowMs: number): string {
   const key = homeDayKey(atMs);
@@ -84,7 +85,7 @@ function RowBody({
       {children}
     </button>
   ) : (
-    <div className={className} aria-label={label}>
+    <div className={className} role='group' aria-label={label}>
       {children}
     </div>
   );

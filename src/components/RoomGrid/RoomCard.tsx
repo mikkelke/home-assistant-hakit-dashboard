@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import type { HassEntities, RoomCardProps } from '../../types';
@@ -122,7 +122,7 @@ function Equaliser({ areaId, muted }: { areaId: string; muted: boolean }) {
 function BreathingEdge() {
   const breathing = useMotionSlot('breathing', 'breathing', true);
   const ref = useRef<HTMLElement>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (breathing && ref.current) ref.current.style.animationDelay = `${-(performance.now() % 6000)}ms`;
   }, [breathing]);
   return <i ref={ref} className={`room-edge ${breathing ? 'is-anim' : ''}`} />;
