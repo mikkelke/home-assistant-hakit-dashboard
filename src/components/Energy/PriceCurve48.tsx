@@ -43,12 +43,12 @@ export function PriceCurve48({ banded, nowMs, cheapest, peakHours }: PriceCurve4
   const barW = Math.max(1, slotW * 0.8);
   const x = (ms: number) => ((ms - todayStart) / HOUR_MS) * slotW;
 
-  const maxPrice = Math.max(...points.map(p => p.price));
+  const maxPrice = Math.max(0, ...points.map(p => p.price));
   const minPrice = Math.min(0, ...points.map(p => p.price));
   const span = Math.max(0.01, maxPrice - minPrice);
   const y = (price: number) => BOTTOM - ((price - minPrice) / span) * (BOTTOM - TOP);
   const zeroY = y(0);
-  const barTop = (price: number) => Math.min(y(price), zeroY - 2);
+  const barTop = (price: number) => (price >= 0 ? Math.min(y(price), zeroY - 2) : zeroY);
 
   const days = [todayStart, ...(hasTomorrow ? [tomorrowStart] : [])].map(start => {
     const end = nextHomeDayStartMs(start);

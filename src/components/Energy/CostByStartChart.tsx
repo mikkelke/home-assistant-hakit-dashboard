@@ -35,7 +35,7 @@ export function CostByStartChart({ curve, plan, startLabel, doneByLabel }: CostB
   const spanMs = Math.max(HOUR_MS, points[points.length - 1].startMs - fromMs + (points[1] ? points[1].startMs - points[0].startMs : 0));
   const x = (ms: number) => ((ms - fromMs) / spanMs) * W;
   const slotW = W / points.length;
-  const max = Math.max(...priced.map(p => p.costKr as number));
+  const max = Math.max(0, ...priced.map(p => p.costKr as number));
   const min = Math.min(0, ...priced.map(p => p.costKr as number));
   const range = Math.max(0.01, max - min);
   const y = (kr: number) => BOTTOM - ((kr - min) / range) * (BOTTOM - TOP);
@@ -55,7 +55,8 @@ export function CostByStartChart({ curve, plan, startLabel, doneByLabel }: CostB
     const base = y(0);
     let d = `M ${i * slotW} ${base}`;
     while (i < points.length && points[i].costKr != null && bands[i] === bands[from] && points[i].estimated === p.estimated) {
-      const top = Math.min(y(points[i].costKr as number), base - 2);
+      const kr = points[i].costKr as number;
+      const top = kr >= 0 ? Math.min(y(kr), base - 2) : Math.max(y(kr), base + 2);
       d += ` V ${top} H ${(i + 1) * slotW}`;
       i++;
     }
