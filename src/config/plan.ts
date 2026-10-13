@@ -58,6 +58,8 @@ export interface PlanApplianceConfig {
   etaFormat: EtaFormat;
   /** Delay-start knob positions in minutes, ascending, starting at 0 (no delay). */
   knobStepsMin: readonly number[];
+  /** Gets start advice and a "Run later" card. */
+  planned: boolean;
 }
 
 export const PLAN_APPLIANCES: readonly PlanApplianceConfig[] = [
@@ -69,6 +71,7 @@ export const PLAN_APPLIANCES: readonly PlanApplianceConfig[] = [
     powerEntityId: 'sensor.washer_plug_power',
     etaFormat: 'hhmm',
     knobStepsMin: knobSteps(180, 1440),
+    planned: true,
   },
   {
     key: 'dishwasher',
@@ -78,6 +81,7 @@ export const PLAN_APPLIANCES: readonly PlanApplianceConfig[] = [
     powerEntityId: 'sensor.athom_smart_plug_v3_50ec44_power',
     etaFormat: 'iso',
     knobStepsMin: knobSteps(180, 1440),
+    planned: true,
   },
   {
     key: 'dryer',
@@ -87,7 +91,12 @@ export const PLAN_APPLIANCES: readonly PlanApplianceConfig[] = [
     powerEntityId: 'sensor.dryer_plug_power',
     etaFormat: 'iso',
     knobStepsMin: knobSteps(0, 1440),
+    planned: false,
   },
 ];
 
 export type PlanApplianceKey = PlanApplianceConfig['key'];
+
+/** The washer can be planned with the dryer straight after it: the dryer's pooled `programmeKey`
+ * profile, starting `gapMin` after the washer is done. Remembered per phone under `storageKey`. */
+export const DRYER_CHAIN = { programmeKey: 'typical', gapMin: 10, storageKey: 'plan-washer-dryer' } as const;

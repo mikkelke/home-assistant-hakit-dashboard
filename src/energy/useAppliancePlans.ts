@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { PLAN_APPLIANCES, PLAN_TICK_MS, RUN_PROFILES_ENTITY_ID, type DoneByHour, type PlanApplianceKey } from '../config/plan';
+import { DRYER_CHAIN, PLAN_APPLIANCES, PLAN_TICK_MS, RUN_PROFILES_ENTITY_ID } from '../config/plan';
+import { useLocalStorageBoolean } from '../hooks/useLocalStorageBoolean';
 import { useTrackedEntities } from '../hooks/useTrackedEntities';
 import { assembleAppliancePlan, readApplianceRun, type AppliancePlan } from './appliancePlan';
 import type { PricePointMs } from './priceTimeline';
@@ -9,8 +10,6 @@ import { parseRunProfiles } from './runProfiles';
 import type { PriceBlock } from './startPlan';
 import { useEnergyConfig } from './useEnergyConfig';
 import { parseRawPoints } from './useEnergyView';
-
-export type AppliancePlanSelection = Partial<Record<PlanApplianceKey, { programmeKey?: string | null; doneBy?: DoneByHour }>>;
 
 export interface UseAppliancePlansResult {
   nowMs: number;
@@ -25,14 +24,17 @@ export interface UseAppliancePlansResult {
   /** Why no profiles are available (entity missing or malformed); null when they are. */
   profilesError: string | null;
   appliances: AppliancePlan[];
+  /** Plans the washer with the dryer after it; remembered per phone. */
+  setWithDryer: (withDryer: boolean) => void;
 }
 
 /** Start advice for every configured appliance from live entities only (no recorder or history
  * calls), recomputed each minute and whenever a read entity changes. */
-export function useAppliancePlans(selection: AppliancePlanSelection = {}): UseAppliancePlansResult {
+export function useAppliancePlans(): UseAppliancePlansResult {
   const entities = useTrackedEntities();
   const { config } = useEnergyConfig();
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [withDryer, setWithDryer] = useLocalStorageBoolean(DRYER_CHAIN.storageKey, false);
 
   useEffect(() => {
     const id = setInterval(() => setNowMs(Date.now()), PLAN_TICK_MS);
@@ -60,24 +62,22 @@ export function useAppliancePlans(selection: AppliancePlanSelection = {}): UseAp
     [profilesEntity]
   );
 
-  const selectionKey = JSON.stringify(selection);
-
   const appliances = useMemo(() => {
-    const chosen = JSON.parse(selectionKey) as AppliancePlanSelection;
+    const dryer = parsed.ok ? (parsed.profiles.appliances.dryer?.find(p => p.key === DRYER_CHAIN.programmeKey) ?? null) : null;
     return PLAN_APPLIANCES.map(appliance =>
       assembleAppliancePlan({
         config: appliance,
         run: readApplianceRun(entities[appliance.stateEntityId], appliance.etaFormat, nowMs),
         programmes: parsed.ok ? (parsed.profiles.appliances[appliance.key] ?? []) : [],
-        programmeKey: chosen[appliance.key]?.programmeKey,
-        doneBy: chosen[appliance.key]?.doneBy,
+        dryer: appliance.key === 'washer' ? dryer : null,
+        withDryer,
         timeline,
         nowMs,
       })
     );
-  }, [entities, parsed, timeline, nowMs, selectionKey]);
+  }, [entities, parsed, timeline, nowMs, withDryer]);
 
   const cheapest = useMemo(() => cheapestAhead(timeline, nowMs), [timeline, nowMs]);
 
-  return { nowMs, timeline, cheapest, tomorrowValid, peakHours, profilesError: parsed.ok ? null : parsed.error, appliances };
+  return { nowMs, timeline, cheapest, tomorrowValid, peakHours, profilesError: parsed.ok ? null : parsed.error, appliances, setWithDryer };
 }

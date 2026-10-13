@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { PLAN_APPLIANCES } from '../../config/plan';
 import { useEnergyView, type EnergyConfig } from '../../energy';
-import type { AppliancePlan } from '../../energy/appliancePlan';
+import { planLabel, type AppliancePlan } from '../../energy/appliancePlan';
 import { formatHomeClock } from '../../energy/homeTime';
 import { krValue, peakWindows, pressChips, relativeDayWord } from '../../energy/planView';
 import { assignPriceBands, bandAt, PRICE_BAND_LABEL } from '../../energy/priceBands';
@@ -192,7 +192,7 @@ export function LiveTab({ config, todayStartMs, onOpenTab }: LiveTabProps) {
               {suggestion ? (
                 <>
                   <span className='plan-aname'>
-                    {suggestion.appliance.config.label} · {suggestion.start}
+                    {planLabel(suggestion.appliance)} · {suggestion.start}
                   </span>
                   <span className='plan-chips'>
                     {suggestion.chips.map(chip => (

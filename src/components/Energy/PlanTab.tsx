@@ -15,7 +15,7 @@ import './PlanTab.css';
  * relative bands, start advice per appliance from its measured run profile, and the week ahead.
  * Reads live entities only; no recorder or history calls. */
 export function PlanTab() {
-  const { nowMs, timeline, cheapest, tomorrowValid, peakHours, profilesError, appliances } = useAppliancePlans();
+  const { nowMs, timeline, cheapest, tomorrowValid, peakHours, profilesError, appliances, setWithDryer } = useAppliancePlans();
   const banded = useMemo(() => assignPriceBands(timeline), [timeline]);
   const [openKey, setOpenKey] = useState<PlanApplianceKey | null>(null);
   const [showBandInfo, setShowBandInfo] = useState(false);
@@ -72,14 +72,29 @@ export function PlanTab() {
         )}
       </div>
       <div className='plan-stack'>
-        {appliances.map(appliance => (
-          <RunLaterCard key={appliance.config.key} appliance={appliance} onOpen={() => setOpenKey(appliance.config.key)} />
-        ))}
+        {appliances
+          .filter(appliance => appliance.config.planned)
+          .map(appliance => (
+            <RunLaterCard
+              key={appliance.config.key}
+              appliance={appliance}
+              onOpen={() => setOpenKey(appliance.config.key)}
+              onToggleDryer={() => setWithDryer(!appliance.withDryer)}
+            />
+          ))}
       </div>
 
       <WeekAhead timeline={timeline} nowMs={nowMs} />
 
-      {open && open.programme && <AppliancePlanSheet appliance={open} timeline={timeline} nowMs={nowMs} onClose={() => setOpenKey(null)} />}
+      {open && open.programme && (
+        <AppliancePlanSheet
+          appliance={open}
+          timeline={timeline}
+          nowMs={nowMs}
+          onToggleDryer={() => setWithDryer(!open.withDryer)}
+          onClose={() => setOpenKey(null)}
+        />
+      )}
     </div>
   );
 }

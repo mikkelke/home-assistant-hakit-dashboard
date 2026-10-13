@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { PLAN_APPLIANCES } from '../../config/plan';
-import { assembleAppliancePlan, parseEta, readApplianceRun } from '../appliancePlan';
-import { fixtureProgramme, fixtureTimeline, home, HOUR_MS, programme } from './testUtils';
+import { DRYER_CHAIN, PLAN_APPLIANCES, type DoneByHour } from '../../config/plan';
+import { assembleAppliancePlan, parseEta, planLabel, readApplianceRun } from '../appliancePlan';
+import type { RunProfileProgramme } from '../runProfiles';
+import { fixtureProgramme, fixtureTimeline, home, hourly, HOUR_MS, MINUTE_MS, programme } from './testUtils';
 
 const washer = PLAN_APPLIANCES.find(a => a.key === 'washer')!;
 const dishwasher = PLAN_APPLIANCES.find(a => a.key === 'dishwasher')!;
@@ -95,5 +96,57 @@ describe('assembleAppliancePlan', () => {
     expect(
       assembleAppliancePlan({ config: washer, run: idle, programmes: two, programmeKey: 'gone', timeline, nowMs }).programme?.key
     ).toBe('bomuld|60');
+  });
+});
+
+describe('washer + dryer', () => {
+  const dryerConfig = PLAN_APPLIANCES.find(a => a.key === 'dryer')!;
+  const idle = { status: 'idle' as const, etaMs: null };
+  // 15:00-17:00 cheap, the 17-21 peak, then middling all night.
+  const timeline = hourly(home(2026, 10, 12, 15), [1, 1, 5, 5, 5, 5, ...Array(14).fill(1.5)]);
+  const nowMs = home(2026, 10, 12, 15, 30);
+  const washerRun = programme(Array(60).fill(10), 60);
+  const dryerRun = programme(Array(60).fill(15), 60);
+  const plan = (dryer: RunProfileProgramme | null, withDryer: boolean, doneBy: DoneByHour = null) =>
+    assembleAppliancePlan({ config: washer, run: idle, programmes: [washerRun], dryer, withDryer, doneBy, timeline, nowMs });
+
+  it('moves the washer start when the dryer would otherwise land in the peak', () => {
+    const alone = plan(dryerRun, false);
+    expect(alone.plan?.plan?.kind).toBe('now');
+    expect(alone.plan?.plan?.costKr).toBeCloseTo(0.6, 9);
+
+    const chained = plan(dryerRun, true);
+    expect(chained.plan?.noDelay?.kr).toBeCloseTo(0.6 + 0.3 + 0.6 * 5, 9);
+    expect(chained.plan?.plan?.startMs).toBe(home(2026, 10, 12, 21, 30));
+    expect(chained.plan?.plan?.costKr).toBeCloseTo(1.5 * 1.5, 9);
+    expect(chained.plan?.savingKr).toBeCloseTo(3.9 - 2.25, 9);
+  });
+
+  it('finishes when the dryer is done, and knows no finish when either completion is unknown', () => {
+    const chained = plan(dryerRun, true, 7);
+    expect(chained.priced?.completionMin).toBe(60 + DRYER_CHAIN.gapMin + 60);
+    expect(chained.plan?.plan?.doneMs).toBe(chained.plan!.plan!.startMs + 130 * MINUTE_MS);
+    expect(chained.doneByMs).toBe(home(2026, 10, 13, 7));
+
+    const unknownDryer = plan(programme(Array(60).fill(15), null), true, 7);
+    expect(unknownDryer.priced?.completionMin).toBeNull();
+    expect(unknownDryer.doneByMs).toBeNull();
+    expect(unknownDryer.plan?.plan?.doneMs).toBeNull();
+  });
+
+  it('offers no dryer without its profile', () => {
+    const result = plan(null, true);
+    expect(result.dryer).toBeNull();
+    expect(result.withDryer).toBe(false);
+    expect(result.priced).toBe(result.programme);
+    expect(planLabel(result)).toBe('Washer');
+    expect(planLabel(plan(dryerRun, true))).toBe('Washer + dryer');
+  });
+
+  it('never plans the dryer on its own', () => {
+    expect(PLAN_APPLIANCES.filter(a => !a.planned).map(a => a.key)).toEqual(['dryer']);
+    const result = assembleAppliancePlan({ config: dryerConfig, run: idle, programmes: [dryerRun], timeline, nowMs });
+    expect(result.programme).toBe(dryerRun);
+    expect(result.plan).toBeNull();
   });
 });

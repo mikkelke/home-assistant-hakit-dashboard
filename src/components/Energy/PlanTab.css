@@ -232,8 +232,29 @@ button.plan-approw {
   transition: transform 120ms var(--ease-out);
 }
 
-button.plan-approw:active {
+button.plan-approw:active,
+.plan-approw:has(> .plan-approw-hit:active) {
   transform: scale(0.99);
+}
+
+/* A Run later card opens on a tap anywhere; its own chip buttons sit above. */
+.plan-approw:has(> .plan-approw-hit) {
+  position: relative;
+  transition: transform 120ms var(--ease-out);
+}
+
+.plan-approw-hit {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  cursor: pointer;
+}
+
+.plan-approw .plan-chip--button {
+  z-index: 1;
 }
 
 .plan-approw--run {

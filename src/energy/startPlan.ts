@@ -46,6 +46,20 @@ export function runCost(programme: PlanProgramme, prices: PriceIndex, startMs: n
   return { kr, estimated };
 }
 
+/** `first`, then no energy until `gapMin` after it is done (its energy length when its completion is
+ * unknown), then `second`. The completion is unknown when either one's is. */
+export function chainProgrammes(first: PlanProgramme, second: PlanProgramme, gapMin: number): PlanProgramme {
+  const offset = (first.completionMin ?? first.energyMin) + gapMin;
+  const energyMin = offset + second.energyMin;
+  const whPerMin = new Float64Array(energyMin);
+  whPerMin.set(first.whPerMin);
+  whPerMin.set(second.whPerMin, offset);
+  const cumWh = new Float64Array(energyMin + 1);
+  for (let i = 0; i < energyMin; i++) cumWh[i + 1] = cumWh[i] + whPerMin[i];
+  const completionMin = first.completionMin == null || second.completionMin == null ? null : offset + second.completionMin;
+  return { whPerMin, cumWh, energyMin, completionMin };
+}
+
 /** When a run starting at `startMs` is done; null when the programme's completion is unknown. */
 export function completionMs(programme: PlanProgramme, startMs: number): number | null {
   return programme.completionMin == null ? null : startMs + programme.completionMin * MINUTE_MS;

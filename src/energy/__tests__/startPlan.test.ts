@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { PLAN_APPLIANCES, PRESS_WINDOW_TOLERANCE_KR } from '../../config/plan';
 import { buildHourlyPrices, isPlanPrice } from '../priceTimeline';
 import {
+  chainProgrammes,
   cheapestBlock,
   costCurve,
   indexPrices,
@@ -311,5 +312,23 @@ describe('costCurve', () => {
     expect(six.tooLate).toBe(false);
     expect(curve.knobs.find(k => k.knobMin === 720)!.tooLate).toBe(true);
     expect(curve.knobs).toHaveLength(28);
+  });
+});
+
+describe('chainProgrammes', () => {
+  it('runs the second programme after the first one is done plus the gap, with no energy in between', () => {
+    const chained = chainProgrammes(programme([10, 20, 30], 5), programme([40, 50], 3), 10);
+    expect(chained.energyMin).toBe(17);
+    expect(Array.from(chained.whPerMin)).toEqual([10, 20, 30, ...Array(12).fill(0), 40, 50]);
+    expect(chained.cumWh[chained.energyMin]).toBeCloseTo(150, 9);
+    expect(chained.completionMin).toBe(5 + 10 + 3);
+  });
+
+  it('places the second programme after the first one energy when its completion is unknown', () => {
+    const chained = chainProgrammes(programme([10, 20, 30], null), programme([40, 50], 3), 10);
+    expect(chained.energyMin).toBe(15);
+    expect(Array.from(chained.whPerMin.slice(13))).toEqual([40, 50]);
+    expect(chained.completionMin).toBeNull();
+    expect(chainProgrammes(programme([10], 1), programme([40, 50], null), 10).completionMin).toBeNull();
   });
 });

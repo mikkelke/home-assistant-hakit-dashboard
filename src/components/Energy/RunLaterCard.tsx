@@ -1,32 +1,34 @@
 import { Icon } from '@iconify/react';
-import type { AppliancePlan } from '../../energy/appliancePlan';
+import { planLabel, type AppliancePlan } from '../../energy/appliancePlan';
 import { formatHomeClock } from '../../energy/homeTime';
 import { krValue, pressChips } from '../../energy/planView';
 
 interface RunLaterCardProps {
   appliance: AppliancePlan;
   onOpen: () => void;
+  onToggleDryer: () => void;
 }
 
 /** One appliance in "Run later": its usual programme's cost now against the plan, with the start
  * time, knob position and press window as chips; or, while it runs, its state, finish time and the
  * next plan from when it frees up. */
-export function RunLaterCard({ appliance, onOpen }: RunLaterCardProps) {
-  const { config, run, programme, plan } = appliance;
+export function RunLaterCard({ appliance, onOpen, onToggleDryer }: RunLaterCardProps) {
+  const { config, run, programme, plan, dryer, withDryer } = appliance;
+  const label = planLabel(appliance);
   const busy = run.status !== 'idle';
   const choice = plan?.plan ?? null;
   const saving = !busy ? (plan?.savingKr ?? null) : null;
   const chips = choice && !busy ? pressChips(choice, formatHomeClock) : null;
 
-  const body = (
-    <>
+  return (
+    <div className={`plan-approw ${busy ? 'plan-approw--run' : ''}`}>
       <span className={`plan-atile ${busy ? 'plan-atile--run' : ''}`}>
         <Icon icon={config.icon} aria-hidden='true' />
         {busy && <span className='plan-runbadge' />}
       </span>
       <span className='plan-amid'>
         <span className='plan-aline'>
-          <span className='plan-aname'>{config.label}</span>
+          <span className='plan-aname'>{label}</span>
           {!busy && choice && (
             <span className='plan-aprice'>
               {saving != null && plan?.noDelay ? (
@@ -43,6 +45,7 @@ export function RunLaterCard({ appliance, onOpen }: RunLaterCardProps) {
           )}
         </span>
         <span className='plan-chips'>
+          {dryer && <DryerChip on={withDryer} className='plan-chip--tiny' onToggle={onToggleDryer} />}
           {busy && (
             <span className='plan-chip plan-chip--tiny plan-chip--sky'>
               {run.status === 'paused' ? 'paused' : 'running'}
@@ -83,13 +86,21 @@ export function RunLaterCard({ appliance, onOpen }: RunLaterCardProps) {
       ) : (
         programme && <Icon icon='mdi:chevron-right' className='plan-dim plan-chev' aria-hidden='true' />
       )}
-    </>
+      {programme && <button type='button' className='plan-approw-hit' aria-label={`${label} plan`} onClick={onOpen} />}
+    </div>
   );
+}
 
-  if (!programme) return <div className={`plan-approw ${busy ? 'plan-approw--run' : ''}`}>{body}</div>;
+/** Plans the dryer straight after the washer. */
+export function DryerChip({ on, className = '', onToggle }: { on: boolean; className?: string; onToggle: () => void }) {
   return (
-    <button type='button' className={`plan-approw ${busy ? 'plan-approw--run' : ''}`} onClick={onOpen}>
-      {body}
+    <button
+      type='button'
+      aria-pressed={on}
+      className={`plan-chip plan-chip--button ${on ? 'plan-chip--sky' : 'plan-chip--ghost'} ${className}`}
+      onClick={onToggle}
+    >
+      + dryer
     </button>
   );
 }

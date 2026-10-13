@@ -1,19 +1,21 @@
 import { useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { DONE_BY_HOURS, type DoneByHour } from '../../config/plan';
-import { assembleAppliancePlan, type AppliancePlan } from '../../energy/appliancePlan';
+import { assembleAppliancePlan, planLabel, type AppliancePlan } from '../../energy/appliancePlan';
 import { formatHomeClock } from '../../energy/homeTime';
 import { durationLabel, krValue, pressChips, programmeLabel, programmeLabelInferred } from '../../energy/planView';
 import type { PricePointMs } from '../../energy/priceTimeline';
 import { costCurve } from '../../energy/startPlan';
 import { ApplianceSheet } from '../Appliance';
 import { CostByStartChart } from './CostByStartChart';
+import { DryerChip } from './RunLaterCard';
 
 interface AppliancePlanSheetProps {
   /** The appliance's plan as the Run later card shows it; the sheet re-plans for its own choices. */
   appliance: AppliancePlan;
   timeline: readonly PricePointMs[];
   nowMs: number;
+  onToggleDryer: () => void;
   onClose: () => void;
 }
 
@@ -24,7 +26,7 @@ const DONE_BY_OPTIONS: Array<{ value: DoneByHour; label: string }> = [
 
 /** One appliance's start plan: programme, start now against the plan, the press window, cost by
  * start time over the next 24 hours, and a done-by limit. */
-export function AppliancePlanSheet({ appliance, timeline, nowMs, onClose }: AppliancePlanSheetProps) {
+export function AppliancePlanSheet({ appliance, timeline, nowMs, onToggleDryer, onClose }: AppliancePlanSheetProps) {
   const [programmeKey, setProgrammeKey] = useState<string | null>(appliance.programme?.key ?? null);
   const [doneBy, setDoneBy] = useState<DoneByHour>(null);
 
@@ -36,22 +38,22 @@ export function AppliancePlanSheet({ appliance, timeline, nowMs, onClose }: Appl
         programmes: appliance.programmes,
         programmeKey,
         doneBy,
+        dryer: appliance.dryer,
+        withDryer: appliance.withDryer,
         timeline,
         nowMs,
       }),
-    [appliance.config, appliance.run, appliance.programmes, programmeKey, doneBy, timeline, nowMs]
+    [appliance.config, appliance.run, appliance.programmes, appliance.dryer, appliance.withDryer, programmeKey, doneBy, timeline, nowMs]
   );
-  const { config, run, programme, plan, doneByMs } = planned;
+  const { config, run, programme, priced, plan, doneByMs } = planned;
 
   const curve = useMemo(
     () =>
-      programme && plan
-        ? costCurve(programme, timeline, { pressFromMs: plan.pressFromMs, knobStepsMin: config.knobStepsMin, doneByMs })
-        : null,
-    [programme, plan, timeline, config.knobStepsMin, doneByMs]
+      priced && plan ? costCurve(priced, timeline, { pressFromMs: plan.pressFromMs, knobStepsMin: config.knobStepsMin, doneByMs }) : null,
+    [priced, plan, timeline, config.knobStepsMin, doneByMs]
   );
 
-  if (!programme) return null;
+  if (!programme || !priced) return null;
 
   const choice = plan?.plan ?? null;
   const chips = choice ? pressChips(choice, formatHomeClock) : null;
@@ -63,7 +65,7 @@ export function AppliancePlanSheet({ appliance, timeline, nowMs, onClose }: Appl
     <ApplianceSheet
       accentClassName={`appliance-accent-${config.key}`}
       glyphIcon={config.icon}
-      title={config.label}
+      title={planLabel(planned)}
       historyKey={`plan-${config.key}`}
       onClose={onClose}
     >
@@ -93,15 +95,16 @@ export function AppliancePlanSheet({ appliance, timeline, nowMs, onClose }: Appl
             </span>
           )}
           <span className='plan-chip plan-chip--ghost'>
-            <Icon icon='mdi:flash-outline' aria-hidden='true' />≈ {krValue(programme.kwh)} kWh
+            <Icon icon='mdi:flash-outline' aria-hidden='true' />≈ {krValue(priced.cumWh[priced.energyMin] / 1000)} kWh
           </span>
-          {programme.completionMin != null && (
+          {priced.completionMin != null && (
             <span className='plan-chip plan-chip--ghost'>
               <Icon icon='mdi:clock-outline' aria-hidden='true' />
-              {durationLabel(programme.completionMin)}
+              {durationLabel(priced.completionMin)}
             </span>
           )}
           <span className='plan-chip plan-chip--ghost'>{programme.n} runs</span>
+          {planned.dryer && <DryerChip on={planned.withDryer} onToggle={onToggleDryer} />}
         </div>
 
         {run.status !== 'idle' && (
@@ -122,8 +125,8 @@ export function AppliancePlanSheet({ appliance, timeline, nowMs, onClose }: Appl
                 {plan.noDelay ? krValue(plan.noDelay.kr) : '—'}
                 <small> kr</small>
               </span>
-              {programme.completionMin != null && (
-                <span className='plan-cmp-s'>done {formatHomeClock(plan.pressFromMs + programme.completionMin * 60_000)}</span>
+              {priced.completionMin != null && (
+                <span className='plan-cmp-s'>done {formatHomeClock(plan.pressFromMs + priced.completionMin * 60_000)}</span>
               )}
             </div>
             {showPlanTile && choice && (
@@ -188,7 +191,7 @@ export function AppliancePlanSheet({ appliance, timeline, nowMs, onClose }: Appl
         {run.status !== 'paused' && (
           <div className='plan-row-head plan-row-head--in'>
             <span>Done by</span>
-            {programme.completionMin == null ? (
+            {priced.completionMin == null ? (
               <span className='plan-chip plan-chip--ghost'>finish time unknown</span>
             ) : (
               <span className='plan-toggle' role='group' aria-label='Done by'>
