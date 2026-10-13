@@ -120,6 +120,28 @@ export function UsageTab({
               </button>
             ))}
           </span>
+          {isDay && data && (
+            <span className='plan-toggle ev-viewtoggle' role='group' aria-label='View'>
+              <button
+                type='button'
+                aria-label='Bars'
+                aria-pressed={!clock}
+                className={clock ? '' : 'plan-toggle-on'}
+                onClick={() => setClock(false)}
+              >
+                <Icon icon='mdi:chart-bar' aria-hidden='true' />
+              </button>
+              <button
+                type='button'
+                aria-label='Clock'
+                aria-pressed={clock}
+                className={clock ? 'plan-toggle-on' : ''}
+                onClick={() => setClock(true)}
+              >
+                <Icon icon='mdi:chart-donut' aria-hidden='true' />
+              </button>
+            </span>
+          )}
           {change != null && (
             <span className='plan-chip plan-chip--ghost'>
               <Icon icon={change <= 0 ? 'mdi:trending-down' : 'mdi:trending-up'} aria-hidden='true' />
@@ -130,29 +152,7 @@ export function UsageTab({
         </div>
       </div>
 
-      <div className='plan-card plan-card--chart ev-rel'>
-        {isDay && data && (
-          <span className='plan-toggle ev-viewtoggle' role='group' aria-label='View'>
-            <button
-              type='button'
-              aria-label='Bars'
-              aria-pressed={!clock}
-              className={clock ? '' : 'plan-toggle-on'}
-              onClick={() => setClock(false)}
-            >
-              <Icon icon='mdi:chart-bar' aria-hidden='true' />
-            </button>
-            <button
-              type='button'
-              aria-label='Clock'
-              aria-pressed={clock}
-              className={clock ? 'plan-toggle-on' : ''}
-              onClick={() => setClock(true)}
-            >
-              <Icon icon='mdi:chart-donut' aria-hidden='true' />
-            </button>
-          </span>
-        )}
+      <div className='plan-card plan-card--chart'>
         {loading && !data && <div className='energy-chart-skeleton' aria-hidden='true' />}
         {!loading && error && !data && (
           <div className='energy-page-state-error'>

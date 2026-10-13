@@ -114,6 +114,7 @@ export function HourSheet({ period, view, previous, slotMs, prices, todayStartMs
             {bar && previousBar.kWh > 0 && (
               <span className='plan-chip plan-chip--ghost'>
                 <Icon icon={bar.kWh <= previousBar.kWh ? 'mdi:trending-down' : 'mdi:trending-up'} aria-hidden='true' />
+                {bar.kWh > previousBar.kWh ? '+' : ''}
                 {Math.round(((bar.kWh - previousBar.kWh) / previousBar.kWh) * 100)} % kWh
               </span>
             )}

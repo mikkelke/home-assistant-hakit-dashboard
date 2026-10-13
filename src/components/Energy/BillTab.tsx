@@ -1,7 +1,7 @@
 import { useId, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { BILL_HISTORY_MAX_MONTHS, BILL_HISTORY_START } from '../../config/energy';
-import { assembleBill, assembleBillPriceStats, monthlyFixedFeesInclMoms, useEnergyView, type Period } from '../../energy';
+import { assembleBill, assembleBillPriceStats, fixedFeesForRange, useEnergyView, type Period } from '../../energy';
 import { billHistory, kronerBreakdown, ringFraction, type BillMonth } from '../../energy/billView';
 import { addMonths, nextDisabled, startOfLocalMonth, startOfPeriod, stepAnchor } from '../../energy/period';
 import { krValue } from '../../energy/planView';
@@ -17,7 +17,9 @@ const OPTIONS: readonly Period[] = ['month', 'year'];
 const R = 60;
 const CIRCUMFERENCE = 2 * Math.PI * R;
 
-const monthName = (ms: number, style: 'long' | 'short') => new Date(ms).toLocaleDateString('en-GB', { month: style });
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const monthName = (ms: number, style: 'long' | 'short') =>
+  style === 'short' ? MONTHS[new Date(ms).getMonth()] : new Date(ms).toLocaleDateString('en-GB', { month: 'long' });
 const kr0 = (value: number) => Math.round(value).toLocaleString('da-DK');
 
 function whenLabel(bucket: 'hour' | 'day' | 'month', ms: number): string {
@@ -65,7 +67,7 @@ export function BillTab({ nowMs, todayStartMs }: BillTabProps) {
   const inProgress = bill?.projectedTotalKr != null;
   const headline = bill ? (bill.projectedTotalKr ?? bill.totalKr) : null;
   const change =
-    headline != null && previousBill && previousBill.totalKr > 0
+    headline != null && previousBill && previousBill.totalKr > 0 && previous?.bars[0]?.startMs === previous?.startMs
       ? Math.round(((headline - previousBill.totalKr) / previousBill.totalKr) * 100)
       : null;
   const progress = (() => {
@@ -107,7 +109,7 @@ export function BillTab({ nowMs, todayStartMs }: BillTabProps) {
               <tspan className='ev-ring-unit'> kr</tspan>
             </text>
             <text x={72} y={86} textAnchor='middle' className='plan-label'>
-              {inProgress ? 'so far' : 'settled'}
+              {inProgress ? 'so far + fees' : 'settled'}
             </text>
             {progress && (
               <text x={72} y={102} textAnchor='middle' className='plan-label'>
@@ -130,7 +132,9 @@ export function BillTab({ nowMs, todayStartMs }: BillTabProps) {
                 <Icon icon='mdi:flash-outline' aria-hidden='true' />
                 {krValue(data.totals.kWh, 1)} kWh
               </span>
-              <span className='plan-chip plan-chip--ghost'>fees {krValue(monthlyFixedFeesInclMoms())} kr/mo</span>
+              <span className='plan-chip plan-chip--ghost'>
+                fees {krValue(fixedFeesForRange(startOfLocalMonth(anchor), addMonths(startOfLocalMonth(anchor), 1)))} kr/mo
+              </span>
               {change != null && (
                 <span className='plan-chip plan-chip--ghost'>
                   <Icon icon={change <= 0 ? 'mdi:trending-down' : 'mdi:trending-up'} aria-hidden='true' />

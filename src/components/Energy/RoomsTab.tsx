@@ -177,6 +177,7 @@ export function RoomsTab({ period, anchorStartMs, todayStartMs, nextStepDisabled
               max={max}
               untracked
             />
+            <Icon icon='mdi:chevron-right' className='plan-dim ev-hidden' aria-hidden='true' />
           </div>
         )}
         {rooms.length === 0 && <div className='energy-chart-skeleton ev-list-skeleton' aria-hidden='true' />}
@@ -210,7 +211,7 @@ function RoomRowBody({ room, metric, max, untracked }: { room: RoomUsage; metric
             <span className={`plan-chip plan-chip--tiny ${room.running ? 'plan-chip--sky' : 'plan-chip--ghost'}`}>{w(room.watts)}</span>
           )}
           {room.top && room.top.name !== room.name && (
-            <span className='plan-chip plan-chip--tiny plan-chip--ghost'>
+            <span className='plan-chip plan-chip--tiny plan-chip--ghost ev-chip-fit'>
               {room.top.name} {w(room.top.watts)}
             </span>
           )}

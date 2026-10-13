@@ -17,7 +17,7 @@ interface UsageClockProps {
 
 const S = 320;
 const C = S / 2;
-const R_IN = 62;
+const R_IN = 66;
 const R_BAR = 120;
 const RING_IN = 128;
 const RING_OUT = 136;
