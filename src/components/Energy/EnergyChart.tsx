@@ -1,7 +1,8 @@
+import type { MouseEvent } from 'react';
 import type { EnergyBar, Period } from '../../energy';
 import { slotsInRange } from '../../energy/period';
-import { CHART_PAD_LEFT, CHART_PAD_RIGHT, CHART_VIEW_WIDTH, slotIndexFor, slotStartMsFor } from './chartGeometry';
-import type { ScrubHandlers } from './useChartScrub';
+import type { BandedPricePoint } from '../../energy/priceBands';
+import { slotIndexFor, slotStartMsFor } from './chartGeometry';
 import './EnergyChart.css';
 
 interface EnergyChartProps {
@@ -10,161 +11,170 @@ interface EnergyChartProps {
   rangeEndMs: number;
   period: Period;
   unit: 'kwh' | 'kr';
-  scrubHandlers?: ScrubHandlers;
-  selectedStartMs?: number | null;
-  hasSelection?: boolean;
+  nowMs: number;
+  /** The day's priced hours: a band tick under every hour, future ones included. */
+  prices?: readonly BandedPricePoint[];
+  selectedMs: number | null;
+  onSelect: (slotStartMs: number) => void;
 }
 
-const VIEW_WIDTH = CHART_VIEW_WIDTH;
-const VIEW_HEIGHT = 240;
-const PAD = { top: 14, right: CHART_PAD_RIGHT, bottom: 26, left: CHART_PAD_LEFT };
-const HOUR_LABELS = [0, 6, 12, 18];
-const MONTH_LABEL_SLOTS = [0, 7, 14, 21, 28];
-const WEEKDAY_LETTERS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']; // index = Date#getDay(): 0 = Sunday
-const MONTH_AXIS_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const NICE_STEPS = [0.25, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500];
+const W = 352;
+const H = 158;
+const TOP = 20;
+const BASE = 116;
+const STRIP_Y = 122;
+const AXIS_Y = 150;
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH_DAYS = [1, 8, 15, 22, 29];
 
-/** Rounded-top / square-baseline bar outline; clamps the radius so short bars never overshoot. */
-function roundedTopRect(x: number, y: number, w: number, h: number, r: number): string {
-  const radius = Math.max(0, Math.min(r, h, w / 2));
-  if (radius <= 0) {
-    return `M ${x} ${y} H ${x + w} V ${y + h} H ${x} Z`;
-  }
-  return [
-    `M ${x} ${y + h}`,
-    `L ${x} ${y + radius}`,
-    `Q ${x} ${y} ${x + radius} ${y}`,
-    `L ${x + w - radius} ${y}`,
-    `Q ${x + w} ${y} ${x + w} ${y + radius}`,
-    `L ${x + w} ${y + h}`,
-    'Z',
-  ].join(' ');
-}
-
-/** Clean axis ticks above zero (e.g. 0.25/0.5/0.75/1); zero itself is the baseline, drawn separately. */
-function niceScale(maxValue: number): { max: number; ticks: number[] } {
-  const safeMax = maxValue > 0 ? maxValue : 1;
-  const step = NICE_STEPS.find(candidate => safeMax / candidate <= 4) ?? NICE_STEPS[NICE_STEPS.length - 1];
-  const count = Math.max(1, Math.ceil(safeMax / step));
-  const ticks = Array.from({ length: count }, (_, i) => Math.round((i + 1) * step * 100) / 100);
-  return { max: ticks[ticks.length - 1], ticks };
-}
-
-/** Tick label for a given slot, or null to leave it unlabeled (selective labeling per period). */
-function axisLabelFor(period: Period, slotStartMs: number, slot: number): string | null {
+function axisLabel(period: Period, ms: number): string | null {
+  const d = new Date(ms);
   switch (period) {
-    case 'day': {
-      const hour = new Date(slotStartMs).getHours();
-      return HOUR_LABELS.includes(hour) ? String(hour).padStart(2, '0') : null;
-    }
+    case 'day':
+      return d.getHours() % 6 === 0 ? String(d.getHours()).padStart(2, '0') : null;
     case 'week':
-      return WEEKDAY_LETTERS[new Date(slotStartMs).getDay()];
+      return WEEKDAYS[d.getDay()];
     case 'month':
-      return MONTH_LABEL_SLOTS.includes(slot) ? String(new Date(slotStartMs).getDate()) : null;
+      return MONTH_DAYS.includes(d.getDate()) ? String(d.getDate()) : null;
     case 'year':
-      return slot % 3 === 0 ? MONTH_AXIS_LABELS[new Date(slotStartMs).getMonth()] : null;
+      return MONTHS[d.getMonth()];
   }
 }
 
-/** Bare da-DK number for the on-chart value label — no unit suffix (1 decimal kWh / 2 decimals kr). */
-function formatBarValue(value: number, unit: 'kwh' | 'kr'): string {
-  const decimals = unit === 'kr' ? 2 : 1;
-  return value.toLocaleString('da-DK', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+function value(bar: EnergyBar, unit: 'kwh' | 'kr'): number {
+  return unit === 'kr' ? bar.costKr : bar.kWh;
 }
 
-export function EnergyChart({
-  bars,
-  rangeStartMs,
-  rangeEndMs,
-  period,
-  unit,
-  scrubHandlers,
-  selectedStartMs,
-  hasSelection,
-}: EnergyChartProps) {
-  // No axes, no gridlines — just the message (HA-restart gaps, or a year view's months before
-  // Dec 2025, an absent period rather than a genuine zero).
-  if (bars.length === 0) {
-    return <div className='energy-chart-empty'>No data for this period</div>;
-  }
+/** Consumption bars tinted by relative price band, self-labelled: the biggest bar's value, a now
+ * line, and on the day view a band tick under every priced hour. Tapping a slot selects it. */
+export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period, unit, nowMs, prices, selectedMs, onSelect }: EnergyChartProps) {
+  if (bars.length === 0 && !prices?.length) return <div className='energy-chart-empty'>No data for this period</div>;
 
   const slots = Math.max(1, slotsInRange(period, rangeStartMs, rangeEndMs));
-  const plotWidth = VIEW_WIDTH - PAD.left - PAD.right;
-  const plotBottom = VIEW_HEIGHT - PAD.bottom;
-  const plotHeight = plotBottom - PAD.top;
-  const slotWidth = plotWidth / slots;
-  const barWidth = Math.min(24, slotWidth - 2);
+  const slotW = W / slots;
+  const barW = Math.min(28, slotW * 0.76);
+  const slotOf = (ms: number) => slotIndexFor(period, rangeStartMs, ms);
+  const max = Math.max(0, ...bars.map(bar => value(bar, unit)));
+  const y = (v: number) => BASE - (max > 0 ? (v / max) * (BASE - TOP) : 0);
+  const maxBar = max > 0 ? bars.find(bar => value(bar, unit) === max) : undefined;
 
-  const valueFor = (bar: EnergyBar) => (unit === 'kr' ? bar.costKr : bar.kWh);
-  const maxValue = bars.reduce((max, bar) => Math.max(max, valueFor(bar)), 0);
-  const { max: axisMax, ticks } = niceScale(maxValue);
-  const yFor = (value: number) => plotBottom - (value / axisMax) * plotHeight;
-  const slotXFor = (startMs: number) => PAD.left + slotIndexFor(period, rangeStartMs, startMs) * slotWidth;
+  let nowX: number | null = null;
+  if (nowMs >= rangeStartMs && nowMs < rangeEndMs) {
+    const slot = slotOf(nowMs);
+    const start = slotStartMsFor(period, rangeStartMs, slot);
+    const end = slotStartMsFor(period, rangeStartMs, slot + 1);
+    nowX = (slot + (nowMs - start) / Math.max(1, end - start)) * slotW;
+  }
 
-  const maxBar = bars.reduce<EnergyBar | null>((best, bar) => (best === null || valueFor(bar) > valueFor(best) ? bar : best), null);
+  const labels: Array<{ x: number; text: string; anchor: 'start' | 'middle' | 'end' }> = [];
+  for (let slot = 0; slot < slots; slot++) {
+    const text = axisLabel(period, slotStartMsFor(period, rangeStartMs, slot));
+    if (text == null) continue;
+    labels.push(
+      period === 'day'
+        ? { x: slot * slotW, text, anchor: slot === 0 ? 'start' : 'middle' }
+        : { x: (slot + 0.5) * slotW, text, anchor: 'middle' }
+    );
+  }
+  if (period === 'day') labels.push({ x: W, text: '24', anchor: 'end' });
 
-  const selectedSlot = selectedStartMs != null ? slotIndexFor(period, rangeStartMs, selectedStartMs) : null;
-  const guideX = selectedSlot != null && selectedSlot >= 0 && selectedSlot < slots ? PAD.left + (selectedSlot + 0.5) * slotWidth : null;
-  const selectedBar = selectedStartMs != null ? (bars.find(bar => bar.startMs === selectedStartMs) ?? null) : null;
+  const selectedSlot = selectedMs != null ? slotOf(selectedMs) : null;
+  const handleClick = (event: MouseEvent<SVGSVGElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const slot = Math.min(slots - 1, Math.max(0, Math.floor(((event.clientX - rect.left) / rect.width) * slots)));
+    const ms = slotStartMsFor(period, rangeStartMs, slot);
+    if (bars.some(bar => bar.startMs === ms) || prices?.some(point => point.ms === ms)) onSelect(ms);
+  };
+
+  const maxLabelX = maxBar ? (slotOf(maxBar.startMs) + 0.5) * slotW : 0;
+  const decimals = unit === 'kr' ? 2 : period === 'day' ? 2 : 1;
 
   return (
-    // data-interactive: escape hatch useSwipeToClose already recognizes — scrubbing is a
-    // horizontal gesture, so a swipe starting on the chart must not be read as swipe-to-close.
     <svg
-      className={`energy-chart-svg ${hasSelection ? 'energy-chart-svg--has-selection' : ''}`}
+      className='energy-chart-svg'
       data-interactive='true'
-      viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
-      {...scrubHandlers}
+      viewBox={`0 0 ${W} ${H}`}
+      role='img'
+      aria-label={`${unit === 'kr' ? 'Kroner' : 'kWh'} per ${period === 'day' ? 'hour' : period === 'year' ? 'month' : 'day'}, tinted by price band. Tap a bar for details.`}
+      onClick={handleClick}
     >
-      {ticks.map(tick => (
-        <g key={tick}>
-          <line x1={PAD.left} y1={yFor(tick)} x2={VIEW_WIDTH - PAD.right} y2={yFor(tick)} className='energy-chart-gridline' />
-          <text x={PAD.left - 6} y={yFor(tick) + 3} textAnchor='end' className='energy-chart-tick-label'>
-            {tick.toLocaleString('da-DK')}
-          </text>
-        </g>
-      ))}
-
-      <line x1={PAD.left} y1={plotBottom} x2={VIEW_WIDTH - PAD.right} y2={plotBottom} className='energy-chart-baseline' />
-
-      {guideX != null && <line x1={guideX} y1={PAD.top} x2={guideX} y2={plotBottom} className='energy-chart-guide' />}
-
-      {bars.map(bar => {
-        const value = valueFor(bar);
-        const barX = slotXFor(bar.startMs) + (slotWidth - barWidth) / 2;
-        const barTopY = yFor(value);
-        const barHeight = Math.max(0, plotBottom - barTopY);
-        const isSelected = selectedStartMs === bar.startMs;
-        const classNames = ['energy-chart-bar', `band--${bar.level}`];
-        if (bar.partial) classNames.push('energy-chart-bar--partial');
-        if (isSelected) classNames.push('energy-chart-bar--selected');
-        return <path key={bar.startMs} d={roundedTopRect(barX, barTopY, barWidth, barHeight, 4)} className={classNames.join(' ')} />;
-      })}
-
-      {guideX != null && selectedBar && <circle cx={guideX} cy={yFor(valueFor(selectedBar))} r={3} className='energy-chart-guide-dot' />}
-
-      {!hasSelection && maxBar && valueFor(maxBar) > 0 && (
-        <text
-          x={slotXFor(maxBar.startMs) + slotWidth / 2}
-          y={yFor(valueFor(maxBar)) - 6}
-          textAnchor='middle'
-          className='energy-chart-value-label'
-        >
-          {formatBarValue(valueFor(maxBar), unit)}
-        </text>
-      )}
-
-      {Array.from({ length: slots }, (_, slot) => {
-        const slotStartMs = slotStartMsFor(period, rangeStartMs, slot);
-        const label = axisLabelFor(period, slotStartMs, slot);
-        if (label === null) return null;
-        const labelX = PAD.left + slot * slotWidth + slotWidth / 2;
+      <line x1={0} y1={BASE + 0.5} x2={W} y2={BASE + 0.5} className='energy-chart-baseline' />
+      {prices?.map(point => {
+        const slot = slotOf(point.ms);
+        if (slot < 0 || slot >= slots) return null;
         return (
-          <text key={slot} x={labelX} y={VIEW_HEIGHT - PAD.bottom + 16} textAnchor='middle' className='energy-chart-axis-label'>
-            {label}
-          </text>
+          <rect
+            key={point.ms}
+            x={slot * slotW + 1}
+            y={STRIP_Y}
+            width={Math.max(1, slotW - 2)}
+            height={4}
+            rx={1}
+            className={`energy-chart-tick band--${point.band}`}
+          />
         );
       })}
+      {bars.map(bar => {
+        const v = value(bar, unit);
+        const top = y(v);
+        const x = (slotOf(bar.startMs) + 0.5) * slotW - barW / 2;
+        const cls = `energy-chart-bar band--${bar.level}${bar.partial ? ' energy-chart-bar--partial' : ''}`;
+        return (
+          <rect
+            key={bar.startMs}
+            x={x}
+            y={Math.min(top, BASE - 2)}
+            width={barW}
+            height={Math.max(2, BASE - top)}
+            rx={Math.min(3, barW / 3)}
+            className={cls}
+          />
+        );
+      })}
+      {selectedSlot != null && selectedSlot >= 0 && selectedSlot < slots && (
+        <rect
+          x={selectedSlot * slotW + 0.75}
+          y={TOP - 4}
+          width={slotW - 1.5}
+          height={STRIP_Y + 4 - TOP + 4}
+          rx={4}
+          className='energy-chart-selected'
+        />
+      )}
+      {maxBar && (
+        <text
+          x={Math.min(W - 2, Math.max(2, maxLabelX))}
+          y={TOP - 7}
+          textAnchor={maxLabelX < 30 ? 'start' : maxLabelX > W - 30 ? 'end' : 'middle'}
+          className='plan-label plan-label--bold plan-label--strong'
+        >
+          {max.toLocaleString('da-DK', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })} {unit === 'kr' ? 'kr' : 'kWh'}
+        </text>
+      )}
+      {nowX != null && (
+        <>
+          <line x1={nowX} y1={8} x2={nowX} y2={STRIP_Y + 6} className='plan-now-line' strokeDasharray='2 3' />
+          <circle cx={nowX} cy={8} r={3.5} className='plan-now-dot' />
+        </>
+      )}
+      {labels
+        .filter(label => nowX == null || Math.abs(label.x - nowX) > 16)
+        .map(label => (
+          <text key={`${label.x}`} x={label.x} y={AXIS_Y} textAnchor={label.anchor} className='plan-label'>
+            {label.text}
+          </text>
+        ))}
+      {nowX != null && (
+        <text
+          x={Math.min(W - 12, Math.max(12, nowX))}
+          y={AXIS_Y}
+          textAnchor='middle'
+          className='plan-label plan-label--bold plan-label--strong'
+        >
+          now
+        </text>
+      )}
     </svg>
   );
 }

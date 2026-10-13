@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { useHass } from '@hakit/core';
 import { deviceCostExact, useEnergyConfig, type DeviceUsage, type Period } from '../../energy';
@@ -31,10 +32,8 @@ interface ExactResult {
 
 const EMPTY_EXACT_RESULT: ExactResult = { key: '', costKr: null };
 
-/** On-demand exact-cost dialog for one device row. Portal-less overlay (matches the app's other
- * portaled modals visually, e.g. Menu's battery overview, without actually portaling) — rendered
- * inline where EnergyPage mounts it, since `position: fixed` still covers the full viewport from
- * anywhere in this tree. */
+/** On-demand exact-cost dialog for one device, portaled to document.body above the room sheet it
+ * opens from. */
 export function DeviceDialog({ device, period, anchorStartMs, rangeEndMs, onClose }: DeviceDialogProps) {
   const { requestClose } = useModalBackButton({ isOpen: true, onRequestClose: onClose, historyKey: 'energy-device' });
   const connection = useHass(s => s.connection);
@@ -85,7 +84,7 @@ export function DeviceDialog({ device, period, anchorStartMs, rangeEndMs, onClos
     return `Exact: ${formatKr(exactResult.costKr)}`;
   })();
 
-  return (
+  return createPortal(
     <div className='device-dialog-overlay' role='presentation' onClick={requestClose}>
       <div
         className='device-dialog'
@@ -118,6 +117,7 @@ export function DeviceDialog({ device, period, anchorStartMs, rangeEndMs, onClos
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

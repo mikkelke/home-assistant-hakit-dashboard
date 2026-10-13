@@ -1,0 +1,489 @@
+/* Live, Usage, Rooms and Bill. Builds on the Plan tab's cards, chips and hero (PlanTab.css). */
+.plan-tab .period-picker {
+  margin-bottom: 0;
+}
+
+.plan-hero-num small {
+  font-size: 15px;
+  font-weight: 500;
+  color: #a1a1aa;
+  letter-spacing: 0;
+}
+
+.ev-hero-name {
+  font-size: 26px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.ev-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+  animation: ev-blink 2s ease-in-out infinite;
+}
+
+.ev-updating {
+  display: inline-block;
+  margin-left: 8px;
+  vertical-align: 1px;
+}
+
+@keyframes ev-blink {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.ev-tval {
+  font-size: 14px;
+  font-weight: 700;
+  fill: #e4e4e7;
+}
+
+.ev-label-on {
+  fill: #38bdf8;
+  font-weight: 700;
+}
+
+.ev-rel {
+  position: relative;
+}
+
+.ev-viewtoggle {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+}
+
+.ev-viewtoggle button {
+  min-width: 44px;
+  font-size: 16px;
+}
+
+/* Flow */
+.ev-flowing {
+  stroke-dasharray: 3 9;
+  animation: ev-flow 1.4s linear infinite;
+}
+
+@keyframes ev-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.ev-hub-pulse,
+.ev-runring {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.ev-hub-pulse {
+  animation: ev-pulse 2.6s ease-in-out infinite;
+}
+
+@keyframes ev-pulse {
+  0%,
+  100% {
+    transform: scale(0.86);
+    opacity: 0.1;
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 0.2;
+  }
+}
+
+.ev-runring {
+  stroke-dasharray: 30 102;
+  animation: ev-spin 3s linear infinite;
+}
+
+@keyframes ev-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Suggest + active now */
+.ev-suggest {
+  border-color: rgba(52, 211, 153, 0.3);
+}
+
+.ev-leaf {
+  background: rgba(52, 211, 153, 0.14);
+  color: var(--band-cheap);
+}
+
+.ev-grid2,
+.ev-grid3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.ev-grid3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.ev-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  min-height: 78px;
+  padding: 8px 10px;
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  color: #a1a1aa;
+  font: inherit;
+  text-align: left;
+}
+
+button.ev-tile {
+  cursor: pointer;
+}
+
+.ev-tile--run {
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.ev-tile-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 18px;
+}
+
+.ev-tile--run .ev-tile-top svg {
+  color: #38bdf8;
+}
+
+.ev-tile-top b {
+  font-size: 15px;
+  color: #e4e4e7;
+}
+
+.ev-tile-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e4e4e7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Usage */
+.ev-clock {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  margin: 30px auto 0;
+  overflow: visible;
+  cursor: pointer;
+}
+
+.ev-clock-ring {
+  fill: var(--band-color);
+  opacity: 0.45;
+}
+
+.ev-ck1 {
+  font-size: 26px;
+  font-weight: 700;
+  fill: #e4e4e7;
+}
+
+.ev-ck2 {
+  font-size: 13px;
+  font-weight: 600;
+  fill: #a1a1aa;
+}
+
+.ev-share {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ev-sharebar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.ev-sharebar i {
+  display: block;
+  background: var(--band-color);
+}
+
+.ev-sharebar--bill {
+  height: 12px;
+  margin-bottom: 8px;
+}
+
+.ev-dot-last {
+  background: #3f3f46;
+}
+
+.ev-week-last {
+  fill: #3f3f46;
+}
+
+.ev-week-now {
+  fill: #3b82f6;
+}
+
+.ev-week-today {
+  fill: #38bdf8;
+}
+
+.ev-week-none {
+  fill: #27272a;
+}
+
+/* Rooms */
+.ev-list {
+  display: flex;
+  flex-direction: column;
+  padding: 2px 8px;
+}
+
+.ev-list-skeleton {
+  aspect-ratio: auto;
+  height: 280px;
+}
+
+.ev-rrow,
+.ev-drow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 5px 2px;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  color: #e4e4e7;
+  font: inherit;
+  text-align: left;
+}
+
+.ev-rrow:last-child,
+.ev-drow:last-child {
+  border-bottom: 0;
+}
+
+button.ev-rrow,
+button.ev-drow:not(:disabled) {
+  cursor: pointer;
+}
+
+.ev-drow {
+  min-height: 48px;
+}
+
+.ev-drow--child {
+  padding-left: 16px;
+}
+
+.ev-drow:disabled {
+  opacity: 0.55;
+}
+
+.ev-ricon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
+  color: #a1a1aa;
+  font-size: 19px;
+}
+
+.ev-ricon--run {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+}
+
+.ev-rmain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ev-rname {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ev-rsub {
+  display: flex;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.ev-rbar {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.ev-rbar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: #3b82f6;
+}
+
+.ev-rbar i.ev-rbar--untracked {
+  background: #52525b;
+}
+
+.ev-rnum {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.ev-rnum small {
+  font-size: 11px;
+  color: #8b8b94;
+}
+
+/* Bill */
+.ev-billhead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+}
+
+.ev-ring {
+  flex-shrink: 0;
+}
+
+.ev-ring-track,
+.ev-ring-fill {
+  fill: none;
+  stroke-width: 11;
+}
+
+.ev-ring-track {
+  stroke: #27272a;
+}
+
+.ev-ring-fill {
+  stroke: #38bdf8;
+  stroke-linecap: round;
+}
+
+.ev-ring-num {
+  font-size: 22px;
+  font-weight: 700;
+  fill: #e4e4e7;
+}
+
+.ev-ring-unit {
+  font-size: 12px;
+  font-weight: 500;
+  fill: #a1a1aa;
+}
+
+.ev-billside {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ev-bs {
+  display: flex;
+  flex-direction: column;
+}
+
+.ev-bs small,
+.ev-stat small {
+  font-size: 11px;
+  color: #8b8b94;
+}
+
+.ev-bs b {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.ev-seg--consumption {
+  background: #38bdf8;
+}
+
+.ev-seg--fees {
+  background: #52525b;
+}
+
+.ev-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 6px;
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  text-align: center;
+}
+
+.ev-stat b {
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.ev-stat b[class*='band--'] {
+  color: var(--band-color);
+}
+
+.ev-stat span {
+  font-size: 11px;
+  color: #a1a1aa;
+}
+
+.ev-hist {
+  fill: #3b82f6;
+  opacity: 0.85;
+}
+
+.ev-hist-proj {
+  stroke: #38bdf8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ev-live-dot,
+  .ev-flowing,
+  .ev-hub-pulse,
+  .ev-runring {
+    animation: none;
+  }
+}

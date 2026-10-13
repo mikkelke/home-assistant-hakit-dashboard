@@ -16,6 +16,8 @@ interface PeriodPickerProps {
   /** Long-press (500 ms) on the period label force-reloads, bypassing the cache — optional so this
    * component doesn't need to know anything about caching when a caller has none to bust. */
   onForceReload?: () => void;
+  /** Periods to offer; all four by default. */
+  options?: readonly Period[];
 }
 
 const PERIOD_OPTIONS: Array<{ value: Period; label: string }> = [
@@ -35,6 +37,7 @@ export function PeriodPicker({
   onStep,
   nextStepDisabled,
   onForceReload,
+  options,
 }: PeriodPickerProps) {
   const longPressTimeoutRef = useRef<number | null>(null);
 
@@ -60,7 +63,7 @@ export function PeriodPicker({
   return (
     <div className='period-picker'>
       <div className='period-picker-segment'>
-        {PERIOD_OPTIONS.map(option => (
+        {PERIOD_OPTIONS.filter(option => !options || options.includes(option.value)).map(option => (
           <button
             key={option.value}
             type='button'

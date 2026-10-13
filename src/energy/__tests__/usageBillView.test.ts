@@ -31,7 +31,18 @@ describe('hour sheet rank', () => {
     expect(rankLabel(24, 24, 'hour')).toBe('cheapest hour');
     expect(rankLabel(5, 24, 'hour')).toBe('5th priciest hour');
     expect(rankLabel(1, 1, 'hour')).toBe('');
-    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23].map(ordinal)).toEqual(['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '23rd']);
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23].map(ordinal)).toEqual([
+      '1st',
+      '2nd',
+      '3rd',
+      '4th',
+      '11th',
+      '12th',
+      '13th',
+      '21st',
+      '22nd',
+      '23rd',
+    ]);
   });
 });
 

@@ -5,11 +5,11 @@ import { nextDisabled, startOfLocalDay, startOfPeriod, stepAnchor } from '../../
 import { useSwipeToClose } from '../../hooks';
 import { buildHistoryUrlWithHash, getAccessibleHistoryWindow } from '../../utils/navigation';
 import { BillTab } from './BillTab';
-import { DevicesTab } from './DevicesTab';
 import { EnergyTabs } from './EnergyTabs';
 import { LiveTab } from './LiveTab';
 import { energyHash, energyTabFromHash, type EnergyTab } from './energyTab';
 import { PlanTab } from './PlanTab';
+import { RoomsTab } from './RoomsTab';
 import { UsageTab } from './UsageTab';
 import './EnergyPage.css';
 
@@ -35,10 +35,9 @@ function EnergyPageView({ onClose }: EnergyPageProps) {
   const { config } = useEnergyConfig();
 
   // Mobile swipe-to-close on the page root (mirrors RoomDetail's usage). The hook's own
-  // interactive-target allowlist already ignores buttons/[role="button"] (EnergyTabs' and
-  // PeriodPicker's segments and arrows, tappable device rows) and anything marked
-  // data-interactive="true" (EnergyChart's SVG, whose bar hit-rects are real tap targets, and the
-  // period label's long-press target); it's a no-op on non-mobile viewports.
+  // interactive-target allowlist already ignores buttons/[role="button"] and anything marked
+  // data-interactive="true" (the Usage chart and clock, and the period label's long-press target);
+  // it's a no-op on non-mobile viewports.
   const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(onClose);
 
   useEffect(() => {
@@ -81,7 +80,7 @@ function EnergyPageView({ onClose }: EnergyPageProps) {
 
       <div className='energy-page-content'>
         <div className='energy-page-inner'>
-          {tab === 'live' && config && <LiveTab config={config} todayStartMs={todayStartMs} />}
+          {tab === 'live' && config && <LiveTab config={config} todayStartMs={todayStartMs} onOpenTab={handleTabChange} />}
 
           {tab === 'plan' && <PlanTab />}
 
@@ -90,6 +89,7 @@ function EnergyPageView({ onClose }: EnergyPageProps) {
               period={period}
               anchorStartMs={anchorStartMs}
               todayStartMs={todayStartMs}
+              nowMs={nowMs}
               nextStepDisabled={nextStepDisabled}
               onPeriodChange={handlePeriodChange}
               onStep={handleStep}
@@ -99,7 +99,7 @@ function EnergyPageView({ onClose }: EnergyPageProps) {
           )}
 
           {tab === 'rooms' && (
-            <DevicesTab
+            <RoomsTab
               period={period}
               anchorStartMs={anchorStartMs}
               todayStartMs={todayStartMs}
@@ -109,17 +109,7 @@ function EnergyPageView({ onClose }: EnergyPageProps) {
             />
           )}
 
-          {tab === 'bill' && (
-            <BillTab
-              period={period}
-              anchorStartMs={anchorStartMs}
-              todayStartMs={todayStartMs}
-              nextStepDisabled={nextStepDisabled}
-              onPeriodChange={handlePeriodChange}
-              onStep={handleStep}
-              nowMs={nowMs}
-            />
-          )}
+          {tab === 'bill' && <BillTab nowMs={nowMs} todayStartMs={todayStartMs} />}
         </div>
       </div>
 

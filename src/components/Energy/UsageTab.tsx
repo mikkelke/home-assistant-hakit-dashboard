@@ -1,22 +1,23 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Icon } from '@iconify/react';
 import { useEnergyView, type Period } from '../../energy';
-import { assignPriceBands, bandAt, PRICE_BAND_LABEL, PRICE_BANDS } from '../../energy/priceBands';
-import { slotsInRange } from '../../energy/period';
-import { formatKr, formatKWh, formatPrice, hourRangeLabel } from '../../utils/format';
-import { ChartCallout, type ChartCalloutModel } from './ChartCallout';
-import { slotCenterPct, slotIndexFor, slotStartMsFor, snapToNearestSlot } from './chartGeometry';
+import { stepAnchor } from '../../energy/period';
+import { krValue } from '../../energy/planView';
+import { assignPriceBands, PRICE_BAND_LABEL, PRICE_BANDS } from '../../energy/priceBands';
+import { bandShares, changeVsPrevious, PREVIOUS_PERIOD } from '../../energy/usageView';
+import { formatHomeClock } from '../../energy/homeTime';
 import { EnergyChart } from './EnergyChart';
+import { HourSheet } from './HourSheet';
 import { PeriodPicker } from './PeriodPicker';
-import { PriceStrip } from './PriceStrip';
-import { StatTiles } from './StatTiles';
-import { UnitToggle } from './UnitToggle';
-import { useChartScrub, type ScrubPhase } from './useChartScrub';
+import { UsageClock } from './UsageClock';
+import { WeekCompare } from './WeekCompare';
 import './UsageTab.css';
 
 interface UsageTabProps {
   period: Period;
   anchorStartMs: number;
   todayStartMs: number;
+  nowMs: number;
   nextStepDisabled: boolean;
   onPeriodChange: (period: Period) => void;
   onStep: (delta: 1 | -1) => void;
@@ -24,110 +25,58 @@ interface UsageTabProps {
   onUnitChange: (unit: 'kwh' | 'kr') => void;
 }
 
-/** Tab "Usage": period picker, day-view stat tiles, and the Consumption chart card with
- * Apple-Health-style scrubbing — tap or drag across the bars OR the price strip to inspect an
- * hour/day/month; a callout above the chart carries the numbers. Selection is slot-based
- * (`selectedSlotMs`), so today's future hours — which have a price but no bar yet — are
- * scrubbably real too. */
+const UNITS: Array<{ value: 'kwh' | 'kr'; label: string }> = [
+  { value: 'kwh', label: 'kWh' },
+  { value: 'kr', label: 'kr' },
+];
+
+function amount(value: number, unit: 'kwh' | 'kr'): string {
+  return unit === 'kr' ? krValue(value) : krValue(value, 1);
+}
+
+/** Tab "Usage": one hero number for the period, bars tinted by relative price band (or a 24-hour
+ * clock on the day view), a tap on any bar opens its sheet, and on the day view when in the day
+ * the energy went and this week against last. */
 export function UsageTab({
   period,
   anchorStartMs,
   todayStartMs,
+  nowMs,
   nextStepDisabled,
   onPeriodChange,
   onStep,
   unit,
   onUnitChange,
 }: UsageTabProps) {
-  const [selectedSlotMs, setSelectedSlotMs] = useState<number | null>(null);
+  const [selectedMs, setSelectedMs] = useState<number | null>(null);
+  const [clock, setClock] = useState(false);
+  const [showBandInfo, setShowBandInfo] = useState(false);
   const { data, loading, refreshing, error, reload, forceReload } = useEnergyView(period, anchorStartMs);
+  const { data: previous } = useEnergyView(period, stepAnchor(period, anchorStartMs, -1));
 
-  const handlePeriodChange = (nextPeriod: Period) => {
-    onPeriodChange(nextPeriod);
-    setSelectedSlotMs(null);
+  const isDay = period === 'day';
+  const prices = useMemo(() => (isDay && data?.price ? assignPriceBands(data.price.points) : []), [data, isDay]);
+  const shares = useMemo(() => (isDay && data ? bandShares(data.bars) : null), [data, isDay]);
+
+  const handlePeriodChange = (next: Period) => {
+    onPeriodChange(next);
+    setSelectedMs(null);
   };
-
   const handleStep = (delta: 1 | -1) => {
     onStep(delta);
-    setSelectedSlotMs(null);
+    setSelectedMs(null);
   };
 
-  const slots = data ? Math.max(1, slotsInRange(period, data.startMs, data.endMs)) : 1;
-
-  // Slots that carry data — bars always; on the day view, price points too (future hours of
-  // today have a known price but no consumption yet).
-  const availableSlots = useMemo(() => {
-    const set = new Set<number>();
-    if (!data) return set;
-    for (const bar of data.bars) {
-      const slot = slotIndexFor(period, data.startMs, bar.startMs);
-      if (slot >= 0 && slot < slots) set.add(slot);
-    }
-    if (period === 'day' && data.price) {
-      for (const point of data.price.points) {
-        const slot = slotIndexFor(period, data.startMs, point.ms);
-        if (slot >= 0 && slot < slots) set.add(slot);
-      }
-    }
-    return set;
-  }, [data, period, slots]);
-
-  const handleScrub = useCallback(
-    (slot: number, phase: ScrubPhase) => {
-      if (!data) return;
-      const snapped = snapToNearestSlot(slot, availableSlots);
-      if (snapped === null) return;
-      const ms = slotStartMsFor(period, data.startMs, snapped);
-      setSelectedSlotMs(previous => (phase === 'tap' && previous === ms ? null : ms));
-    },
-    [data, availableSlots, period]
-  );
-
-  const scrubHandlers = useChartScrub({ slots, onScrub: handleScrub });
-
-  const dayBands = useMemo(() => (period === 'day' && data?.price ? assignPriceBands(data.price.points) : []), [data, period]);
-
-  const callout = useMemo<ChartCalloutModel | null>(() => {
-    if (!data || selectedSlotMs == null) return null;
-    const slot = slotIndexFor(period, data.startMs, selectedSlotMs);
-    if (slot < 0 || slot >= slots) return null;
-
-    const bar = data.bars.find(candidate => candidate.startMs === selectedSlotMs) ?? null;
-    const pricePoint = period === 'day' ? (data.price?.points.find(point => point.ms === selectedSlotMs) ?? null) : null;
-    if (!bar && !pricePoint) return null;
-
-    const title =
-      period === 'day'
-        ? hourRangeLabel(selectedSlotMs)
-        : period === 'year'
-          ? new Date(selectedSlotMs).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
-          : new Date(selectedSlotMs).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-
-    if (bar) {
-      const secondaryParts = [unit === 'kr' ? formatKWh(bar.kWh) : formatKr(bar.costKr)];
-      if (bar.price != null) secondaryParts.push(`${period !== 'day' ? '≈' : ''}${formatPrice(bar.price)}`);
-      return {
-        leftPct: slotCenterPct(slot, slots),
-        title,
-        primary: unit === 'kr' ? formatKr(bar.costKr) : formatKWh(bar.kWh),
-        secondary: secondaryParts.join(' · '),
-        dot: bar.price != null ? bar.level : null,
-        note: bar.partial ? 'in progress' : null,
-      };
-    }
-
-    return {
-      leftPct: slotCenterPct(slot, slots),
-      title,
-      primary: formatPrice(pricePoint!.price),
-      secondary: null,
-      dot: bandAt(dayBands, pricePoint!.ms),
-      note: 'no usage yet',
-    };
-  }, [data, selectedSlotMs, period, slots, unit, dayBands]);
+  const inProgress = data != null && nowMs >= data.startMs && nowMs < data.endMs;
+  const other = unit === 'kr' ? 'kwh' : 'kr';
+  const total = data ? (unit === 'kr' ? data.totals.costKr : data.totals.kWh) : 0;
+  const otherTotal = data ? (other === 'kr' ? data.totals.costKr : data.totals.kWh) : 0;
+  const avgPrice = data && data.totals.kWh > 0 ? data.totals.costKr / data.totals.kWh : null;
+  const change = data ? changeVsPrevious(data, previous, nowMs, unit) : null;
+  const unitLabel = unit === 'kr' ? 'kr' : 'kWh';
 
   return (
-    <>
+    <div className='plan-tab'>
       <PeriodPicker
         period={period}
         anchorStartMs={anchorStartMs}
@@ -138,32 +87,74 @@ export function UsageTab({
         onForceReload={forceReload}
       />
 
-      {period === 'day' && data && <StatTiles view={data} />}
-
-      <div className='energy-page-card'>
-        <div className='energy-page-card-header'>
-          <div className='energy-page-card-header-left'>
-            <h2>Consumption</h2>
-            {refreshing && (
-              <span className='energy-page-refreshing'>
-                <span className='energy-page-refreshing-dot' />
-                updating…
-              </span>
-            )}
-          </div>
+      <div className='plan-hero'>
+        <div className='plan-hero-main'>
+          <span className='plan-hero-label'>
+            {inProgress ? `So far · ${formatHomeClock(nowMs)}` : 'Total'}
+            {refreshing && <i className='ev-live-dot ev-updating' aria-label='updating' />}
+          </span>
+          <span className='plan-hero-num'>
+            {data ? amount(total, unit) : '—'}
+            <small> {unitLabel}</small>
+          </span>
           {data && (
-            <div className='energy-page-card-header-right'>
-              <span className='energy-page-card-total'>
-                Total {unit === 'kr' ? formatKr(data.totals.costKr) : formatKWh(data.totals.kWh)}
+            <span className='plan-chips'>
+              <span className='plan-chip plan-chip--ghost'>
+                {amount(otherTotal, other)} {other === 'kr' ? 'kr' : 'kWh'}
               </span>
-              <UnitToggle unit={unit} onChange={onUnitChange} />
-            </div>
+              {avgPrice != null && <span className='plan-chip plan-chip--ghost'>avg {krValue(avgPrice)} kr/kWh</span>}
+            </span>
           )}
         </div>
+        <div className='plan-hero-side'>
+          <span className='plan-toggle' role='group' aria-label='Unit'>
+            {UNITS.map(option => (
+              <button
+                key={option.value}
+                type='button'
+                aria-pressed={unit === option.value}
+                className={unit === option.value ? 'plan-toggle-on' : ''}
+                onClick={() => onUnitChange(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </span>
+          {change != null && (
+            <span className='plan-chip plan-chip--ghost'>
+              <Icon icon={change <= 0 ? 'mdi:trending-down' : 'mdi:trending-up'} aria-hidden='true' />
+              {change > 0 ? '+' : ''}
+              {change} % vs {PREVIOUS_PERIOD[period]}
+            </span>
+          )}
+        </div>
+      </div>
 
-        {loading && <div className='energy-chart-skeleton' aria-hidden='true' />}
-
-        {!loading && error && (
+      <div className='plan-card plan-card--chart ev-rel'>
+        {isDay && data && (
+          <span className='plan-toggle ev-viewtoggle' role='group' aria-label='View'>
+            <button
+              type='button'
+              aria-label='Bars'
+              aria-pressed={!clock}
+              className={clock ? '' : 'plan-toggle-on'}
+              onClick={() => setClock(false)}
+            >
+              <Icon icon='mdi:chart-bar' aria-hidden='true' />
+            </button>
+            <button
+              type='button'
+              aria-label='Clock'
+              aria-pressed={clock}
+              className={clock ? 'plan-toggle-on' : ''}
+              onClick={() => setClock(true)}
+            >
+              <Icon icon='mdi:chart-donut' aria-hidden='true' />
+            </button>
+          </span>
+        )}
+        {loading && !data && <div className='energy-chart-skeleton' aria-hidden='true' />}
+        {!loading && error && !data && (
           <div className='energy-page-state-error'>
             <p>{error}</p>
             <button type='button' onClick={reload}>
@@ -171,43 +162,95 @@ export function UsageTab({
             </button>
           </div>
         )}
-
-        {!loading && !error && data && (
-          <div className={`energy-page-card-body ${refreshing ? 'energy-page-card-body--refreshing' : ''}`}>
-            <div className='energy-callout-lane'>{callout && <ChartCallout {...callout} />}</div>
-
+        {data &&
+          (isDay && clock ? (
+            <UsageClock
+              bars={data.bars}
+              prices={prices}
+              rangeStartMs={data.startMs}
+              rangeEndMs={data.endMs}
+              nowMs={nowMs}
+              unit={unit}
+              centre={{
+                primary: `${amount(total, unit)} ${unitLabel}`,
+                secondary: `${amount(otherTotal, other)} ${other === 'kr' ? 'kr' : 'kWh'}`,
+                note: inProgress ? `so far · ${formatHomeClock(nowMs)}` : null,
+              }}
+              selectedMs={selectedMs}
+              onSelect={setSelectedMs}
+            />
+          ) : (
             <EnergyChart
               bars={data.bars}
               rangeStartMs={data.startMs}
               rangeEndMs={data.endMs}
               period={period}
               unit={unit}
-              scrubHandlers={scrubHandlers}
-              selectedStartMs={selectedSlotMs}
-              hasSelection={selectedSlotMs != null}
+              nowMs={nowMs}
+              prices={prices}
+              selectedMs={selectedMs}
+              onSelect={setSelectedMs}
             />
-
-            <div className='energy-chart-legend'>
-              {PRICE_BANDS.map(band => (
-                <span key={band} className='energy-chart-legend-item'>
-                  <span className={`energy-chart-legend-dot band--${band}`} />
-                  {PRICE_BAND_LABEL[band]}
-                </span>
-              ))}
-            </div>
-
-            {period === 'day' && data.price && (
-              <PriceStrip
-                series={data.price}
-                rangeStartMs={data.startMs}
-                rangeEndMs={data.endMs}
-                selectedMs={selectedSlotMs}
-                scrubHandlers={scrubHandlers}
-              />
-            )}
-          </div>
-        )}
+          ))}
       </div>
-    </>
+
+      <div className='plan-chips plan-legend'>
+        <span className='plan-chip plan-chip--tiny plan-chip--strip'>
+          {PRICE_BANDS.map(band => (
+            <span key={band} className={`plan-legend-item band--${band}`}>
+              <i className='plan-dot' />
+              {PRICE_BAND_LABEL[band]}
+            </span>
+          ))}
+        </span>
+        <button
+          type='button'
+          className={`plan-chip plan-chip--tiny plan-chip--ghost plan-chip--button ${showBandInfo ? 'plan-chip--on' : ''}`}
+          aria-expanded={showBandInfo}
+          onClick={() => setShowBandInfo(value => !value)}
+        >
+          <Icon icon='mdi:information-outline' aria-hidden='true' />
+          quarters
+        </button>
+      </div>
+      {showBandInfo && (
+        <p className='plan-note'>
+          {isDay ? "Each day's hours ranked into quarters by price." : 'Bars ranked into quarters by the price paid.'}
+        </p>
+      )}
+
+      {shares && data && data.totals.kWh > 0 && (
+        <div className='plan-card ev-share'>
+          <div className='plan-row-head plan-row-head--in'>
+            <span>When you used it</span>
+          </div>
+          <span className='ev-sharebar'>
+            {PRICE_BANDS.map(band => shares[band] > 0 && <i key={band} className={`band--${band}`} style={{ flexGrow: shares[band] }} />)}
+          </span>
+          <span className='plan-chips'>
+            {PRICE_BANDS.map(band => (
+              <span key={band} className={`plan-chip plan-chip--tiny plan-chip--band band--${band}`}>
+                <i className='plan-dot' />
+                {Math.round(shares[band] * 100)} %
+              </span>
+            ))}
+          </span>
+        </div>
+      )}
+
+      {isDay && <WeekCompare nowMs={nowMs} unit={unit} />}
+
+      {data && selectedMs != null && (
+        <HourSheet
+          period={period}
+          view={data}
+          previous={previous}
+          slotMs={selectedMs}
+          prices={prices}
+          todayStartMs={todayStartMs}
+          onClose={() => setSelectedMs(null)}
+        />
+      )}
+    </div>
   );
 }

@@ -142,7 +142,12 @@ export function flowDashSeconds(watts: number): number | null {
 
 /** The flow diagram's nodes, biggest first: rooms drawing power (at most `maxRooms`; the smallest
  * share one node beyond that), then Untracked. Shares are of `gridW` when known. */
-export function flowNodes(rooms: readonly RoomUsage[], untrackedW: number | null, gridW: number | null, maxRooms = FLOW_MAX_ROOMS): FlowNode[] {
+export function flowNodes(
+  rooms: readonly RoomUsage[],
+  untrackedW: number | null,
+  gridW: number | null,
+  maxRooms = FLOW_MAX_ROOMS
+): FlowNode[] {
   const drawing = rooms.filter(room => (room.watts ?? 0) >= 1).sort((a, b) => (b.watts ?? 0) - (a.watts ?? 0));
   const shown = drawing.length > maxRooms ? drawing.slice(0, maxRooms - 1) : drawing;
   const rest = drawing.slice(shown.length);
