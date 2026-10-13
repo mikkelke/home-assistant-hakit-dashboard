@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import type { RoomDetailProps } from '../../types';
@@ -16,6 +16,7 @@ import { DryerCard } from '../Dryer';
 import { RoomClimateHeader } from './RoomClimateHeader';
 import { ROBOT_CLEAN_PREFIX, VACUUM_ENTITY, roomThermostat } from '../../config/entities';
 import { resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
+import { asleepAreaIds, roomGlow, roomLightIds } from '../../home/roomAmbient';
 import { useSwipeToClose } from '../../hooks';
 import './RoomDetail.css';
 
@@ -66,6 +67,9 @@ export function RoomDetail({
   const cleaningToggleId = `${ROBOT_CLEAN_PREFIX}${areaName}`;
 
   const presence = entities?.[presenceSensor]?.state === 'on';
+  // The header carries the same glow as the room's card.
+  const asleep = asleepAreaIds(entityId => entities?.[entityId]?.state).has(area.area_id);
+  const glow = asleep ? null : roomGlow(roomLightIds(area.name).map(entityId => entities?.[entityId]));
   const presenceReason = resolveRoomActiveReason(entities?.[presenceSensor], entities);
   const humidity = entities?.[humiditySensor]?.state;
   const climate = entities?.[climateSensor];
@@ -120,6 +124,9 @@ export function RoomDetail({
       onTouchEnd={handleTouchEnd}
     >
       <div className='room-detail-header'>
+        {glow && (
+          <i className='room-detail-glow' style={{ '--g': glow.rgb.join(' '), '--ga': glow.alpha } as CSSProperties} aria-hidden='true' />
+        )}
         <div className='room-detail-title'>
           <h2>{formatName(area.name)}</h2>
           {presence && (
