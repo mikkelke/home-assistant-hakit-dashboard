@@ -10,6 +10,7 @@ import {
   peakWindows,
   pressChips,
   programmeLabel,
+  programmeLabelInferred,
   relativeDayWord,
   weekdayShort,
 } from '../planView';
@@ -108,6 +109,12 @@ describe('labels', () => {
     expect(krValue(1234.567)).toBe('1.234,57');
     expect(programmeLabel({ key: 'typical', label: 'Typical' })).toBe('Usual');
     expect(programmeLabel({ key: 'eco', label: 'ECO' })).toBe('ECO');
+  });
+
+  it('marks a programme name nobody confirmed, but not the pooled Usual profile', () => {
+    expect(programmeLabelInferred({ key: 'eco', labelConfirmed: false })).toBe(true);
+    expect(programmeLabelInferred({ key: 'eco', labelConfirmed: true })).toBe(false);
+    expect(programmeLabelInferred({ key: 'typical', labelConfirmed: false })).toBe(false);
   });
 
   it('names the day of a start in home time', () => {

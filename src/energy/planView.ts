@@ -129,6 +129,12 @@ export function programmeLabel(programme: { key: string; label: string }): strin
   return programme.key === 'typical' ? 'Usual' : programme.label;
 }
 
+/** The programme's name was inferred by the monitors rather than confirmed by a person. The pooled
+ * "Usual" profile names no programme, so it never counts. */
+export function programmeLabelInferred(programme: { key: string; labelConfirmed: boolean }): boolean {
+  return !programme.labelConfirmed && programme.key !== 'typical';
+}
+
 export interface PressChips {
   /** When the cycle starts, unless that is right away. */
   start: string | null;

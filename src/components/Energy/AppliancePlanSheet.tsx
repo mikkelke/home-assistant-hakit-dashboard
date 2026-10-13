@@ -3,7 +3,7 @@ import { Icon } from '@iconify/react';
 import { DONE_BY_HOURS, type DoneByHour } from '../../config/plan';
 import { assembleAppliancePlan, type AppliancePlan } from '../../energy/appliancePlan';
 import { formatHomeClock } from '../../energy/homeTime';
-import { durationLabel, krValue, pressChips, programmeLabel } from '../../energy/planView';
+import { durationLabel, krValue, pressChips, programmeLabel, programmeLabelInferred } from '../../energy/planView';
 import type { PricePointMs } from '../../energy/priceTimeline';
 import { costCurve } from '../../energy/startPlan';
 import { ApplianceSheet } from '../Appliance';
@@ -79,12 +79,19 @@ export function AppliancePlanSheet({ appliance, timeline, nowMs, onClose }: Appl
                 onClick={() => setProgrammeKey(p.key)}
               >
                 {programmeLabel(p)}
+                {programmeLabelInferred(p) && <Icon icon='mdi:help-circle-outline' aria-label='inferred' />}
               </button>
             ))}
           </div>
         )}
         <div className='plan-chips'>
           {appliance.programmes.length <= 1 && <span className='plan-chip plan-chip--ghost'>{programmeLabel(programme)}</span>}
+          {programmeLabelInferred(programme) && (
+            <span className='plan-chip plan-chip--ghost'>
+              <Icon icon='mdi:help-circle-outline' aria-hidden='true' />
+              inferred
+            </span>
+          )}
           <span className='plan-chip plan-chip--ghost'>
             <Icon icon='mdi:flash-outline' aria-hidden='true' />≈ {krValue(programme.kwh)} kWh
           </span>
