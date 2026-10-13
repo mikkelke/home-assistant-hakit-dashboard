@@ -89,6 +89,7 @@ export function buildNowTimeline(episodes: readonly HouseEpisode[], upcoming: re
       plans.push({ type: 'plan', id: item.id, item, atMs: item.atMs, areaId: item.areaId });
     }
   }
+  running.sort((a, b) => (a.atMs ?? Infinity) - (b.atMs ?? Infinity));
   plans.sort((a, b) => (a.atMs ?? Infinity) - (b.atMs ?? Infinity));
   return { past, running, plans };
 }

@@ -88,14 +88,31 @@ describe('the NOW line and what comes after it', () => {
   it('puts running and paused appliances on the line and a done row at a running one ETA', () => {
     const { running, plans } = buildNowTimeline([], upcoming);
     expect(running.map(row => [row.id, row.areaId])).toEqual([
-      ['washer', 'guest_bathroom'],
       ['dryer', 'guest_bathroom'],
+      ['washer', 'guest_bathroom'],
     ]);
-    expect(running[0].atMs).toBe(Date.parse('2026-10-13T16:50:00Z'));
+    expect(running[1].atMs).toBe(Date.parse('2026-10-13T16:50:00Z'));
     expect(plans.map(row => row.id)).toEqual(['washer-done', 'wake', 'rober2']);
     expect(plans[0].atMs).toBe(home(2026, 10, 13, 20, 23));
     expect(plans[1].atMs).toBe(home(2026, 10, 14, 6, 45));
     expect(plans[2].atMs).toBeNull();
+  });
+
+  it('orders running appliances on the rail by when they started', () => {
+    const items = readUpcoming(
+      id =>
+        ({
+          'sensor.washer_state': entity('Running', { estimated_end_time: '22:00', cycle_start_time: '2026-10-13T14:41:00Z' }),
+          'sensor.dishwasher_state': entity('Running', {
+            estimated_end_time: '2026-10-13T16:36:00Z',
+            cycle_start_time: '2026-10-13T15:38:00Z',
+          }),
+        })[id],
+      home(2026, 10, 13, 18, 19),
+      MIKKEL
+    );
+    expect(items.map(item => item.id)).toEqual(['dish', 'washer']);
+    expect(buildNowTimeline([], items).running.map(row => row.id)).toEqual(['washer', 'dish']);
   });
 
   it('shows a housemate no wake row', () => {
