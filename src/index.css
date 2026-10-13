@@ -123,7 +123,7 @@ body::-webkit-scrollbar,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :where(*:not(.timeline-spinner, .info-refresh-btn.spinning svg, .device-row--skeleton, .energy-chart-skeleton, .device-breakdown-refreshing-dot, .energy-page-refreshing-dot)),
+  :where(*:not(.timeline-spinner, .info-refresh-btn.spinning svg, .device-row--skeleton, .energy-chart-skeleton, .device-breakdown-refreshing-dot, .energy-page-refreshing-dot, .now-view)),
   *::before,
   *::after {
     animation-iteration-count: 1 !important;

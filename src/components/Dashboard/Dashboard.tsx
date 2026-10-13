@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useHass } from '@hakit/core';
+import { Icon } from '@iconify/react';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { EXCLUDED_AREAS } from '../../config/dashboard';
@@ -8,12 +9,21 @@ import {
   buildHistoryUrlWithHash,
   buildRoomHash,
   getAccessibleHistoryWindow,
-  getViewFromHistoryHash,
+  isNowHash,
+  parseDashboardHash,
   replaceHistoryState,
+  type NowFocus,
+  type OpenNow,
 } from '../../utils/navigation';
-import { StatusBar } from '../StatusBar';
+import { leaveNowEntry, pushNowEntry, settleNowEntry, type NowEntryBelow, type NowEntryChange } from '../../utils/nowHistory';
+import { onIdle } from '../../utils/idle';
 import type { EnergyTab } from '../Energy/energyTab';
+import { HomeHeader } from '../Home/HomeHeader';
+import { HouseTicker } from '../Home/HouseTicker';
+import { MotionConditions } from '../Home/MotionConditions';
+import { PulseRow } from '../Home/PulseRow';
 import { HomePulse } from '../HomePulse';
+import { LazyBoundary } from '../Lazy/LazyBoundary';
 import { QuickAccess } from '../QuickAccess/QuickAccess';
 import { RoomGrid } from '../RoomGrid';
 import { Menu } from '../Menu';
@@ -34,6 +44,21 @@ const EnergyPage = lazy(() => import('../Energy').then(module => ({ default: mod
 // share one promise.
 const RoomDetail = lazy(() => import('../RoomDetail').then(module => ({ default: module.RoomDetail })));
 const warmRoomDetail = () => void import('../RoomDetail');
+
+// The #now timeline is warmed on idle like room detail, and fetched at once when the app opens on a
+// #now link (a tapped push), so the timeline is the first thing that renders.
+const NowView = lazy(() => import('../Now').then(module => ({ default: module.NowView })));
+const warmNowView = () => void import('../Now');
+if (isNowHash(getAccessibleHistoryWindow()?.location.hash ?? '')) warmNowView();
+
+interface NowRoute {
+  focus: NowFocus | null;
+  /** `cold`: shown in place, as on an app opened by a link or Back; `warm`: pushed in from the grid. */
+  arrival: 'cold' | 'warm';
+}
+
+const sameFocus = (a: NowFocus | null, b: NowFocus | null) => a?.kind === b?.kind && a?.epochS === b?.epochS;
+const focusKey = (focus: NowFocus | null) => (focus ? `${focus.kind}-${focus.epochS}` : 'now');
 
 /** Build mock washer entities for ?washer_demo=running|unemptied|paused|emptied|off (for UI preview). */
 function getWasherDemoEntities(mode: string | null): HassEntities {
@@ -363,6 +388,7 @@ export function Dashboard() {
   // or a `#room=<id>&climate=1` deep link). Cleared by RoomClimateHeader once it has acted on it.
   const [climateAutoOpenAreaId, setClimateAutoOpenAreaId] = useState<string | null>(null);
   const [energyOpen, setEnergyOpen] = useState(false);
+  const [nowRoute, setNowRoute] = useState<NowRoute | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isMobile = useIsMobile();
   // Flag to prevent hash change handler from running during programmatic updates
@@ -375,6 +401,12 @@ export function Dashboard() {
   const selectedRoomRef = useRef<Area | null>(null);
   // Ref to track energy view open state without causing dependency issues
   const energyOpenRef = useRef(false);
+  const nowRouteRef = useRef<NowRoute | null>(null);
+  // The first hash this app instance routes on is an arrival (a cold link or an iframe reload); every later
+  // one is a navigation.
+  const firstSyncRef = useRef(true);
+  // A room opened from the timeline closes back to it.
+  const roomOverNowRef = useRef(false);
 
   // Filter out excluded areas. Memoised on `areas`: a fresh array on every render would give findRoomById and syncStateFromHash a
   // new identity each time, which tears down and re-creates the hash listeners and the 500 ms poll below on every update.
@@ -404,19 +436,18 @@ export function Dashboard() {
     return { ...base, ...washerMock, ...dishwasherMock, ...dryerMock, ...fireMock };
   }, [entities, washerDemo, dishwasherDemo, dryerDemo, fireDemo]);
 
-  // Fetch the room-detail chunk once the browser is idle after first paint, so the first room tap
-  // costs nothing. requestIdleCallback is missing on Safari/iOS, which is most of this household's
+  // Fetch the room-detail and timeline chunks once the browser is idle after first paint, so the first
+  // tap costs nothing. requestIdleCallback is missing on Safari/iOS, which is most of this household's
   // phones — fall back to a timeout there rather than skipping the warm-up on the very clients it
   // matters most for.
-  useEffect(() => {
-    const idle = window.requestIdleCallback;
-    if (typeof idle === 'function') {
-      const handle = idle(warmRoomDetail, { timeout: 3000 });
-      return () => window.cancelIdleCallback?.(handle);
-    }
-    const timer = window.setTimeout(warmRoomDetail, 1500);
-    return () => window.clearTimeout(timer);
-  }, []);
+  useEffect(
+    () =>
+      onIdle(() => {
+        warmRoomDetail();
+        warmNowView();
+      }, 1500),
+    []
+  );
 
   // Keep ref in sync with state (safety measure)
   useEffect(() => {
@@ -427,6 +458,11 @@ export function Dashboard() {
     energyOpenRef.current = energyOpen;
   }, [energyOpen]);
 
+  const showNow = useCallback((route: NowRoute | null) => {
+    nowRouteRef.current = route;
+    setNowRoute(route);
+  }, []);
+
   useEffect(() => {
     return () => {
       if (hashUpdateTimeoutRef.current !== null) {
@@ -435,16 +471,21 @@ export function Dashboard() {
     };
   }, []);
 
+  // Called right before the app writes history itself. The hash that write leaves counts as handled, so the
+  // listeners and the poll do not route on it again; a hash that differs once the window ends (Back pressed
+  // meanwhile) is still picked up by the poll.
   const markHashUpdating = useCallback(() => {
     if (typeof window === 'undefined') return;
     isUpdatingHashRef.current = true;
     if (hashUpdateTimeoutRef.current !== null) {
       window.clearTimeout(hashUpdateTimeoutRef.current);
     }
+    queueMicrotask(() => {
+      lastHandledHashRef.current = getAccessibleHistoryWindow()?.location.hash ?? lastHandledHashRef.current;
+    });
     hashUpdateTimeoutRef.current = window.setTimeout(() => {
       isUpdatingHashRef.current = false;
       hashUpdateTimeoutRef.current = null;
-      lastHandledHashRef.current = getAccessibleHistoryWindow()?.location.hash ?? lastHandledHashRef.current;
     }, 120);
   }, []);
 
@@ -529,8 +570,34 @@ export function Dashboard() {
     if (areaList.length === 0) return;
     if (isUpdatingHashRef.current) return; // Skip if we're updating hash programmatically
 
-    lastHandledHashRef.current = getAccessibleHistoryWindow()?.location.hash ?? lastHandledHashRef.current;
-    const view = getViewFromHistoryHash();
+    const targetWindow = getAccessibleHistoryWindow();
+    lastHandledHashRef.current = targetWindow?.location.hash ?? lastHandledHashRef.current;
+    const view = parseDashboardHash(targetWindow?.location.hash ?? '');
+    const arrival = firstSyncRef.current ? 'load' : 'navigation';
+    firstSyncRef.current = false;
+    if (view.kind !== 'room') roomOverNowRef.current = false;
+
+    if (view.kind === 'now') {
+      // The timeline sits over whatever showed when its link arrived; seeding a cold link puts the grid below it.
+      const shownBefore: NowEntryBelow = selectedRoomRef.current || energyOpenRef.current || nowRouteRef.current ? 'other' : 'grid';
+      let change: NowEntryChange = 'none';
+      if (targetWindow) {
+        try {
+          change = settleNowEntry(targetWindow.history, targetWindow.location, arrival, shownBefore);
+          if (change !== 'none') markHashUpdating();
+        } catch (err) {
+          console.debug('Failed to settle the timeline history entry:', err);
+        }
+      }
+      const current = nowRouteRef.current;
+      if (!current || !sameFocus(current.focus, view.focus))
+        showNow({ focus: view.focus, arrival: change === 'adopted' ? 'warm' : 'cold' });
+      if (selectedRoomRef.current) setSelectedRoom(null);
+      if (energyOpenRef.current) setEnergyOpen(false);
+      return;
+    }
+
+    if (nowRouteRef.current) showNow(null);
 
     if (view.kind === 'energy') {
       if (!energyOpenRef.current) setEnergyOpen(true);
@@ -563,7 +630,7 @@ export function Dashboard() {
       setSelectedRoom(room);
     }
     if (view.openClimate) setClimateAutoOpenAreaId(room.area_id);
-  }, [areaList, findRoomById]);
+  }, [areaList, findRoomById, markHashUpdating, showNow]);
 
   // Initialize from hash on mount and when areas load
   useEffect(() => {
@@ -677,6 +744,13 @@ export function Dashboard() {
   };
 
   const handleCloseRoom = () => {
+    const targetWindow = getAccessibleHistoryWindow();
+    if (roomOverNowRef.current && targetWindow) {
+      // Back to the timeline entry below; the hash sync shows it and closes the room.
+      roomOverNowRef.current = false;
+      targetWindow.history.back();
+      return;
+    }
     setSelectedRoom(null);
     replaceRoomHistory(null);
   };
@@ -692,8 +766,60 @@ export function Dashboard() {
     replaceEnergyHistory();
   }, [replaceEnergyHistory]);
 
+  const openNow: OpenNow = useCallback(
+    focus => {
+      const targetWindow = getAccessibleHistoryWindow();
+      if (targetWindow) {
+        try {
+          markHashUpdating();
+          pushNowEntry(
+            targetWindow.history,
+            targetWindow.location,
+            focus ?? null,
+            selectedRoomRef.current || energyOpenRef.current ? 'other' : 'grid'
+          );
+        } catch (err) {
+          console.debug('Failed to push the timeline history entry:', err);
+          isUpdatingHashRef.current = false;
+        }
+      }
+      showNow({ focus: focus ?? null, arrival: 'warm' });
+      setSelectedRoom(null);
+      setEnergyOpen(false);
+    },
+    [markHashUpdating, showNow]
+  );
+
+  const closeNow = useCallback(() => {
+    showNow(null);
+    const targetWindow = getAccessibleHistoryWindow();
+    if (!targetWindow) return;
+    try {
+      markHashUpdating();
+      leaveNowEntry(targetWindow.history, targetWindow.location);
+    } catch (err) {
+      console.debug('Failed to leave the timeline history entry:', err);
+      isUpdatingHashRef.current = false;
+    }
+  }, [markHashUpdating, showNow]);
+
+  const openRoomFromNow = useCallback(
+    (areaId: string) => {
+      const room = findRoomById(areaId);
+      if (!room) return;
+      showNow(null);
+      setSelectedRoom(room);
+      pushRoomHistory(room.area_id);
+      roomOverNowRef.current = true;
+    },
+    [findRoomById, pushRoomHistory, showNow]
+  );
+
+  const motionScope = nowRoute ? 'timeline' : energyOpen || selectedRoom || isMenuOpen ? null : 'grid';
+
   return (
-    <div className={`dashboard ${selectedRoom ? 'has-detail' : ''}`}>
+    <div className={`dashboard ${selectedRoom ? 'has-detail' : ''} ${nowRoute ? 'is-covered' : ''}`}>
+      <MotionConditions scope={motionScope} />
       <Menu
         isOpen={isMenuOpen}
         onClose={() => setIsMenuOpen(false)}
@@ -704,24 +830,25 @@ export function Dashboard() {
       <FireAlarmTakeover entities={displayEntities} callService={callService} />
       <div className='dashboard-main'>
         <div className='dashboard-content'>
-          <StatusBar
-            entities={displayEntities}
-            hassUrl={hassUrl}
-            onMenuToggle={() => setIsMenuOpen(!isMenuOpen)}
-            onOpenPlan={() => handleOpenEnergy('plan')}
-          />
-          <HomePulse areas={areaList} entities={displayEntities} hassUrl={hassUrl} onRoomSelect={handlePulseRoomSelect} />
-          <RoomGrid
-            areas={areaList}
-            entities={displayEntities}
-            selectedAreaId={selectedRoom?.area_id || null}
-            onRoomClick={handleRoomClick}
-            onRoomClimateClick={handleRoomClimateClick}
-            hassUrl={hassUrl}
-          />
-          {/* Fixed bar at z-index 1000 — would float above the Energy page (z-index 90), so it
-              unmounts while that view is open. */}
-          {!energyOpen && <QuickAccess entities={displayEntities} hassUrl={hassUrl} callService={callService} />}
+          <main className='rooms-container'>
+            <HomeHeader entities={displayEntities} hassUrl={hassUrl} onMenu={() => setIsMenuOpen(open => !open)} />
+            <PulseRow onOpenEnergy={handleOpenEnergy} onOpenNow={openNow} />
+            <HouseTicker onOpenNow={openNow} />
+            <HomePulse areas={areaList} entities={displayEntities} hassUrl={hassUrl} onRoomSelect={handlePulseRoomSelect} />
+            <RoomGrid
+              areas={areaList}
+              entities={displayEntities}
+              selectedAreaId={selectedRoom?.area_id || null}
+              onRoomClick={handleRoomClick}
+              onRoomClimateClick={handleRoomClimateClick}
+              hassUrl={hassUrl}
+            />
+          </main>
+          {/* Fixed bar at z-index 1000 — would float above the Energy page (z-index 90) and the timeline,
+              so it unmounts while either is open. */}
+          {!energyOpen && !nowRoute && (
+            <QuickAccess entities={displayEntities} hassUrl={hassUrl} callService={callService} onOpenNow={openNow} />
+          )}
         </div>
 
         {selectedRoom && (
@@ -750,6 +877,28 @@ export function Dashboard() {
           <Suspense fallback={<div className='energy-page-loading' />}>
             <EnergyPage onClose={handleCloseEnergy} />
           </Suspense>
+        )}
+
+        {nowRoute && (
+          <LazyBoundary
+            fallback={<div className='now-loading' />}
+            error={
+              <div className='now-loading now-load-error' role='alert'>
+                <button type='button' className='now-load-back' onClick={closeNow} aria-label='Back to rooms'>
+                  <Icon icon='mdi:chevron-left' />
+                </button>
+                <span>Could not load the timeline</span>
+              </div>
+            }
+          >
+            <NowView
+              key={focusKey(nowRoute.focus)}
+              focus={nowRoute.focus}
+              arrival={nowRoute.arrival}
+              onBack={closeNow}
+              onOpenRoom={openRoomFromNow}
+            />
+          </LazyBoundary>
         )}
       </div>
     </div>

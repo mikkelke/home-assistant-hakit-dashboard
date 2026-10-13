@@ -1,26 +1,36 @@
-import { Fragment } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
-import type { RoomCardProps } from '../../types';
+import type { HassEntities, RoomCardProps } from '../../types';
 import {
-  BEDROOM_BED_OCCUPANCY_SENSORS,
-  resolveHallwayDoorSensorId,
-  VACUUM_ENTITY,
-  ROBOT_ENABLED_BOOLEAN_ENTITY,
-  ROBOT_CLEAN_PREFIX,
-  ROBOT_CLEAN_KITCHEN_1,
-  ROBOT_CLEAN_KITCHEN_2,
-  AC_THERMOSTAT_ENTITY,
+  HOUSE_EVENTS_ENTITY,
   KITCHEN_TEMP_SENSOR,
+  OUTDOOR_TEMP_SENSOR,
+  WEATHER_ENTITY,
+  resolveHallwayDoorSensorId,
+  resolveHallwayLockEntityId,
   resolveKitchenHumiditySensorId,
   roomFeelSensorId,
 } from '../../config/entities';
-import { ROOM_LIGHTS } from '../../config/lights';
-import { resolveDishwasherSemanticState } from '../../utils/dishwasherSemanticState';
+import { readApplianceCycle, type ApplianceCycle } from '../../energy/applianceRun';
+import { newestEventMs } from '../../home/houseEvents';
+import { HOUSEHOLD, isNightHour } from '../../home/household';
+import { useMotionSlot } from '../../home/motionBudget';
+import {
+  AREA_EXTERIOR_CONTACTS,
+  FROST_BELOW_C,
+  asleepAreaIds,
+  isAreaOpen,
+  roomGlow,
+  roomLightIds,
+  type RoomGlow,
+} from '../../home/roomAmbient';
+import { HOME_APPLIANCES, type HomeAppliance } from '../../home/upcoming';
+import { useNowMs } from '../../hooks/useNowMs';
+import { formatDecimal } from '../../utils/format';
 import { resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
-import { resolveRoomActiveReason } from '../../utils/roomActiveReason';
 import { IndicatorWithTimeline } from './IndicatorWithTimeline';
 import { MultiEntitySelector } from './MultiEntitySelector';
-import { OfficeVacuumIndicator } from './OfficeVacuumIndicator';
 import './RoomGrid.css';
 
 /** A sensor is only useful here if it carries an actual measurement. HA publishes "unknown"
@@ -32,80 +42,234 @@ function hasReading(entity: { state?: string | null } | undefined): boolean {
   return s != null && s !== '' && s !== 'unknown' && s !== 'unavailable';
 }
 
-type IndicatorKey =
-  | 'door'
-  | 'window'
-  | 'lock'
-  | 'heating'
-  | 'shower'
-  | 'cleaning'
-  | 'cleaning_cook'
-  | 'cleaning_dining'
-  | 'vacuum'
-  | 'guest'
-  | 'dishwasher'
-  | 'washer'
-  | 'dryer'
-  | 'hotplate'
-  | 'oven'
-  | 'microwave'
-  | 'media'
-  | 'lights'
-  | 'presence'
-  | 'alarm'
-  | 'bed'
-  | 'cooling';
+const formatName = (text: string) => text.replace(/\b(\p{L})(\p{L}*)/gu, (_, a, b) => a.toUpperCase() + b.toLowerCase());
 
-export interface RoomCardWithCountsProps extends RoomCardProps {
-  indicatorCounts: Record<IndicatorKey, number>;
+/** Watts above which a kitchen appliance counts as on: cooking draws 800 to 3000 W, standby far less. */
+const COOKING_W = 200;
+const COOKING_DEVICES = [
+  { entityId: 'sensor.hotplate_power_monitor_total_active_power', icon: 'mdi:stove', name: 'Hotplate' },
+  { entityId: 'sensor.oven_plug_switch_0_power', icon: 'mdi:toaster-oven', name: 'Oven' },
+  { entityId: 'sensor.microwave_plug_power', icon: 'mdi:microwave', name: 'Microwave' },
+] as const;
+
+const ACTIVE_APPLIANCE_STATES = new Set(['Running', 'Paused', 'Unemptied']);
+const BATH_PRESENCE = 'binary_sensor.bathroom_bath_presence_presence';
+const WAKE_ALARM = 'input_boolean.wakeup_bedroom';
+const WAKE_ALARM_TIME = 'input_datetime.wakeup_bedroom';
+const PLAIN_ORB = '138 148 160';
+
+function toNumber(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
-// Dusty color palette - subtle background, vibrant icon circle
-const DUSTY_COLORS = [
-  { bg: 'rgba(20, 21, 24, 0.9)', border: 'rgba(139, 116, 101, 0.3)', icon: '#b8947a', text: '#e4e4e7', iconBg: 'rgba(139, 116, 101, 0.5)' }, // Dusty brown
-  { bg: 'rgba(20, 21, 24, 0.9)', border: 'rgba(152, 128, 108, 0.3)', icon: '#c89c7a', text: '#e4e4e7', iconBg: 'rgba(152, 128, 108, 0.5)' }, // Muted taupe
-  { bg: 'rgba(20, 21, 24, 0.9)', border: 'rgba(123, 136, 120, 0.3)', icon: '#8ba87a', text: '#e4e4e7', iconBg: 'rgba(123, 136, 120, 0.5)' }, // Dusty sage
-  { bg: 'rgba(20, 21, 24, 0.9)', border: 'rgba(140, 120, 130, 0.3)', icon: '#b87a9a', text: '#e4e4e7', iconBg: 'rgba(140, 120, 130, 0.5)' }, // Dusty rose
-  { bg: 'rgba(20, 21, 24, 0.9)', border: 'rgba(120, 130, 145, 0.3)', icon: '#8a9aa7', text: '#e4e4e7', iconBg: 'rgba(120, 130, 145, 0.5)' }, // Dusty blue-gray
-  { bg: 'rgba(20, 21, 24, 0.9)', border: 'rgba(135, 125, 110, 0.3)', icon: '#a78a7a', text: '#e4e4e7', iconBg: 'rgba(135, 125, 110, 0.5)' }, // Dusty beige
-  { bg: 'rgba(20, 21, 24, 0.9)', border: 'rgba(130, 140, 125, 0.3)', icon: '#9aa87a', text: '#e4e4e7', iconBg: 'rgba(130, 140, 125, 0.5)' }, // Dusty olive
-  { bg: 'rgba(20, 21, 24, 0.9)', border: 'rgba(145, 125, 135, 0.3)', icon: '#a77a9a', text: '#e4e4e7', iconBg: 'rgba(145, 125, 135, 0.5)' }, // Dusty mauve
-  { bg: 'rgba(20, 21, 24, 0.9)', border: 'rgba(125, 135, 150, 0.3)', icon: '#8a9aa7', text: '#e4e4e7', iconBg: 'rgba(125, 135, 150, 0.5)' }, // Dusty slate
-  { bg: 'rgba(20, 21, 24, 0.9)', border: 'rgba(138, 130, 120, 0.3)', icon: '#a78a7a', text: '#e4e4e7', iconBg: 'rgba(138, 130, 120, 0.5)' }, // Dusty tan
-  { bg: 'rgba(20, 21, 24, 0.9)', border: 'rgba(132, 140, 130, 0.3)', icon: '#9aa87a', text: '#e4e4e7', iconBg: 'rgba(132, 140, 130, 0.5)' }, // Dusty moss
-  { bg: 'rgba(20, 21, 24, 0.9)', border: 'rgba(142, 128, 138, 0.3)', icon: '#a77a9a', text: '#e4e4e7', iconBg: 'rgba(142, 128, 138, 0.5)' }, // Dusty lavender
-];
+function readingNumber(entity: { state?: string } | undefined): number | null {
+  return hasReading(entity) ? toNumber(entity?.state) : null;
+}
 
-// Get consistent color for a room based on area_id
-const getRoomColor = (areaId: string) => {
-  // Simple hash function to consistently map area_id to a color
-  let hash = 0;
-  for (let i = 0; i < areaId.length; i++) {
-    hash = areaId.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const index = Math.abs(hash) % DUSTY_COLORS.length;
-  return DUSTY_COLORS[index];
-};
+/** Colder out than the frost line: the roof station, else the forecast. */
+function coldOutside(entities: HassEntities): boolean {
+  const tempC = readingNumber(entities[OUTDOOR_TEMP_SENSOR]) ?? toNumber(entities[WEATHER_ENTITY]?.attributes?.temperature);
+  return tempC != null && tempC < FROST_BELOW_C;
+}
 
-export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, hassUrl, indicatorCounts }: RoomCardWithCountsProps) {
-  const formatName = (text: string) => text.replace(/\b(\p{L})(\p{L}*)/gu, (_, a, b) => a.toUpperCase() + b.toLowerCase());
+function formatTemp(temp: string | number): string {
+  const value = toNumber(temp);
+  return value == null ? String(temp) : formatDecimal(value, 1);
+}
 
+/** Two glow layers: a new colour fades in over the old one instead of jumping. */
+function GlowLayers({ glow }: { glow: RoomGlow | null }) {
+  const key = glow ? `${glow.rgb.join(' ')}/${glow.alpha}` : null;
+  const [layers, setLayers] = useState({ a: key, b: null as string | null, top: 'a' as 'a' | 'b' });
+  const shown = layers.top === 'a' ? layers.a : layers.b;
+  if (shown !== key) setLayers(prev => (prev.top === 'a' ? { ...prev, b: key, top: 'b' } : { ...prev, a: key, top: 'a' }));
+  const layer = (value: string | null, on: boolean) => {
+    const [rgb, alpha] = value?.split('/') ?? [];
+    return (
+      <i
+        className={`room-glow ${on && value ? 'is-on' : ''}`}
+        style={value ? ({ '--g': rgb, '--ga': alpha } as CSSProperties) : undefined}
+      />
+    );
+  };
+  return (
+    <>
+      {layer(layers.a, layers.top === 'a')}
+      {layer(layers.b, layers.top === 'b')}
+    </>
+  );
+}
+
+/** Sound bars beside the name while the room's speaker plays; flat while muted. */
+function Equaliser({ areaId, muted }: { areaId: string; muted: boolean }) {
+  const moving = useMotionSlot(`eq:${areaId}`, 'equaliser', !muted);
+  return (
+    <span
+      className={`room-eq ${moving ? 'is-anim' : ''} ${muted ? 'is-muted' : ''}`}
+      role='img'
+      aria-label={muted ? 'Speaker muted' : 'Speaker playing'}
+    >
+      <i />
+      <i />
+      <i />
+      <i />
+    </span>
+  );
+}
+
+/** The occupied edge. All occupied cards share one slot and breathe in one phase. */
+function BreathingEdge() {
+  const breathing = useMotionSlot('breathing', 'breathing', true);
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (breathing && ref.current) ref.current.style.animationDelay = `${-(performance.now() % 6000)}ms`;
+  }, [breathing]);
+  return <i ref={ref} className={`room-edge ${breathing ? 'is-anim' : ''}`} />;
+}
+
+const RING_R = 22;
+const RING_C = 2 * Math.PI * RING_R;
+
+function remainingLabel(etaMs: number, nowMs: number): string | null {
+  const minutes = Math.ceil((etaMs - nowMs) / 60_000);
+  if (minutes <= 0) return null;
+  return minutes < 60 ? `${minutes} m` : `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')}`;
+}
+
+function elapsedLabel(sinceMs: number, nowMs: number): string | null {
+  const minutes = Math.floor((nowMs - sinceMs) / 60_000);
+  if (!Number.isFinite(minutes) || minutes < 0) return null;
+  return minutes < 60 ? `${minutes} m` : `${Math.floor(minutes / 60)} h`;
+}
+
+interface ActiveAppliance {
+  appliance: HomeAppliance;
+  entity: HassEntities[string];
+}
+
+const RING_ORDER: Record<ApplianceCycle['status'], number> = { ready: 0, running: 1, paused: 2, idle: 3 };
+
+/** One ring per card: the appliance that matters most, the other one as a badge. */
+function ApplianceRing({ active, houseAsleep }: { active: ActiveAppliance[]; houseAsleep: boolean }) {
+  const nowMs = useNowMs();
+  const cycles = active
+    .map(item => ({ ...item, cycle: readApplianceCycle(item.entity, item.appliance.config.etaFormat, nowMs) }))
+    .filter(item => item.cycle.status !== 'idle')
+    .sort((a, b) => RING_ORDER[a.cycle.status] - RING_ORDER[b.cycle.status]);
+  const [main, second] = cycles;
+  const kind = main?.appliance.kind ?? 'washer';
+  const status = main?.cycle.status ?? 'idle';
+  const glinting = useMotionSlot(`glint:${kind}`, 'appliance', status === 'running');
+  const readyPulse = useMotionSlot(`ready:${kind}`, 'oneShot', status === 'ready', 1300);
+  if (!main) return null;
+
+  const { cycle, appliance, entity } = main;
+  const ready = cycle.status === 'ready';
+  const share = ready ? 1 : (cycle.progressPct ?? 0) / 100;
+  const night = houseAsleep || isNightHour(nowMs);
+  const sinceMs = Date.parse(entity?.last_changed ?? '');
+  const text = ready
+    ? elapsedLabel(sinceMs, nowMs)
+    : cycle.status === 'paused'
+      ? 'Paused'
+      : cycle.etaMs != null
+        ? (remainingLabel(cycle.etaMs, nowMs) ?? 'Soon')
+        : `${Math.round(cycle.progressPct ?? 0)} %`;
+  const angle = share * 2 * Math.PI;
+  const label = `${appliance.config.label} ${ready ? 'ready to be emptied' : cycle.status === 'paused' ? 'paused' : 'running'}${text ? `, ${text}` : ''}`;
+  return (
+    <span
+      className={`room-ring is-${cycle.status} ${night && !ready ? 'is-night' : ''} ${readyPulse ? 'is-anim' : ''}`}
+      role='img'
+      aria-label={label}
+    >
+      <svg viewBox='0 0 56 56' aria-hidden='true'>
+        <circle className='room-ring-track' cx='28' cy='28' r={RING_R} />
+        <circle className='room-ring-arc' cx='28' cy='28' r={RING_R} strokeDasharray={`${share * RING_C} ${RING_C}`} />
+        {glinting && <circle className='room-ring-glint' cx={28 + RING_R * Math.cos(angle)} cy={28 + RING_R * Math.sin(angle)} r='2.6' />}
+      </svg>
+      <span className='room-ring-in'>
+        <Icon icon={ready ? 'mdi:check' : appliance.config.icon} />
+        {text && <b>{text}</b>}
+      </span>
+      {second && (
+        <span className={`room-ring-badge is-${second.cycle.status}`} title={second.appliance.config.label}>
+          <Icon icon={second.appliance.config.icon} />
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** How long the hallway shows a ring, and how long the still stand-in for the ripple stays. */
+const RING_SHOWN_MS = 120_000;
+const RIPPLE_STILL_MS = 10_000;
+const RIPPLE_MS = 2300;
+
+/** The hallway's orb turns into a bell when the doorbell rings while the screen is open, and
+ * ripples once; without the motion, two still rings stand in for the ripple. */
+function DoorbellRipple() {
+  const ringMs = useHass(s => newestEventMs(s.entities[HOUSE_EVENTS_ENTITY]?.attributes?.events, 'ring'));
+  const [shownSinceMs] = useState(() => Date.now());
+  const [ended, setEnded] = useState({ ringMs: null as number | null, still: false, bell: false });
+  const fresh = ringMs != null && ringMs > shownSinceMs;
+  useEffect(() => {
+    if (!fresh) return;
+    const timers = [
+      setTimeout(() => setEnded(prev => ({ ringMs, still: true, bell: prev.ringMs === ringMs && prev.bell })), RIPPLE_STILL_MS),
+      setTimeout(() => setEnded({ ringMs, still: true, bell: true }), RING_SHOWN_MS),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [fresh, ringMs]);
+  const rippling = useMotionSlot(`ripple:${ringMs ?? 0}`, 'oneShot', fresh, RIPPLE_MS);
+  const over = ended.ringMs === ringMs ? ended : { still: false, bell: false };
+  if (!fresh || over.bell) return null;
+  return (
+    <>
+      {rippling ? (
+        <>
+          <i className='room-ripple is-anim' />
+          <i className='room-ripple is-anim r2' />
+          <i className='room-ripple is-anim r3' />
+        </>
+      ) : (
+        !over.still && (
+          <>
+            <i className='room-ripple is-still' />
+            <i className='room-ripple is-still r2' />
+          </>
+        )
+      )}
+      <span className='room-orb room-orb--bell'>
+        <Icon icon='mdi:bell-ring' />
+      </span>
+    </>
+  );
+}
+
+interface Exception {
+  key: string;
+  node: ReactNode;
+}
+
+export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, hassUrl }: RoomCardProps) {
   const areaName = area.name.toLowerCase();
   const areaNameNormalized = areaName.replace(/\s+/g, '_');
-  // Only the rare fallbacks below (a room without its own conventionally named sensor or lights mapping) need the full
+  // Only the rare fallbacks below (a room without its own conventionally named sensor) need the full
   // key list, so it is built on demand instead of for every card on every render.
   let entityKeysCache: string[] | undefined;
   const entityKeys = () => (entityKeysCache ??= Object.keys(entities || {}));
-  const roomColor = getRoomColor(area.area_id);
+  const read = (entityId: string) => entities?.[entityId];
 
-  // Special sensor mappings for rooms with non-standard entity names
   // Use area_id (like dining room) so rooftop doors show regardless of area display name
   const isRooftop = area.area_id === 'rooftop' || areaNameNormalized === 'rooftop';
 
   // Fused "feel" sensor (AppDaemon RoomFeel, per HA area): when its state reads as a number, it
   // wins over the raw-sensor resolution below entirely (which is then skipped) - state is the fused
-  // temperature, and its `rh` attribute is the fused humidity. Keyed off area_id, like isRooftop above and
-  // isDiningRoom below, because Claudias Room's area_id is still the historical `office`.
+  // temperature, and its `rh` attribute is the fused humidity. Keyed off area_id, like isRooftop above,
+  // because Claudias Room's area_id is still the historical `office`.
   const feelSensorId = roomFeelSensorId(area.area_id);
   const feelEntity = feelSensorId ? entities?.[feelSensorId] : undefined;
   const feelAvailable = hasReading(feelEntity);
@@ -113,9 +277,6 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
   const hasFeelTemp = feelAvailable && Number.isFinite(feelTempNumber);
   const feelRhNumber = Number(feelEntity?.attributes?.rh);
   const hasFeelRh = hasFeelTemp && Number.isFinite(feelRhNumber);
-  // Only surfaced as a fallback tile indicator below when the room has no physical window
-  // contact sensor of its own - never a second, duplicate window icon.
-  const feelWindowOpen = feelAvailable && feelEntity?.attributes?.window_open === 'true';
 
   // Find temperature sensor for this area
   // Priority: 1) sensor.{area}_temperature 2) climate.{area}_thermostat current_temp 3) generic search (exclude floor)
@@ -181,236 +342,6 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
                   key.toLowerCase().includes(areaNameNormalized))
             );
 
-  const isBedroom = areaNameNormalized === 'bedroom';
-  const presenceSensorId = `binary_sensor.${areaNameNormalized}_active`;
-  const presenceEntity = entities?.[presenceSensorId];
-  const isOccupied = presenceEntity?.state === 'on';
-  const hasPresence = !!presenceEntity;
-  const presenceReason = resolveRoomActiveReason(presenceEntity, entities);
-  const presenceTitle = isOccupied
-    ? presenceReason
-      ? `Occupied via ${presenceReason.witnessLabel} - click for timeline`
-      : 'Occupied - click for timeline'
-    : 'Not occupied - click for timeline';
-  const presenceIcon = isOccupied && presenceReason ? presenceReason.icon : 'mdi:account';
-
-  // Climate/heating status - uses climateSensorId defined above
-  const hvacAction = climateEntity?.attributes?.hvac_action;
-  const isHeating = hvacAction === 'heating';
-
-  // Portable AC (Midea porta split) — seasonal, bedroom only, separate from the heating thermostat above.
-  // Stored away → the climate entity is `unavailable`, so the badge disappears on its own.
-  const acEntity = areaNameNormalized === 'bedroom' ? entities?.[AC_THERMOSTAT_ENTITY] : undefined;
-  const acState = acEntity?.state;
-  const acDeployed = !!acEntity && acState !== 'unavailable' && acState !== 'unknown';
-  const isAcCooling = acDeployed && (acState === 'cool' || acState === 'dry' || acEntity?.attributes?.hvac_action === 'cooling');
-
-  // Find if any lights are on in this area using configured mapping; fallback to name matching if no mapping found
-  const mappedLights = ROOM_LIGHTS[areaNameNormalized] || [];
-  const availableLights =
-    mappedLights.length > 0
-      ? mappedLights.filter(id => entities?.[id])
-      : entityKeys().filter(key => {
-          if (!key.startsWith('light.')) return false;
-          const lightName = key.slice(6);
-          return (
-            lightName.startsWith(areaNameNormalized + '_') ||
-            lightName === areaNameNormalized + '_lights' ||
-            lightName === areaNameNormalized
-          );
-        });
-  const mappedLightsOn = mappedLights.filter(id => entities?.[id]?.state === 'on').length;
-  const lightsOn =
-    mappedLights.length > 0
-      ? mappedLightsOn
-      : entityKeys().filter(key => {
-          if (!key.startsWith('light.')) return false;
-          if (entities[key]?.state !== 'on') return false;
-
-          const lightName = key.slice(6); // Remove 'light.' prefix
-          // Match: bathroom_lights, bathroom_ceiling, etc. (starts with area_)
-          return (
-            lightName.startsWith(areaNameNormalized + '_') ||
-            lightName === areaNameNormalized + '_lights' ||
-            lightName === areaNameNormalized
-          );
-        }).length;
-  const hasLightsOn = lightsOn > 0;
-
-  // Manual-override "hold" flag for this room's lighting automation. AppDaemon's
-  // manual_override_timeout app is the authority that sets/clears this boolean whenever
-  // someone adjusts the lights by hand; the entity id is pure convention (no shared config
-  // module for it): input_boolean.<areaNameNormalized>_lights_manual, e.g.
-  // input_boolean.bathroom_lights_manual. Rooms the automation doesn't cover (e.g. rooftop)
-  // simply have no such entity, so this stays false.
-  const lightsManualOverrideId = `input_boolean.${areaNameNormalized}_lights_manual`;
-  const lightsManualOverrideOn = entities?.[lightsManualOverrideId]?.state === 'on';
-
-  // Hallway: door access only (lock control stays in room detail / Intercom)
-  const isHallway = areaNameNormalized === 'hallway';
-  const hallwayDoorId = isHallway ? resolveHallwayDoorSensorId(entities) : null;
-  const frontDoor = hallwayDoorId ? entities?.[hallwayDoorId] : undefined;
-  const isDoorOpen = isHallway && frontDoor?.state === 'on';
-  const hasHallwayDoor = isHallway && !!frontDoor;
-
-  // Vacuum - lives in Kitchen (entity from config/entities.ts)
-  const vacuum = entities?.[VACUUM_ENTITY];
-  const vacuumState = vacuum?.state;
-  const isVacuumActive = vacuumState === 'cleaning' || vacuumState === 'returning';
-  const isVacuumError = vacuumState === 'error';
-  const isVacuumOffline = vacuumState === 'unavailable' || !vacuumState;
-  const isVacuumIdle = vacuumState === 'docked' || vacuumState === 'paused' || vacuumState === 'idle';
-  const isRobotEnabled = entities?.[ROBOT_ENABLED_BOOLEAN_ENTITY]?.state === 'on';
-
-  // Common "ready" states: complete, finished, done, ready, end, completed, end of cycle, unemptied
-  const readyStates = ['complete', 'finished', 'done', 'ready', 'end', 'completed', 'end of cycle', 'unemptied'];
-
-  // Kitchen - Dishwasher: prefer input_select.dishwasher_state (HA), else infer from sensor
-  const dishwasherEntity = isKitchen ? entities?.['sensor.dishwasher_state'] : undefined;
-  const dishwasherInputState = isKitchen ? entities?.['input_select.dishwasher_state'] : undefined;
-  const dishwasherState = dishwasherEntity?.state ?? null;
-  const dishwasherSemantic = resolveDishwasherSemanticState(dishwasherEntity, dishwasherInputState);
-  const dishwasherStateLower = dishwasherState?.toLowerCase()?.trim() || '';
-  const isDishwasherReady = dishwasherSemantic === 'Unemptied' || readyStates.some(state => dishwasherStateLower.includes(state));
-  const isDishwasherOffOrIdle = dishwasherSemantic === 'Off' || ['off', 'idle', 'unknown', 'unavailable'].includes(dishwasherStateLower);
-  const isDishwasherRunning = dishwasherSemantic === 'Running';
-  const isDishwasherPaused = dishwasherSemantic === 'Paused';
-  // Debug: unexpected raw sensor when semantic is still ambiguous
-  if (
-    isKitchen &&
-    dishwasherState &&
-    !isDishwasherReady &&
-    !isDishwasherOffOrIdle &&
-    !isDishwasherRunning &&
-    !isDishwasherPaused &&
-    dishwasherSemantic !== 'Emptied'
-  ) {
-    console.warn('[Dishwasher] Unexpected state:', dishwasherState, '| semantic:', dishwasherSemantic);
-  }
-  const dishwasherStateClass = isDishwasherRunning
-    ? 'active'
-    : isDishwasherPaused
-      ? 'paused'
-      : isDishwasherReady
-        ? 'ready'
-        : isDishwasherOffOrIdle
-          ? 'inactive'
-          : 'info';
-  // Rank: 4=ready (jobs to do), 3=running/paused, 2=media, 1=other active, 0=inactive
-  const dishwasherStateRank = isDishwasherReady ? 4 : isDishwasherRunning || isDishwasherPaused ? 3 : isDishwasherOffOrIdle ? 0 : 1;
-  // Kitchen - Hotplate power
-  const hotplatePowerRaw = isKitchen ? entities?.['sensor.hotplate_power_monitor_total_active_power']?.state : null;
-  const hotplatePower = hotplatePowerRaw ? Number(hotplatePowerRaw) : 0;
-  const isHotplateRunning = isKitchen && hotplatePower >= 200; // Hotplates use 1000-2000W when cooking, 200W threshold filters standby
-  const hasHotplateSensor = isKitchen && hotplatePowerRaw !== null && hotplatePowerRaw !== undefined;
-  // Kitchen - Oven power
-  const ovenPowerRaw = isKitchen ? entities?.['sensor.oven_plug_switch_0_power']?.state : null;
-  const ovenPower = ovenPowerRaw ? Number(ovenPowerRaw) : 0;
-  const isOvenRunning = isKitchen && ovenPower >= 200; // Ovens use 1000-3000W when cooking, 200W threshold filters standby
-  const hasOvenSensor = isKitchen && ovenPowerRaw !== null && ovenPowerRaw !== undefined;
-  // Kitchen - Microwave power
-  const microwavePowerRaw = isKitchen ? entities?.['sensor.microwave_plug_power']?.state : null;
-  const microwavePower = microwavePowerRaw ? Number(microwavePowerRaw) : 0;
-  const isMicrowaveRunning = isKitchen && microwavePower >= 200; // Microwaves use 800-1500W when cooking, 200W threshold filters standby
-  const hasMicrowaveSensor = isKitchen && microwavePowerRaw !== null && microwavePowerRaw !== undefined;
-  const hasDishwasher = isKitchen && dishwasherState !== null && dishwasherState !== undefined;
-
-  // Guest Bathroom - Washer/Dryer
-  const isGuestBathroom = areaNameNormalized === 'guest_bathroom';
-  const washerState = isGuestBathroom ? entities?.['sensor.washer_state']?.state : null;
-  const dryerState = isGuestBathroom ? entities?.['sensor.dryer_state']?.state : null;
-  // Washer state detection
-  const washerStateLower = washerState?.toLowerCase()?.trim() || '';
-  const isWasherReady = readyStates.some(state => washerStateLower.includes(state));
-  const isWasherOffOrIdle = ['off', 'idle', 'standby', 'emptied'].includes(washerStateLower);
-  const isWasherRunning = washerState && !isWasherReady && !isWasherOffOrIdle && !['unknown', 'unavailable'].includes(washerStateLower);
-  const washerStateClass = isWasherRunning ? 'active' : isWasherReady ? 'ready' : isWasherOffOrIdle ? 'inactive' : 'info';
-  // Rank: 4=ready (jobs to do), 3=running, 2=media, 1=other active, 0=inactive
-  const washerStateRank = isWasherReady ? 4 : isWasherRunning ? 3 : isWasherOffOrIdle ? 0 : 1;
-  // Dryer state detection
-  const dryerStateLower = dryerState?.toLowerCase()?.trim() || '';
-  const isDryerReady = readyStates.some(state => dryerStateLower.includes(state));
-  const isDryerOffOrIdle = ['off', 'idle', 'standby', 'emptied'].includes(dryerStateLower);
-  const isDryerRunning = dryerState && !isDryerReady && !isDryerOffOrIdle && !['unknown', 'unavailable'].includes(dryerStateLower);
-  const dryerStateClass = isDryerRunning ? 'active' : isDryerReady ? 'ready' : isDryerOffOrIdle ? 'inactive' : 'info';
-  // Rank: 4=ready (jobs to do), 3=running, 2=media, 1=other active, 0=inactive
-  const dryerStateRank = isDryerReady ? 4 : isDryerRunning ? 3 : isDryerOffOrIdle ? 0 : 1;
-
-  // Room cleaning requested
-  const cleaningToggleId = isKitchen ? null : `${ROBOT_CLEAN_PREFIX}${areaNameNormalized}`;
-  const cleaningRequested = cleaningToggleId ? entities?.[cleaningToggleId]?.state === 'on' : false;
-  // Last clean entity - tracks when cleaning was completed
-  const lastCleanId = isKitchen ? null : `input_text.${areaNameNormalized}_last_clean`;
-
-  // Kitchen cleaning split (cook side vs dining side)
-  const kitchenCleanCookId = isKitchen ? ROBOT_CLEAN_KITCHEN_1 : null;
-  const kitchenCleanDiningId = isKitchen ? ROBOT_CLEAN_KITCHEN_2 : null;
-  const kitchenCleanCookRequested = kitchenCleanCookId ? entities?.[kitchenCleanCookId]?.state === 'on' : false;
-  const kitchenCleanDiningRequested = kitchenCleanDiningId ? entities?.[kitchenCleanDiningId]?.state === 'on' : false;
-  // Kitchen last clean entities
-  const kitchenLastCleanCookId = isKitchen ? 'input_text.kitchen_last_clean' : null;
-  const kitchenLastCleanDiningId = isKitchen ? 'input_text.kitchen_2_last_clean' : null;
-
-  // Door contact sensor - pattern: binary_sensor.{area}_door_contact
-  // on = door open, off = door closed (typical for contact sensors)
-  // Special case: Rooftop has two doors (door_1 and door_2)
-  const doorContactId = `binary_sensor.${areaNameNormalized}_door_contact`;
-  const doorContact = isHallway ? frontDoor : entities?.[doorContactId];
-
-  // Rooftop special case - two doors (always show for rooftop; we don't rely on entities containing them)
-  const rooftopDoor1 = isRooftop ? entities?.['binary_sensor.rooftop_door_1_contact'] : null;
-  const rooftopDoor2 = isRooftop ? entities?.['binary_sensor.rooftop_door_2_contact'] : null;
-  const hasRooftopDoors = isRooftop; // show door indicator whenever room is rooftop
-  const rooftopDoor1Open = rooftopDoor1?.state === 'on';
-  const rooftopDoor2Open = rooftopDoor2?.state === 'on';
-
-  const hasRoomDoor = !!doorContact || hasRooftopDoors;
-  const isRoomDoorOpen = doorContact?.state === 'on' || rooftopDoor1Open || rooftopDoor2Open;
-
-  // Window contact sensor - pattern: binary_sensor.{area}_window_contact
-  // on = window open, off = window closed
-  const windowContactId = `binary_sensor.${areaNameNormalized}_window_contact`;
-  const windowContact = entities?.[windowContactId];
-
-  // Dining room special case - three windows (use area_id so we match regardless of area name)
-  const isDiningRoom = area.area_id === 'dining_room';
-  const diningWindow1 = isDiningRoom ? entities?.['binary_sensor.dining_room_window_1_contact'] : null;
-  const diningWindow2 = isDiningRoom ? entities?.['binary_sensor.dining_room_window_2_contact'] : null;
-  const diningWindow3 = isDiningRoom ? entities?.['binary_sensor.dining_room_window_3_contact'] : null;
-  const hasDiningWindows = isDiningRoom && (diningWindow1 || diningWindow2 || diningWindow3);
-  const diningWindow1Open = diningWindow1?.state === 'on';
-  const diningWindow2Open = diningWindow2?.state === 'on';
-  const diningWindow3Open = diningWindow3?.state === 'on';
-  const diningWindowsOpen = (diningWindow1Open ? 1 : 0) + (diningWindow2Open ? 1 : 0) + (diningWindow3Open ? 1 : 0);
-
-  const hasRoomWindow = !!windowContact || hasDiningWindows;
-  const isRoomWindowOpen = windowContact?.state === 'on' || diningWindow1Open || diningWindow2Open || diningWindow3Open;
-
-  // Bathroom specific: Shower/bath presence
-  const isBathroom = areaNameNormalized === 'bathroom';
-  const bathPresenceId = 'binary_sensor.bathroom_bath_presence_presence';
-  const isInShower = isBathroom && entities?.[bathPresenceId]?.state === 'on';
-  // Bedroom specific: Alarm clock (isBedroom is defined up at the presence block)
-  const alarmEnabled = isBedroom ? entities?.['input_boolean.wakeup_bedroom']?.state === 'on' : false;
-  const alarmTime = isBedroom ? entities?.['input_datetime.wakeup_bedroom']?.state : null;
-  const hasAlarm = !!(isBedroom && entities?.['input_boolean.wakeup_bedroom']);
-  const bedOccupancySides = isBedroom ? BEDROOM_BED_OCCUPANCY_SENSORS.filter(sensor => entities?.[sensor.entityId]) : [];
-  const bedOccupancyIds = bedOccupancySides.map(sensor => sensor.entityId);
-  // A side counts as occupied if its mat is on OR any of its pressure-strip witnesses is
-  // on (additive only — witnesses assert presence, never absence). Counting occupied
-  // SIDES, not sensors, keeps the tooltip person-shaped ("Both in bed" = both sides)
-  // however many witnesses back a side.
-  const bedOccupancyActiveCount = bedOccupancySides.filter(
-    sensor => entities?.[sensor.entityId]?.state === 'on' || sensor.witnessEntityIds.some(id => entities?.[id]?.state === 'on')
-  ).length;
-  const hasBedOccupancy = bedOccupancyIds.length > 0;
-
-  // Media player - prefer the entity that currently has the live playback state.
-  const { entityId: mediaPlayerId, entity: mediaPlayer } = resolvePreferredMediaPlayer(entities, `media_player.${areaNameNormalized}`);
-  const isMediaPlaying = mediaPlayer?.state === 'playing';
-  const isMediaMuted = mediaPlayer?.attributes?.is_volume_muted === true;
-  const hasMediaPlayer = !!mediaPlayer;
-
   // Get temperature value - the fused feel sensor above wins when readable; otherwise handle
   // the climate entity special case. The selectors above already skip dead sensors, but a
   // sensor can go unavailable AFTER selection (and the rooftop / __climate__ paths bypass the
@@ -427,518 +358,241 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
   const temp = tempIsReadable ? (typeof rawTemp === 'number' ? rawTemp : String(rawTemp)) : null;
   const rawHumidity = hasFeelTemp ? (hasFeelRh ? Math.round(feelRhNumber) : null) : humiditySensor ? entities[humiditySensor]?.state : null;
   const humidity = rawHumidity != null && hasReading({ state: String(rawHumidity) }) ? String(rawHumidity) : null;
-  const icon = area.icon || 'mdi:home';
+
+  // Surfaces: sleep mode, the lights' glow, occupancy, the speaker, appliances and frost.
+  const readState = (entityId: string) => entities?.[entityId]?.state;
+  const asleep = asleepAreaIds(readState).has(area.area_id);
+  const houseAsleep = HOUSEHOLD.some(member => readState(member.sleepModeEntityId) === 'on');
+  const glow = asleep ? null : roomGlow(roomLightIds(area.name).map(read));
+  const isOccupied = entities?.[`binary_sensor.${areaNameNormalized}_active`]?.state === 'on';
+  const { entity: mediaPlayer } = resolvePreferredMediaPlayer(entities, `media_player.${areaNameNormalized}`);
+  const isMediaPlaying = mediaPlayer?.state === 'playing';
+  const isMediaMuted = mediaPlayer?.attributes?.is_volume_muted === true;
+  const activeAppliances: ActiveAppliance[] = HOME_APPLIANCES.filter(appliance => appliance.areaId === area.area_id)
+    .map(appliance => ({ appliance, entity: entities?.[appliance.config.stateEntityId] }))
+    .filter(item => ACTIVE_APPLIANCE_STATES.has(item.entity?.state ?? ''));
+  const isOpen = isAreaOpen(area.area_id, read);
+  // Only while the room is open does the card follow the outdoor temperature, and only as a yes/no.
+  const frosty = useHass(s => isOpen && coldOutside(s.entities as HassEntities));
+
+  // Exceptions: the few states the card face still names with an icon.
+  const exceptions: Exception[] = [];
+  for (const device of isKitchen ? COOKING_DEVICES : []) {
+    const watts = readingNumber(entities?.[device.entityId]);
+    if (watts == null || watts < COOKING_W) continue;
+    exceptions.push({
+      key: device.entityId,
+      node: (
+        <IndicatorWithTimeline
+          entityId={device.entityId}
+          entities={entities}
+          hassUrl={hassUrl}
+          className='indicator power running'
+          title={`${device.name} running - click for timeline`}
+          icon={device.icon}
+        />
+      ),
+    });
+  }
+  const isHallway = areaNameNormalized === 'hallway';
+  const frontDoorId = isHallway ? resolveHallwayDoorSensorId(entities) : null;
+  if (frontDoorId && entities?.[frontDoorId]?.state === 'on') {
+    exceptions.push({
+      key: 'door',
+      node: (
+        <IndicatorWithTimeline
+          entityId={frontDoorId}
+          entities={entities}
+          hassUrl={hassUrl}
+          className='indicator door active'
+          title='Apartment door open - click for timeline'
+          icon='mdi:door-open'
+          modalTitle='Apartment door'
+        />
+      ),
+    });
+  }
+  const frontLockId = isHallway ? resolveHallwayLockEntityId(entities) : null;
+  if (frontLockId && entities?.[frontLockId]?.state === 'unlocked') {
+    exceptions.push({
+      key: 'lock',
+      node: (
+        <IndicatorWithTimeline
+          entityId={frontLockId}
+          entities={entities}
+          hassUrl={hassUrl}
+          className='indicator lock active'
+          title='Apartment unlocked - click for timeline'
+          icon='mdi:lock-open-variant'
+          modalTitle='Apartment lock'
+        />
+      ),
+    });
+  }
+  if (isOpen) {
+    const contacts = AREA_EXTERIOR_CONTACTS[area.area_id] ?? [];
+    const open = contacts.filter(id => entities?.[id]?.state === 'on');
+    const className = `indicator window active ${frosty ? 'is-frost' : ''}`;
+    const iconFor = (id: string) => (id.includes('door') ? 'mdi:door-open' : 'mdi:window-open');
+    exceptions.push({
+      key: 'opening',
+      node:
+        open.length === 0 ? (
+          <div className={className} title='Window may be open'>
+            <Icon icon='mdi:window-open' />
+          </div>
+        ) : open.length === 1 && contacts.length === 1 ? (
+          <IndicatorWithTimeline
+            entityId={open[0]}
+            entities={entities}
+            hassUrl={hassUrl}
+            className={className}
+            title='Open - click for timeline'
+            icon={iconFor(open[0])}
+          />
+        ) : (
+          <MultiEntitySelector
+            entityIds={contacts.filter(id => entities?.[id])}
+            entities={entities}
+            hassUrl={hassUrl}
+            className={className}
+            title={`${open.length} open - click to select`}
+            icon={iconFor(open[0])}
+            label={open.length > 1 ? String(open.length) : undefined}
+            entityType={contacts.every(id => id.includes('door')) ? 'door' : 'window'}
+          />
+        ),
+    });
+  }
+  if (areaNameNormalized === 'bathroom' && entities?.[BATH_PRESENCE]?.state === 'on') {
+    exceptions.push({
+      key: 'shower',
+      node: (
+        <IndicatorWithTimeline
+          entityId={BATH_PRESENCE}
+          entities={entities}
+          hassUrl={hassUrl}
+          className='indicator water active'
+          title='Shower active - click for timeline'
+          icon='mdi:shower'
+        />
+      ),
+    });
+  }
+  const manualOverrideId = `input_boolean.${areaNameNormalized}_lights_manual`;
+  if (entities?.[manualOverrideId]?.state === 'on') {
+    exceptions.push({
+      key: 'manual',
+      node: (
+        <IndicatorWithTimeline
+          entityId={manualOverrideId}
+          entities={entities}
+          hassUrl={hassUrl}
+          className='indicator hold active'
+          title='Lights on manual - click for timeline'
+          icon='mdi:hand-back-right'
+          modalTitle='Manual lights'
+        />
+      ),
+    });
+  }
+  if (areaNameNormalized === 'bedroom' && entities?.[WAKE_ALARM]?.state === 'on') {
+    exceptions.push({
+      key: 'alarm',
+      node: (
+        <IndicatorWithTimeline
+          entityId={WAKE_ALARM}
+          entities={entities}
+          hassUrl={hassUrl}
+          className={`indicator alarm active ${asleep ? 'is-asleep' : ''}`}
+          title={`Alarm set for ${entities?.[WAKE_ALARM_TIME]?.state ?? 'unknown'} - click for timeline`}
+          icon='mdi:alarm'
+        />
+      ),
+    });
+  }
+
+  const hasRing = activeAppliances.length > 0;
+  const cardClass = [
+    'room-card',
+    glow ? 'is-lit' : 'is-dark',
+    asleep ? 'is-asleep' : '',
+    frosty ? 'is-frosty' : '',
+    isSelected ? 'selected' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const cardStyle = {
+    '--oc': glow ? glow.rgb.join(' ') : PLAIN_ORB,
+    '--edge-g': glow ? glow.rgb.join(' ') : PLAIN_ORB,
+    '--edge-ga': glow ? glow.alpha : 0,
+    '--ex': hasRing ? exceptions.length : Math.min(1, exceptions.length),
+  } as CSSProperties;
 
   return (
-    <button
-      className={`room-card ${isSelected ? 'selected' : ''} ${isOccupied ? 'occupied' : ''}`}
-      onClick={onClick}
-      style={
-        {
-          '--room-bg': roomColor.bg,
-          '--room-border': roomColor.border,
-          '--room-icon': roomColor.icon,
-          '--room-text': roomColor.text,
-        } as React.CSSProperties
-      }
-    >
-      <div className='room-card-content'>
-        <div className='room-left-section'>
-          <h3 className='room-name'>{formatName(area.name)}</h3>
-          {/* Not a <button> — the whole card is already one, and buttons can't nest. role="button"
-              gives it the same semantics/keyboard behaviour; the ::before pseudo-element in
-              RoomGrid.css pads the tap target to >=44px without changing the visible readout. */}
-          <span
-            className='room-climate room-climate-tappable'
-            role={onClimateClick ? 'button' : undefined}
-            tabIndex={onClimateClick ? 0 : undefined}
-            aria-label={onClimateClick ? `${formatName(area.name)} temperature history` : undefined}
-            onClick={
-              onClimateClick
-                ? e => {
-                    e.stopPropagation();
-                    onClimateClick();
-                  }
-                : undefined
-            }
-            onKeyDown={
-              onClimateClick
-                ? e => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onClimateClick();
-                    }
-                  }
-                : undefined
-            }
-          >
-            {temp && humidity ? (
-              <>
-                <span className='climate-item'>{temp}°C</span>
-                <span className='climate-item'>{humidity}%</span>
-              </>
-            ) : temp ? (
-              <span className='climate-item'>{temp}°C</span>
-            ) : humidity ? (
-              <span className='climate-item'>{humidity}%</span>
-            ) : (
-              <span className='climate-item'>—</span>
-            )}
+    <button className={cardClass} onClick={onClick} style={cardStyle}>
+      <GlowLayers glow={glow} />
+      {frosty && <i className='room-frost' />}
+      {asleep && (
+        <>
+          <i className='room-star' style={{ left: '62%', top: '22%' }} />
+          <i className='room-star' style={{ left: '74%', top: '42%' }} />
+          <span className='room-moon'>
+            <Icon icon='mdi:moon-waning-crescent' />
           </span>
-          <div className='room-icon-container' style={{ background: roomColor.iconBg }}>
-            <Icon icon={icon} className='room-icon' style={{ color: roomColor.icon }} />
-          </div>
-        </div>
-        <div className='room-right-indicators'>
-          {(() => {
-            const indicators: { key: string; weight: number; stateRank: number; node: React.ReactNode }[] = [];
-
-            const make = (key: IndicatorKey, node: React.ReactNode, show: boolean, stateRank: number = 0, uniqueKey?: string) => {
-              if (!show) return;
-              const finalKey = uniqueKey || key;
-              indicators.push({ key: finalKey, weight: indicatorCounts[key] ?? 0, stateRank, node });
-            };
-
-            // Add all the same indicators as before, but they'll be displayed on the right
-            // (keeping the same logic from the top indicators)
-            make(
-              'door',
-              hasHallwayDoor && hallwayDoorId && (
-                <IndicatorWithTimeline
-                  entityId={hallwayDoorId}
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator door ${isDoorOpen ? 'active' : 'inactive'}`}
-                  title={isDoorOpen ? 'Apartment door open - click for timeline' : 'Apartment door closed - click for timeline'}
-                  icon={isDoorOpen ? 'mdi:door-open' : 'mdi:door-closed'}
-                  modalTitle='Apartment door'
-                />
-              ),
-              !!hasHallwayDoor,
-              isDoorOpen ? 1 : 0,
-              'door_hallway'
-            );
-
-            make(
-              'door',
-              hasRoomDoor && !hasRooftopDoors && doorContact && (
-                <IndicatorWithTimeline
-                  entityId={doorContactId}
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator door ${isRoomDoorOpen ? 'active' : 'inactive'}`}
-                  title={isRoomDoorOpen ? 'Door open - click for timeline' : 'Door closed - click for timeline'}
-                  icon={isRoomDoorOpen ? 'mdi:door-open' : 'mdi:door-closed'}
-                />
-              ),
-              !!hasRoomDoor && !hasRooftopDoors && !!doorContact,
-              isRoomDoorOpen ? 1 : 0
-            );
-
-            make(
-              'door',
-              hasRooftopDoors && (
-                <MultiEntitySelector
-                  entityIds={['binary_sensor.rooftop_door_1_contact', 'binary_sensor.rooftop_door_2_contact']}
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator door ${rooftopDoor1Open || rooftopDoor2Open ? 'active' : 'inactive'}`}
-                  title={
-                    rooftopDoor1Open || rooftopDoor2Open
-                      ? `${rooftopDoor1Open && rooftopDoor2Open ? 'Both doors open' : 'Door open'} - click to select`
-                      : 'Both doors closed - click to select'
-                  }
-                  icon={rooftopDoor1Open || rooftopDoor2Open ? 'mdi:door-open' : 'mdi:door-closed'}
-                  label={
-                    (rooftopDoor1Open ? 1 : 0) + (rooftopDoor2Open ? 1 : 0) > 1
-                      ? ((rooftopDoor1Open ? 1 : 0) + (rooftopDoor2Open ? 1 : 0)).toString()
-                      : undefined
-                  }
-                  entityType='door'
-                />
-              ),
-              !!hasRooftopDoors,
-              rooftopDoor1Open || rooftopDoor2Open ? 1 : 0,
-              'door_rooftop'
-            );
-
-            make(
-              'window',
-              hasRoomWindow && !hasDiningWindows && windowContact && (
-                <IndicatorWithTimeline
-                  entityId={windowContactId}
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator window ${isRoomWindowOpen ? 'active' : 'inactive'}`}
-                  title={isRoomWindowOpen ? 'Window open - click for timeline' : 'Window closed - click for timeline'}
-                  icon={isRoomWindowOpen ? 'mdi:window-open' : 'mdi:window-closed'}
-                />
-              ),
-              !!hasRoomWindow && !hasDiningWindows && !!windowContact,
-              isRoomWindowOpen ? 1 : 0,
-              'window_room'
-            );
-
-            make(
-              'window',
-              hasDiningWindows && (
-                <MultiEntitySelector
-                  entityIds={[
-                    'binary_sensor.dining_room_window_1_contact',
-                    'binary_sensor.dining_room_window_2_contact',
-                    'binary_sensor.dining_room_window_3_contact',
-                  ].filter(id => entities[id])}
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator window ${diningWindowsOpen > 0 ? 'active' : 'inactive'}`}
-                  title={
-                    diningWindowsOpen === 0
-                      ? 'All windows closed - click to select'
-                      : diningWindowsOpen === 3
-                        ? 'All 3 windows open - click to select'
-                        : `${diningWindowsOpen} window${diningWindowsOpen > 1 ? 's' : ''} open - click to select`
-                  }
-                  icon={diningWindowsOpen > 0 ? 'mdi:window-open' : 'mdi:window-closed'}
-                  label={diningWindowsOpen > 1 ? diningWindowsOpen.toString() : undefined}
-                  entityType='window'
-                />
-              ),
-              !!hasDiningWindows,
-              diningWindowsOpen > 0 ? 1 : 0,
-              'window_dining'
-            );
-
-            // Fallback only: a room with no physical window contact of its own still gets a
-            // subtle window-open hint, inferred by the feel sensor's fusion. Never shown
-            // alongside a real contact indicator above - that would be a duplicate.
-            make(
-              'window',
-              !hasRoomWindow && !hasDiningWindows && feelWindowOpen && (
-                <div className='indicator window active' title='Window may be open'>
-                  <Icon icon='mdi:window-open' />
-                </div>
-              ),
-              !hasRoomWindow && !hasDiningWindows && feelWindowOpen,
-              1, // Other active state
-              'window_feel'
-            );
-
-            make(
-              'heating',
-              isHeating && (
-                <div className='indicator heat active' title='Heating'>
-                  <Icon icon='mdi:radiator' />
-                </div>
-              ),
-              isHeating,
-              1 // Other active state
-            );
-
-            make(
-              'cooling',
-              isAcCooling && (
-                <div className='indicator cooling active' title='Air conditioner cooling'>
-                  <Icon icon='mdi:snowflake' />
-                </div>
-              ),
-              isAcCooling,
-              1 // Other active state
-            );
-
-            make(
-              'shower',
-              isBathroom && bathPresenceId && entities?.[bathPresenceId] && (
-                <IndicatorWithTimeline
-                  entityId={bathPresenceId}
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator water ${isInShower ? 'active' : 'inactive'}`}
-                  title={isInShower ? 'Shower active - click for timeline' : 'Shower inactive - click for timeline'}
-                  icon={area.icon || 'mdi:shower'}
-                />
-              ),
-              !!(isBathroom && bathPresenceId && entities?.[bathPresenceId]),
-              isInShower ? 1 : 0
-            );
-
-            make(
-              'cleaning',
-              !isKitchen && cleaningToggleId && entities?.[cleaningToggleId] && (
-                <IndicatorWithTimeline
-                  entityId={cleaningToggleId}
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator cleaning ${cleaningRequested ? 'active' : 'inactive'}`}
-                  title='Cleaning requested'
-                  icon='mdi:robot-vacuum'
-                  secondaryEntityId={lastCleanId || undefined}
-                />
-              ),
-              !!(!isKitchen && cleaningToggleId && entities?.[cleaningToggleId]),
-              cleaningRequested ? 1 : 0
-            );
-
-            make(
-              'cleaning_cook',
-              isKitchen && kitchenCleanCookId && entities?.[kitchenCleanCookId] && (
-                <IndicatorWithTimeline
-                  entityId={kitchenCleanCookId}
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator cleaning ${kitchenCleanCookRequested ? 'active' : 'inactive'}`}
-                  title='Kitchen clean (cook side)'
-                  icon='mdi:countertop-outline'
-                  secondaryEntityId={kitchenLastCleanCookId || undefined}
-                />
-              ),
-              !!(isKitchen && kitchenCleanCookId && entities?.[kitchenCleanCookId]),
-              kitchenCleanCookRequested ? 1 : 0
-            );
-
-            make(
-              'cleaning_dining',
-              isKitchen && kitchenCleanDiningId && entities?.[kitchenCleanDiningId] && (
-                <IndicatorWithTimeline
-                  entityId={kitchenCleanDiningId}
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator cleaning ${kitchenCleanDiningRequested ? 'active' : 'inactive'}`}
-                  title='Kitchen clean (dining side)'
-                  icon='mdi:table-chair'
-                  secondaryEntityId={kitchenLastCleanDiningId || undefined}
-                />
-              ),
-              !!(isKitchen && kitchenCleanDiningId && entities?.[kitchenCleanDiningId]),
-              kitchenCleanDiningRequested ? 1 : 0
-            );
-
-            make(
-              'vacuum',
-              isKitchen && vacuum ? (
-                <OfficeVacuumIndicator
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator vacuum ${
-                    isVacuumActive ? 'working' : isVacuumError || isVacuumOffline ? 'error' : isVacuumIdle ? 'idle' : 'inactive'
-                  }`}
-                  title={`Rober2: ${vacuumState || 'unknown'}${isRobotEnabled ? '' : ' - disabled'}`}
-                />
-              ) : null,
-              isKitchen && !!vacuum,
-              isVacuumActive ? 3 : isVacuumError || isVacuumOffline ? 1 : kitchenCleanCookRequested || kitchenCleanDiningRequested ? 1 : 0
-            );
-
-            make(
-              'dishwasher',
-              hasDishwasher && (
-                <IndicatorWithTimeline
-                  entityId='sensor.dishwasher_state'
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator appliance dishwasher ${dishwasherStateClass}`}
-                  title={`Dishwasher: ${dishwasherSemantic} - click for timeline`}
-                  icon='mdi:dishwasher'
-                />
-              ),
-              hasDishwasher,
-              dishwasherStateRank
-            );
-
-            make(
-              'hotplate',
-              hasHotplateSensor && (
-                <IndicatorWithTimeline
-                  entityId='sensor.hotplate_power_monitor_total_active_power'
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator power ${isHotplateRunning ? 'running' : 'inactive'}`}
-                  title={isHotplateRunning ? 'Hotplate running - click for timeline' : 'Hotplate not running - click for timeline'}
-                  icon='mdi:stove'
-                />
-              ),
-              hasHotplateSensor,
-              isHotplateRunning ? 3 : 0
-            );
-
-            make(
-              'oven',
-              hasOvenSensor && (
-                <IndicatorWithTimeline
-                  entityId='sensor.oven_plug_switch_0_power'
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator power ${isOvenRunning ? 'running' : 'inactive'}`}
-                  title={isOvenRunning ? 'Oven running - click for timeline' : 'Oven not running - click for timeline'}
-                  icon='mdi:toaster-oven'
-                />
-              ),
-              hasOvenSensor,
-              isOvenRunning ? 3 : 0
-            );
-
-            make(
-              'microwave',
-              hasMicrowaveSensor && (
-                <IndicatorWithTimeline
-                  entityId='sensor.microwave_plug_power'
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator power ${isMicrowaveRunning ? 'running' : 'inactive'}`}
-                  title={isMicrowaveRunning ? 'Microwave running - click for timeline' : 'Microwave not running - click for timeline'}
-                  icon='mdi:microwave'
-                />
-              ),
-              hasMicrowaveSensor,
-              isMicrowaveRunning ? 3 : 0
-            );
-
-            make(
-              'washer',
-              isGuestBathroom && washerState && (
-                <IndicatorWithTimeline
-                  entityId='sensor.washer_state'
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator appliance washer ${washerStateClass}`}
-                  title={`Washer: ${washerState} - click for timeline`}
-                  icon='mdi:washing-machine'
-                />
-              ),
-              isGuestBathroom && !!washerState,
-              washerStateRank
-            );
-
-            make(
-              'dryer',
-              isGuestBathroom && dryerState && (
-                <IndicatorWithTimeline
-                  entityId='sensor.dryer_state'
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator appliance dryer ${dryerStateClass}`}
-                  title={`Dryer: ${dryerState} - click for timeline`}
-                  icon='mdi:tumble-dryer'
-                />
-              ),
-              isGuestBathroom && !!dryerState,
-              dryerStateRank
-            );
-
-            make(
-              'media',
-              hasMediaPlayer && (
-                <IndicatorWithTimeline
-                  entityId={mediaPlayerId}
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator media ${isMediaPlaying ? `active${isMediaMuted ? ' muted' : ''}` : 'inactive'}`}
-                  title={`Media: ${mediaPlayer?.state || 'unknown'}${isMediaMuted ? ' (muted)' : ''} - click for timeline`}
-                  icon={isMediaMuted ? 'mdi:music-off' : 'mdi:music'}
-                />
-              ),
-              hasMediaPlayer,
-              isMediaPlaying ? 2 : 0
-            );
-
-            make(
-              'lights',
-              availableLights.length > 0 && (
-                <div className='indicator-hold-anchor'>
-                  <MultiEntitySelector
-                    entityIds={availableLights}
-                    entities={entities}
-                    hassUrl={hassUrl}
-                    className={`indicator light ${hasLightsOn ? 'active' : 'inactive'}`}
-                    title={`${lightsOn} light${lightsOn > 1 ? 's' : ''} ${hasLightsOn ? 'on' : 'off'} - click to ${availableLights.length > 1 ? 'select' : 'view timeline'}${lightsManualOverrideOn ? ' - manual override' : ''}`}
-                    icon='mdi:lightbulb'
-                    entityType='light'
-                  />
-                  {lightsManualOverrideOn && (
-                    <span className='indicator-hold-badge' title='Manual override active'>
-                      <Icon icon='mdi:hand-back-right' />
-                    </span>
-                  )}
-                </div>
-              ),
-              availableLights.length > 0,
-              hasLightsOn ? 1 : 0
-            );
-
-            make(
-              'presence',
-              hasPresence && (
-                <IndicatorWithTimeline
-                  entityId={presenceSensorId}
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator presence ${isOccupied ? 'active' : 'inactive'}`}
-                  title={presenceTitle}
-                  icon={presenceIcon}
-                />
-              ),
-              hasPresence,
-              isOccupied ? 1 : 0
-            );
-
-            make(
-              'bed',
-              hasBedOccupancy && (
-                <MultiEntitySelector
-                  entityIds={bedOccupancyIds}
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator guest ${bedOccupancyActiveCount > 0 ? 'active' : 'inactive'}`}
-                  title={
-                    bedOccupancyActiveCount === 0
-                      ? 'Bed empty - click to select side'
-                      : bedOccupancyActiveCount === bedOccupancyIds.length && bedOccupancyIds.length > 1
-                        ? 'Both in bed - click to select side'
-                        : `${bedOccupancyActiveCount} in bed - click to select side`
-                  }
-                  icon='mdi:bed'
-                  entityType='bed'
-                  selectionTitle='Bed occupancy'
-                />
-              ),
-              hasBedOccupancy,
-              bedOccupancyActiveCount > 0 ? 1 : 0
-            );
-
-            make(
-              'alarm',
-              hasAlarm && (
-                <IndicatorWithTimeline
-                  entityId='input_boolean.wakeup_bedroom'
-                  entities={entities}
-                  hassUrl={hassUrl}
-                  className={`indicator alarm ${alarmEnabled ? 'active' : 'inactive'}`}
-                  title={
-                    alarmEnabled ? `Alarm set for ${alarmTime || 'unknown'} - click for timeline` : 'Alarm not set - click for timeline'
-                  }
-                  icon='mdi:alarm'
-                />
-              ),
-              hasAlarm,
-              alarmEnabled ? 1 : 0
-            );
-
-            // Sort indicators by priority:
-            // 4 = Ready/unemptied (jobs to do) - FIRST
-            // 3 = Running (appliances working)
-            // 2 = Media playing
-            // 1 = Other active (lights, presence, doors)
-            // 0 = Inactive
-            indicators.sort((a, b) => {
-              if (a.stateRank !== b.stateRank) return b.stateRank - a.stateRank; // Higher rank first
-              if (a.weight !== b.weight) return b.weight - a.weight; // Higher weight first
-              return a.key.localeCompare(b.key); // Alphabetical
-            });
-
-            return indicators.map(i => <Fragment key={i.key}>{i.node}</Fragment>);
-          })()}
-        </div>
-      </div>
+        </>
+      )}
+      <span className='room-top'>
+        <h3 className='room-name'>{formatName(area.name)}</h3>
+        {isMediaPlaying && <Equaliser areaId={area.area_id} muted={isMediaMuted} />}
+      </span>
+      {/* Not a <button> — the whole card is already one, and buttons can't nest. role="button"
+          gives it the same semantics/keyboard behaviour; the ::before pseudo-element in
+          RoomGrid.css pads the tap target to >=44px without changing the visible readout. */}
+      <span
+        className={`room-clim ${frosty ? 'is-cold' : ''}`}
+        role={onClimateClick ? 'button' : undefined}
+        tabIndex={onClimateClick ? 0 : undefined}
+        aria-label={onClimateClick ? `${formatName(area.name)} temperature history` : undefined}
+        onClick={
+          onClimateClick
+            ? e => {
+                e.stopPropagation();
+                onClimateClick();
+              }
+            : undefined
+        }
+        onKeyDown={
+          onClimateClick
+            ? e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onClimateClick();
+                }
+              }
+            : undefined
+        }
+      >
+        {temp == null && humidity == null && <span className='climate-item'>—</span>}
+        {temp != null && <span className='climate-item climate-temp'>{formatTemp(temp)} °C</span>}
+        {humidity != null && <span className='climate-item'>{humidity} %</span>}
+      </span>
+      <span className='room-orb'>
+        <Icon icon={area.icon || 'mdi:home'} />
+      </span>
+      {isHallway && <DoorbellRipple />}
+      {exceptions.length > 0 && (
+        <span className={`room-ex ${hasRing ? 'is-row' : ''}`}>
+          {exceptions.map(exception => (
+            <span key={exception.key} className='room-ex-item'>
+              {exception.node}
+            </span>
+          ))}
+        </span>
+      )}
+      {hasRing && <ApplianceRing active={activeAppliances} houseAsleep={houseAsleep} />}
+      {isOccupied && !asleep && <BreathingEdge />}
     </button>
   );
 }

@@ -1,258 +1,12 @@
-/*
- * STATUS INDICATOR COLOR STANDARD
- * ================================
- * Active/Running: Dishwasher/washer water-blue, dryer warm-orange, robot green, music green, cleaning green
- * Needs Attention: Door/window open, general amber attention states
- * Lights On (yellow #fbbf24): Lights active
- * Heat (orange #f97316): Heating/radiators active  
- * Water (cyan #06b6d4): Shower/water running
- * Power (orange #ea580c): High power devices (hotplate, oven)
- * Presence (green #22c55e): Person detected
- * Guest (purple #a855f7): Overnight guest
- * Error (red #ef4444): Vacuum error, alerts
- * Inactive (gray #71717a): Off/idle states
- *
- * ANIMATION STANDARD
- * ==================
- * Dancing/wobble: Appliances actively running (washer, dryer, dishwasher, vacuum)
- * Pulsing: Needs attention (ready to empty, music playing unmuted)
- * Static: Muted media, idle states, lights on
- */
-
-.indicator {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: filter 0.3s ease, transform 0.3s ease, opacity 0.3s ease, color 0.3s ease;
-  position: relative;
-}
-
-.indicator-label {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  font-size: 9px;
-  font-weight: 700;
-  color: #e4e4e7;
-  background: #3b82f6;
-  border-radius: 50%;
-  min-width: 14px;
-  height: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 2px;
-  border: 1px solid #0f1117;
-  line-height: 1;
-}
-
-/* Anchors the manual-override "hold" badge over the lights indicator without changing its
-   footprint: shrink-wraps to the indicator it contains (no explicit size of its own), it just
-   gives the badge something positioned to hang off. */
-.indicator-hold-anchor {
-  position: relative;
-  display: inline-block;
-  line-height: 0;
-}
-
-/* Manual-override "hold" badge - mirrors .indicator-label's corner-badge sizing/border, but
-   sits on the opposite corner (bottom-left vs top-right) so it never collides with a count
-   badge, and stays amber regardless of the light indicator's active/inactive state. */
-.indicator-hold-badge {
-  position: absolute;
-  bottom: -4px;
-  left: -4px;
-  width: 14px;
-  height: 14px;
-  min-width: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f59e0b;
-  color: #1a1206;
-  border-radius: 50%;
-  border: 1px solid #0f1117;
-  pointer-events: none;
-}
-
-.indicator-hold-badge svg {
-  font-size: 9px;
-}
-
-.indicator svg {
-  font-size: 14px;
-}
-
-.indicator.inactive {
-  color: #71717a;
-  opacity: 0.7;
-  filter: none;
-  transition: filter 0.3s ease, transform 0.3s ease, opacity 0.3s ease, color 0.3s ease;
-}
-
-.indicator.info {
-  opacity: 1;
-  filter: none;
-}
-
-.indicator.active {
-  opacity: 1;
-  transform: scale(1.1);
-  transition: transform 0.3s ease, opacity 0.3s ease;
-}
-
-.indicator.active svg {
-  filter: drop-shadow(0 0 3px currentColor);
-  transition: filter 0.3s ease;
-}
-
-/* Accents - apply glow to SVG directly for natural shape */
-.indicator.heat.active svg,
-.indicator.water.active svg,
-.indicator.cooling.active svg,
-.indicator.media.active svg,
-.indicator.power.active svg {
-  filter: drop-shadow(0 0 3px currentColor);
-}
-
-.indicator.heat.active { color: #f97316; }
-.indicator.water.active { color: #06b6d4; }
-.indicator.cooling.active { color: #06b6d4; }
-.indicator.media.active { 
-  color: #22c55e;
-  animation: attention-pulse 1.5s ease-in-out infinite;
-}
-.indicator.media.active.muted {
-  animation: none; /* Static when muted */
-  opacity: 0.7;
-}
-.indicator.power.active { color: #ea580c; }
-.indicator.power.running { 
-  color: #ea580c; 
-  animation: appliance-moving 2.4s ease-in-out infinite;
-}
-.indicator.power.running svg {
-  filter: drop-shadow(0 0 3px currentColor);
-}
-.indicator.appliance.active { 
-  animation: appliance-moving 2.4s ease-in-out infinite;
-}
-.indicator.appliance.active svg {
-  filter: drop-shadow(0 0 3px currentColor);
-}
-.indicator.appliance.dishwasher.active,
-.indicator.appliance.washer.active {
-  color: #38bdf8;
-}
-/* Paused: same blue as running, opacity pulse only (no wobble) */
-.indicator.appliance.dishwasher.paused {
-  color: #38bdf8;
-  animation: dishwasher-indicator-paused 2s ease-in-out infinite;
-}
-.indicator.appliance.dishwasher.paused svg {
-  filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.55));
-}
-.indicator.appliance.dryer.active {
-  color: #f59e0b;
-}
-.indicator.appliance.ready {
-  color: #22c55e;
-  animation: attention-pulse 1.5s ease-in-out infinite;
-}
-.indicator.appliance.ready svg {
-  filter: drop-shadow(0 0 4px currentColor);
-}
-.indicator.light.active { color: #fbbf24; }
-.indicator.vacuum.working {
-  color: #22c55e;
-  animation: vacuum-wobble 1.6s ease-in-out infinite;
-}
-.indicator.vacuum.working svg {
-  filter: drop-shadow(0 0 3px currentColor);
-}
-
-.indicator.vacuum.error {
-  color: #ef4444;
-}
-.indicator.vacuum.error svg {
-  filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.6));
-}
-
-.indicator.vacuum.idle {
-  color: #71717a;
-  opacity: 0.7;
-  filter: none;
-}
-.indicator.guest.active { color: #a855f7; }
-.indicator.cleaning.active { color: #22c55e; }
-.indicator.presence.active { color: #22c55e; }
-.indicator.presence.active svg { 
-  filter: drop-shadow(0 0 3px currentColor);
-}
-.indicator.alarm.active { color: #fbbf24; }
-.indicator.alarm.active svg { 
-  filter: drop-shadow(0 0 3px currentColor);
-}
-.indicator.door.active,
-.indicator.window.active,
-.indicator.lock.active { color: #f97316; }
-
-.indicator.door.active svg,
-.indicator.window.active svg,
-.indicator.lock.active svg { 
-  filter: drop-shadow(0 0 3px currentColor);
-}
-.indicator.door.info,
-.indicator.window.info,
-.indicator.lock.info { color: #a1a1aa; }
-.indicator.appliance.info { color: #71717a; }
-.indicator.power.info { color: #ea580c; }
-.indicator.light.inactive { color: #71717a; }
-/* Vacuum wobble animation for working state */
-@keyframes vacuum-wobble {
-  0%, 100% { transform: rotate(-3deg); }
-  50% { transform: rotate(3deg); }
-}
-
-/* Appliance moving animation - indicates appliance is running/working */
-@keyframes appliance-moving {
-  0%, 100% { transform: rotate(-2deg); }
-  50% { transform: rotate(2deg); }
-}
-
-@keyframes dishwasher-indicator-paused {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-/* Attention pulse animation - indicates needs attention (ready to empty, playing music) */
-@keyframes attention-pulse {
-  0%, 100% { 
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% { 
-    opacity: 0.7;
-    transform: scale(1.1);
-  }
-}
-
-/* Appliance ready pulse animation - draws attention when ready to be emptied */
-/* Rooms Container */
+/* The home screen's scroll container: the sky, the pulse row, the ticker and the grid scroll together. */
 .rooms-container {
   flex: 1 1 0;
   min-height: 0; /* allow shrinking so this is the scroll container in HA companion */
-  padding: 1rem;
-  padding-bottom: calc(2rem + env(safe-area-inset-bottom)); /* allow full last row visibility on mobile */
+  padding: 4px 8px calc(2rem + env(safe-area-inset-bottom));
   scroll-padding-bottom: calc(2rem + env(safe-area-inset-bottom));
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch; /* smooth scroll on mobile */
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   touch-action: pan-y; /* allow vertical scrolling inside HA app */
   overscroll-behavior: contain; /* keep scroll in container in HA companion */
   display: flex;
@@ -262,21 +16,20 @@
   max-width: 1100px;
   margin: 0 auto;
   background: #0d0f13;
-  /* Hide scrollbar but keep scroll functionality */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .rooms-container::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
+  display: none;
 }
 
 .rooms-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 0.5rem;
+  gap: 8px;
+  padding-top: 10px;
   width: 100%;
-  max-width: 100%;
 }
 
 @media (min-width: 600px) {
@@ -285,772 +38,593 @@
   }
 }
 
-/* Room Card - Square compact style - Room Summary Card inspired */
+@media (min-width: 1025px) {
+  .rooms-container {
+    max-width: 660px;
+  }
+}
+
+/* Room card: state lives in the surface. Lights glow, an occupied room breathes at its edge, a
+   running appliance draws a ring, a playing speaker an equaliser, an open window in the cold frost,
+   and a sleeping occupant turns the room indigo. Every keyframe's first frame is the still look. */
 .room-card {
+  --occ: 52 211 153;
+  --frost: 186 230 253;
+  position: relative;
+  isolation: isolate;
+  aspect-ratio: 175 / 132;
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: #141518;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: clamp(0.75rem, 2vw, 1rem);
-  background: var(--room-bg, rgba(20, 21, 24, 0.9));
-  border: 1px solid var(--room-border, rgba(255, 255, 255, 0.08));
-  border-radius: clamp(0.75rem, 2vw, 1rem);
+  align-items: flex-start;
+  justify-content: flex-start;
+  text-align: left;
+  color: #e4e4e7;
+  font: inherit;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 120ms var(--ease-out);
-  aspect-ratio: 1;
-  position: relative;
-  min-height: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden; /* Clip the icon circle on left and bottom */
-  /* Ensure room cards stay below modals */
-  z-index: 1;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
 }
 
 .room-card:active {
   transform: scale(0.985);
 }
 
-.room-card.occupied {
-  border-color: var(--room-border, rgba(34, 197, 94, 0.4));
-  box-shadow: 0 0 20px var(--room-border, rgba(34, 197, 94, 0.2));
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .room-card:hover {
-    background: rgba(28, 30, 35, 0.95);
-    border-color: rgba(59, 130, 246, 0.35);
-  }
-}
-
 .room-card.selected {
   border-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.12);
 }
 
-.room-card.occupied {
-  border-color: rgba(34, 197, 94, 0.4);
+body.modal-open .room-card {
+  pointer-events: none;
 }
 
-/* Door Open Indicator */
-.room-door-indicator {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #f97316;
-  animation: pulse-warning 1.5s infinite;
-}
-
-.room-door-indicator svg {
-  font-size: 14px;
-  filter: drop-shadow(0 0 4px rgba(249, 115, 22, 0.6));
-}
-
-/* Unlock Indicator */
-.room-unlock-indicator {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ef4444;
-  animation: pulse-warning 1s infinite;
-}
-
-.room-unlock-indicator svg {
-  font-size: 14px;
-  filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.6));
-}
-
-@keyframes pulse-warning {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-/* Light Indicator */
-.room-light-indicator {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fbbf24;
-}
-
-.room-light-indicator svg {
-  font-size: 14px;
-  filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.6));
-}
-
-/* Media Playing Indicator */
-.room-media-indicator {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #22c55e;
-  animation: music-pulse 1s ease-in-out infinite;
-}
-
-.room-media-indicator svg {
-  font-size: 14px;
-  filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.6));
-}
-
-@keyframes music-pulse {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.15);
-    opacity: 0.8;
-  }
-}
-
-/* Vacuum Indicator (Office - where it lives) */
-.room-vacuum-indicator {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #10b981;
-}
-
-.room-vacuum-indicator svg {
-  font-size: 14px;
-  filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.5));
-}
-
-.room-vacuum-indicator.active {
-  animation: vacuum-wobble 1.6s ease-in-out infinite;
-}
-
-/* Overnight Guest Indicator (Office) */
-.room-guest-indicator {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #a855f7;
-}
-
-.room-guest-indicator svg {
-  font-size: 14px;
-  filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.6));
-}
-
-/* Dishwasher Indicator (Kitchen) */
-.room-dishwasher-indicator {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #71717a;
-}
-
-.room-dishwasher-indicator svg {
-  font-size: 14px;
-}
-
-.room-hotplate-indicator {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #f97316; /* orange for heat */
-}
-
-.room-hotplate-indicator svg {
-  filter: drop-shadow(0 0 4px rgba(249, 115, 22, 0.6));
-}
-
-.room-hotplate-indicator.inactive {
-  color: #71717a;
-  filter: none;
-  opacity: 0.7;
-}
-
-.room-hotplate-indicator svg {
-  font-size: 14px;
-}
-
-.room-oven-indicator {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ea580c; /* deep orange for oven heat */
-}
-
-.room-oven-indicator svg {
-  filter: drop-shadow(0 0 4px rgba(234, 88, 12, 0.6));
-}
-
-.room-oven-indicator.inactive {
-  color: #71717a;
-  filter: none;
-  opacity: 0.7;
-}
-
-.room-oven-indicator svg {
-  font-size: 14px;
-}
-
-.room-dishwasher-indicator.running {
-  color: #3b82f6;
-  animation: dishwasher-pulse 2s ease-in-out infinite;
-}
-
-.room-dishwasher-indicator.running svg {
-  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.6));
-}
-
-/* Washer / Dryer Indicators (Guest Bathroom) */
-.room-washer-indicator,
-.room-dryer-indicator {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #71717a; /* idle/off */
-  filter: none;
-}
-
-.room-washer-indicator.running,
-.room-dryer-indicator.running {
-  color: #22c55e;
-  animation: appliance-pulse 1.5s ease-in-out infinite;
-}
-
-.room-washer-indicator.running svg,
-.room-dryer-indicator.running svg {
-  filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.5));
-}
-
-.room-washer-indicator svg,
-.room-dryer-indicator svg {
-  font-size: 14px;
-}
-
-@keyframes appliance-pulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.6;
-    transform: scale(1.1);
-  }
-}
-
-@keyframes dishwasher-pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-/* Cleaning Requested Indicator */
-.room-cleaning-indicator {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #10b981;
-  animation: pulse-cleaning 1.5s infinite;
-}
-
-.room-cleaning-indicator svg {
-  font-size: 14px;
-  filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.6));
-}
-
-@keyframes pulse-cleaning {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.6;
-    transform: scale(0.9);
-  }
-}
-
-/* Room Door Status (open/closed) */
-.room-door-status {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.room-door-status svg {
-  font-size: 14px;
-}
-
-.room-door-status.open {
-  color: #f97316;
-}
-
-.room-door-status.open svg {
-  filter: drop-shadow(0 0 4px rgba(249, 115, 22, 0.6));
-}
-
-.room-door-status.closed {
-  color: #71717a;
-  opacity: 0.6;
-}
-
-.room-door-status .door-count {
+.room-glow {
   position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 2px;
-  background: #f97316;
-  border-radius: 8px;
-  font-size: 8px;
-  font-weight: 700;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  inset: 0;
+  z-index: -1;
+  opacity: 0;
+  background: radial-gradient(
+    130% 105% at 78% 8%,
+    rgb(var(--g) / var(--ga)) 0%,
+    rgb(var(--g) / calc(var(--ga) * 0.42)) 42%,
+    transparent 74%
+  );
+  transition: opacity 800ms var(--ease-out);
 }
 
-.room-door-status {
+.room-glow.is-on {
+  opacity: 1;
+}
+
+.room-card.is-lit {
+  border-color: rgb(var(--edge-g) / calc(var(--edge-ga) * 0.9));
+}
+
+.room-top {
   position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
-  justify-content: center;
-}
-
-/* Door group (multiple doors) */
-.room-door-group {
-  display: flex;
-  gap: 4px;
-}
-
-.room-door-status .door-label {
-  position: absolute;
-  bottom: -10px;
-  font-size: 8px;
-  color: #a1a1aa;
-}
-
-/* Window Status (open/closed) */
-.room-window-status {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.room-window-status svg {
-  font-size: 14px;
-}
-
-.room-window-status.open {
-  color: #06b6d4;
-}
-
-.room-window-status.open svg {
-  filter: drop-shadow(0 0 4px rgba(6, 182, 212, 0.6));
-}
-
-.room-window-status.closed {
-  color: #71717a;
-  opacity: 0.6;
-}
-
-.room-window-status {
-  position: relative;
-}
-
-.room-window-status .window-count {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  width: 12px;
-  height: 12px;
-  background: #06b6d4;
-  border-radius: 50%;
-  font-size: 8px;
-  font-weight: 700;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Heating Indicator */
-.room-heating-indicator {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #f97316;
-  animation: heating-glow 1.5s ease-in-out infinite;
-}
-
-.room-heating-indicator svg {
-  font-size: 14px;
-  filter: drop-shadow(0 0 4px rgba(249, 115, 22, 0.6));
-}
-
-@keyframes heating-glow {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.8;
-  }
-}
-
-@keyframes heating-glow-svg {
-  0%, 100% {
-    filter: drop-shadow(0 0 4px rgba(249, 115, 22, 0.6));
-  }
-  50% {
-    filter: drop-shadow(0 0 8px rgba(249, 115, 22, 0.8));
-  }
-}
-
-/* Shower Indicator (Bathroom) */
-.room-shower-indicator {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #06b6d4;
-  animation: shower-steam 2s ease-in-out infinite;
-}
-
-.room-shower-indicator svg {
-  font-size: 14px;
-  filter: drop-shadow(0 0 4px rgba(6, 182, 212, 0.6));
-}
-
-@keyframes shower-steam {
-  0%, 100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  50% {
-    opacity: 0.7;
-    transform: translateY(-2px);
-  }
-}
-
-/* Presence Indicator */
-.room-presence-indicator {
-  width: 10px;
-  height: 10px;
-  background: #22c55e;
-  border-radius: 50%;
-  box-shadow: 0 0 8px rgba(34, 197, 94, 0.7);
-  animation: pulse-presence 2s infinite;
-}
-
-@keyframes pulse-presence {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.7;
-    transform: scale(1.1);
-  }
-}
-
-.room-card-content {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  position: relative;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.room-left-section {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  align-items: flex-start;
-  flex: 1;
-  min-width: 0;
-  gap: clamp(0.4rem, 1vw, 0.5rem);
-  position: relative;
-  z-index: 2;
+  gap: 7px;
+  max-width: calc(100% + 2px - var(--ex, 0) * 30px);
 }
 
 .room-name {
-  font-size: clamp(0.85rem, 2.5vw, 1rem);
-  font-weight: 800;
-  color: var(--room-text, #e4e4e7);
   margin: 0;
-  line-height: 1.2;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #e4e4e7;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  align-self: flex-start;
-  letter-spacing: -0.01em;
 }
 
-.room-climate {
+.room-card.is-dark .room-name {
+  color: #b4b4bb;
+}
+
+/* Temperature and humidity: opens the room's climate sheet. The ::before pads the hit area to at
+   least 44 px without moving the readout. */
+.room-clim {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: clamp(0.1rem, 0.3vw, 0.2rem);
-  align-self: flex-start;
-  align-items: flex-start; /* ensure temperature and humidity are left-aligned */
-  text-align: left;
-  opacity: 0.85;
-}
-
-.climate-item {
-  font-size: clamp(0.65rem, 2vw, 0.8rem);
-  color: var(--room-text, #a1a1aa);
-  line-height: 1.3;
-  font-weight: 500;
-}
-
-/* Temperature/humidity readout: opens the room's temperature history chart. The visible text
-   stays exactly as small as the design calls for; ::before pads the hit area to >=44px on each
-   side without affecting layout (absolutely positioned, out of flow) or the readout's look. */
-.room-climate-tappable {
-  position: relative;
+  margin-top: 3px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: #a1a1aa;
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
 }
-.room-climate-tappable::before {
+
+.room-clim::before {
   content: '';
   position: absolute;
   top: 50%;
   left: 50%;
-  width: max(44px, 100%);
-  height: max(44px, 100%);
+  width: max(44px, calc(100% + 20px));
+  height: max(44px, calc(100% + 16px));
   transform: translate(-50%, -50%);
 }
-.room-climate-tappable:focus-visible {
+
+.room-clim:focus-visible {
   outline: 2px solid #b8dfff;
   outline-offset: 3px;
   border-radius: 4px;
 }
 
-.room-icon-container {
-  width: clamp(110px, 26vw, 170px);
-  height: clamp(110px, 26vw, 170px);
-  min-width: clamp(110px, 26vw, 170px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.room-clim.is-cold .climate-temp {
+  color: #93c5fd;
+}
+
+.room-orb {
+  position: absolute;
+  left: -24px;
+  bottom: -30px;
+  z-index: 0;
+  width: 92px;
+  height: 92px;
   border-radius: 50%;
+  background: rgb(var(--oc) / 0.2);
+}
+
+.room-card.is-lit .room-orb {
+  background: rgb(var(--oc) / 0.3);
+  box-shadow: 0 0 30px rgb(var(--oc) / 0.25);
+}
+
+.room-orb svg {
   position: absolute;
-  bottom: clamp(-50px, -11vw, -40px); /* Cut off more bottom */
-  left: clamp(-50px, -11vw, -40px); /* Cut off more left */
+  left: 36px;
+  top: 18px;
+  width: 30px;
+  height: 30px;
+  color: rgb(var(--oc));
+}
+
+.room-card.is-dark .room-orb svg {
+  opacity: 0.55;
+}
+
+.room-orb--bell {
+  background: rgba(56, 189, 248, 0.22);
   z-index: 1;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
-.room-icon {
-  font-size: clamp(3rem, 9vw, 4.5rem);
-  color: var(--room-icon, #3b82f6);
-  filter: drop-shadow(0 0 10px currentColor);
+.room-orb--bell svg {
+  color: #38bdf8;
+  opacity: 1;
 }
 
-/* When room detail panel is open on desktop - use same sizes as default desktop */
-/* (styles inherited from the desktop media query below, no overrides needed) */
-
-
-/* Mobile tweaks: give the logo more breathing room by moving the circle up/right and adjusting padding */
-@media (max-width: 600px) {
-  .room-left-section {
-    gap: clamp(0.3rem, 0.8vw, 0.4rem);
-  }
-
-  .room-name {
-    margin-bottom: clamp(0.1rem, 0.3vw, 0.2rem);
-  }
-
-  .room-climate {
-    gap: clamp(0.05rem, 0.2vw, 0.15rem);
-    margin-bottom: clamp(0.1rem, 0.3vw, 0.2rem);
-  }
-
-  .room-icon-container {
-    width: clamp(95px, 24vw, 130px);
-    height: clamp(95px, 24vw, 130px);
-    min-width: clamp(95px, 24vw, 130px);
-    bottom: clamp(-32px, -7vw, -24px);
-    left: clamp(-30px, -7vw, -22px);
-  }
-
-  .room-icon {
-    font-size: clamp(2.5rem, 7.5vw, 3.4rem);
-  }
+.room-card.is-dark .room-orb--bell svg {
+  opacity: 1;
 }
 
+/* Sleep mode in the occupant's room. */
+.room-card.is-asleep {
+  background: #11132a;
+  border-color: rgba(165, 180, 252, 0.14);
+}
 
-.room-right-indicators {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, clamp(20px, 5vw, 28px)));
-  grid-auto-rows: minmax(clamp(20px, 5vw, 28px), auto);
-  align-items: center;
-  justify-items: center;
-  direction: rtl; /* fill from right to left */
-  row-gap: clamp(0.3rem, 1vw, 0.5rem);
-  column-gap: clamp(0.4rem, 1vw, 0.6rem);
-  /* 4px top/right/left headroom: this is a scroll container, so it CLIPS at its
-     box edge - without it the count badges (absolute, top/right -4px) get their
-     tops cut off on the first icon row. Position compensates so the icons
-     themselves stay put. */
-  padding: 4px 4px clamp(0.35rem, 1vw, 0.6rem) 4px;
-  flex-shrink: 0;
-  max-height: 100%;
-  overflow-y: auto;
-  justify-content: flex-start;
-  z-index: 3;
+.room-card.is-asleep .room-orb {
+  background: rgba(99, 102, 241, 0.16);
+  box-shadow: none;
+}
+
+.room-card.is-asleep .room-orb svg {
+  color: #818cf8;
+  opacity: 0.6;
+}
+
+.room-card.is-asleep .room-name {
+  color: #c7cbe6;
+}
+
+.room-card.is-asleep .room-clim {
+  color: #8b8fb0;
+}
+
+.room-moon {
   position: absolute;
-  top: calc(clamp(0.75rem, 2vw, 1rem) - 4px);
-  right: calc(clamp(0.75rem, 2vw, 1rem) - 4px);
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
+  right: 12px;
+  bottom: 12px;
+  z-index: 1;
+  width: 24px;
+  height: 24px;
+  color: #c7d2fe;
+  filter: drop-shadow(0 0 8px rgba(199, 210, 254, 0.45));
 }
 
-.room-right-indicators::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
+.room-moon svg {
+  width: 24px;
+  height: 24px;
 }
 
-.indicator {
-  direction: ltr; /* keep icon orientation normal */
-  width: clamp(20px, 5vw, 28px);
-  height: clamp(20px, 5vw, 28px);
+.room-star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #c7d2fe;
+  opacity: 0.6;
+}
+
+/* Frost: an open window or terrace door while it is cold out. */
+.room-frost {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(270deg, rgb(var(--frost) / 0.36), rgb(var(--frost) / 0.1) 30%, transparent 50%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='34' height='34'%3E%3Cg stroke='%23e0f2fe' stroke-width='.7' stroke-linecap='round' opacity='.7'%3E%3Cpath d='M9 4v10M4.7 6.5l8.6 5M4.7 11.5l8.6-5M25 19v8M21.5 21l7 4M21.5 25l7-4M8 26.5v5M5.8 27.7l4.4 2.6M5.8 30.3l4.4-2.6'/%3E%3C/g%3E%3C/svg%3E");
+  background-size:
+    auto,
+    34px 34px;
+  -webkit-mask-image: linear-gradient(270deg, #000 0, rgba(0, 0, 0, 0.5) 22%, transparent 46%);
+  mask-image: linear-gradient(270deg, #000 0, rgba(0, 0, 0, 0.5) 22%, transparent 46%);
+}
+
+.room-card.is-frosty {
+  border-color: rgb(var(--frost) / 0.3);
+}
+
+/* Occupied: a green inner edge; it breathes when the motion budget grants it. */
+.room-edge {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.8;
+  box-shadow:
+    inset 0 0 0 1.5px rgb(var(--occ) / 0.8),
+    inset 0 0 24px rgb(var(--occ) / 0.16);
+}
+
+.room-edge.is-anim {
+  animation: room-breathe 6s ease-in-out infinite;
+}
+
+@keyframes room-breathe {
+  0%,
+  100% {
+    opacity: 0.8;
+  }
+  25% {
+    opacity: 0.55;
+  }
+  75% {
+    opacity: 1;
+  }
+}
+
+/* Speaker playing: four bars beside the name, mixed heights when still, flat when muted. */
+.room-eq {
   display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+.room-eq i {
+  width: 3px;
+  height: 13px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.78);
+  transform-origin: bottom;
+  transform: scaleY(var(--a));
+}
+
+.room-eq i:nth-child(1) {
+  --a: 0.35;
+  --b: 1;
+  --d: 1.3s;
+}
+
+.room-eq i:nth-child(2) {
+  --a: 0.85;
+  --b: 0.4;
+  --d: 1.7s;
+}
+
+.room-eq i:nth-child(3) {
+  --a: 0.55;
+  --b: 0.95;
+  --d: 1.1s;
+}
+
+.room-eq i:nth-child(4) {
+  --a: 0.7;
+  --b: 0.3;
+  --d: 1.5s;
+}
+
+.room-eq.is-anim i {
+  animation: room-eq var(--d) ease-in-out infinite alternate;
+}
+
+.room-eq.is-muted i {
+  transform: scaleY(0.2);
+  opacity: 0.6;
+}
+
+@keyframes room-eq {
+  from {
+    transform: scaleY(var(--a));
+  }
+  to {
+    transform: scaleY(var(--b));
+  }
+}
+
+/* Appliance ring: real progress, the time left inside; amber with a check once it waits to be emptied. */
+.room-ring {
+  position: absolute;
+  right: 9px;
+  top: 40px;
+  z-index: 2;
+  width: 56px;
+  height: 56px;
+  color: #38bdf8;
+}
+
+.room-ring svg {
+  position: absolute;
+  inset: 0;
+  width: 56px;
+  height: 56px;
+  transform: rotate(-90deg);
+}
+
+.room-ring-track {
+  fill: rgba(13, 15, 19, 0.55);
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 3.5;
+}
+
+.room-ring-arc {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+}
+
+.room-ring-glint {
+  fill: #e0f2fe;
+  opacity: 0.35;
+  animation: room-glint 3s ease-in-out infinite;
+}
+
+@keyframes room-glint {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.room-ring-in {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
 }
 
-.indicator svg {
-  font-size: clamp(14px, 3.5vw, 18px);
+.room-ring-in svg {
+  position: static;
+  width: 17px;
+  height: 17px;
+  transform: none;
 }
 
-/* Desktop: 3-column grid with medium compact cards */
-@media (min-width: 1025px) {
-  .rooms-container {
-    padding: 0.75rem;
-    padding-bottom: 0.75rem;
-    max-width: 660px; /* Medium compact 3-column layout */
-  }
-
-  .rooms-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.5rem;
-    justify-items: stretch;
-    align-items: stretch;
-  }
-
-  .room-card {
-    padding: 0.65rem;
-  }
-
-  .room-icon-container {
-    width: 90px;
-    height: 90px;
-    min-width: 90px;
-    bottom: -32px;
-    left: -32px;
-  }
-
-  .room-icon {
-    font-size: 2.25rem;
-  }
-
-  .room-name {
-    font-size: 0.85rem;
-  }
-
-  .climate-item {
-    font-size: 0.7rem;
-  }
-
-  .room-right-indicators {
-    grid-template-columns: repeat(2, 22px);
-    grid-auto-rows: 22px;
-    row-gap: 0.25rem;
-    column-gap: 0.3rem;
-    top: 1.5rem; /* Move down to avoid long room names */
-    right: 0.55rem;
-  }
-
-  .indicator {
-    width: 22px;
-    height: 22px;
-  }
-
-  .indicator svg {
-    font-size: 14px;
-  }
-}
-
-/* Room State Text */
-.room-state {
-  font-size: 0.7rem;
-  color: #a1a1aa;
-  font-style: italic;
+.room-ring-in b {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #e4e4e7;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  padding: 0.15rem 0.4rem;
-  background: rgba(59, 130, 246, 0.15);
-  border-radius: 0.25rem;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Small phones (iPhone 11 Pro, etc.) - 375px and below */
-@media (max-width: 375px) {
-  .rooms-container {
-    padding: 0.5rem;
-  }
-  
-  .rooms-grid {
-    gap: 0.4rem;
-  }
+.room-ring.is-paused .room-ring-arc {
+  opacity: 0.5;
 }
 
-/* Large phones (iPhone 16 Pro, Oppo Find X9 Pro) - 376px to 600px */
-@media (min-width: 376px) and (max-width: 600px) {
-  .rooms-container {
-    padding: 0.75rem;
-  }
-  
-  .rooms-grid {
-    gap: 0.5rem;
-  }
+.room-ring.is-ready {
+  color: #f59e0b;
 }
 
-/* Tablets - 601px to 1024px */
-@media (min-width: 601px) and (max-width: 1024px) {
-  .rooms-grid {
-    gap: 0.75rem;
+.room-ring.is-night {
+  color: #7dd3fc;
+}
+
+.room-ring.is-night .room-ring-arc {
+  opacity: 0.75;
+}
+
+.room-ring.is-ready.is-anim {
+  animation: room-ready 400ms ease-in-out 3;
+}
+
+@keyframes room-ready {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.07);
   }
 }
 
+.room-ring-badge {
+  position: absolute;
+  left: -6px;
+  bottom: -4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #141518;
+  box-shadow:
+    0 0 0 1.5px currentColor,
+    0 0 0 3px #141518;
+  color: #38bdf8;
+}
+
+.room-ring-badge.is-ready {
+  color: #f59e0b;
+}
+
+.room-ring-badge svg {
+  position: static;
+  width: 13px;
+  height: 13px;
+  transform: none;
+}
+
+/* Doorbell: three rings ripple out from the hallway orb once; two still rings when motion is off. */
+.room-ripple {
+  position: absolute;
+  left: -28px;
+  bottom: -34px;
+  z-index: 0;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 2px solid rgba(56, 189, 248, 0.7);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.room-ripple.is-anim {
+  animation: room-ripple 1.4s var(--ease-out) both;
+}
+
+.room-ripple.is-anim.r2 {
+  animation-delay: 0.45s;
+}
+
+.room-ripple.is-anim.r3 {
+  animation-delay: 0.9s;
+}
+
+.room-ripple.is-still {
+  transform: scale(1.5);
+  opacity: 0.5;
+}
+
+.room-ripple.is-still.r2 {
+  transform: scale(2.2);
+  opacity: 0.22;
+}
+
+@keyframes room-ripple {
+  from {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+/* Exceptions: the few states still named by an icon, top right; a row beside a ring. */
+.room-ex {
+  position: absolute;
+  top: 8px;
+  right: 6px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.room-ex.is-row {
+  flex-direction: row-reverse;
+}
+
+.room-ex-item {
+  display: flex;
+}
+
+.room-ex .indicator {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f97316;
+}
+
+.room-ex .indicator::before {
+  content: '';
+  position: absolute;
+  inset: -7px;
+}
+
+.room-ex .indicator svg {
+  width: 18px;
+  height: 18px;
+  filter: drop-shadow(0 0 3px currentColor);
+}
+
+.room-ex .indicator.is-frost {
+  color: #bae6fd;
+}
+
+.room-ex .indicator.water {
+  color: #22d3ee;
+}
+
+.room-ex .indicator.alarm {
+  color: #fbbf24;
+}
+
+.room-ex .indicator.alarm.is-asleep {
+  color: #a5b4fc;
+}
+
+.room-ex .indicator.hold {
+  color: #f59e0b;
+}
+
+.room-ex .indicator.power {
+  color: #ea580c;
+}
+
+.indicator-label {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 2px;
+  border-radius: 7px;
+  border: 1px solid #0f1117;
+  background: #3b82f6;
+  color: #e4e4e7;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

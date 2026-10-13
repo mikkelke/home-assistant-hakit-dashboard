@@ -78,6 +78,51 @@
   }
 }
 
+/* While the timeline covers the grid, the grid steps back a little: it shows during the push-in. */
+.dashboard-content {
+  transition:
+    transform 380ms var(--ease-out),
+    opacity 380ms var(--ease-out);
+}
+
+.dashboard.is-covered .dashboard-content {
+  transform: translateX(-16px);
+  opacity: 0.6;
+}
+
+/* Stand-in for the timeline while its chunk loads, and its error state. */
+.now-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  background: #0d0f13;
+}
+
+.now-load-error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: calc(8px + env(safe-area-inset-top)) 16px 0;
+  align-content: flex-start;
+  flex-wrap: wrap;
+  color: #a1a1aa;
+  font-size: 14px;
+}
+
+.now-load-back {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.09);
+  color: #e4e4e7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+}
+
 /* Backdrop held while the lazily-loaded Energy page chunk arrives. Mirrors .energy-page's own
    fixed full-screen shell — that rule lives in the split-out EnergyPage.css, which is not on the
    page yet, so the placeholder cannot reuse it. */

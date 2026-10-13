@@ -14,7 +14,7 @@ import { SONOS_SPEAKERS } from '../../config/speakers';
 import { useModalBackButton, useSwipeToClose } from '../../hooks';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { onIdle } from '../../utils/idle';
-import { HouseEventsModal } from '../HomeActivity';
+import type { OpenNow } from '../../utils/navigation';
 import { RequestSheet, RequestTile, useRequestAccess } from '../Request';
 import './QuickAccess.css';
 
@@ -22,9 +22,11 @@ interface QuickAccessProps {
   entities: HassEntities;
   hassUrl: string | null;
   callService: CallServiceFunction | undefined;
+  /** Opens the #now timeline. */
+  onOpenNow: OpenNow;
 }
 
-type ModalType = 'intercom' | 'media' | 'weather' | 'transit' | 'activity' | null;
+type ModalType = 'intercom' | 'media' | 'weather' | 'transit' | null;
 type MediaTab = 'audio' | 'tv';
 
 interface TransitLine {
@@ -154,7 +156,7 @@ function WeatherModalBody({ entityId }: { entityId: string }) {
 // lock STATE display (frontLock/backLock below) are unaffected: only the front command changes.
 const FRONT_DOOR_ABB_BUTTON = 'button.abb_welcome_gateway_outdoor_station_2_1';
 
-export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps) {
+export function QuickAccess({ entities, hassUrl, callService, onOpenNow }: QuickAccessProps) {
   const [openModal, setOpenModal] = useState<ModalType>(null);
   // Frozen at media-modal open: joins/unjoins change coordinators and flicker `playing`,
   // which would otherwise unmount a SonosPlayer (and its open speaker picker) mid-operation.
@@ -524,7 +526,7 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
           <Icon icon='mdi:train' />
           {hasTransitAlert && <span className='qa-badge qa-badge--alert' />}
         </button>
-        <button className='qa-button' onClick={() => openQuickAccess('activity')} title='House activity'>
+        <button className='qa-button' onClick={() => onOpenNow(null)} title='Timeline' aria-label='Open the timeline'>
           <Icon icon='mdi:history' />
         </button>
         <button
@@ -537,7 +539,7 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
         </button>
       </div>
 
-      {openModal && openModal !== 'activity' && (
+      {openModal && (
         <div
           className='qa-overlay'
           onClick={e => {
@@ -896,11 +898,6 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
           </div>
         </div>
       )}
-
-      {/* Owns its own overlay/modal chrome rather than plugging into the shared .qa-modal above
-          (see HouseEventsModal's own doc) — open/close/back are still driven by this same
-          openModal state and requestCloseQuickAccess, so it behaves like every other QA modal. */}
-      {openModal === 'activity' && <HouseEventsModal entities={entities} onClose={requestCloseQuickAccess} />}
 
       {/* A sibling of the media modal, not a child: React bubbles the sheet's touch events up the component
           tree, which would otherwise feed its swipes into the media modal's own swipe-to-close. */}
