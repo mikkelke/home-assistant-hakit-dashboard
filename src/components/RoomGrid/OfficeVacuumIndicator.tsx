@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import type { HassEntities } from '../../types';
-import { getAccessibleHistoryWindow, getHistoryUrl } from '../../utils/navigation';
+import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
 import {
   VACUUM_ENTITY,
   ROBOT_CLEANING_NARRATIVE_ENTITY,
@@ -139,7 +139,7 @@ export function OfficeVacuumIndicator({ entities, hassUrl, cleaningToggleId, las
         setOpen(false);
         try {
           withHistoryWindow(targetWindow => {
-            targetWindow.history.replaceState({ officeVacuumModal: null }, '', modalHistoryUrl());
+            replaceHistoryState(targetWindow, { officeVacuumModal: null }, modalHistoryUrl());
           });
         } catch {
           /* ignore */

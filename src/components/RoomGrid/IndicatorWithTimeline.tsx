@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
-import { getAccessibleHistoryWindow, getHistoryUrl } from '../../utils/navigation';
+import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
 import { Timeline } from '../Timeline';
 import type { HassEntities } from '../../types';
 
@@ -64,7 +64,7 @@ export function IndicatorWithTimeline({
           // Replace current state so back button works correctly
           try {
             withHistoryWindow(targetWindow => {
-              targetWindow.history.replaceState({ timeline: null }, '', timelineHistoryUrl());
+              replaceHistoryState(targetWindow, { timeline: null }, timelineHistoryUrl());
             });
           } catch {
             // Silently fail if history API is not supported

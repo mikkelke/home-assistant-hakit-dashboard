@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { useHass } from '@hakit/core';
 import type { HassEntities, CallServiceFunction } from '../../types';
-import { getAccessibleHistoryWindow, getHistoryUrl } from '../../utils/navigation';
+import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
 import {
   ROBOT_ENABLED_BOOLEAN_ENTITY,
   VACUUM_ENTITY,
@@ -216,7 +216,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     setSelectedMap(null);
     try {
       withHistoryWindow(targetWindow => {
-        targetWindow.history.replaceState({ map: null }, '', modalHistoryUrl());
+        replaceHistoryState(targetWindow, { map: null }, modalHistoryUrl());
       });
     } catch {
       // Silently fail if history API not supported
@@ -238,7 +238,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     setRoomsSheetOpen(false);
     try {
       withHistoryWindow(targetWindow => {
-        targetWindow.history.replaceState({ roomsSheet: null }, '', modalHistoryUrl());
+        replaceHistoryState(targetWindow, { roomsSheet: null }, modalHistoryUrl());
       });
     } catch {
       // Silently fail if history API not supported
@@ -260,7 +260,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     setShowLiveMap(false);
     try {
       withHistoryWindow(targetWindow => {
-        targetWindow.history.replaceState({ liveMap: null }, '', modalHistoryUrl());
+        replaceHistoryState(targetWindow, { liveMap: null }, modalHistoryUrl());
       });
     } catch {
       // Silently fail if history API not supported
@@ -283,7 +283,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     setBatteryGraphOpen(false);
     try {
       withHistoryWindow(targetWindow => {
-        targetWindow.history.replaceState({ batteryGraph: null }, '', modalHistoryUrl());
+        replaceHistoryState(targetWindow, { batteryGraph: null }, modalHistoryUrl());
       });
     } catch {
       /* ignore */
@@ -313,7 +313,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
         setSelectedMap(null);
         try {
           withHistoryWindow(targetWindow => {
-            targetWindow.history.replaceState({ map: null }, '', modalHistoryUrl());
+            replaceHistoryState(targetWindow, { map: null }, modalHistoryUrl());
           });
         } catch {
           /* ignore */
@@ -326,7 +326,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
         setRoomsSheetOpen(false);
         try {
           withHistoryWindow(targetWindow => {
-            targetWindow.history.replaceState({ roomsSheet: null }, '', modalHistoryUrl());
+            replaceHistoryState(targetWindow, { roomsSheet: null }, modalHistoryUrl());
           });
         } catch {
           /* ignore */
@@ -339,7 +339,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
         setShowLiveMap(false);
         try {
           withHistoryWindow(targetWindow => {
-            targetWindow.history.replaceState({ liveMap: null }, '', modalHistoryUrl());
+            replaceHistoryState(targetWindow, { liveMap: null }, modalHistoryUrl());
           });
         } catch {
           /* ignore */
@@ -352,7 +352,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
         setBatteryGraphOpen(false);
         try {
           withHistoryWindow(targetWindow => {
-            targetWindow.history.replaceState({ batteryGraph: null }, '', modalHistoryUrl());
+            replaceHistoryState(targetWindow, { batteryGraph: null }, modalHistoryUrl());
           });
         } catch {
           /* ignore */
@@ -376,7 +376,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
         setSelectedMap(null);
         try {
           withHistoryWindow(targetWindow => {
-            targetWindow.history.replaceState({ map: null }, '', modalHistoryUrl());
+            replaceHistoryState(targetWindow, { map: null }, modalHistoryUrl());
           });
         } catch {
           /* ignore */
@@ -389,7 +389,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
         setRoomsSheetOpen(false);
         try {
           withHistoryWindow(targetWindow => {
-            targetWindow.history.replaceState({ roomsSheet: null }, '', modalHistoryUrl());
+            replaceHistoryState(targetWindow, { roomsSheet: null }, modalHistoryUrl());
           });
         } catch {
           /* ignore */
@@ -402,7 +402,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
         setShowLiveMap(false);
         try {
           withHistoryWindow(targetWindow => {
-            targetWindow.history.replaceState({ liveMap: null }, '', modalHistoryUrl());
+            replaceHistoryState(targetWindow, { liveMap: null }, modalHistoryUrl());
           });
         } catch {
           /* ignore */
@@ -414,7 +414,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
         setBatteryGraphOpen(false);
         try {
           withHistoryWindow(targetWindow => {
-            targetWindow.history.replaceState({ batteryGraph: null }, '', modalHistoryUrl());
+            replaceHistoryState(targetWindow, { batteryGraph: null }, modalHistoryUrl());
           });
         } catch {
           /* ignore */

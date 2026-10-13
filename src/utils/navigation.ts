@@ -21,6 +21,18 @@ export function buildHistoryUrlWithHash(targetWindow: Window, hash: string | nul
   return hash ? `${pathname}${search}${hash}` : `${pathname}${search}`;
 }
 
+/** An entry's state with `patch` on top. Whatever else the entry holds, such as Home Assistant's
+ * `root`, is kept. */
+export function mergeHistoryState(state: unknown, patch: Record<string, unknown>): Record<string, unknown> {
+  const base = typeof state === 'object' && state !== null && !Array.isArray(state) ? (state as Record<string, unknown>) : {};
+  return { ...base, ...patch };
+}
+
+/** Replaces the current entry of `targetWindow`'s history, keeping its state under `patch`. */
+export function replaceHistoryState(targetWindow: Window, patch: Record<string, unknown>, url: string): void {
+  targetWindow.history.replaceState(mergeHistoryState(targetWindow.history.state, patch), '', url);
+}
+
 /** What a `#now=<kind>-<epochS>` link can focus. `evt` is an in-app tap on any feed row. */
 export const NOW_FOCUS_KINDS = ['ring', 'washer', 'dryer', 'dish', 'wake', 'evt'] as const;
 export type NowFocusKind = (typeof NOW_FOCUS_KINDS)[number];

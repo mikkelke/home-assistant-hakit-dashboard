@@ -3,7 +3,7 @@ import { Icon } from '@iconify/react';
 import { useEnergyConfig, type Period } from '../../energy';
 import { nextDisabled, startOfLocalDay, startOfPeriod, stepAnchor } from '../../energy/period';
 import { useSwipeToClose } from '../../hooks';
-import { buildHistoryUrlWithHash, getAccessibleHistoryWindow } from '../../utils/navigation';
+import { buildHistoryUrlWithHash, getAccessibleHistoryWindow, replaceHistoryState } from '../../utils/navigation';
 import { BillTab } from './BillTab';
 import { EnergyTabs } from './EnergyTabs';
 import { LiveTab } from './LiveTab';
@@ -59,7 +59,7 @@ function EnergyPageView({ onClose }: EnergyPageProps) {
       // replaceState fires no hashchange/popstate, and Dashboard's own hash poll still sees kind
       // 'energy' either way — no isUpdatingHashRef guard dance needed here (contrast Dashboard's
       // own history helpers, which do need it to avoid reacting to their own writes).
-      targetWindow.history.replaceState(null, '', buildHistoryUrlWithHash(targetWindow, energyHash(nextTab)));
+      replaceHistoryState(targetWindow, {}, buildHistoryUrlWithHash(targetWindow, energyHash(nextTab)));
     } catch (err) {
       console.debug('Failed to replace energy tab history:', err);
     }

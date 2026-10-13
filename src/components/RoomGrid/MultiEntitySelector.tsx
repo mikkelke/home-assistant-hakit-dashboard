@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
-import { getAccessibleHistoryWindow, getHistoryUrl } from '../../utils/navigation';
+import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
 import { Timeline } from '../Timeline';
 import type { HassEntities } from '../../types';
 import './MultiEntitySelector.css';
@@ -67,7 +67,7 @@ export function MultiEntitySelector({
         setShowSelection(false);
         try {
           withHistoryWindow(targetWindow => {
-            targetWindow.history.replaceState({ selection: null }, '', modalHistoryUrl());
+            replaceHistoryState(targetWindow, { selection: null }, modalHistoryUrl());
           });
         } catch {
           // Silently fail if history API is not supported
@@ -104,7 +104,7 @@ export function MultiEntitySelector({
         }
         try {
           withHistoryWindow(targetWindow => {
-            targetWindow.history.replaceState({ timeline: null }, '', modalHistoryUrl());
+            replaceHistoryState(targetWindow, { timeline: null }, modalHistoryUrl());
           });
         } catch {
           // Silently fail if history API is not supported

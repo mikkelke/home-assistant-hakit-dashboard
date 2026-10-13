@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildNowHash,
   getViewFromHistoryHash,
+  mergeHistoryState,
   NOW_FOCUS_KINDS,
   nowFocusAt,
   parseDashboardHash,
@@ -71,5 +72,22 @@ describe('#now link grammar', () => {
     expect(getViewFromHistoryHash(windowWithHash('#room=bedroom'))).toEqual({ kind: 'room', roomId: 'bedroom', openClimate: false });
     expect(getViewFromHistoryHash(windowWithHash('#energy=bill'))).toEqual({ kind: 'energy' });
     expect(getViewFromHistoryHash(null)).toEqual({ kind: 'none' });
+  });
+});
+
+describe('mergeHistoryState', () => {
+  it('keeps what Home Assistant and other overlays stored on the entry', () => {
+    expect(mergeHistoryState({ root: true }, { room: null })).toEqual({ root: true, room: null });
+    expect(mergeHistoryState({ dashboardNow: 'grid', modal: 'x' }, { timeline: null })).toEqual({
+      dashboardNow: 'grid',
+      modal: 'x',
+      timeline: null,
+    });
+    expect(mergeHistoryState({ room: 'kitchen' }, { room: null })).toEqual({ room: null });
+  });
+
+  it('starts from nothing for an entry without an object state', () => {
+    for (const state of [null, undefined, 'x', 3, ['root']]) expect(mergeHistoryState(state, { energy: null })).toEqual({ energy: null });
+    expect(mergeHistoryState({ root: true }, {})).toEqual({ root: true });
   });
 });

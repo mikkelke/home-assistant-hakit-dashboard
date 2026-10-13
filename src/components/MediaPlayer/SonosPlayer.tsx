@@ -6,7 +6,7 @@ import { RADIO_STATIONS } from '../../config/radio';
 import { PODCAST_FEEDS } from '../../config/podcasts';
 import { AUDIOCAST_STREAM_URI, rawSonosEntityId } from '../../config/audiocast';
 import { isMediaPlayerOutOfSync } from '../../utils/mediaPlayer';
-import { getAccessibleHistoryWindow, getHistoryUrl } from '../../utils/navigation';
+import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
 import { useLocalStorageBoolean, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
 import { VolumeStrip } from './VolumeStrip';
 import './SonosPlayer.css';
@@ -514,7 +514,7 @@ export function SonosPlayer({
         setViewingEpisodes(false);
         try {
           withHistoryWindow(targetWindow => {
-            targetWindow.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
+            replaceHistoryState(targetWindow, { podcastModal: true, viewingEpisodes: false }, podcastHistoryUrl());
           });
         } catch {
           /* ignore */
@@ -525,7 +525,7 @@ export function SonosPlayer({
         setSelectedPodcastId(null);
         try {
           withHistoryWindow(targetWindow => {
-            targetWindow.history.replaceState({ podcastModal: null }, '', podcastHistoryUrl());
+            replaceHistoryState(targetWindow, { podcastModal: null }, podcastHistoryUrl());
           });
         } catch {
           /* ignore */
@@ -534,7 +534,7 @@ export function SonosPlayer({
         setShowSourcePicker(false);
         try {
           withHistoryWindow(targetWindow => {
-            targetWindow.history.replaceState({ sourceSheet: null }, '', podcastHistoryUrl());
+            replaceHistoryState(targetWindow, { sourceSheet: null }, podcastHistoryUrl());
           });
         } catch {
           /* ignore */
@@ -869,7 +869,7 @@ export function SonosPlayer({
         setViewingEpisodes(false);
         try {
           withHistoryWindow(targetWindow => {
-            targetWindow.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
+            replaceHistoryState(targetWindow, { podcastModal: true, viewingEpisodes: false }, podcastHistoryUrl());
           });
         } catch {
           /* ignore */
@@ -880,7 +880,7 @@ export function SonosPlayer({
         setSelectedPodcastId(null);
         try {
           withHistoryWindow(targetWindow => {
-            targetWindow.history.replaceState({ podcastModal: null }, '', podcastHistoryUrl());
+            replaceHistoryState(targetWindow, { podcastModal: null }, podcastHistoryUrl());
           });
         } catch {
           /* ignore */
@@ -889,7 +889,7 @@ export function SonosPlayer({
         setShowSourcePicker(false);
         try {
           withHistoryWindow(targetWindow => {
-            targetWindow.history.replaceState({ sourceSheet: null }, '', podcastHistoryUrl());
+            replaceHistoryState(targetWindow, { sourceSheet: null }, podcastHistoryUrl());
           });
         } catch {
           /* ignore */
@@ -906,7 +906,7 @@ export function SonosPlayer({
       setViewingEpisodes(false);
       try {
         withHistoryWindow(targetWindow => {
-          targetWindow.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
+          replaceHistoryState(targetWindow, { podcastModal: true, viewingEpisodes: false }, podcastHistoryUrl());
         });
       } catch {
         /* ignore */
@@ -946,7 +946,7 @@ export function SonosPlayer({
     setSelectedPodcastId(null);
     try {
       withHistoryWindow(targetWindow => {
-        targetWindow.history.replaceState({ sourceSheet: null }, '', podcastHistoryUrl());
+        replaceHistoryState(targetWindow, { sourceSheet: null }, podcastHistoryUrl());
       });
     } catch {
       /* ignore */
@@ -976,7 +976,7 @@ export function SonosPlayer({
     setSelectedPodcastId(null);
     try {
       withHistoryWindow(targetWindow => {
-        targetWindow.history.replaceState({ podcastModal: null }, '', podcastHistoryUrl());
+        replaceHistoryState(targetWindow, { podcastModal: null }, podcastHistoryUrl());
       });
     } catch {
       /* ignore */
@@ -1006,7 +1006,7 @@ export function SonosPlayer({
     setViewingEpisodes(false);
     try {
       withHistoryWindow(targetWindow => {
-        targetWindow.history.replaceState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
+        replaceHistoryState(targetWindow, { podcastModal: true, viewingEpisodes: false }, podcastHistoryUrl());
       });
     } catch {
       /* ignore */

@@ -4,7 +4,13 @@ import { useIsMobile } from '../../hooks/useMediaQuery';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { EXCLUDED_AREAS } from '../../config/dashboard';
 import type { Area, HassEntities } from '../../types';
-import { buildHistoryUrlWithHash, buildRoomHash, getAccessibleHistoryWindow, getViewFromHistoryHash } from '../../utils/navigation';
+import {
+  buildHistoryUrlWithHash,
+  buildRoomHash,
+  getAccessibleHistoryWindow,
+  getViewFromHistoryHash,
+  replaceHistoryState,
+} from '../../utils/navigation';
 import { StatusBar } from '../StatusBar';
 import type { EnergyTab } from '../Energy/energyTab';
 import { HomePulse } from '../HomePulse';
@@ -460,9 +466,9 @@ export function Dashboard() {
 
       try {
         markHashUpdating();
-        targetWindow.history.replaceState(
+        replaceHistoryState(
+          targetWindow,
           { room: roomId },
-          '',
           buildHistoryUrlWithHash(targetWindow, roomId ? buildRoomHash(roomId, openClimate) : null)
         );
       } catch (err) {
@@ -495,7 +501,7 @@ export function Dashboard() {
 
     try {
       markHashUpdating();
-      targetWindow.history.replaceState({ energy: null }, '', buildHistoryUrlWithHash(targetWindow, null));
+      replaceHistoryState(targetWindow, { energy: null }, buildHistoryUrlWithHash(targetWindow, null));
     } catch (err) {
       console.debug('Failed to replace energy history:', err);
       isUpdatingHashRef.current = false;

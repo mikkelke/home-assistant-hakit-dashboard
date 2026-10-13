@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import type { PersonStatusProps } from '../../types';
-import { getAccessibleHistoryWindow, getHistoryUrl } from '../../utils/navigation';
+import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
 import { Timeline } from '../Timeline';
 import { useSwipeToClose } from '../../hooks';
 import './StatusBar.css';
@@ -47,7 +47,7 @@ export function PersonStatus({ entity, entities, hassUrl }: PersonStatusProps) {
           // Replace current state so back button works correctly
           try {
             withHistoryWindow(targetWindow => {
-              targetWindow.history.replaceState({ timeline: null }, '', timelineHistoryUrl());
+              replaceHistoryState(targetWindow, { timeline: null }, timelineHistoryUrl());
             });
           } catch {
             // Silently fail if history API is not supported

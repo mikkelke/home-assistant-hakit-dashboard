@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import type { HassEntities, HassEntity, CallServiceFunction } from '../../types';
-import { getAccessibleHistoryWindow, getHistoryUrl } from '../../utils/navigation';
+import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
 import { useTouchScrollSlopGuard } from '../../hooks';
 import { Timeline } from '../Timeline';
 import './WeatherCard.css';
@@ -154,7 +154,7 @@ function WeatherItemWithTimeline({
       setShowTimeline(false);
       try {
         withHistoryWindow(targetWindow => {
-          targetWindow.history.replaceState({ timeline: null }, '', timelineHistoryUrl());
+          replaceHistoryState(targetWindow, { timeline: null }, timelineHistoryUrl());
         });
       } catch {
         /* ignore */
@@ -205,7 +205,7 @@ function WeatherItemWithTimeline({
     setShowTimeline(false);
     try {
       withHistoryWindow(targetWindow => {
-        targetWindow.history.replaceState({ timeline: null }, '', timelineHistoryUrl());
+        replaceHistoryState(targetWindow, { timeline: null }, timelineHistoryUrl());
       });
     } catch {
       /* ignore */
