@@ -6,6 +6,7 @@ import { billHistory, kronerBreakdown, ringFraction, type BillMonth } from '../.
 import { addMonths, nextDisabled, startOfLocalMonth, startOfPeriod, stepAnchor } from '../../energy/period';
 import { krValue } from '../../energy/planView';
 import { PeriodPicker } from './PeriodPicker';
+import { StatsState } from './StatsState';
 
 interface BillTabProps {
   nowMs: number;
@@ -34,7 +35,7 @@ function whenLabel(bucket: 'hour' | 'day' | 'month', ms: number): string {
 export function BillTab({ nowMs, todayStartMs }: BillTabProps) {
   const [period, setPeriod] = useState<BillPeriod>('month');
   const [anchor, setAnchor] = useState(() => startOfPeriod('month', Date.now()));
-  const { data, forceReload } = useEnergyView(period, anchor);
+  const { data, error, reload, forceReload } = useEnergyView(period, anchor);
   const { data: previous } = useEnergyView(period, stepAnchor(period, anchor, -1));
 
   const currentMonth = startOfLocalMonth(nowMs);
@@ -91,6 +92,8 @@ export function BillTab({ nowMs, todayStartMs }: BillTabProps) {
         onForceReload={forceReload}
         options={OPTIONS}
       />
+
+      {!data && <StatsState error={error} onRetry={reload} />}
 
       {bill && data && (
         <div className='plan-card ev-billhead'>

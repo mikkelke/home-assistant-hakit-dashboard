@@ -9,6 +9,7 @@ import { useRoomResolver } from '../../energy/useRoomResolver';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { PeriodPicker } from './PeriodPicker';
 import { RoomSheet } from './RoomSheet';
+import { StatsState } from './StatsState';
 
 interface RoomsTabProps {
   period: Period;
@@ -42,7 +43,7 @@ export function RoomsTab({ period, anchorStartMs, todayStartMs, nextStepDisabled
   const [metric, setMetric] = useState<Metric>('kwh');
   const [openKey, setOpenKey] = useState<string | null>(null);
   const { config } = useEnergyConfig();
-  const { data, forceReload: viewForceReload } = useEnergyView(period, anchorStartMs);
+  const { data, error, reload, forceReload: viewForceReload } = useEnergyView(period, anchorStartMs);
   const devicesState = useEnergyDevices(period, anchorStartMs, data);
   const { live, powerByStatId } = useLivePower(config);
   const { areaOf, areas } = useRoomResolver();
@@ -57,7 +58,7 @@ export function RoomsTab({ period, anchorStartMs, todayStartMs, nextStepDisabled
 
   const view = useMemo(
     () =>
-      config
+      config && devicesState.data
         ? groupRooms({
             prefs: config.devices,
             areaOf,
@@ -102,48 +103,54 @@ export function RoomsTab({ period, anchorStartMs, todayStartMs, nextStepDisabled
         }}
       />
 
-      <div className='plan-hero'>
-        <div className='plan-hero-main'>
-          <span className='plan-hero-label'>
-            Biggest {metric === 'w' ? 'right now' : PERIOD_WORD[period]}
-            {devicesState.refreshing && <i className='ev-live-dot ev-updating' aria-label='updating' />}
-          </span>
-          <span className='plan-hero-num ev-hero-name'>{biggest ? biggest.name : '—'}</span>
-          {biggest && (
-            <span className='plan-chips'>
-              <span className='plan-chip plan-chip--sky'>
-                <Icon icon='mdi:flash-outline' aria-hidden='true' />
-                {metric === 'w' ? w(biggest.watts ?? 0) : `${krValue(biggest.kWh, 1)} kWh`}
-                {metric !== 'w' && gridKWh > 0 && ` · ${Math.round((biggest.kWh / gridKWh) * 100)} %`}
-              </span>
-              {metric !== 'w' && biggest.costKr != null && <span className='plan-chip plan-chip--ghost'>{krValue(biggest.costKr)} kr</span>}
-            </span>
-          )}
-        </div>
-        <div className='plan-hero-side'>
-          <span className='plan-toggle' role='group' aria-label='Sort by'>
-            {METRICS.map(option => (
-              <button
-                key={option.value}
-                type='button'
-                aria-pressed={metric === option.value}
-                className={metric === option.value ? 'plan-toggle-on' : ''}
-                onClick={() => setMetric(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </span>
-          {config && (
-            <span className='plan-chip plan-chip--ghost'>
-              <Icon icon='mdi:check' aria-hidden='true' />
-              {config.devices.length} sensors{trackedPct != null ? ` · ${trackedPct} %` : ''}
-            </span>
-          )}
-        </div>
-      </div>
+      {!data && <StatsState error={error} onRetry={reload} />}
 
-      {devicesState.error && !devicesState.data && (
+      {data && (
+        <div className='plan-hero'>
+          <div className='plan-hero-main'>
+            <span className='plan-hero-label'>
+              Biggest {metric === 'w' ? 'right now' : PERIOD_WORD[period]}
+              {devicesState.refreshing && <i className='ev-live-dot ev-updating' aria-label='updating' />}
+            </span>
+            <span className='plan-hero-num ev-hero-name'>{biggest ? biggest.name : '—'}</span>
+            {biggest && (
+              <span className='plan-chips'>
+                <span className='plan-chip plan-chip--sky'>
+                  <Icon icon='mdi:flash-outline' aria-hidden='true' />
+                  {metric === 'w' ? w(biggest.watts ?? 0) : `${krValue(biggest.kWh, 1)} kWh`}
+                  {metric !== 'w' && gridKWh > 0 && ` · ${Math.round((biggest.kWh / gridKWh) * 100)} %`}
+                </span>
+                {metric !== 'w' && biggest.costKr != null && (
+                  <span className='plan-chip plan-chip--ghost'>{krValue(biggest.costKr)} kr</span>
+                )}
+              </span>
+            )}
+          </div>
+          <div className='plan-hero-side'>
+            <span className='plan-toggle' role='group' aria-label='Sort by'>
+              {METRICS.map(option => (
+                <button
+                  key={option.value}
+                  type='button'
+                  aria-pressed={metric === option.value}
+                  className={metric === option.value ? 'plan-toggle-on' : ''}
+                  onClick={() => setMetric(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </span>
+            {config && (
+              <span className='plan-chip plan-chip--ghost'>
+                <Icon icon='mdi:check' aria-hidden='true' />
+                {config.devices.length} sensors{trackedPct != null ? ` · ${trackedPct} %` : ''}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {data && devicesState.error && !devicesState.data && (
         <div className='energy-page-state-error'>
           <p>{devicesState.error}</p>
           <button type='button' onClick={devicesState.reload}>
@@ -152,36 +159,38 @@ export function RoomsTab({ period, anchorStartMs, todayStartMs, nextStepDisabled
         </div>
       )}
 
-      <div className='plan-card ev-list'>
-        {rooms.map(room => (
-          <button key={room.key || 'none'} type='button' className='ev-rrow' onClick={() => setOpenKey(room.key)}>
-            <RoomRowBody room={room} metric={metric} max={max} />
-            <Icon icon='mdi:chevron-right' className='plan-dim' aria-hidden='true' />
-          </button>
-        ))}
-        {untracked && (
-          <div className='ev-rrow'>
-            <RoomRowBody
-              room={{
-                key: 'untracked',
-                name: 'Untracked',
-                icon: 'mdi:dots-horizontal',
-                watts: untracked.watts,
-                kWh: untracked.kWh ?? 0,
-                costKr: untracked.costKr,
-                top: null,
-                running: false,
-                devices: [],
-              }}
-              metric={metric}
-              max={max}
-              untracked
-            />
-            <Icon icon='mdi:chevron-right' className='plan-dim ev-hidden' aria-hidden='true' />
-          </div>
-        )}
-        {rooms.length === 0 && <div className='energy-chart-skeleton ev-list-skeleton' aria-hidden='true' />}
-      </div>
+      {data && (
+        <div className='plan-card ev-list'>
+          {rooms.map(room => (
+            <button key={room.key || 'none'} type='button' className='ev-rrow' onClick={() => setOpenKey(room.key)}>
+              <RoomRowBody room={room} metric={metric} max={max} />
+              <Icon icon='mdi:chevron-right' className='plan-dim' aria-hidden='true' />
+            </button>
+          ))}
+          {untracked && (
+            <div className='ev-rrow'>
+              <RoomRowBody
+                room={{
+                  key: 'untracked',
+                  name: 'Untracked',
+                  icon: 'mdi:dots-horizontal',
+                  watts: untracked.watts,
+                  kWh: untracked.kWh ?? 0,
+                  costKr: untracked.costKr,
+                  top: null,
+                  running: false,
+                  devices: [],
+                }}
+                metric={metric}
+                max={max}
+                untracked
+              />
+              <Icon icon='mdi:chevron-right' className='plan-dim ev-hidden' aria-hidden='true' />
+            </div>
+          )}
+          {!view && !devicesState.error && <div className='energy-chart-skeleton ev-list-skeleton' aria-hidden='true' />}
+        </div>
+      )}
 
       {open && data && (
         <RoomSheet
