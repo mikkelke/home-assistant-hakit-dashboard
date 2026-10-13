@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { PLAN_APPLIANCES, PLAN_TICK_MS, RUN_PROFILES_ENTITY_ID, type DoneByHour, type PlanApplianceKey } from '../config/plan';
+import {
+  CHEAPEST_BLOCK_HOURS,
+  PLAN_APPLIANCES,
+  PLAN_TICK_MS,
+  RUN_PROFILES_ENTITY_ID,
+  type DoneByHour,
+  type PlanApplianceKey,
+} from '../config/plan';
 import { useTrackedEntities } from '../hooks/useTrackedEntities';
 import { assembleAppliancePlan, readApplianceRun, type AppliancePlan } from './appliancePlan';
 import type { PricePointMs } from './priceAdvice';
 import { buildHourlyPrices } from './priceTimeline';
 import { parseRunProfiles } from './runProfiles';
+import { cheapestBlock, type PriceBlock } from './startPlan';
 import { useEnergyConfig } from './useEnergyConfig';
 import { parseRawPoints } from './useEnergyView';
 
@@ -14,6 +22,8 @@ export interface UseAppliancePlansResult {
   nowMs: number;
   /** Every known hour, elapsed ones included. */
   timeline: PricePointMs[];
+  /** Cheapest `CHEAPEST_BLOCK_HOURS` consecutive hours from the current hour on. */
+  cheapest: PriceBlock | null;
   /** Why no profiles are available (entity missing or malformed); null when they are. */
   profilesError: string | null;
   appliances: AppliancePlan[];
@@ -65,5 +75,7 @@ export function useAppliancePlans(selection: AppliancePlanSelection = {}): UseAp
     );
   }, [entities, parsed, timeline, nowMs, selectionKey]);
 
-  return { nowMs, timeline, profilesError: parsed.ok ? null : parsed.error, appliances };
+  const cheapest = useMemo(() => cheapestBlock(timeline, CHEAPEST_BLOCK_HOURS, nowMs), [timeline, nowMs]);
+
+  return { nowMs, timeline, cheapest, profilesError: parsed.ok ? null : parsed.error, appliances };
 }

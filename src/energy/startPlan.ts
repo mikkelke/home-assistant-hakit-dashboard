@@ -88,6 +88,7 @@ export interface PlanChoice {
   startMs: number;
   doneMs: number;
   costKr: number;
+  /** Some press in the window prices an hour from the forecast. */
   estimated: boolean;
 }
 
@@ -181,7 +182,7 @@ export function planStart(programme: PlanProgramme, timeline: readonly PricePoin
     startMs,
     doneMs: completionMs(programme, startMs),
     costKr: ref.kr,
-    estimated: ref.estimated,
+    estimated: row.slice(first, last + 1).some(c => c?.estimated),
   };
   const savingKr = noDelay && passesSavingRule(noDelay.kr, ref.kr) ? noDelay.kr - ref.kr : null;
   return { pressFromMs, noDelay, plan, savingKr, doneByMissed, pricedUntilMs };
