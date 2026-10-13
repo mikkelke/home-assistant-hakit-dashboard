@@ -303,6 +303,10 @@ button.plan-approw:active {
   text-decoration-thickness: 1.5px;
 }
 
+.plan-aprice small {
+  font-size: 11px;
+}
+
 .plan-aprice b {
   color: var(--band-cheap);
 }
@@ -339,6 +343,13 @@ button.plan-approw:active {
 
 .plan-label--band {
   fill: var(--band-color);
+}
+
+.plan-label--halo {
+  paint-order: stroke;
+  stroke: #1c1c1e;
+  stroke-width: 3px;
+  stroke-linejoin: round;
 }
 
 .plan-label--cap {
@@ -463,13 +474,14 @@ button.plan-approw:active {
   flex-direction: column;
   gap: 2px;
   padding: 10px 12px;
+  border: 1.5px solid transparent;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.05);
 }
 
 .plan-cmp-t--best {
   background: rgba(52, 211, 153, 0.1);
-  outline: 1.5px solid rgba(52, 211, 153, 0.45);
+  border-color: rgba(52, 211, 153, 0.45);
 }
 
 .plan-k {

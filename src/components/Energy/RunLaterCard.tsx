@@ -38,6 +38,7 @@ export function RunLaterCard({ appliance, onOpen }: RunLaterCardProps) {
               ) : (
                 <span>{krValue(choice.costKr)} kr</span>
               )}
+              {choice.estimated && <small className='plan-dim'>est.</small>}
             </span>
           )}
         </span>
@@ -75,7 +76,6 @@ export function RunLaterCard({ appliance, onOpen }: RunLaterCardProps) {
               {chips.press}
             </span>
           )}
-          {!busy && choice?.estimated && <span className='plan-chip plan-chip--tiny plan-chip--ghost'>est.</span>}
         </span>
       </span>
       {saving != null ? (

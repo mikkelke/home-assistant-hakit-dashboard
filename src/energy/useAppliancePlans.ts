@@ -1,19 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  CHEAPEST_BLOCK_HOURS,
-  PLAN_APPLIANCES,
-  PLAN_TICK_MS,
-  RUN_PROFILES_ENTITY_ID,
-  type DoneByHour,
-  type PlanApplianceKey,
-} from '../config/plan';
+import { PLAN_APPLIANCES, PLAN_TICK_MS, RUN_PROFILES_ENTITY_ID, type DoneByHour, type PlanApplianceKey } from '../config/plan';
 import { useTrackedEntities } from '../hooks/useTrackedEntities';
 import { assembleAppliancePlan, readApplianceRun, type AppliancePlan } from './appliancePlan';
 import type { PricePointMs } from './priceTimeline';
-import { peakHoursFromTariffs } from './planView';
+import { cheapestAhead, peakHoursFromTariffs } from './planView';
 import { buildHourlyPrices } from './priceTimeline';
 import { parseRunProfiles } from './runProfiles';
-import { cheapestBlock, type PriceBlock } from './startPlan';
+import type { PriceBlock } from './startPlan';
 import { useEnergyConfig } from './useEnergyConfig';
 import { parseRawPoints } from './useEnergyView';
 
@@ -23,7 +16,7 @@ export interface UseAppliancePlansResult {
   nowMs: number;
   /** Every known hour, elapsed ones included. */
   timeline: PricePointMs[];
-  /** Cheapest `CHEAPEST_BLOCK_HOURS` consecutive hours from the current hour on. */
+  /** Cheapest `CHEAPEST_BLOCK_HOURS` consecutive hours from the current hour until the end of tomorrow. */
   cheapest: PriceBlock | null;
   /** Tomorrow's day-ahead prices are published (until then tomorrow comes from the forecast). */
   tomorrowValid: boolean;
@@ -84,7 +77,7 @@ export function useAppliancePlans(selection: AppliancePlanSelection = {}): UseAp
     );
   }, [entities, parsed, timeline, nowMs, selectionKey]);
 
-  const cheapest = useMemo(() => cheapestBlock(timeline, CHEAPEST_BLOCK_HOURS, nowMs), [timeline, nowMs]);
+  const cheapest = useMemo(() => cheapestAhead(timeline, nowMs), [timeline, nowMs]);
 
   return { nowMs, timeline, cheapest, tomorrowValid, peakHours, profilesError: parsed.ok ? null : parsed.error, appliances };
 }

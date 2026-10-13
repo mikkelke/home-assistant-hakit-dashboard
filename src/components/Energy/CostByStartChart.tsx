@@ -7,12 +7,14 @@ import type { CostCurve, PlanChoice } from '../../energy/startPlan';
 interface CostByStartChartProps {
   curve: CostCurve;
   plan: PlanChoice | null;
+  /** Label of the curve's first start: "now", or the clock time the machine frees up. */
+  startLabel: string;
   /** Done-by clock label, when one is set. */
   doneByLabel: string | null;
 }
 
 const HOUR_MS = 3_600_000;
-const W = 352;
+const W = 300;
 const H = 122;
 const TOP = 26;
 const BOTTOM = 92;
@@ -23,7 +25,7 @@ const AXIS_Y = 118;
  * curve. Dots under the bars are the starts the delay knob reaches when pressed now; the plan's
  * start is ringed. Hatched starts lean on forecast prices; starts that would miss done-by are
  * shaded. */
-export function CostByStartChart({ curve, plan, doneByLabel }: CostByStartChartProps) {
+export function CostByStartChart({ curve, plan, startLabel, doneByLabel }: CostByStartChartProps) {
   const hatchId = useId();
   const { points, knobs } = curve;
   const priced = points.filter(p => p.costKr != null);
@@ -39,17 +41,38 @@ export function CostByStartChart({ curve, plan, doneByLabel }: CostByStartChartP
   const y = (kr: number) => BOTTOM - ((kr - min) / range) * (BOTTOM - TOP);
   const bands = rankBands(points.map(p => p.costKr));
 
+  // Neighbouring starts with the same band and source share one step-shaped path, so the area has
+  // no hairline seams between bars.
+  const runs: Array<{ from: number; band: string; estimated: boolean; d: string }> = [];
+  let i = 0;
+  while (i < points.length) {
+    const p = points[i];
+    if (p.costKr == null) {
+      i++;
+      continue;
+    }
+    const from = i;
+    const base = y(0);
+    let d = `M ${i * slotW} ${base}`;
+    while (i < points.length && points[i].costKr != null && bands[i] === bands[from] && points[i].estimated === p.estimated) {
+      const top = Math.min(y(points[i].costKr as number), base - 2);
+      d += ` V ${top} H ${(i + 1) * slotW}`;
+      i++;
+    }
+    runs.push({ from, band: bands[from], estimated: p.estimated, d: `${d} V ${base} Z` });
+  }
+
   const firstLate = points.find(p => p.tooLate);
   const lateX = firstLate ? x(firstLate.startMs) : null;
   const planX = plan ? x(plan.startMs) : null;
   const planY = plan ? y(plan.costKr) : null;
 
-  const axis: Array<{ x: number; text: string }> = [{ x: 0, text: 'now' }];
+  const axis: Array<{ x: number; text: string }> = [{ x: 0, text: startLabel }];
   for (let ms = Math.ceil(fromMs / HOUR_MS) * HOUR_MS; ms < fromMs + spanMs; ms += HOUR_MS) {
     const hour = homeWallTime(ms).hour;
     if (hour % 4 !== 2) continue;
     const lx = x(ms);
-    if (lx - axis[axis.length - 1].x < 30 || lx > W - 8) continue;
+    if (lx - axis[axis.length - 1].x < (axis.length === 1 ? 26 + startLabel.length * 4 : 30) || lx > W - 8) continue;
     axis.push({ x: lx, text: String(hour).padStart(2, '0') });
   }
 
@@ -62,17 +85,12 @@ export function CostByStartChart({ curve, plan, doneByLabel }: CostByStartChartP
         </pattern>
       </defs>
 
-      {points.map((p, i) => {
-        if (p.costKr == null) return null;
-        const top = Math.min(y(p.costKr), y(0) - 2);
-        const height = Math.max(2, Math.abs(y(p.costKr) - y(0)));
-        return (
-          <g key={p.startMs} className={`band--${bands[i]}`}>
-            <rect x={i * slotW} y={top} width={slotW + 0.2} height={height} className='plan-cost-bar' />
-            {p.estimated && <rect x={i * slotW} y={top} width={slotW + 0.2} height={height} fill={`url(#${hatchId})`} />}
-          </g>
-        );
-      })}
+      {runs.map(run => (
+        <g key={run.from} className={`band--${run.band}`}>
+          <path d={run.d} className='plan-cost-bar' />
+          {run.estimated && <path d={run.d} fill={`url(#${hatchId})`} />}
+        </g>
+      ))}
 
       {lateX != null && (
         <g>
@@ -91,7 +109,7 @@ export function CostByStartChart({ curve, plan, doneByLabel }: CostByStartChartP
       )}
 
       {first.costKr != null && (
-        <text x={0} y={Math.max(14, y(first.costKr) - 6)} className='plan-label plan-label--bold plan-label--strong'>
+        <text x={0} y={Math.max(14, y(first.costKr) - 6)} className='plan-label plan-label--bold plan-label--strong plan-label--halo'>
           {krValue(first.costKr)}
         </text>
       )}
@@ -104,7 +122,7 @@ export function CostByStartChart({ curve, plan, doneByLabel }: CostByStartChartP
             x={Math.min(W - 16, Math.max(16, planX))}
             y={Math.max(14, planY - 6)}
             textAnchor='middle'
-            className='plan-label plan-label--bold plan-label--band'
+            className='plan-label plan-label--bold plan-label--band plan-label--halo'
           >
             {krValue(plan.costKr)}
           </text>

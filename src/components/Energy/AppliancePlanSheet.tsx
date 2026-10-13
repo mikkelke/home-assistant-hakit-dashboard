@@ -4,7 +4,6 @@ import { DONE_BY_HOURS, type DoneByHour } from '../../config/plan';
 import { assembleAppliancePlan, type AppliancePlan } from '../../energy/appliancePlan';
 import { formatHomeClock } from '../../energy/homeTime';
 import { durationLabel, krValue, pressChips, programmeLabel } from '../../energy/planView';
-import { bandAt, type BandedPricePoint } from '../../energy/priceBands';
 import type { PricePointMs } from '../../energy/priceTimeline';
 import { costCurve } from '../../energy/startPlan';
 import { ApplianceSheet } from '../Appliance';
@@ -14,7 +13,6 @@ interface AppliancePlanSheetProps {
   /** The appliance's plan as the Run later card shows it; the sheet re-plans for its own choices. */
   appliance: AppliancePlan;
   timeline: readonly PricePointMs[];
-  banded: readonly BandedPricePoint[];
   nowMs: number;
   onClose: () => void;
 }
@@ -26,7 +24,7 @@ const DONE_BY_OPTIONS: Array<{ value: DoneByHour; label: string }> = [
 
 /** One appliance's start plan: programme, start now against the plan, the press window, cost by
  * start time over the next 24 hours, and a done-by limit. */
-export function AppliancePlanSheet({ appliance, timeline, banded, nowMs, onClose }: AppliancePlanSheetProps) {
+export function AppliancePlanSheet({ appliance, timeline, nowMs, onClose }: AppliancePlanSheetProps) {
   const [programmeKey, setProgrammeKey] = useState<string | null>(appliance.programme?.key ?? null);
   const [doneBy, setDoneBy] = useState<DoneByHour>(null);
 
@@ -111,7 +109,7 @@ export function AppliancePlanSheet({ appliance, timeline, banded, nowMs, onClose
           <div className='plan-cmp'>
             <div className={`plan-cmp-t ${showPlanTile ? '' : 'plan-cmp-t--best'}`}>
               <span className='plan-k'>{pressLater ? `Start ${formatHomeClock(plan.pressFromMs)}` : 'Start now'}</span>
-              <span className={`plan-cmp-v band--${bandAt(banded, plan.pressFromMs)}`}>
+              <span className='plan-cmp-v'>
                 {plan.noDelay ? krValue(plan.noDelay.kr) : '—'}
                 <small> kr</small>
               </span>
@@ -166,7 +164,12 @@ export function AppliancePlanSheet({ appliance, timeline, banded, nowMs, onClose
               {plan.savingKr != null && <span className='plan-chip plan-chip--band band--cheap'>save {krValue(plan.savingKr)} kr</span>}
             </div>
             <div className='plan-card plan-card--chart plan-card--inset'>
-              <CostByStartChart curve={curve} plan={choice} doneByLabel={doneBy == null ? null : doneByLabel} />
+              <CostByStartChart
+                curve={curve}
+                plan={choice}
+                startLabel={pressLater ? formatHomeClock(plan.pressFromMs) : 'now'}
+                doneByLabel={doneBy == null ? null : doneByLabel}
+              />
             </div>
           </>
         )}

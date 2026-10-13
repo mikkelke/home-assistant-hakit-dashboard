@@ -1,6 +1,8 @@
 /** Display helpers for the Energy page's Plan tab. Pure; all times are epoch ms, read in home time. */
 import { homeDayStartMs, homeWallTime, nextHomeDayStartMs } from './homeTime';
+import { CHEAPEST_BLOCK_HOURS } from '../config/plan';
 import type { PricePointMs } from './priceTimeline';
+import { cheapestBlock, type PriceBlock } from './startPlan';
 
 const HOUR_MS = 3_600_000;
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -157,4 +159,15 @@ export function pressChips(
     knob: plan.knobMin > 0 ? `set knob ${knobLabel(plan.knobMin)}` : null,
     press,
   };
+}
+
+/** The cheapest `CHEAPEST_BLOCK_HOURS` consecutive hours from the current hour until the end of
+ * tomorrow in home time: the stretch the price chart shows and a delay knob can reach. */
+export function cheapestAhead(timeline: readonly PricePointMs[], nowMs: number): PriceBlock | null {
+  const horizonEndMs = nextHomeDayStartMs(nextHomeDayStartMs(nowMs));
+  return cheapestBlock(
+    timeline.filter(point => point.ms < horizonEndMs),
+    CHEAPEST_BLOCK_HOURS,
+    nowMs
+  );
 }

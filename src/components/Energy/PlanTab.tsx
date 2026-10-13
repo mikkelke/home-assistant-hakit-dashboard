@@ -79,9 +79,7 @@ export function PlanTab() {
 
       <WeekAhead timeline={timeline} nowMs={nowMs} />
 
-      {open && open.programme && (
-        <AppliancePlanSheet appliance={open} timeline={timeline} banded={banded} nowMs={nowMs} onClose={() => setOpenKey(null)} />
-      )}
+      {open && open.programme && <AppliancePlanSheet appliance={open} timeline={timeline} nowMs={nowMs} onClose={() => setOpenKey(null)} />}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { formatHomeClock } from '../homeTime';
 import {
+  cheapestAhead,
   dailyOutlook,
   durationLabel,
   knobLabel,
@@ -70,6 +71,26 @@ describe('dailyOutlook', () => {
     expect(days[0].maxPrice).toBeCloseTo(3.3);
     expect(days[1]).toMatchObject({ dayStartMs: start + 24 * HOUR_MS, meanPrice: 2, estimated: true });
     expect(dailyOutlook(timeline, start, 1)).toHaveLength(1);
+  });
+});
+
+describe('cheapestAhead', () => {
+  it('stops at the end of tomorrow even when the forecast reaches further', () => {
+    const today = home(2026, 10, 13);
+    const timeline = [
+      ...hourly(
+        today,
+        Array.from({ length: 48 }, (_, h) => 2 + (h % 24) / 10)
+      ),
+      ...hourly(
+        today + 48 * HOUR_MS,
+        Array.from({ length: 24 }, () => 0.5),
+        true
+      ),
+    ];
+    const block = cheapestAhead(timeline, home(2026, 10, 13, 14, 20));
+    expect(block?.startMs).toBe(home(2026, 10, 14));
+    expect(block?.estimated).toBe(false);
   });
 });
 
