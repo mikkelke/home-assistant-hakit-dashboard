@@ -71,7 +71,7 @@ export interface HourPrice {
 }
 
 /** Cheapest and priciest hour among hourly price statistics rows starting in [startMs, endMs), by
- * their `state`; ties keep the earliest. Null without a usable row. */
+ * their `state`; ties keep the first row (HA returns rows in time order). Null without a usable row. */
 export function hourPriceExtremes(
   rows: readonly StatisticValue[],
   startMs: number,
@@ -82,8 +82,8 @@ export function hourPriceExtremes(
   for (const row of rows) {
     if (row.start < startMs || row.start >= endMs || !isPlanPrice(row.state)) continue;
     const hour = { startMs: row.start, price: row.state };
-    if (!min || hour.price < min.price || (hour.price === min.price && hour.startMs < min.startMs)) min = hour;
-    if (!max || hour.price > max.price || (hour.price === max.price && hour.startMs < max.startMs)) max = hour;
+    if (!min || hour.price < min.price) min = hour;
+    if (!max || hour.price > max.price) max = hour;
   }
   return min && max ? { min, max } : null;
 }

@@ -54,17 +54,7 @@ export function BillTab({ nowMs, todayStartMs }: BillTabProps) {
   const previousBill = useMemo(() => (previous ? assembleBill(previous, nowMs) : null), [previous, nowMs]);
   const stats = useMemo(() => (data ? assembleBillPriceStats(data) : null), [data]);
   const hours = useMonthHourPrices(period === 'month' ? anchor : null, nowMs);
-  const [low, high] = hours
-    ? [
-        { bucket: 'hour' as const, ...hours.min },
-        { bucket: 'hour' as const, ...hours.max },
-      ]
-    : stats
-      ? [
-          { bucket: stats.bucket, ...stats.min },
-          { bucket: stats.bucket, ...stats.max },
-        ]
-      : [null, null];
+  const spread = stats && (hours ? { bucket: 'hour' as const, ...hours } : stats);
   const history = useMemo(() => {
     const bars = [...(firstYear?.bars ?? []), ...(thisYear && thisYear !== firstYear ? thisYear.bars : [])];
     return bars.length > 0 ? billHistory(bars, nowMs) : [];
@@ -110,7 +100,11 @@ export function BillTab({ nowMs, todayStartMs }: BillTabProps) {
         label={period === 'month' ? `${name} ${anchorYear}` : name}
       />
 
-      {!data && <StatsState error={error} onRetry={reload} />}
+      {!data && (
+        <div className='plan-card plan-card--chart'>
+          <StatsState error={error} onRetry={reload} />
+        </div>
+      )}
 
       {bill && data && (
         <div className='plan-card ev-billhead'>
@@ -191,12 +185,12 @@ export function BillTab({ nowMs, todayStartMs }: BillTabProps) {
         </>
       )}
 
-      {stats && low && high && (
+      {stats && spread && (
         <div className='ev-grid3'>
           <div className='ev-stat'>
-            <small>Cheapest {low.bucket}</small>
-            <b className='band--cheap'>{krValue(low.price)}</b>
-            <span>{whenLabel(low.bucket, low.startMs)}</span>
+            <small>Cheapest {spread.bucket}</small>
+            <b className='band--cheap'>{krValue(spread.min.price)}</b>
+            <span>{whenLabel(spread.bucket, spread.min.startMs)}</span>
           </div>
           <div className='ev-stat'>
             <small>You paid</small>
@@ -204,9 +198,9 @@ export function BillTab({ nowMs, todayStartMs }: BillTabProps) {
             <span>kr/kWh avg</span>
           </div>
           <div className='ev-stat'>
-            <small>Priciest {high.bucket}</small>
-            <b className='band--expensive'>{krValue(high.price)}</b>
-            <span>{whenLabel(high.bucket, high.startMs)}</span>
+            <small>Priciest {spread.bucket}</small>
+            <b className='band--expensive'>{krValue(spread.max.price)}</b>
+            <span>{whenLabel(spread.bucket, spread.max.startMs)}</span>
           </div>
         </div>
       )}

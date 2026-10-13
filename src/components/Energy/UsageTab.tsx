@@ -9,6 +9,7 @@ import { formatHomeClock } from '../../energy/homeTime';
 import { EnergyChart } from './EnergyChart';
 import { HourSheet } from './HourSheet';
 import { PeriodPicker } from './PeriodPicker';
+import { StatsState } from './StatsState';
 import { UsageClock } from './UsageClock';
 import { WeekCompare } from './WeekCompare';
 import './UsageTab.css';
@@ -153,15 +154,7 @@ export function UsageTab({
       </div>
 
       <div className='plan-card plan-card--chart'>
-        {loading && !data && <div className='energy-chart-skeleton' aria-hidden='true' />}
-        {!loading && error && !data && (
-          <div className='energy-page-state-error'>
-            <p>{error}</p>
-            <button type='button' onClick={reload}>
-              Try again
-            </button>
-          </div>
-        )}
+        {!data && <StatsState error={loading ? null : error} onRetry={reload} />}
         {data &&
           (isDay && clock ? (
             <UsageClock

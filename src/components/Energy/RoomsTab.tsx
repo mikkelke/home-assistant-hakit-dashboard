@@ -103,7 +103,11 @@ export function RoomsTab({ period, anchorStartMs, todayStartMs, nextStepDisabled
         }}
       />
 
-      {!data && <StatsState error={error} onRetry={reload} />}
+      {!data && (
+        <div className='plan-card plan-card--chart'>
+          <StatsState error={error} onRetry={reload} />
+        </div>
+      )}
 
       {data && (
         <div className='plan-hero'>
@@ -150,14 +154,7 @@ export function RoomsTab({ period, anchorStartMs, todayStartMs, nextStepDisabled
         </div>
       )}
 
-      {data && devicesState.error && !devicesState.data && (
-        <div className='energy-page-state-error'>
-          <p>{devicesState.error}</p>
-          <button type='button' onClick={devicesState.reload}>
-            Try again
-          </button>
-        </div>
-      )}
+      {data && devicesState.error && !devicesState.data && <StatsState error={devicesState.error} onRetry={devicesState.reload} />}
 
       {data && (
         <div className='plan-card ev-list'>
