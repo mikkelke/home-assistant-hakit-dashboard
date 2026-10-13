@@ -1,6 +1,7 @@
 /** The `sensor.house_events` feed (AppDaemon HouseEvents): its rows, who may see each, the kind a
  * row's icon names, and the episodes rows of one cause make together. Pure. */
 import type { NowFocusKind } from '../utils/navigation';
+import type { NowCandidate } from './nowResolve';
 
 /** One feed row. `cause` and `effect` are set together or not at all. */
 export interface HouseEvent {
@@ -154,4 +155,9 @@ export function houseEpisodes(events: readonly HouseEvent[]): HouseEpisode[] {
     if (row.cause != null) openByCause.set(row.cause, episode);
   }
   return episodes.reverse();
+}
+
+/** Every row of every episode as a resolver candidate, at the row's own time and kind. */
+export function episodeCandidates(episodes: readonly HouseEpisode[]): NowCandidate[] {
+  return episodes.flatMap(episode => episode.rows.map(row => ({ id: episode.id, kind: houseEventKind(row), atMs: row.tsMs, live: false })));
 }
