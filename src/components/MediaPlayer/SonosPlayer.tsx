@@ -10,6 +10,7 @@ import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '
 import { hapticTick } from '../../utils/haptics';
 import { useLocalStorageBoolean, useLongPress, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
 import { VolumeStrip } from './VolumeStrip';
+import { isUnsettled, runningVolume, sendVolume, type SentVolume } from './sentVolume';
 import './SonosPlayer.css';
 
 type SonosAttributes = {
@@ -74,25 +75,6 @@ const baseEntityId = (id: string): string => (id.endsWith('_2') ? id.slice(0, -2
 
 /** While on, the family-room volume sync stays out of the way. */
 const FAMILY_SYNC_PARTY_ENTITY = 'input_boolean.family_volume_sync_party';
-
-/** A level this card sent for a speaker that HA has not settled on yet. `seen` is every level HA may still report on
- *  the way there (the one before the first send plus each send), which tells an echo of our own writes from something
- *  else moving the speaker. */
-type SentVolume = { value: number; seen: number[] };
-
-/** Levels HA may report for a level sent as volume_level / 100: Music Assistant truncates, so 29 comes back as 28. */
-const reportedLevels = (pct: number): number[] => [pct, Math.trunc((pct / 100) * 100)];
-
-const isUnsettled = (sent: SentVolume | undefined, live: number): sent is SentVolume =>
-  sent !== undefined && sent.seen.includes(live) && !reportedLevels(sent.value).includes(live);
-
-/** Where a speaker is heading while HA still catches up, otherwise where it really is. */
-const runningVolume = (sent: SentVolume | undefined, live: number): number => (isUnsettled(sent, live) ? sent.value : live);
-
-const sendVolume = (sent: SentVolume | undefined, live: number, next: number): SentVolume => ({
-  value: next,
-  seen: [...(isUnsettled(sent, live) ? sent.seen : [live]), ...reportedLevels(next)],
-});
 
 /** pushState/replaceState must keep #room=… or Dashboard hash sync closes the room (iframe / rooftop). */
 function podcastHistoryUrl(): string {
