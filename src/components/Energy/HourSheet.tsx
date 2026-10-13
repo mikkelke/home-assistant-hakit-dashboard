@@ -3,7 +3,7 @@ import type { EnergyBar, EnergyView, Period } from '../../energy';
 import { labelFor } from '../../energy/period';
 import { krValue } from '../../energy/planView';
 import { PRICE_BAND_LABEL, type BandedPricePoint, type PriceBand } from '../../energy/priceBands';
-import { PERIOD_UNIT, priceRank, rankLabel } from '../../energy/usageView';
+import { PERIOD_UNIT, priceRank, rankLabel, sameHourYesterdayMs } from '../../energy/usageView';
 import { formatClockHour, hourRangeLabel } from '../../utils/format';
 import { ApplianceSheet } from '../Appliance';
 import { slotIndexFor, slotStartMsFor } from './chartGeometry';
@@ -51,8 +51,12 @@ export function HourSheet({ period, view, previous, slotMs, prices, todayStartMs
   const rank = price != null && ranked.length > 1 ? rankLabel(priceRank(ranked, price), ranked.length, PERIOD_UNIT[period]) : '';
   const cheapest = isDay && prices.length > 1 ? prices.reduce((a, b) => (b.price < a.price ? b : a)) : null;
 
-  const index = slotIndexFor(period, view.startMs, slotMs);
-  const previousBar = previous?.bars.find(b => b.startMs === slotStartMsFor(period, previous.startMs, index)) ?? null;
+  const previousMs = isDay
+    ? sameHourYesterdayMs(slotMs)
+    : previous
+      ? slotStartMsFor(period, previous.startMs, slotIndexFor(period, view.startMs, slotMs))
+      : null;
+  const previousBar = previous?.bars.find(b => b.startMs === previousMs) ?? null;
 
   return (
     <ApplianceSheet

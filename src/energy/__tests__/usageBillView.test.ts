@@ -3,7 +3,8 @@ import { assembleBill, fixedFeesForRange } from '../bill';
 import { billHistory, kronerBreakdown, ringFraction } from '../billView';
 import type { EnergyBar, EnergyView } from '../types';
 import { HOME_CALENDAR, isImmutablePeriod, nextDisabled } from '../period';
-import { bandShares, changeVsPrevious, ordinal, priceRank, rankLabel } from '../usageView';
+import { slotIndexFor } from '../../components/Energy/chartGeometry';
+import { bandShares, changeVsPrevious, ordinal, priceRank, rankLabel, sameHourYesterdayMs } from '../usageView';
 import { home } from './testUtils';
 
 const HOUR = 3_600_000;
@@ -121,9 +122,7 @@ describe('bill breakdown (Copenhagen months, phone abroad: tests run in America/
     expect(last.startMs).toBe(october);
     expect(last.projected).toBe(true);
     expect(last.kr).toBeCloseTo(assembleBill(monthView, now).projectedTotalKr!);
-    expect(billHistory(bars, home(2027, 6, 2)).map(m => m.startMs)).toEqual(
-      Array.from({ length: 12 }, (_, i) => home(2026, 7 + i, 1))
-    );
+    expect(billHistory(bars, home(2027, 6, 2)).map(m => m.startMs)).toEqual(Array.from({ length: 12 }, (_, i) => home(2026, 7 + i, 1)));
   });
 });
 
@@ -146,5 +145,22 @@ describe('home calendar (phone in America/Los_Angeles)', () => {
     expect(nextDisabled('month', home(2026, 9, 1), now, HOME_CALENDAR)).toBe(false);
     expect(isImmutablePeriod('month', home(2026, 9, 1), home(2026, 10, 1), now, HOME_CALENDAR)).toBe(false);
     expect(isImmutablePeriod('month', home(2026, 8, 1), home(2026, 9, 1), now, HOME_CALENDAR)).toBe(true);
+  });
+});
+
+describe('same hour yesterday', () => {
+  it('matches the previous home day and wall-clock hour across DST, unlike the elapsed-hour slot', () => {
+    const tapped = home(2026, 3, 29, 3);
+    const elapsedSlot = home(2026, 3, 28) + slotIndexFor('day', home(2026, 3, 29), tapped) * HOUR;
+    expect(elapsedSlot).toBe(home(2026, 3, 28, 2));
+    expect(sameHourYesterdayMs(tapped)).toBe(home(2026, 3, 28, 3));
+    expect(sameHourYesterdayMs(home(2026, 10, 25, 3))).toBe(home(2026, 10, 24, 3));
+    expect(sameHourYesterdayMs(home(2026, 10, 13, 14))).toBe(home(2026, 10, 12, 14));
+  });
+
+  it('takes the first of a repeated hour and has none for a skipped one', () => {
+    expect(sameHourYesterdayMs(home(2026, 10, 26, 2))).toBe(home(2026, 10, 25, 2));
+    expect(sameHourYesterdayMs(home(2026, 10, 25, 2) + HOUR)).toBe(home(2026, 10, 24, 2));
+    expect(sameHourYesterdayMs(home(2026, 3, 30, 2))).toBeNull();
   });
 });

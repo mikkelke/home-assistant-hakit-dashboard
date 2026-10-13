@@ -1,4 +1,5 @@
 /** Display helpers for the Energy page's Usage tab. Pure. */
+import { homeWallTime, homeWallTimeToMs } from './homeTime';
 import { PRICE_BANDS, type PriceBand } from './priceBands';
 import type { EnergyBar, EnergyView, Period } from './types';
 
@@ -19,6 +20,14 @@ export function rankLabel(rank: number, count: number, unit: string): string {
   if (rank === 1) return `priciest ${unit}`;
   if (rank === count) return `cheapest ${unit}`;
   return `${ordinal(rank)} priciest ${unit}`;
+}
+
+/** Start of the same home-time clock hour on the previous home calendar day: the first one of an
+ * hour the autumn fall-back repeats, null for an hour the spring-forward gap skips. */
+export function sameHourYesterdayMs(hourStartMs: number): number | null {
+  const { year, month, day, hour } = homeWallTime(hourStartMs);
+  const ms = homeWallTimeToMs(year, month, day - 1, hour);
+  return homeWallTime(ms).hour === hour ? ms : null;
 }
 
 export const PERIOD_UNIT: Record<Period, string> = { day: 'hour', week: 'day', month: 'day', year: 'month' };
