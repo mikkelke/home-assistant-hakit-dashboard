@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   isArrivalState,
+  isRoomOverNow,
   leaveNowEntry,
   NOW_ENTRY_KEY,
   nowEntryBelow,
   nowEntryItem,
   pushNowEntry,
+  ROOM_OVER_NOW_KEY,
   settleNowEntry,
   type RouteHistory,
 } from '../nowHistory';
@@ -251,5 +253,11 @@ describe('entry state', () => {
     expect(nowEntryBelow({ [NOW_ENTRY_KEY]: 'grid', root: true })).toBe('grid');
     expect(nowEntryBelow({ [NOW_ENTRY_KEY]: 'other' })).toBe('other');
     for (const state of [null, { root: true }, { [NOW_ENTRY_KEY]: true }, 'grid']) expect(nowEntryBelow(state)).toBeNull();
+  });
+
+  it('knows a room entry pushed over the timeline, also after other keys were merged into it', () => {
+    expect(isRoomOverNow({ room: 'kitchen', [ROOM_OVER_NOW_KEY]: true })).toBe(true);
+    expect(isRoomOverNow({ room: 'kitchen', [ROOM_OVER_NOW_KEY]: true, timeline: null })).toBe(true);
+    for (const state of [null, { room: 'kitchen' }, { [ROOM_OVER_NOW_KEY]: 'true' }, 'room']) expect(isRoomOverNow(state)).toBe(false);
   });
 });

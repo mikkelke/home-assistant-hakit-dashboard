@@ -15,7 +15,16 @@ import {
   type NowFocus,
   type OpenNow,
 } from '../../utils/navigation';
-import { leaveNowEntry, nowEntryItem, pushNowEntry, settleNowEntry, type NowEntryBelow, type NowEntryChange } from '../../utils/nowHistory';
+import {
+  ROOM_OVER_NOW_KEY,
+  isRoomOverNow,
+  leaveNowEntry,
+  nowEntryItem,
+  pushNowEntry,
+  settleNowEntry,
+  type NowEntryBelow,
+  type NowEntryChange,
+} from '../../utils/nowHistory';
 import { onIdle } from '../../utils/idle';
 import type { EnergyTab } from '../Energy/energyTab';
 import { HomeHeader } from '../Home/HomeHeader';
@@ -407,7 +416,8 @@ export function Dashboard() {
   // The first hash this app instance routes on is an arrival (a cold link or an iframe reload); every later
   // one is a navigation.
   const firstSyncRef = useRef(true);
-  // A room opened from the timeline closes back to it.
+  // A room opened from the timeline closes back to it. Mirrors the room entry's state, which keeps it
+  // across Forward and reloads.
   const roomOverNowRef = useRef(false);
 
   // Filter out excluded areas. Memoised on `areas`: a fresh array on every render would give findRoomById and syncStateFromHash a
@@ -523,13 +533,15 @@ export function Dashboard() {
   );
 
   const pushRoomHistory = useCallback(
-    (roomId: string, openClimate?: boolean) => {
+    (roomId: string, openClimate?: boolean, overNow = false) => {
+      roomOverNowRef.current = overNow;
       const targetWindow = getAccessibleHistoryWindow();
       if (!targetWindow) return;
 
       try {
         markHashUpdating();
-        targetWindow.history.pushState({ room: roomId }, '', buildHistoryUrlWithHash(targetWindow, buildRoomHash(roomId, openClimate)));
+        const state = overNow ? { room: roomId, [ROOM_OVER_NOW_KEY]: true } : { room: roomId };
+        targetWindow.history.pushState(state, '', buildHistoryUrlWithHash(targetWindow, buildRoomHash(roomId, openClimate)));
       } catch (err) {
         console.debug('Failed to push room history:', err);
         isUpdatingHashRef.current = false;
@@ -577,7 +589,7 @@ export function Dashboard() {
     const view = parseDashboardHash(targetWindow?.location.hash ?? '');
     const arrival = firstSyncRef.current ? 'load' : 'navigation';
     firstSyncRef.current = false;
-    if (view.kind !== 'room') roomOverNowRef.current = false;
+    roomOverNowRef.current = view.kind === 'room' && isRoomOverNow(targetWindow?.history.state);
 
     if (view.kind === 'now') {
       // The timeline sits over whatever showed when its link arrived; seeding a cold link puts the grid below it.
@@ -813,8 +825,7 @@ export function Dashboard() {
       if (!room) return;
       showNow(null);
       setSelectedRoom(room);
-      pushRoomHistory(room.area_id);
-      roomOverNowRef.current = true;
+      pushRoomHistory(room.area_id, false, true);
     },
     [findRoomById, pushRoomHistory, showNow]
   );
