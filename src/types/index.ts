@@ -53,7 +53,8 @@ export interface RoomCardProps {
 
 export interface RoomDetailProps {
   area: Area;
-  entities: HassEntities;
+  /** Only for the ?*_demo previews; otherwise the panel tracks its own entities. */
+  entities?: HassEntities;
   hassUrl: string | null;
   callService: CallServiceFunction | undefined;
   onClose: () => void;
@@ -67,7 +68,8 @@ export interface RoomDetailProps {
 
 export interface HomePulseProps {
   areas: Area[];
-  entities: HassEntities;
+  /** Only for the ?*_demo previews; otherwise the pulse tracks its own entities. */
+  entities?: HassEntities;
   hassUrl: string | null;
   onRoomSelect?: (areaId: string) => void;
 }

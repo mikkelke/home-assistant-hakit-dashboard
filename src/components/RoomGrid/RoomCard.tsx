@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import type { HassEntities, RoomCardProps } from '../../types';
 import {
   HOUSE_EVENTS_ENTITY,
   KITCHEN_TEMP_SENSOR,
+  OUTDOOR_HUMIDITY_SENSOR,
   OUTDOOR_TEMP_SENSOR,
   WEATHER_ENTITY,
   resolveHallwayDoorSensorId,
@@ -16,17 +17,10 @@ import { readApplianceCycle, type ApplianceCycle } from '../../energy/applianceR
 import { newestEventMs } from '../../home/houseEvents';
 import { HOUSEHOLD, isNightHour } from '../../home/household';
 import { useMotionSlot } from '../../home/motionBudget';
-import {
-  AREA_EXTERIOR_CONTACTS,
-  FROST_BELOW_C,
-  asleepAreaIds,
-  isAreaOpen,
-  roomGlow,
-  roomLightIds,
-  type RoomGlow,
-} from '../../home/roomAmbient';
+import { AREA_EXTERIOR_CONTACTS, FROST_BELOW_C, asleepAreaIds, isAreaOpen, roomGlow, roomLightIds } from '../../home/roomAmbient';
 import { HOME_APPLIANCES, type HomeAppliance } from '../../home/upcoming';
 import { useNowMs } from '../../hooks/useNowMs';
+import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { formatDecimal } from '../../utils/format';
 import { resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { IndicatorWithTimeline } from './IndicatorWithTimeline';
@@ -79,9 +73,14 @@ function formatTemp(temp: string | number): string {
   return value == null ? String(temp) : formatDecimal(value, 1);
 }
 
+/** A glow as one primitive, `"r g b/alpha"`, so a card's selector only re-renders it when the light changes. */
+function glowKey(lights: readonly (HassEntities[string] | undefined)[]): string | null {
+  const glow = roomGlow(lights);
+  return glow ? `${glow.rgb.join(' ')}/${glow.alpha}` : null;
+}
+
 /** Two glow layers: a new colour fades in over the old one instead of jumping. */
-function GlowLayers({ glow }: { glow: RoomGlow | null }) {
-  const key = glow ? `${glow.rgb.join(' ')}/${glow.alpha}` : null;
+function GlowLayers({ glowKey: key }: { glowKey: string | null }) {
   const [layers, setLayers] = useState({ a: key, b: null as string | null, top: 'a' as 'a' | 'b' });
   const shown = layers.top === 'a' ? layers.a : layers.b;
   if (shown !== key) setLayers(prev => (prev.top === 'a' ? { ...prev, b: key, top: 'b' } : { ...prev, a: key, top: 'a' }));
@@ -144,18 +143,18 @@ function elapsedLabel(sinceMs: number, nowMs: number): string | null {
   return minutes < 60 ? `${minutes} m` : `${Math.floor(minutes / 60)} h`;
 }
 
-interface ActiveAppliance {
-  appliance: HomeAppliance;
-  entity: HassEntities[string];
-}
-
 const RING_ORDER: Record<ApplianceCycle['status'], number> = { ready: 0, running: 1, paused: 2, idle: 3 };
 
-/** One ring per card: the appliance that matters most, the other one as a badge. */
-function ApplianceRing({ active, houseAsleep }: { active: ActiveAppliance[]; houseAsleep: boolean }) {
+/** One ring per card: the appliance that matters most, the other one as a badge. Its progress and ETA
+ * change every minute while a cycle runs, so the ring follows them on its own. */
+function ApplianceRing({ appliances, houseAsleep }: { appliances: readonly HomeAppliance[]; houseAsleep: boolean }) {
+  const entities = useTrackedEntities();
   const nowMs = useNowMs();
-  const cycles = active
-    .map(item => ({ ...item, cycle: readApplianceCycle(item.entity, item.appliance.config.etaFormat, nowMs) }))
+  const cycles = appliances
+    .map(appliance => {
+      const entity = entities[appliance.config.stateEntityId];
+      return { appliance, entity, cycle: readApplianceCycle(entity, appliance.config.etaFormat, nowMs) };
+    })
     .filter(item => item.cycle.status !== 'idle')
     .sort((a, b) => RING_ORDER[a.cycle.status] - RING_ORDER[b.cycle.status]);
   const [main, second] = cycles;
@@ -211,7 +210,8 @@ const RIPPLE_MS = 2300;
 /** The hallway's orb turns into a bell when the doorbell rings while the screen is open, and
  * ripples once; without the motion, two still rings stand in for the ripple. */
 function DoorbellRipple() {
-  const ringMs = useHass(s => newestEventMs(s.entities[HOUSE_EVENTS_ENTITY]?.attributes?.events, 'ring'));
+  const feed = useHass(s => s.entities[HOUSE_EVENTS_ENTITY]?.attributes?.events);
+  const ringMs = useMemo(() => newestEventMs(feed, 'ring'), [feed]);
   const [shownSinceMs] = useState(() => Date.now());
   const [ended, setEnded] = useState({ ringMs: null as number | null, still: false, bell: false });
   const fresh = ringMs != null && ringMs > shownSinceMs;
@@ -286,7 +286,7 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
   const isKitchen = areaNameNormalized === 'kitchen';
 
   const getTempSensor = (): string | undefined => {
-    if (isRooftop) return 'sensor.gw2000a_outdoor_temperature';
+    if (isRooftop) return OUTDOOR_TEMP_SENSOR;
     if (isKitchen) return hasReading(entities?.[KITCHEN_TEMP_SENSOR]) ? KITCHEN_TEMP_SENSOR : undefined;
 
     // Try exact sensor.{area}_temperature first - but only if it actually READS. A sensor
@@ -315,6 +315,9 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
   };
   // The feel sensor, when it reads, replaces the raw sensors entirely (see rawTemp below), so skip searching for them.
   const tempSensor = hasFeelTemp ? undefined : getTempSensor();
+  // The roof station reports every few minutes; only the Rooftop card follows it.
+  const roofTemp = useHass(s => (isRooftop ? s.entities[OUTDOOR_TEMP_SENSOR]?.state : undefined));
+  const roofHumidity = useHass(s => (isRooftop ? s.entities[OUTDOOR_HUMIDITY_SENSOR]?.state : undefined));
 
   // Find humidity sensor for this area.
   // Prefer the exact sensor.{area}_humidity; otherwise fall back to a guarded search that
@@ -324,7 +327,7 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
   const humiditySensor = hasFeelTemp
     ? undefined
     : isRooftop
-      ? 'sensor.gw2000a_humidity'
+      ? OUTDOOR_HUMIDITY_SENSOR
       : isKitchen
         ? (resolveKitchenHumiditySensorId(entities) ?? undefined)
         : hasReading(entities?.[exactHumiditySensor])
@@ -351,35 +354,57 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
     ? feelEntity?.state
     : tempSensor === '__climate__'
       ? climateEntity?.attributes?.current_temperature
-      : tempSensor
-        ? entities[tempSensor]?.state
-        : null;
+      : tempSensor === OUTDOOR_TEMP_SENSOR
+        ? roofTemp
+        : tempSensor
+          ? entities[tempSensor]?.state
+          : null;
   const tempIsReadable = hasFeelTemp || typeof rawTemp === 'number' || hasReading({ state: rawTemp as string | undefined });
   const temp = tempIsReadable ? (typeof rawTemp === 'number' ? rawTemp : String(rawTemp)) : null;
-  const rawHumidity = hasFeelTemp ? (hasFeelRh ? Math.round(feelRhNumber) : null) : humiditySensor ? entities[humiditySensor]?.state : null;
+  const rawHumidity = hasFeelTemp
+    ? hasFeelRh
+      ? Math.round(feelRhNumber)
+      : null
+    : humiditySensor === OUTDOOR_HUMIDITY_SENSOR
+      ? roofHumidity
+      : humiditySensor
+        ? entities[humiditySensor]?.state
+        : null;
   const humidity = rawHumidity != null && hasReading({ state: String(rawHumidity) }) ? String(rawHumidity) : null;
 
   // Surfaces: sleep mode, the lights' glow, occupancy, the speaker, appliances and frost.
   const readState = (entityId: string) => entities?.[entityId]?.state;
   const asleep = asleepAreaIds(readState).has(area.area_id);
   const houseAsleep = HOUSEHOLD.some(member => readState(member.sleepModeEntityId) === 'on');
-  const glow = asleep ? null : roomGlow(roomLightIds(area.name).map(read));
+  // Lights, appliance states and the kitchen's cooking power change often; each card selects only what it
+  // shows from them, so a change re-renders that card instead of the whole grid.
+  const lightIds = roomLightIds(area.name);
+  const litKey = useHass(s => (asleep ? null : glowKey(lightIds.map(id => s.entities[id]))));
+  const glowRgb = litKey?.split('/')[0] ?? null;
+  const glowAlpha = litKey ? Number(litKey.split('/')[1]) : 0;
   const isOccupied = entities?.[`binary_sensor.${areaNameNormalized}_active`]?.state === 'on';
   const { entity: mediaPlayer } = resolvePreferredMediaPlayer(entities, `media_player.${areaNameNormalized}`);
   const isMediaPlaying = mediaPlayer?.state === 'playing';
   const isMediaMuted = mediaPlayer?.attributes?.is_volume_muted === true;
-  const activeAppliances: ActiveAppliance[] = HOME_APPLIANCES.filter(appliance => appliance.areaId === area.area_id)
-    .map(appliance => ({ appliance, entity: entities?.[appliance.config.stateEntityId] }))
-    .filter(item => ACTIVE_APPLIANCE_STATES.has(item.entity?.state ?? ''));
+  const roomAppliances = HOME_APPLIANCES.filter(appliance => appliance.areaId === area.area_id);
+  const applianceStates = useHass(s => roomAppliances.map(appliance => s.entities[appliance.config.stateEntityId]?.state ?? '').join('|'));
+  const states = applianceStates.split('|');
+  const activeAppliances = roomAppliances.filter((_, index) => ACTIVE_APPLIANCE_STATES.has(states[index]));
+  const cookingIds = useHass(s =>
+    isKitchen
+      ? COOKING_DEVICES.filter(device => (readingNumber(s.entities[device.entityId]) ?? 0) >= COOKING_W)
+          .map(device => device.entityId)
+          .join(',')
+      : ''
+  );
   const isOpen = isAreaOpen(area.area_id, read);
   // Only while the room is open does the card follow the outdoor temperature, and only as a yes/no.
   const frosty = useHass(s => isOpen && coldOutside(s.entities as HassEntities));
 
   // Exceptions: the few states the card face still names with an icon.
   const exceptions: Exception[] = [];
-  for (const device of isKitchen ? COOKING_DEVICES : []) {
-    const watts = readingNumber(entities?.[device.entityId]);
-    if (watts == null || watts < COOKING_W) continue;
+  for (const device of COOKING_DEVICES) {
+    if (!cookingIds.split(',').includes(device.entityId)) continue;
     exceptions.push({
       key: device.entityId,
       node: (
@@ -515,7 +540,7 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
   const hasRing = activeAppliances.length > 0;
   const cardClass = [
     'room-card',
-    glow ? 'is-lit' : 'is-dark',
+    litKey ? 'is-lit' : 'is-dark',
     asleep ? 'is-asleep' : '',
     frosty ? 'is-frosty' : '',
     isSelected ? 'selected' : '',
@@ -523,15 +548,15 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
     .filter(Boolean)
     .join(' ');
   const cardStyle = {
-    '--oc': glow ? glow.rgb.join(' ') : PLAIN_ORB,
-    '--edge-g': glow ? glow.rgb.join(' ') : PLAIN_ORB,
-    '--edge-ga': glow ? glow.alpha : 0,
+    '--oc': glowRgb ?? PLAIN_ORB,
+    '--edge-g': glowRgb ?? PLAIN_ORB,
+    '--edge-ga': glowAlpha,
     '--ex': hasRing ? exceptions.length : Math.min(1, exceptions.length),
   } as CSSProperties;
 
   return (
     <button className={cardClass} onClick={onClick} style={cardStyle}>
-      <GlowLayers glow={glow} />
+      <GlowLayers glowKey={litKey} />
       {frosty && <i className='room-frost' />}
       {asleep && (
         <>
@@ -591,7 +616,7 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
           ))}
         </span>
       )}
-      {hasRing && <ApplianceRing active={activeAppliances} houseAsleep={houseAsleep} />}
+      {hasRing && <ApplianceRing appliances={activeAppliances} houseAsleep={houseAsleep} />}
       {isOccupied && !asleep && <BreathingEdge />}
     </button>
   );

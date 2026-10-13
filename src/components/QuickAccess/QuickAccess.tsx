@@ -19,7 +19,6 @@ import { RequestSheet, RequestTile, useRequestAccess } from '../Request';
 import './QuickAccess.css';
 
 interface QuickAccessProps {
-  entities: HassEntities;
   hassUrl: string | null;
   callService: CallServiceFunction | undefined;
   /** Opens the #now timeline. */
@@ -156,7 +155,10 @@ function WeatherModalBody({ entityId }: { entityId: string }) {
 // lock STATE display (frontLock/backLock below) are unaffected: only the front command changes.
 const FRONT_DOOR_ABB_BUTTON = 'button.abb_welcome_gateway_outdoor_station_2_1';
 
-export function QuickAccess({ entities, hassUrl, callService, onOpenNow }: QuickAccessProps) {
+/** Its own subscription: the speakers and TVs it watches change often while something plays, and only the
+ * bar and its modals need them. */
+export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProps) {
+  const entities = useTrackedEntities();
   const [openModal, setOpenModal] = useState<ModalType>(null);
   // Frozen at media-modal open: joins/unjoins change coordinators and flicker `playing`,
   // which would otherwise unmount a SonosPlayer (and its open speaker picker) mid-operation.

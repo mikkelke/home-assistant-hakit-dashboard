@@ -18,6 +18,7 @@ import { ROBOT_CLEAN_PREFIX, VACUUM_ENTITY, roomThermostat } from '../../config/
 import { resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { asleepAreaIds, roomGlow, roomLightIds } from '../../home/roomAmbient';
 import { useSwipeToClose } from '../../hooks';
+import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import './RoomDetail.css';
 
 /** hvac_mode values that mean the whole-apartment thermostat isn't calling for heat at all. */
@@ -25,7 +26,7 @@ const HEATING_SEASON_OFF_STATES = new Set(['off', 'unavailable', 'unknown']);
 
 export function RoomDetail({
   area,
-  entities,
+  entities: demoEntities,
   hassUrl,
   callService,
   onClose,
@@ -33,6 +34,10 @@ export function RoomDetail({
   autoOpenClimate,
   onAutoOpenClimateHandled,
 }: RoomDetailProps) {
+  // The panel's own subscription: what it reads (players, thermostats, the roof station) stops counting
+  // for the grid once it closes.
+  const tracked = useTrackedEntities();
+  const entities = demoEntities ?? tracked;
   const areaName = area.name.toLowerCase().replace(/\s+/g, '_');
 
   // Rows remember their open state in localStorage; a closed panel should reopen tidy.

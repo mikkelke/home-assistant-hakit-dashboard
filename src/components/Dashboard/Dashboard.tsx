@@ -834,7 +834,12 @@ export function Dashboard() {
             <HomeHeader entities={displayEntities} hassUrl={hassUrl} onMenu={() => setIsMenuOpen(open => !open)} />
             <PulseRow onOpenEnergy={handleOpenEnergy} onOpenNow={openNow} />
             <HouseTicker onOpenNow={openNow} />
-            <HomePulse areas={areaList} entities={displayEntities} hassUrl={hassUrl} onRoomSelect={handlePulseRoomSelect} />
+            <HomePulse
+              areas={areaList}
+              entities={displayEntities === entities ? undefined : displayEntities}
+              hassUrl={hassUrl}
+              onRoomSelect={handlePulseRoomSelect}
+            />
             <RoomGrid
               areas={areaList}
               entities={displayEntities}
@@ -846,9 +851,7 @@ export function Dashboard() {
           </main>
           {/* Fixed bar at z-index 1000 — would float above the Energy page (z-index 90) and the timeline,
               so it unmounts while either is open. */}
-          {!energyOpen && !nowRoute && (
-            <QuickAccess entities={displayEntities} hassUrl={hassUrl} callService={callService} onOpenNow={openNow} />
-          )}
+          {!energyOpen && !nowRoute && <QuickAccess hassUrl={hassUrl} callService={callService} onOpenNow={openNow} />}
         </div>
 
         {selectedRoom && (
@@ -861,7 +864,7 @@ export function Dashboard() {
               <RoomDetail
                 key={selectedRoom.area_id}
                 area={selectedRoom}
-                entities={displayEntities}
+                entities={displayEntities === entities ? undefined : displayEntities}
                 hassUrl={hassUrl}
                 callService={callService}
                 onClose={handleCloseRoom}

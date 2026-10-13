@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import type { HomePulseProps, PulseChip } from '../../types';
 import { useModalBackButton } from '../../hooks';
+import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { ROBOT_MAPS_PATH, ROBOT_PAUSED_BOOLEAN_ENTITY, ROBOT_PAUSE_REASON_ENTITY } from '../../config/entities';
 import { QUICK_ACCESS_OPEN_EVENT } from '../../config/transit';
 import { deriveHomePulseSummary } from '../../utils/homePulse';
@@ -73,7 +74,10 @@ interface RobotMapEntry {
 // Stuck-diagnostic snapshots are keyed "stuck_…" by the rober2 app (room name varies with the dock location)
 const isStuckMapRoom = (room?: string) => !!room && room.startsWith('stuck');
 
-export function HomePulse({ areas, entities, hassUrl, onRoomSelect }: HomePulseProps) {
+export function HomePulse({ areas, entities: demoEntities, hassUrl, onRoomSelect }: HomePulseProps) {
+  // Appliance sensors update every few seconds while a cycle runs; tracked here, they re-render only this row.
+  const tracked = useTrackedEntities();
+  const entities = demoEntities ?? tracked;
   const summary = useMemo(() => deriveHomePulseSummary(areas, entities), [areas, entities]);
   const robotNeedsAttention = entities?.[ROBOT_PAUSED_BOOLEAN_ENTITY]?.state === 'on';
   const robotPauseReason = (entities?.[ROBOT_PAUSE_REASON_ENTITY]?.state?.trim() as string) || 'Rober2 needs attention';
