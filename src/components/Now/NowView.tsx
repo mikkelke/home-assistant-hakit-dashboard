@@ -294,8 +294,7 @@ export function NowView({ focus, itemId, arrival, onBack, onOpenRoom }: NowViewP
   const hassUrl = useHass(s => s.hassUrl);
   const viewer = useViewer();
   const nowMs = useNowMs();
-  const feedEntity = entities[HOUSE_EVENTS_ENTITY];
-  const feed = feedEntity?.attributes?.events;
+  const feed = entities[HOUSE_EVENTS_ENTITY]?.attributes?.events;
   const episodes = useMemo(() => houseEpisodes(visibleHouseEvents(parseHouseEvents(feed), viewer)), [feed, viewer]);
   const upcoming = useMemo(() => readUpcoming(id => entities[id], nowMs, viewer), [entities, nowMs, viewer]);
   const timeline = useMemo(() => buildNowTimeline(episodes, upcoming), [episodes, upcoming]);
@@ -305,9 +304,10 @@ export function NowView({ focus, itemId, arrival, onBack, onOpenRoom }: NowViewP
     const timer = setTimeout(() => setGaveUp(true), NOW_RESOLVE_GIVE_UP_MS);
     return () => clearTimeout(timer);
   }, []);
-  const settled = gaveUp || (viewer.isAdmin !== null && feedEntity !== undefined);
+  // A hit is kept at once. A miss is not final before the wait is over: the store a warm link finds may
+  // be stale, and the row it names can land a moment after the view opens.
   const candidates = useMemo(() => [...episodeCandidates(episodes), ...upcomingCandidates(upcoming)], [episodes, upcoming]);
-  const liveResolution = resolveNowFocus(focus, candidates, settled, itemId);
+  const liveResolution = resolveNowFocus(focus, candidates, gaveUp, itemId);
   const [resolution, setResolution] = useState<NowResolution | null>(null);
   if (resolution == null && liveResolution.status !== 'pending') setResolution(liveResolution);
   const focusedId = resolution?.status === 'found' ? resolution.id : null;
