@@ -172,7 +172,7 @@ export function clearPersisted(key: string): void {
  * older build is never read back. Superseded entries age out through the LRU cap. */
 const CACHE_VALUE_VERSION = 3;
 
-export function statsCacheKey(idsHash: string, period: string, startMs: number, kind: 'view' | 'dev'): string {
+export function statsCacheKey(idsHash: string, period: string, startMs: number, kind: 'view' | 'dev' | 'hours'): string {
   return `${STORAGE_PREFIX}${kind}${CACHE_VALUE_VERSION}:${idsHash}:${period}:${startMs}`;
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { assembleBill, fixedFeesForRange } from '../bill';
-import { billHistory, kronerBreakdown, ringFraction } from '../billView';
+import { billHistory, hourPriceExtremes, kronerBreakdown, ringFraction } from '../billView';
 import type { EnergyBar, EnergyView } from '../types';
 import { HOME_CALENDAR, isImmutablePeriod, nextDisabled } from '../period';
 import { slotIndexFor } from '../../components/Energy/chartGeometry';
@@ -180,5 +180,32 @@ describe('same hour yesterday', () => {
     expect(sameHourYesterdayMs(home(2026, 10, 26, 2))).toBe(home(2026, 10, 25, 2));
     expect(sameHourYesterdayMs(home(2026, 10, 25, 2) + HOUR)).toBe(home(2026, 10, 24, 2));
     expect(sameHourYesterdayMs(home(2026, 3, 30, 2))).toBeNull();
+  });
+});
+
+describe('cheapest and priciest hour of the month', () => {
+  const start = home(2026, 10, 1);
+  const end = home(2026, 11, 1);
+  const row = (ms: number, state: number | null) => ({ start: ms, end: ms + HOUR, state });
+
+  it('picks the extreme hours inside the month, earliest on a tie, negative prices included', () => {
+    const rows = [
+      row(home(2026, 10, 5, 18), 3.4),
+      row(home(2026, 10, 2, 3), -0.2),
+      row(home(2026, 10, 9, 18), 3.4),
+      row(home(2026, 10, 7, 4), null),
+      row(home(2026, 9, 30, 23), -1),
+      row(end, 9),
+      row(home(2026, 10, 3, 3), 99),
+    ];
+    expect(hourPriceExtremes(rows, start, end)).toEqual({
+      min: { startMs: home(2026, 10, 2, 3), price: -0.2 },
+      max: { startMs: home(2026, 10, 5, 18), price: 3.4 },
+    });
+  });
+
+  it('has none without a usable row', () => {
+    expect(hourPriceExtremes([], start, end)).toBeNull();
+    expect(hourPriceExtremes([row(start, null)], start, end)).toBeNull();
   });
 });

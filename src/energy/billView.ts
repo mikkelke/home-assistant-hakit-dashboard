@@ -2,7 +2,8 @@
 import { BILL_HISTORY_MAX_MONTHS, BILL_HISTORY_START } from '../config/energy';
 import { assembleBill, fixedFeesForRange, type BillBreakdown } from './bill';
 import { homeMonthStartMs, homeWallTimeToMs } from './homeTime';
-import type { EnergyBar } from './types';
+import { isPlanPrice } from './priceTimeline';
+import type { EnergyBar, StatisticValue } from './types';
 
 export interface KronerSegment {
   key: 'consumption' | 'fees';
@@ -62,4 +63,27 @@ export function billHistory(monthBars: readonly EnergyBar[], nowMs: number, maxM
     }
   }
   return out;
+}
+
+export interface HourPrice {
+  startMs: number;
+  price: number;
+}
+
+/** Cheapest and priciest hour among hourly price statistics rows starting in [startMs, endMs), by
+ * their `state`; ties keep the earliest. Null without a usable row. */
+export function hourPriceExtremes(
+  rows: readonly StatisticValue[],
+  startMs: number,
+  endMs: number
+): { min: HourPrice; max: HourPrice } | null {
+  let min: HourPrice | null = null;
+  let max: HourPrice | null = null;
+  for (const row of rows) {
+    if (row.start < startMs || row.start >= endMs || !isPlanPrice(row.state)) continue;
+    const hour = { startMs: row.start, price: row.state };
+    if (!min || hour.price < min.price || (hour.price === min.price && hour.startMs < min.startMs)) min = hour;
+    if (!max || hour.price > max.price || (hour.price === max.price && hour.startMs < max.startMs)) max = hour;
+  }
+  return min && max ? { min, max } : null;
 }

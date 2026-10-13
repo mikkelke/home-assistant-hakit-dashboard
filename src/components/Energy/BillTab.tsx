@@ -7,6 +7,7 @@ import { billHistory, billHistoryStartMs, kronerBreakdown, ringFraction, type Bi
 import { homeDaysInMonth, homeMonthStartMs, homeWallTime } from '../../energy/homeTime';
 import { HOME_CALENDAR, nextDisabled } from '../../energy/period';
 import { krValue, weekdayShort } from '../../energy/planView';
+import { useMonthHourPrices } from '../../energy/useMonthHourPrices';
 import { PeriodPicker } from './PeriodPicker';
 import { StatsState } from './StatsState';
 
@@ -32,11 +33,13 @@ const pad = (n: number) => String(n).padStart(2, '0');
 function whenLabel(bucket: 'hour' | 'day' | 'month', ms: number): string {
   if (bucket === 'month') return monthName(ms, 'short');
   const t = homeWallTime(ms);
+  if (bucket === 'hour') return `${pad(t.day)}.${pad(t.month)} ${pad(t.hour)}:00`;
   return `${weekdayShort(ms)} ${pad(t.day)}.${pad(t.month)}`;
 }
 
 /** Tab "Bill": the month (or year) so far against its projection, what the kroner pay for, the
- * cheapest and priciest day paid, and every month since December 2025. Amounts are `assembleBill`'s. */
+ * month's cheapest and priciest hour (else the day or month paid), and every month since December
+ * 2025. Amounts are `assembleBill`'s. */
 export function BillTab({ nowMs, todayStartMs }: BillTabProps) {
   const [period, setPeriod] = useState<BillPeriod>('month');
   const [anchor, setAnchor] = useState(() => HOME_CALENDAR.startOf('month', Date.now()));
@@ -50,6 +53,18 @@ export function BillTab({ nowMs, todayStartMs }: BillTabProps) {
   const bill = useMemo(() => (data ? assembleBill(data, nowMs) : null), [data, nowMs]);
   const previousBill = useMemo(() => (previous ? assembleBill(previous, nowMs) : null), [previous, nowMs]);
   const stats = useMemo(() => (data ? assembleBillPriceStats(data) : null), [data]);
+  const hours = useMonthHourPrices(period === 'month' ? anchor : null, nowMs);
+  const [low, high] = hours
+    ? [
+        { bucket: 'hour' as const, ...hours.min },
+        { bucket: 'hour' as const, ...hours.max },
+      ]
+    : stats
+      ? [
+          { bucket: stats.bucket, ...stats.min },
+          { bucket: stats.bucket, ...stats.max },
+        ]
+      : [null, null];
   const history = useMemo(() => {
     const bars = [...(firstYear?.bars ?? []), ...(thisYear && thisYear !== firstYear ? thisYear.bars : [])];
     return bars.length > 0 ? billHistory(bars, nowMs) : [];
@@ -176,12 +191,12 @@ export function BillTab({ nowMs, todayStartMs }: BillTabProps) {
         </>
       )}
 
-      {stats && (
+      {stats && low && high && (
         <div className='ev-grid3'>
           <div className='ev-stat'>
-            <small>Cheapest {stats.bucket}</small>
-            <b className='band--cheap'>{krValue(stats.min.price)}</b>
-            <span>{whenLabel(stats.bucket, stats.min.startMs)}</span>
+            <small>Cheapest {low.bucket}</small>
+            <b className='band--cheap'>{krValue(low.price)}</b>
+            <span>{whenLabel(low.bucket, low.startMs)}</span>
           </div>
           <div className='ev-stat'>
             <small>You paid</small>
@@ -189,9 +204,9 @@ export function BillTab({ nowMs, todayStartMs }: BillTabProps) {
             <span>kr/kWh avg</span>
           </div>
           <div className='ev-stat'>
-            <small>Priciest {stats.bucket}</small>
-            <b className='band--expensive'>{krValue(stats.max.price)}</b>
-            <span>{whenLabel(stats.bucket, stats.max.startMs)}</span>
+            <small>Priciest {high.bucket}</small>
+            <b className='band--expensive'>{krValue(high.price)}</b>
+            <span>{whenLabel(high.bucket, high.startMs)}</span>
           </div>
         </div>
       )}
