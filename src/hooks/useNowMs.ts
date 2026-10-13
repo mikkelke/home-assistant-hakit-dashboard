@@ -20,7 +20,7 @@ function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   if (listeners.size === 1) {
     nowMs = Date.now();
-    timer = setInterval(tick, CLOCK_TICK_MS);
+    timer = setInterval(tickIfVisible, CLOCK_TICK_MS);
     document.addEventListener('visibilitychange', tickIfVisible);
   }
   return () => {
@@ -35,8 +35,9 @@ function subscribe(listener: () => void): () => void {
 
 const getSnapshot = () => nowMs;
 
-/** Epoch ms from one clock every caller shares: it moves every `CLOCK_TICK_MS` and when the page
- * becomes visible again, so relative times and ETAs stay current without a timer per component. */
+/** Epoch ms from one clock every caller shares: it moves every `CLOCK_TICK_MS` while the page shows
+ * and once when it shows again, so relative times and ETAs stay current without a timer per
+ * component. */
 export function useNowMs(): number {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
