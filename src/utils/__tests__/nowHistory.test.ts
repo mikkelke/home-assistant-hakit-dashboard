@@ -119,6 +119,23 @@ describe('cold open of a #now link', () => {
     expect(history.entries[0].state).toBeNull();
   });
 
+  it('seeds from the live location, which the first write changes', () => {
+    const history = new FakeHistory(WASHER_LINK, { root: true });
+    const live = {
+      get pathname() {
+        return history.location.pathname;
+      },
+      get search() {
+        return history.location.search;
+      },
+      get hash() {
+        return history.location.hash;
+      },
+    };
+    expect(settleNowEntry(history, live, 'load')).toBe('seeded');
+    expect(history.urls).toEqual([GRID, WASHER_LINK]);
+  });
+
   it('leaves other hashes alone', () => {
     for (const url of [GRID, `${GRID}#room=kitchen`, `${GRID}#energy=plan`]) {
       const history = new FakeHistory(url, { root: true });

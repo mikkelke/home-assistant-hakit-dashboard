@@ -67,13 +67,16 @@ export function settleNowEntry(
   shownBefore: NowEntryBelow = 'other'
 ): NowEntryChange {
   if (!isNowHash(location.hash) || !isArrivalState(history.state)) return 'none';
+  // `location` may be the live one, which the first write changes: read it before writing.
+  const grid = gridUrl(location);
+  const now = `${grid}${location.hash}`;
   if (arrival === 'load') {
-    history.replaceState(history.state, '', gridUrl(location));
-    history.pushState({ [NOW_ENTRY_KEY]: 'grid' }, '', `${gridUrl(location)}${location.hash}`);
+    history.replaceState(history.state, '', grid);
+    history.pushState({ [NOW_ENTRY_KEY]: 'grid' }, '', now);
     return 'seeded';
   }
   const state = isRecord(history.state) ? history.state : {};
-  history.replaceState({ ...state, [NOW_ENTRY_KEY]: shownBefore }, '', `${gridUrl(location)}${location.hash}`);
+  history.replaceState({ ...state, [NOW_ENTRY_KEY]: shownBefore }, '', now);
   return 'adopted';
 }
 
