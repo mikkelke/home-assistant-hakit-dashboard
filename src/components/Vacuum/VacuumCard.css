@@ -219,6 +219,7 @@
 }
 
 .rober-ibtn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -233,6 +234,11 @@
   -webkit-tap-highlight-color: transparent;
   transition: transform 120ms var(--ease-out);
 }
+.rober-ibtn::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+}
 .rober-ibtn:active {
   transform: scale(0.97);
 }
@@ -242,6 +248,15 @@
 }
 .rober-ibtn--tint {
   color: #34d399;
+}
+
+.rober-story-modal {
+  max-width: 560px;
+}
+
+.rober-story-content {
+  display: block;
+  padding: 0.75rem 1rem 1rem;
 }
 
 /* Rooms sheet - map tiles, three across */

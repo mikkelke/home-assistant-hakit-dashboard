@@ -12,7 +12,8 @@ import {
   VACUUM_CURRENT_ROOM_SENSOR,
   VACUUM_MAP_IMAGE_ENTITY,
 } from '../../config/entities';
-import { useLocalStorageBoolean, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
+import { useLocalStorageBoolean, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
+import { RobotCleaningNarrativeTimeline } from '../RoomGrid/RobotCleaningNarrativeTimeline';
 import { formatRoberRoomName } from './rooms';
 import { fetchMapsIndex, formatMapDate, type MapEntry } from './maps';
 import './VacuumCard.css';
@@ -133,7 +134,9 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   const [batteryHistoryLoading, setBatteryHistoryLoading] = useState(false);
   const [batteryHistoryError, setBatteryHistoryError] = useState<string | null>(null);
   const [daySpans, setDaySpans] = useState<DaySpan[]>([]);
+  const [storyOpen, setStoryOpen] = useState(false);
   const connection = useHass((s: { connection?: unknown }) => s.connection);
+  const hassUrl = useHass(s => s.hassUrl);
   const selectedMapRef = useRef<MapEntry | null>(null);
   const roomsSheetOpenRef = useRef(false);
   const showLiveMapRef = useRef(false);
@@ -427,6 +430,18 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
 
   // Use standardized swipe-to-close hook for map modal
   const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(handleCloseMap);
+
+  const closeStory = useCallback(() => setStoryOpen(false), []);
+  const { requestClose: requestCloseStory } = useModalBackButton({
+    isOpen: storyOpen,
+    onRequestClose: closeStory,
+    historyKey: 'rober-story',
+  });
+  const {
+    handleTouchStart: handleStoryTouchStart,
+    handleTouchMove: handleStoryTouchMove,
+    handleTouchEnd: handleStoryTouchEnd,
+  } = useSwipeToClose(requestCloseStory);
 
   // Use standardized swipe-to-close hook for the rooms sheet
   const {
@@ -906,6 +921,15 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
             <button type='button' className='rober-ibtn rober-ibtn--tint' onClick={handleOpenRoomsSheet} aria-label='Rooms' title='Rooms'>
               <Icon icon='mdi:map-outline' aria-hidden='true' />
             </button>
+            <button
+              type='button'
+              className='rober-ibtn rober-ibtn--tint'
+              onClick={() => setStoryOpen(true)}
+              aria-label='Story'
+              title='Story'
+            >
+              <Icon icon='mdi:timeline-text-outline' aria-hidden='true' />
+            </button>
             {isActive && liveMapImage && (
               <button
                 type='button'
@@ -973,6 +997,35 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
                   })}
                 </div>
               )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Story sheet - what the robot did, in its own words */}
+      {storyOpen && (
+        <>
+          <div className='vacuum-map-overlay' onClick={requestCloseStory} />
+          <div
+            className='vacuum-map-modal rober-story-modal'
+            role='dialog'
+            aria-modal='true'
+            aria-label='Rober2 story'
+            onTouchStart={handleStoryTouchStart}
+            onTouchMove={handleStoryTouchMove}
+            onTouchEnd={handleStoryTouchEnd}
+          >
+            <div className='vacuum-map-modal-header'>
+              <div className='vacuum-map-modal-title'>
+                <Icon icon='mdi:robot-vacuum' />
+                <span className='room'>Story</span>
+              </div>
+              <button className='vacuum-map-modal-close modal-close-button' onClick={requestCloseStory} aria-label='Close'>
+                <Icon icon='mdi:close' />
+              </button>
+            </div>
+            <div className='vacuum-map-modal-content rober-story-content'>
+              <RobotCleaningNarrativeTimeline hassUrl={hassUrl} enabled hours={168} limit={100} showPhaseTrack />
             </div>
           </div>
         </>
