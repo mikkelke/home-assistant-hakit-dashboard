@@ -174,9 +174,7 @@ export function planStart(programme: PlanProgramme, timeline: readonly PricePoin
   // the best knob) for a wait plan, starting right away for a knob plan.
   const baselineKr = chosenP > 0 ? (nowChoice?.cost.kr ?? null) : steps[chosen.k] > 0 ? (noDelay?.kr ?? null) : null;
   const within = (c: CostResult | null) =>
-    c != null &&
-    c.kr <= ref.kr + PRESS_WINDOW_TOLERANCE_KR + EPSILON_KR &&
-    (baselineKr == null || passesSavingRule(baselineKr, c.kr));
+    c != null && c.kr <= ref.kr + PRESS_WINDOW_TOLERANCE_KR + EPSILON_KR && (baselineKr == null || passesSavingRule(baselineKr, c.kr));
   let first = chosenP;
   while (first > 0 && within(row[first - 1])) first--;
   let last = chosenP;

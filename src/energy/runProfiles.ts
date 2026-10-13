@@ -123,7 +123,8 @@ function parseProgramme(raw: unknown, where: string): RunProfileProgramme {
   if (energyMin !== whPerMin.length) fail(`${at}: energy_min does not match the profile length`);
   const completionRaw = pick(raw, WIRE.completionMin);
   const completion = completionRaw === undefined ? null : toInt(completionRaw);
-  if (completionRaw !== undefined && (completion == null || completion < 1 || completion > 1440)) fail(`${at}: completion_min must be 1..1440`);
+  if (completionRaw !== undefined && (completion == null || completion < 1 || completion > 1440))
+    fail(`${at}: completion_min must be 1..1440`);
 
   const source = pick(raw, WIRE.labelSource);
   if (source !== undefined && !LABEL_SOURCES.includes(source as string)) fail(`${at}: unknown label_source`);

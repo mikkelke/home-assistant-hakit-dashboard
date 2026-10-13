@@ -34,7 +34,9 @@ export function programme(whPerMin: number[], completionMin: number | null = whP
     schema: 1,
     appliances: {
       test: {
-        programmes: [{ key: 't', label: 'T', n: 5, completion_min: completionMin ?? undefined, p: whPerMin.map(wh => Math.round(wh * 10)).join(',') }],
+        programmes: [
+          { key: 't', label: 'T', n: 5, completion_min: completionMin ?? undefined, p: whPerMin.map(wh => Math.round(wh * 10)).join(',') },
+        ],
       },
     },
   });
