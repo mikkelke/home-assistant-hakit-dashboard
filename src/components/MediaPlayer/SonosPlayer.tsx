@@ -806,7 +806,7 @@ export function SonosPlayer({
       const shownIn = inFlight ? pend : sp.isMember;
       if (!shownIn || !sp.available) return;
       const base = pickerVolumes[sp.id] ?? sp.volume;
-      const next = Math.max(0, Math.min(100, base + direction * 5));
+      const next = Math.max(0, Math.min(100, base + direction * 3));
       updates[sp.id] = next;
       writeVolume(sp.id, sp.actualId, sp.isMuted, next);
     });
