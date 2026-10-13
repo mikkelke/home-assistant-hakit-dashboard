@@ -1,7 +1,8 @@
 /**
  * Navigation check for the #now timeline in headless Chromium: a cold link into a fresh tab, a reload
- * on it, a row's room over the timeline, Back, Forward, and opening and leaving the timeline in the
- * app. Exits non-zero when any check fails.
+ * on it, a row's room over the timeline (reached again by Forward and after a reload), Back, Forward,
+ * opening and leaving the timeline in the app, and a link arriving while a modal is open. Exits
+ * non-zero when any check fails.
  *
  *   HA_TOKEN=... CHROME_PATH=... node scripts/now-history-check.ts \
  *     --url https://<home assistant>/local/<folder>/index.html --link '#now=washer-<epoch s>' [--framed]
@@ -167,6 +168,35 @@ try {
   state = await snapshot();
   check('closing that room returns to the timeline', { length: state.length, hash: state.hash }, { length: 3, hash: link });
 
+  const closeRoom = `${query('.room-detail-floating-close, .room-detail-header .close-button')}.click()`;
+  await page.eval('history.forward()');
+  await page.until('the room after Forward', `${query('.room-detail')} && location.hash.startsWith('#room=')`);
+  await page.eval(closeRoom);
+  await page.until('the room to close after Forward', `!${query('.room-detail')}`);
+  await sleep(800);
+  state = await snapshot();
+  check(
+    'a room reached by Forward closes back to the timeline',
+    { length: state.length, hash: state.hash, now: state.now },
+    { length: 3, hash: link, now: true }
+  );
+
+  await page.eval('history.forward()');
+  await page.until('the room after Forward again', `${query('.room-detail')} && location.hash.startsWith('#room=')`);
+  await page.eval(framed ? `${DOC}.defaultView.location.reload()` : 'location.reload()');
+  await sleep(500);
+  await page.until('the room after a reload', query('.room-detail'), 30_000);
+  await sleep(1500);
+  await page.eval(closeRoom);
+  await page.until('the reloaded room to close', `!${query('.room-detail')}`);
+  await sleep(800);
+  state = await snapshot();
+  check(
+    'a room reloaded over the timeline closes back to it',
+    { length: state.length, hash: state.hash, now: state.now },
+    { length: 3, hash: link, now: true }
+  );
+
   await page.eval('history.back()');
   await page.until('the grid after Back', `!${query('.now-view')} && location.hash === ''`);
   state = await snapshot();
@@ -200,6 +230,21 @@ try {
   state = await snapshot();
   check('Back from an in-app timeline lands on the grid', { hash: state.hash, grid: state.grid }, { hash: '', grid: true });
   if (framed) check("the grid entry still keeps Home Assistant's root marker", state.root, true);
+
+  // A link arriving from outside while a modal is open: Home Assistant pushes it the way its own navigation does.
+  await page.until('a person on the sky', query('.sky-av-slot'));
+  await page.eval(`${query('.sky-av-slot')}.click()`);
+  await page.until('the person modal', query('.person-info-overlay'));
+  const before = (await snapshot()).length;
+  await page.eval(`history.pushState(null, '', location.pathname + location.search + ${JSON.stringify(link)})`);
+  await page.until('the timeline over the modal', query('.now-view'));
+  await sleep(1500);
+  state = await snapshot();
+  check(
+    'a link arriving over a modal shows the timeline and closes the modal in place',
+    { length: state.length, hash: state.hash, overlay: await page.eval<boolean>(`!!${query('.person-info-overlay')}`) },
+    { length: before + 1, hash: link, overlay: false }
+  );
 
   page.close();
   first.close();
