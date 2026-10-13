@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { getAccessibleHistoryWindow, getHistoryUrl } from '../utils/navigation';
+import { ROUTE_ADOPTED_EVENT, getAccessibleHistoryWindow, getHistoryUrl } from '../utils/navigation';
 
 interface UseModalBackButtonOptions {
   isOpen: boolean;
@@ -81,10 +81,14 @@ export function useModalBackButton({ isOpen, onRequestClose, historyKey }: UseMo
       onRequestCloseRef.current();
     };
 
+    const handleRouteAdopted = () => onRequestCloseRef.current();
+
     window.addEventListener('modalBackButton', handleModalBack);
+    window.addEventListener(ROUTE_ADOPTED_EVENT, handleRouteAdopted);
 
     return () => {
       window.removeEventListener('modalBackButton', handleModalBack);
+      window.removeEventListener(ROUTE_ADOPTED_EVENT, handleRouteAdopted);
       removeModalFromStack(stackId);
       unlockModalBody();
     };
@@ -107,4 +111,21 @@ export function useModalBackButton({ isOpen, onRequestClose, historyKey }: UseMo
   }, [isOpen]);
 
   return { requestClose };
+}
+
+/** For a modal that keeps its own history entry: closes it in place when the dashboard follows a route it did
+ * not write, as `useModalBackButton` does for its modals. */
+export function useCloseOnRouteAdopted(isOpen: boolean, close: () => void) {
+  const closeRef = useRef(close);
+
+  useEffect(() => {
+    closeRef.current = close;
+  }, [close]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleRouteAdopted = () => closeRef.current();
+    window.addEventListener(ROUTE_ADOPTED_EVENT, handleRouteAdopted);
+    return () => window.removeEventListener(ROUTE_ADOPTED_EVENT, handleRouteAdopted);
+  }, [isOpen]);
 }

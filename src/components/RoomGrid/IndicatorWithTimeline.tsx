@@ -4,6 +4,7 @@ import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
 import { LazyTimeline } from '../Timeline';
+import { useCloseOnRouteAdopted } from '../../hooks';
 import type { HassEntity } from '../../types';
 
 function timelineHistoryUrl(): string {
@@ -94,6 +95,8 @@ export function IndicatorWithTimeline({
       document.body.classList.remove('modal-open');
     }
   }, [showTimeline, entityId]);
+
+  useCloseOnRouteAdopted(showTimeline, () => setOpened(null));
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent room card click

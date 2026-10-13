@@ -4,7 +4,7 @@ import { Icon } from '@iconify/react';
 import type { PersonStatusProps } from '../../types';
 import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
 import { LazyTimeline } from '../Timeline';
-import { useSwipeToClose } from '../../hooks';
+import { useCloseOnRouteAdopted, useSwipeToClose } from '../../hooks';
 import './StatusBar.css';
 
 function timelineHistoryUrl(): string {
@@ -138,6 +138,8 @@ export function PersonStatus({ entity, entities, hassUrl, size = 'sky' }: Person
       document.body.classList.remove('modal-open');
     }
   }, [showInfo, entity]);
+
+  useCloseOnRouteAdopted(showInfo, () => setShowInfo(false));
 
   const handleClose = (e?: React.MouseEvent) => {
     if (e) {

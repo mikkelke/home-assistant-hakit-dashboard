@@ -10,6 +10,10 @@ export function getAccessibleHistoryWindow(): Window | null {
   }
 }
 
+/** Fired on the dashboard's window when it follows a hash it did not write itself, such as a link arriving
+ * from outside. Open modals close in place and leave history alone: the new entry is the route's. */
+export const ROUTE_ADOPTED_EVENT = 'dashboardRouteAdopted';
+
 export function getHistoryUrl(targetWindow: Window | null = getAccessibleHistoryWindow()): string {
   if (!targetWindow) return '';
   const { pathname, search, hash } = targetWindow.location;

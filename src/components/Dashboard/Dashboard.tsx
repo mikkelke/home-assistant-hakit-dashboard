@@ -6,6 +6,7 @@ import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { EXCLUDED_AREAS } from '../../config/dashboard';
 import type { Area, HassEntities } from '../../types';
 import {
+  ROUTE_ADOPTED_EVENT,
   buildHistoryUrlWithHash,
   buildRoomHash,
   getAccessibleHistoryWindow,
@@ -585,10 +586,16 @@ export function Dashboard() {
     if (isUpdatingHashRef.current) return; // Skip if we're updating hash programmatically
 
     const targetWindow = getAccessibleHistoryWindow();
-    lastHandledHashRef.current = targetWindow?.location.hash ?? lastHandledHashRef.current;
-    const view = parseDashboardHash(targetWindow?.location.hash ?? '');
+    const hash = targetWindow?.location.hash ?? '';
+    const followed = !firstSyncRef.current && targetWindow != null && hash !== lastHandledHashRef.current;
+    lastHandledHashRef.current = targetWindow ? hash : lastHandledHashRef.current;
+    const view = parseDashboardHash(hash);
     const arrival = firstSyncRef.current ? 'load' : 'navigation';
     firstSyncRef.current = false;
+    if (followed) {
+      window.dispatchEvent(new Event(ROUTE_ADOPTED_EVENT));
+      setIsMenuOpen(false);
+    }
     roomOverNowRef.current = view.kind === 'room' && isRoomOverNow(targetWindow?.history.state);
 
     if (view.kind === 'now') {

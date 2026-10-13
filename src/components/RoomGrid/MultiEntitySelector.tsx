@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
 import { LazyTimeline } from '../Timeline';
+import { useCloseOnRouteAdopted } from '../../hooks';
 import type { HassEntities } from '../../types';
 import './MultiEntitySelector.css';
 
@@ -185,6 +186,11 @@ export function MultiEntitySelector({
       setSelectedEntityId(null);
     }
   };
+
+  useCloseOnRouteAdopted(showSelection || showTimeline, () => {
+    handleCloseSelection();
+    handleCloseTimeline();
+  });
 
   const handleSelectionOverlayClick = (e: React.MouseEvent) => {
     e.stopPropagation();
