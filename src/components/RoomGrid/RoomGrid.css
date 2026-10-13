@@ -565,6 +565,10 @@ body.modal-open .room-card {
   display: flex;
 }
 
+.room-ex-item.is-hidden {
+  display: none;
+}
+
 .room-ex .indicator {
   position: relative;
   width: 30px;

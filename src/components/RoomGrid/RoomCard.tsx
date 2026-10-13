@@ -249,8 +249,10 @@ function DoorbellRipple() {
   );
 }
 
+/** An icon that may own an open history modal, so it stays mounted while `active` is off and only hides. */
 interface Exception {
   key: string;
+  active: boolean;
   node: ReactNode;
 }
 
@@ -403,31 +405,33 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
 
   // Exceptions: the few states the card face still names with an icon.
   const exceptions: Exception[] = [];
-  for (const device of COOKING_DEVICES) {
-    if (!cookingIds.split(',').includes(device.entityId)) continue;
-    exceptions.push({
-      key: device.entityId,
-      node: (
-        <IndicatorWithTimeline
-          entityId={device.entityId}
-          entities={entities}
-          hassUrl={hassUrl}
-          className='indicator power running'
-          title={`${device.name} running - click for timeline`}
-          icon={device.icon}
-        />
-      ),
-    });
+  if (isKitchen) {
+    const cooking = cookingIds.split(',');
+    for (const device of COOKING_DEVICES) {
+      exceptions.push({
+        key: device.entityId,
+        active: cooking.includes(device.entityId),
+        node: (
+          <IndicatorWithTimeline
+            entityId={device.entityId}
+            hassUrl={hassUrl}
+            className='indicator power running'
+            title={`${device.name} running - click for timeline`}
+            icon={device.icon}
+          />
+        ),
+      });
+    }
   }
   const isHallway = areaNameNormalized === 'hallway';
   const frontDoorId = isHallway ? resolveHallwayDoorSensorId(entities) : null;
-  if (frontDoorId && entities?.[frontDoorId]?.state === 'on') {
+  if (frontDoorId) {
     exceptions.push({
       key: 'door',
+      active: entities?.[frontDoorId]?.state === 'on',
       node: (
         <IndicatorWithTimeline
           entityId={frontDoorId}
-          entities={entities}
           hassUrl={hassUrl}
           className='indicator door active'
           title='Apartment door open - click for timeline'
@@ -438,13 +442,13 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
     });
   }
   const frontLockId = isHallway ? resolveHallwayLockEntityId(entities) : null;
-  if (frontLockId && entities?.[frontLockId]?.state === 'unlocked') {
+  if (frontLockId) {
     exceptions.push({
       key: 'lock',
+      active: entities?.[frontLockId]?.state === 'unlocked',
       node: (
         <IndicatorWithTimeline
           entityId={frontLockId}
-          entities={entities}
           hassUrl={hassUrl}
           className='indicator lock active'
           title='Apartment unlocked - click for timeline'
@@ -454,48 +458,55 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
       ),
     });
   }
-  if (isOpen) {
-    const contacts = AREA_EXTERIOR_CONTACTS[area.area_id] ?? [];
-    const open = contacts.filter(id => entities?.[id]?.state === 'on');
-    const className = `indicator window active ${frosty ? 'is-frost' : ''}`;
-    const iconFor = (id: string) => (id.includes('door') ? 'mdi:door-open' : 'mdi:window-open');
+  const contacts = AREA_EXTERIOR_CONTACTS[area.area_id] ?? [];
+  const openContacts = contacts.filter(id => entities?.[id]?.state === 'on');
+  const openingClass = `indicator window active ${frosty ? 'is-frost' : ''}`;
+  const iconFor = (id: string) => (id.includes('door') ? 'mdi:door-open' : 'mdi:window-open');
+  if (isOpen && openContacts.length === 0) {
+    exceptions.push({
+      key: 'opening-maybe',
+      active: true,
+      node: (
+        <div className={openingClass} title='Window may be open'>
+          <Icon icon='mdi:window-open' />
+        </div>
+      ),
+    });
+  }
+  if (contacts.length > 0) {
     exceptions.push({
       key: 'opening',
+      active: openContacts.length > 0,
       node:
-        open.length === 0 ? (
-          <div className={className} title='Window may be open'>
-            <Icon icon='mdi:window-open' />
-          </div>
-        ) : open.length === 1 && contacts.length === 1 ? (
+        contacts.length === 1 ? (
           <IndicatorWithTimeline
-            entityId={open[0]}
-            entities={entities}
+            entityId={contacts[0]}
             hassUrl={hassUrl}
-            className={className}
+            className={openingClass}
             title='Open - click for timeline'
-            icon={iconFor(open[0])}
+            icon={iconFor(contacts[0])}
           />
         ) : (
           <MultiEntitySelector
             entityIds={contacts.filter(id => entities?.[id])}
             entities={entities}
             hassUrl={hassUrl}
-            className={className}
-            title={`${open.length} open - click to select`}
-            icon={iconFor(open[0])}
-            label={open.length > 1 ? String(open.length) : undefined}
+            className={openingClass}
+            title={`${openContacts.length} open - click to select`}
+            icon={iconFor(openContacts[0] ?? contacts[0])}
+            label={openContacts.length > 1 ? String(openContacts.length) : undefined}
             entityType={contacts.every(id => id.includes('door')) ? 'door' : 'window'}
           />
         ),
     });
   }
-  if (areaNameNormalized === 'bathroom' && entities?.[BATH_PRESENCE]?.state === 'on') {
+  if (areaNameNormalized === 'bathroom') {
     exceptions.push({
       key: 'shower',
+      active: entities?.[BATH_PRESENCE]?.state === 'on',
       node: (
         <IndicatorWithTimeline
           entityId={BATH_PRESENCE}
-          entities={entities}
           hassUrl={hassUrl}
           className='indicator water active'
           title='Shower active - click for timeline'
@@ -505,13 +516,14 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
     });
   }
   const manualOverrideId = `input_boolean.${areaNameNormalized}_lights_manual`;
-  if (entities?.[manualOverrideId]?.state === 'on') {
+  const manualOverride = entities?.[manualOverrideId];
+  if (manualOverride) {
     exceptions.push({
       key: 'manual',
+      active: manualOverride.state === 'on',
       node: (
         <IndicatorWithTimeline
           entityId={manualOverrideId}
-          entities={entities}
           hassUrl={hassUrl}
           className='indicator hold active'
           title='Lights on manual - click for timeline'
@@ -521,13 +533,13 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
       ),
     });
   }
-  if (areaNameNormalized === 'bedroom' && entities?.[WAKE_ALARM]?.state === 'on') {
+  if (areaNameNormalized === 'bedroom') {
     exceptions.push({
       key: 'alarm',
+      active: entities?.[WAKE_ALARM]?.state === 'on',
       node: (
         <IndicatorWithTimeline
           entityId={WAKE_ALARM}
-          entities={entities}
           hassUrl={hassUrl}
           className={`indicator alarm active ${asleep ? 'is-asleep' : ''}`}
           title={`Alarm set for ${entities?.[WAKE_ALARM_TIME]?.state ?? 'unknown'} - click for timeline`}
@@ -538,6 +550,7 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
   }
 
   const hasRing = activeAppliances.length > 0;
+  const shownExceptions = exceptions.filter(exception => exception.active).length;
   const cardClass = [
     'room-card',
     litKey ? 'is-lit' : 'is-dark',
@@ -551,7 +564,7 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
     '--oc': glowRgb ?? PLAIN_ORB,
     '--edge-g': glowRgb ?? PLAIN_ORB,
     '--edge-ga': glowAlpha,
-    '--ex': hasRing ? exceptions.length : Math.min(1, exceptions.length),
+    '--ex': hasRing ? shownExceptions : Math.min(1, shownExceptions),
   } as CSSProperties;
 
   return (
@@ -610,7 +623,7 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
       {exceptions.length > 0 && (
         <span className={`room-ex ${hasRing ? 'is-row' : ''}`}>
           {exceptions.map(exception => (
-            <span key={exception.key} className='room-ex-item'>
+            <span key={exception.key} className={exception.active ? 'room-ex-item' : 'room-ex-item is-hidden'}>
               {exception.node}
             </span>
           ))}

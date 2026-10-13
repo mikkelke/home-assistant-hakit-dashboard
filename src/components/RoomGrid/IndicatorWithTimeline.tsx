@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
 import { LazyTimeline } from '../Timeline';
-import type { HassEntities } from '../../types';
+import type { HassEntity } from '../../types';
 
 function timelineHistoryUrl(): string {
   return getHistoryUrl();
@@ -17,7 +18,6 @@ function withHistoryWindow(action: (targetWindow: Window) => void) {
 
 interface IndicatorWithTimelineProps {
   entityId: string;
-  entities: HassEntities;
   hassUrl: string | null;
   className: string;
   title: string;
@@ -28,9 +28,10 @@ interface IndicatorWithTimelineProps {
   secondaryEntityId?: string; // Optional secondary entity for combined timeline (e.g., completion tracking)
 }
 
+/** An icon that opens the entity's history. It follows only whether the entity exists; the modal shows
+ * the entity as it was when tapped, so a live change neither re-renders it nor closes it. */
 export function IndicatorWithTimeline({
   entityId,
-  entities,
   hassUrl,
   className,
   title,
@@ -39,9 +40,10 @@ export function IndicatorWithTimeline({
   modalTitle,
   secondaryEntityId,
 }: IndicatorWithTimelineProps) {
-  const [showTimeline, setShowTimeline] = useState(false);
+  const exists = useHass(s => s.entities[entityId] != null);
+  const [opened, setOpened] = useState<HassEntity | null>(null);
+  const showTimeline = opened != null;
   const showTimelineRef = useRef(showTimeline);
-  const entity = entities[entityId];
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -60,7 +62,7 @@ export function IndicatorWithTimeline({
       const handlePopState = (event: PopStateEvent) => {
         if (showTimelineRef.current) {
           event.stopImmediatePropagation();
-          setShowTimeline(false);
+          setOpened(null);
           // Replace current state so back button works correctly
           try {
             withHistoryWindow(targetWindow => {
@@ -96,7 +98,7 @@ export function IndicatorWithTimeline({
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent room card click
     e.preventDefault(); // Prevent any default behavior
-    setShowTimeline(true);
+    setOpened(useHass.getState().entities[entityId] ?? null);
   };
 
   const handleClose = (e?: React.MouseEvent) => {
@@ -104,7 +106,7 @@ export function IndicatorWithTimeline({
       e.stopPropagation();
       e.preventDefault();
     }
-    setShowTimeline(false);
+    setOpened(null);
   };
 
   const handleOverlayClick = (e: React.MouseEvent) => {
@@ -118,16 +120,14 @@ export function IndicatorWithTimeline({
     e.preventDefault();
   };
 
-  if (!entity) return null;
-
   // Extract friendly name from entity attributes
   // Use the name as-is from Home Assistant, just ensure first letter is capitalized
-  const rawName = entity.attributes?.friendly_name;
+  const rawName = opened?.attributes?.friendly_name;
   const baseName = typeof rawName === 'string' ? rawName : entityId.split('.')[1].replace(/_/g, ' ');
   const entityName = baseName.charAt(0).toUpperCase() + baseName.slice(1);
   const timelineHeading = modalTitle?.trim() || entityName;
 
-  const modalContent = showTimeline ? (
+  const modalContent = opened ? (
     <div className='person-info-overlay' role='presentation' onClick={handleOverlayClick} onMouseDown={e => e.stopPropagation()}>
       <div
         className='person-info-modal person-timeline-modal'
@@ -145,8 +145,7 @@ export function IndicatorWithTimeline({
         <div className='modal-timeline-content'>
           <LazyTimeline
             entityId={entityId}
-            entity={entity}
-            entities={entities}
+            entity={opened}
             hassUrl={hassUrl}
             hours={168}
             limit={100}
@@ -159,10 +158,12 @@ export function IndicatorWithTimeline({
 
   return (
     <>
-      <div className={className} title={title} onClick={handleClick} style={{ cursor: 'pointer' }}>
-        <Icon icon={icon} />
-        {label && <span className='indicator-label'>{label}</span>}
-      </div>
+      {exists && (
+        <div className={className} title={title} onClick={handleClick} style={{ cursor: 'pointer' }}>
+          <Icon icon={icon} />
+          {label && <span className='indicator-label'>{label}</span>}
+        </div>
+      )}
 
       {typeof document !== 'undefined' && createPortal(modalContent, document.body)}
     </>
