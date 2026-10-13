@@ -28,6 +28,29 @@ html, body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  /* Relative price bands: each day's hours ranked into quarters. One palette on every chart. */
+  --band-cheap: #34d399;
+  --band-normal: #94a3b8;
+  --band-pricey: #f59e0b;
+  --band-expensive: #fb7185;
+  --band-unknown: #52525b;
+}
+
+/* Sets --band-color for a price band; components paint fills, strokes and text from it. */
+.band--cheap {
+  --band-color: var(--band-cheap);
+}
+.band--normal {
+  --band-color: var(--band-normal);
+}
+.band--pricey {
+  --band-color: var(--band-pricey);
+}
+.band--expensive {
+  --band-color: var(--band-expensive);
+}
+.band--unknown {
+  --band-color: var(--band-unknown);
 }
 
 body {

@@ -1,4 +1,5 @@
-import type { EnergyTab } from './EnergyPage';
+import { Icon } from '@iconify/react';
+import type { EnergyTab } from './energyTab';
 import './EnergyTabs.css';
 
 interface EnergyTabsProps {
@@ -6,28 +7,30 @@ interface EnergyTabsProps {
   onChange: (tab: EnergyTab) => void;
 }
 
-const TAB_OPTIONS: Array<{ value: EnergyTab; label: string }> = [
-  { value: 'live', label: 'Live' },
-  { value: 'price', label: 'Price' },
-  { value: 'usage', label: 'Usage' },
-  { value: 'devices', label: 'Devices' },
-  { value: 'bill', label: 'Bill' },
+const TAB_OPTIONS: Array<{ value: EnergyTab; label: string; icon: string }> = [
+  { value: 'live', label: 'Live', icon: 'mdi:flash-outline' },
+  { value: 'plan', label: 'Plan', icon: 'mdi:calendar-clock-outline' },
+  { value: 'usage', label: 'Usage', icon: 'mdi:chart-bar' },
+  { value: 'rooms', label: 'Rooms', icon: 'mdi:home-outline' },
+  { value: 'bill', label: 'Bill', icon: 'mdi:receipt-text-outline' },
 ];
 
-/** Segmented Live/Price/Usage/Devices/Bill tab bar — visually mirrors PeriodPicker's own segment control
- * (filled-pill active state, ≥44px touch height). Rendered outside the page's scrollable content,
- * so — like the header — it stays on screen while a tab's own content scrolls underneath it. */
+/** Live · Plan · Usage · Rooms · Bill, icon over label. Rendered outside the page's scrollable
+ * content, so it stays on screen while a tab's own content scrolls underneath it. */
 export function EnergyTabs({ tab, onChange }: EnergyTabsProps) {
   return (
-    <div className='energy-tabs'>
+    <div className='energy-tabs' role='tablist'>
       {TAB_OPTIONS.map(option => (
         <button
           key={option.value}
           type='button'
+          role='tab'
+          aria-selected={tab === option.value}
           className={`energy-tabs-btn ${tab === option.value ? 'active' : ''}`}
           onClick={() => onChange(option.value)}
         >
-          {option.label}
+          <Icon icon={option.icon} className='energy-tabs-icon' aria-hidden='true' />
+          <span>{option.label}</span>
         </button>
       ))}
     </div>

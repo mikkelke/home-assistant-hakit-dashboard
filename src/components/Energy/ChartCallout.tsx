@@ -1,3 +1,4 @@
+import type { PriceBand } from '../../energy/priceBands';
 import './ChartCallout.css';
 
 export interface ChartCalloutModel {
@@ -5,7 +6,7 @@ export interface ChartCalloutModel {
   title: string;
   primary: string;
   secondary?: string | null;
-  dot?: 'low' | 'mid' | 'high' | 'unknown' | null;
+  dot?: PriceBand | null;
   note?: string | null;
 }
 
@@ -17,7 +18,7 @@ export function ChartCallout({ leftPct, title, primary, secondary, dot, note }: 
     <div className='chart-callout' style={{ left: `${left}%` }}>
       <span className='chart-callout-title'>{title}</span>
       <span className='chart-callout-primary'>
-        {dot && <span className={`chart-callout-dot chart-callout-dot--${dot}`} />}
+        {dot && <span className={`chart-callout-dot band--${dot}`} />}
         {primary}
       </span>
       {secondary && <span className='chart-callout-secondary'>{secondary}</span>}

@@ -77,3 +77,9 @@ export function nextHomeClockMs(afterMs: number, hour: number, minute = 0): numb
   }
   return homeWallTimeToMs(year, month, day + 3, hour, minute);
 }
+
+/** "HH:MM" on the house's 24-hour clock. */
+export function formatHomeClock(ms: number): string {
+  const { hour, minute } = homeWallTime(ms);
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}

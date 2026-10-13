@@ -2,7 +2,7 @@
  * wrapper. */
 import type { DoneByHour, EtaFormat, PlanApplianceConfig } from '../config/plan';
 import { homeWallTime, homeWallTimeToMs, nextHomeClockMs } from './homeTime';
-import type { PricePointMs } from './priceAdvice';
+import type { PricePointMs } from './priceTimeline';
 import type { RunProfileProgramme } from './runProfiles';
 import { planStart, type StartPlan } from './startPlan';
 

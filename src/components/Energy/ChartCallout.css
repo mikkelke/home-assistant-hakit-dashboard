@@ -44,24 +44,9 @@
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
+  background: var(--band-color);
 }
 
-/* Band swatches mirror EnergyChart.css's bar fills — keep in sync if the ramp changes. */
-.chart-callout-dot--low {
-  background: #9a3412;
-}
-
-.chart-callout-dot--mid {
-  background: #ea580c;
-}
-
-.chart-callout-dot--high {
-  background: #fdba74;
-}
-
-.chart-callout-dot--unknown {
-  background: #3f3f46;
-}
 
 .chart-callout-secondary {
   font-size: 0.75rem;

@@ -6,7 +6,7 @@
  * choice, every press window minute and every curve point: all energy-carrying hours priced, and
  * completion no later than done-by. */
 import { COST_CURVE, PLAN_SAVING_RULE, PRESS_BY_MIN_SLACK_MIN, PRESS_WINDOW_TOLERANCE_KR } from '../config/plan';
-import type { PricePointMs } from './priceAdvice';
+import type { PricePointMs } from './priceTimeline';
 import { energyBetweenWh, type RunProfileProgramme } from './runProfiles';
 
 const MINUTE_MS = 60_000;

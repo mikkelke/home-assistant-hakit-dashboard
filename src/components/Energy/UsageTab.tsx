@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
-import { priceLevel, useEnergyView, type Period } from '../../energy';
+import { useEnergyView, type Period } from '../../energy';
+import { assignPriceBands, bandAt, PRICE_BAND_LABEL, PRICE_BANDS } from '../../energy/priceBands';
 import { slotsInRange } from '../../energy/period';
-import { PRICE_BAND_THRESHOLDS } from '../../config/energy';
 import { formatKr, formatKWh, formatPrice, hourRangeLabel } from '../../utils/format';
 import { ChartCallout, type ChartCalloutModel } from './ChartCallout';
 import { slotCenterPct, slotIndexFor, slotStartMsFor, snapToNearestSlot } from './chartGeometry';
@@ -85,6 +85,8 @@ export function UsageTab({
 
   const scrubHandlers = useChartScrub({ slots, onScrub: handleScrub });
 
+  const dayBands = useMemo(() => (period === 'day' && data?.price ? assignPriceBands(data.price.points) : []), [data, period]);
+
   const callout = useMemo<ChartCalloutModel | null>(() => {
     if (!data || selectedSlotMs == null) return null;
     const slot = slotIndexFor(period, data.startMs, selectedSlotMs);
@@ -119,10 +121,10 @@ export function UsageTab({
       title,
       primary: formatPrice(pricePoint!.price),
       secondary: null,
-      dot: priceLevel(pricePoint!.price),
+      dot: bandAt(dayBands, pricePoint!.ms),
       note: 'no usage yet',
     };
-  }, [data, selectedSlotMs, period, slots, unit]);
+  }, [data, selectedSlotMs, period, slots, unit, dayBands]);
 
   return (
     <>
@@ -185,22 +187,13 @@ export function UsageTab({
               hasSelection={selectedSlotMs != null}
             />
 
-            <div
-              className='energy-chart-legend'
-              title={`cheap < ${PRICE_BAND_THRESHOLDS.lowMaxKrPerKWh.toLocaleString('da-DK')} kr/kWh · normal ${PRICE_BAND_THRESHOLDS.lowMaxKrPerKWh.toLocaleString('da-DK')}–${PRICE_BAND_THRESHOLDS.midMaxKrPerKWh.toLocaleString('da-DK')} kr/kWh · expensive > ${PRICE_BAND_THRESHOLDS.midMaxKrPerKWh.toLocaleString('da-DK')} kr/kWh`}
-            >
-              <span className='energy-chart-legend-item'>
-                <span className='energy-chart-legend-dot energy-chart-legend-dot--low' />
-                cheap
-              </span>
-              <span className='energy-chart-legend-item'>
-                <span className='energy-chart-legend-dot energy-chart-legend-dot--mid' />
-                normal
-              </span>
-              <span className='energy-chart-legend-item'>
-                <span className='energy-chart-legend-dot energy-chart-legend-dot--high' />
-                expensive
-              </span>
+            <div className='energy-chart-legend'>
+              {PRICE_BANDS.map(band => (
+                <span key={band} className='energy-chart-legend-item'>
+                  <span className={`energy-chart-legend-dot band--${band}`} />
+                  {PRICE_BAND_LABEL[band]}
+                </span>
+              ))}
             </div>
 
             {period === 'day' && data.price && (

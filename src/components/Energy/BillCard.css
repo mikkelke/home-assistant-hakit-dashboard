@@ -129,20 +129,6 @@
   white-space: nowrap;
 }
 
-/* Same 4 colors as EnergyChart.css's own .energy-chart-bar--low/--mid/--high ramp (also mirrored
-   by PriceTab.css/ChartCallout.css/PriceAdvisor.css) — keep all in sync if that ramp ever changes. */
-.bill-card-price-stat-value--low {
-  color: #9a3412;
-}
-
-.bill-card-price-stat-value--mid {
-  color: #ea580c;
-}
-
-.bill-card-price-stat-value--high {
-  color: #fdba74;
-}
-
-.bill-card-price-stat-value--unknown {
-  color: #3f3f46;
+.bill-card-price-stat-value--band {
+  color: var(--band-color);
 }

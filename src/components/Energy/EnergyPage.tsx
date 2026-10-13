@@ -8,7 +8,8 @@ import { BillTab } from './BillTab';
 import { DevicesTab } from './DevicesTab';
 import { EnergyTabs } from './EnergyTabs';
 import { LiveTab } from './LiveTab';
-import { PriceTab } from './PriceTab';
+import { energyHash, energyTabFromHash, type EnergyTab } from './energyTab';
+import { PlanTab } from './PlanTab';
 import { UsageTab } from './UsageTab';
 import './EnergyPage.css';
 
@@ -16,21 +17,10 @@ interface EnergyPageProps {
   onClose: () => void;
 }
 
-export type EnergyTab = 'live' | 'price' | 'usage' | 'devices' | 'bill';
-
-const ENERGY_TAB_VALUES: readonly EnergyTab[] = ['live', 'price', 'usage', 'devices', 'bill'];
-
-function isEnergyTab(value: string): value is EnergyTab {
-  return (ENERGY_TAB_VALUES as readonly string[]).includes(value);
-}
-
-/** Reads the initial tab from `#energy=<tab>` — bare `#energy` or anything unrecognized falls back
- * to `live`, the page's default. Goes through `getAccessibleHistoryWindow()` like every other hash
- * read in this app (iframe-safe — see utils/navigation.ts). */
+/** Reads the initial tab from the `#energy=<tab>` hash through `getAccessibleHistoryWindow()`, like
+ * every other hash read in this app (iframe-safe, see utils/navigation.ts). */
 function tabFromHash(): EnergyTab {
-  const hash = getAccessibleHistoryWindow()?.location.hash ?? '';
-  const candidate = hash.startsWith('#energy=') ? hash.slice('#energy='.length) : '';
-  return isEnergyTab(candidate) ? candidate : 'live';
+  return energyTabFromHash(getAccessibleHistoryWindow()?.location.hash ?? '');
 }
 
 function EnergyPageView({ onClose }: EnergyPageProps) {
@@ -66,8 +56,7 @@ function EnergyPageView({ onClose }: EnergyPageProps) {
       // replaceState fires no hashchange/popstate, and Dashboard's own hash poll still sees kind
       // 'energy' either way — no isUpdatingHashRef guard dance needed here (contrast Dashboard's
       // own history helpers, which do need it to avoid reacting to their own writes).
-      const hash = nextTab === 'live' ? '#energy' : `#energy=${nextTab}`;
-      targetWindow.history.replaceState(null, '', buildHistoryUrlWithHash(targetWindow, hash));
+      targetWindow.history.replaceState(null, '', buildHistoryUrlWithHash(targetWindow, energyHash(nextTab)));
     } catch (err) {
       console.debug('Failed to replace energy tab history:', err);
     }
@@ -94,7 +83,7 @@ function EnergyPageView({ onClose }: EnergyPageProps) {
         <div className='energy-page-inner'>
           {tab === 'live' && config && <LiveTab config={config} todayStartMs={todayStartMs} />}
 
-          {tab === 'price' && <PriceTab nowMs={nowMs} todayStartMs={todayStartMs} />}
+          {tab === 'plan' && <PlanTab />}
 
           {tab === 'usage' && (
             <UsageTab
@@ -109,7 +98,7 @@ function EnergyPageView({ onClose }: EnergyPageProps) {
             />
           )}
 
-          {tab === 'devices' && (
+          {tab === 'rooms' && (
             <DevicesTab
               period={period}
               anchorStartMs={anchorStartMs}

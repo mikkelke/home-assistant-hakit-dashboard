@@ -6,12 +6,20 @@
  * the band of the cheapest position they occupy. A day whose prices are all equal is `normal`
  * throughout. Bands say nothing about kroner across days; plan decisions use kroner only. */
 import { homeDayStartMs, nextHomeDayStartMs } from './homeTime';
-import type { PricePointMs } from './priceAdvice';
+import type { PricePointMs } from './priceTimeline';
 
 const HOUR_MS = 3_600_000;
 
 export const PRICE_BANDS = ['cheap', 'normal', 'pricey', 'expensive'] as const;
 export type PriceBand = (typeof PRICE_BANDS)[number] | 'unknown';
+
+export const PRICE_BAND_LABEL: Record<PriceBand, string> = {
+  cheap: 'cheap',
+  normal: 'normal',
+  pricey: 'pricey',
+  expensive: 'expensive',
+  unknown: 'unknown',
+};
 
 export interface BandedPricePoint extends PricePointMs {
   band: PriceBand;
@@ -33,22 +41,23 @@ export function assignPriceBands(timeline: readonly PricePointMs[]): BandedPrice
   const out: BandedPricePoint[] = [];
   for (const [dayStart, points] of days) {
     const expectedHours = Math.round((nextHomeDayStartMs(dayStart) - dayStart) / HOUR_MS);
-    if (points.length !== expectedHours) {
-      for (const point of points) out.push({ ...point, band: 'unknown' });
-      continue;
-    }
-    const prices = points.map(p => p.price).sort((a, b) => a - b);
-    const allEqual = prices[0] === prices[prices.length - 1];
-    for (const point of points) {
-      if (allEqual) {
-        out.push({ ...point, band: 'normal' });
-        continue;
-      }
-      const cheaper = lowerBound(prices, point.price);
-      out.push({ ...point, band: PRICE_BANDS[Math.floor((PRICE_BANDS.length * cheaper) / points.length)] });
-    }
+    const bands = points.length === expectedHours ? rankBands(points.map(p => p.price)) : null;
+    points.forEach((point, i) => out.push({ ...point, band: bands ? bands[i] : 'unknown' }));
   }
   return out.sort((a, b) => a.ms - b.ms);
+}
+
+/** Bands by rank among `values`, quarter by quarter; a null value is `unknown` and takes no part in
+ * the ranking. Equal values share the band of the cheapest position they occupy; when every value
+ * is equal they are all `normal`. */
+export function rankBands(values: readonly (number | null)[]): PriceBand[] {
+  const sorted = values.filter((v): v is number => v != null).sort((a, b) => a - b);
+  const allEqual = sorted.length > 0 && sorted[0] === sorted[sorted.length - 1];
+  return values.map(value => {
+    if (value == null) return 'unknown';
+    if (allEqual) return 'normal';
+    return PRICE_BANDS[Math.floor((PRICE_BANDS.length * lowerBound(sorted, value)) / sorted.length)];
+  });
 }
 
 function lowerBound(sorted: readonly number[], value: number): number {

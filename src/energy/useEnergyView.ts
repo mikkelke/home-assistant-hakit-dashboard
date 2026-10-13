@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHass } from '@hakit/core';
-import { assembleBars, assemblePriceSeries, synthesizePartialBar, type RawTodayPoint } from './assemble';
+import { applyBarBands, assembleBars, assemblePriceSeries, synthesizePartialBar, type RawTodayPoint } from './assemble';
 import {
   clearCached,
   clearPersisted,
@@ -232,6 +232,7 @@ export function useEnergyView(period: Period, anchorStartMs: number): UseEnergyV
           }
         }
 
+        bars = applyBarBands(bars, priceSeries);
         const totals = bars.reduce((sum, bar) => ({ kWh: sum.kWh + bar.kWh, costKr: sum.costKr + bar.costKr }), { kWh: 0, costKr: 0 });
 
         const view: EnergyView = {

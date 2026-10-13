@@ -168,8 +168,12 @@ export function clearPersisted(key: string): void {
 // Cache keys.
 // ---------------------------------------------------------------------------------------------
 
+/** Bumped whenever the shape or meaning of a cached value changes, so a persisted entry from an
+ * older build is never read back. Superseded entries age out through the LRU cap. */
+const CACHE_VALUE_VERSION = 2;
+
 export function statsCacheKey(idsHash: string, period: string, startMs: number, kind: 'view' | 'dev'): string {
-  return `${STORAGE_PREFIX}${kind}:${idsHash}:${period}:${startMs}`;
+  return `${STORAGE_PREFIX}${kind}${CACHE_VALUE_VERSION}:${idsHash}:${period}:${startMs}`;
 }
 
 /** Short, stable djb2 hash (hex) of a joined id list — folds a config's statistic ids into the

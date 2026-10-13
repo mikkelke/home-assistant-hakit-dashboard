@@ -13,7 +13,7 @@ import {
   type StartPlan,
 } from '../startPlan';
 import { fixtureProgramme, fixtureTimeline, home, hourly, HOUR_MS, MINUTE_MS, programme } from './testUtils';
-import type { PricePointMs } from '../priceAdvice';
+import type { PricePointMs } from '../priceTimeline';
 
 const washerSteps = PLAN_APPLIANCES.find(a => a.key === 'washer')!.knobStepsMin;
 const dishwasherSteps = PLAN_APPLIANCES.find(a => a.key === 'dishwasher')!.knobStepsMin;

@@ -1,3 +1,5 @@
+import type { PriceBand } from './priceBands';
+
 export type Period = 'day' | 'week' | 'month' | 'year';
 
 export interface StatisticValue {
@@ -75,7 +77,8 @@ export interface EnergyBar {
   kWh: number;
   costKr: number;
   price: number | null;
-  level: 'low' | 'mid' | 'high' | 'unknown';
+  /** Relative price band: rank within its home day on the day view, within the period otherwise. */
+  level: PriceBand;
   partial?: boolean;
 }
 

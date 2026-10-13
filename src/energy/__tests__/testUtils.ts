@@ -1,5 +1,5 @@
 import { homeWallTimeToMs } from '../homeTime';
-import type { PricePointMs } from '../priceAdvice';
+import type { PricePointMs } from '../priceTimeline';
 import { buildHourlyPrices } from '../priceTimeline';
 import { parseRunProfiles, type RunProfileProgramme } from '../runProfiles';
 import prices from './fixtures/prices-2026-10.json';

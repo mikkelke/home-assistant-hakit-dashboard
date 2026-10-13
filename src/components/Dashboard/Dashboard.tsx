@@ -6,6 +6,7 @@ import { EXCLUDED_AREAS } from '../../config/dashboard';
 import type { Area, HassEntities } from '../../types';
 import { buildHistoryUrlWithHash, buildRoomHash, getAccessibleHistoryWindow, getViewFromHistoryHash } from '../../utils/navigation';
 import { StatusBar } from '../StatusBar';
+import type { EnergyTab } from '../Energy/energyTab';
 import { HomePulse } from '../HomePulse';
 import { QuickAccess } from '../QuickAccess/QuickAccess';
 import { RoomGrid } from '../RoomGrid';
@@ -501,18 +502,21 @@ export function Dashboard() {
     }
   }, [markHashUpdating]);
 
-  const pushEnergyHistory = useCallback(() => {
-    const targetWindow = getAccessibleHistoryWindow();
-    if (!targetWindow) return;
+  const pushEnergyHistory = useCallback(
+    (hash: string) => {
+      const targetWindow = getAccessibleHistoryWindow();
+      if (!targetWindow) return;
 
-    try {
-      markHashUpdating();
-      targetWindow.history.pushState({ energy: true }, '', buildHistoryUrlWithHash(targetWindow, '#energy'));
-    } catch (err) {
-      console.debug('Failed to push energy history:', err);
-      isUpdatingHashRef.current = false;
-    }
-  }, [markHashUpdating]);
+      try {
+        markHashUpdating();
+        targetWindow.history.pushState({ energy: true }, '', buildHistoryUrlWithHash(targetWindow, hash));
+      } catch (err) {
+        console.debug('Failed to push energy history:', err);
+        isUpdatingHashRef.current = false;
+      }
+    },
+    [markHashUpdating]
+  );
 
   // Sync state from URL hash (single source of truth)
   const syncStateFromHash = useCallback(() => {
@@ -671,8 +675,8 @@ export function Dashboard() {
     replaceRoomHistory(null);
   };
 
-  const handleOpenEnergy = () => {
-    pushEnergyHistory();
+  const handleOpenEnergy = (tab: EnergyTab = 'live') => {
+    pushEnergyHistory(tab === 'live' ? '#energy' : `#energy=${tab}`);
     setEnergyOpen(true);
     setSelectedRoom(null);
   };
@@ -689,12 +693,17 @@ export function Dashboard() {
         onClose={() => setIsMenuOpen(false)}
         entities={displayEntities}
         callService={callService}
-        onOpenEnergy={handleOpenEnergy}
+        onOpenEnergy={() => handleOpenEnergy()}
       />
       <FireAlarmTakeover entities={displayEntities} callService={callService} />
       <div className='dashboard-main'>
         <div className='dashboard-content'>
-          <StatusBar entities={displayEntities} hassUrl={hassUrl} onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
+          <StatusBar
+            entities={displayEntities}
+            hassUrl={hassUrl}
+            onMenuToggle={() => setIsMenuOpen(!isMenuOpen)}
+            onOpenPlan={() => handleOpenEnergy('plan')}
+          />
           <HomePulse areas={areaList} entities={displayEntities} hassUrl={hassUrl} onRoomSelect={handlePulseRoomSelect} />
           <RoomGrid
             areas={areaList}

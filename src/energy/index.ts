@@ -3,7 +3,7 @@ export * from './ws';
 export * from './period';
 export * from './assemble';
 export * from './bill';
-export * from './priceAdvice';
+export * from './priceTimeline';
 export * from './cache';
 export * from './runCost';
 export { useEnergyConfig } from './useEnergyConfig';

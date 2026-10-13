@@ -1,7 +1,8 @@
 /** Pure view-model assembly for the Energy page — no React, no clock reads; every function takes
  * explicit ms args (or nullable data), so it stays independently testable. */
-import { LIVE_POWER_MIN_WATTS, PRICE_BAND_THRESHOLDS, PRICE_SANITY_CEILING_KR } from '../config/energy';
+import { LIVE_POWER_MIN_WATTS, PRICE_SANITY_CEILING_KR } from '../config/energy';
 import { addDays, bucketPeriodFor } from './period';
+import { assignPriceBands, bandAt, rankBands } from './priceBands';
 import type {
   DevicePref,
   DeviceUsage,
@@ -19,15 +20,6 @@ import type {
 export interface RawTodayPoint {
   hour: string;
   price: number;
-}
-
-/** Price band for coloring a bar. `PRICE_BAND_THRESHOLDS` are inclusive upper bounds: `low` stays
- * strictly below `lowMaxKrPerKWh`, `mid` reaches up to and including `midMaxKrPerKWh`. */
-export function priceLevel(price: number | null): EnergyBar['level'] {
-  if (price == null) return 'unknown';
-  if (price < PRICE_BAND_THRESHOLDS.lowMaxKrPerKWh) return 'low';
-  if (price <= PRICE_BAND_THRESHOLDS.midMaxKrPerKWh) return 'mid';
-  return 'high';
 }
 
 /** Whether a kr/kWh reading is plausible enough to use (see `PRICE_SANITY_CEILING_KR`). An
@@ -77,8 +69,20 @@ export function assembleBars(
         price = null;
       }
 
-      return { startMs: row.start, endMs: row.end, kWh, costKr, price, level: priceLevel(price) };
+      return { startMs: row.start, endMs: row.end, kWh, costKr, price, level: 'unknown' };
     });
+}
+
+/** Sets each bar's relative price band. With a day's price series, an hourly bar takes its hour's
+ * band within that home day (so today's elapsed hours rank against the whole day, not just each
+ * other); otherwise bars are ranked against each other by their own price. */
+export function applyBarBands(bars: EnergyBar[], priceSeries: PriceSeries | null): EnergyBar[] {
+  if (priceSeries) {
+    const banded = assignPriceBands(priceSeries.points);
+    return bars.map(bar => ({ ...bar, level: bandAt(banded, bar.startMs) }));
+  }
+  const bands = rankBands(bars.map(bar => bar.price));
+  return bars.map((bar, i) => ({ ...bar, level: bands[i] }));
 }
 
 /** Merges long-term-statistics hourly price rows with the live entity's `raw_today` (LTS wins on
@@ -146,7 +150,7 @@ export function synthesizePartialBar(
     kWh,
     costKr,
     price,
-    level: priceLevel(price),
+    level: 'unknown',
     partial: true,
   };
 }

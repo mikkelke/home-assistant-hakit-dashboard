@@ -99,8 +99,6 @@
   }
 }
 
-/* Price-band swatch colors mirror EnergyChart.css's .energy-chart-bar--low/--mid/--high fills —
-   keep both in sync if the ramp ever changes. */
 .energy-chart-legend {
   display: flex;
   gap: 0.9rem;
@@ -120,18 +118,7 @@
   height: 8px;
   border-radius: 50%;
   display: inline-block;
-}
-
-.energy-chart-legend-dot--low {
-  background: #9a3412;
-}
-
-.energy-chart-legend-dot--mid {
-  background: #ea580c;
-}
-
-.energy-chart-legend-dot--high {
-  background: #fdba74;
+  background: var(--band-color);
 }
 
 /* Compact row, not a wall. */

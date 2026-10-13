@@ -1,0 +1,544 @@
+.plan-tab,
+.plan-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+  color: #e4e4e7;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.plan-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 120px;
+  color: #a1a1aa;
+}
+
+.plan-card {
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.plan-card--chart {
+  padding: 8px 6px 4px;
+}
+
+.plan-card--inset {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.plan-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* Chips */
+.plan-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.plan-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #e4e4e7;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.plan-chip svg {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.plan-chip--tiny {
+  height: 22px;
+  padding: 0 7px;
+  font-size: 11px;
+}
+
+.plan-chip--ghost {
+  color: #a1a1aa;
+}
+
+.plan-chip--sky,
+.plan-chip--on {
+  background: rgba(56, 189, 248, 0.14);
+  border-color: rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+}
+
+.plan-chip--band {
+  background: color-mix(in srgb, var(--band-color) 14%, transparent);
+  color: var(--band-color);
+}
+
+.plan-chip--strip {
+  gap: 8px;
+  color: #a1a1aa;
+}
+
+/* Visible chip stays small; the hit area reaches 44 px. */
+.plan-chip--button {
+  cursor: pointer;
+  transition: transform 120ms var(--ease-out);
+}
+
+.plan-chip--button::before {
+  content: '';
+  position: absolute;
+  inset: -9px -2px;
+}
+
+.plan-chip--tiny.plan-chip--button::before {
+  inset: -11px -2px;
+}
+
+.plan-chip--button:active {
+  transform: scale(0.97);
+}
+
+.plan-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--band-color);
+}
+
+.plan-legend {
+  padding: 0 2px;
+}
+
+.plan-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.plan-note {
+  margin: -4px 4px 0;
+  color: #a1a1aa;
+  font-size: 12px;
+}
+
+.plan-dim {
+  color: #8b8b94;
+  flex-shrink: 0;
+}
+
+/* Hero */
+.plan-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 2px 4px;
+}
+
+.plan-hero-main {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.plan-hero-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8b8b94;
+}
+
+.plan-hero-num {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.plan-hero-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+
+/* Row heads */
+.plan-row-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.plan-row-head > span:first-child {
+  margin-right: auto;
+}
+
+.plan-row-head--in {
+  padding: 2px 0 0;
+}
+
+/* Run later */
+.plan-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.plan-approw {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 62px;
+  padding: 9px 12px;
+  background: rgba(24, 25, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.plan-approw {
+  cursor: pointer;
+  transition: transform 120ms var(--ease-out);
+}
+
+button.plan-approw:active {
+  transform: scale(0.99);
+}
+
+.plan-approw--run {
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.plan-atile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
+  color: #a1a1aa;
+  font-size: 22px;
+}
+
+.plan-atile--run {
+  background: rgba(56, 189, 248, 0.14);
+  color: #38bdf8;
+}
+
+.plan-runbadge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #38bdf8;
+  border: 2px solid #16181b;
+}
+
+.plan-amid {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.plan-aline {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.plan-aname {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.plan-aprice {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 13px;
+  color: #a1a1aa;
+}
+
+.plan-aprice s {
+  text-decoration-thickness: 1.5px;
+}
+
+.plan-aprice b {
+  color: var(--band-cheap);
+}
+
+.plan-save {
+  flex-shrink: 0;
+  padding: 7px 9px;
+  border-radius: 10px;
+  background: var(--band-cheap);
+  color: #0d0f13;
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.plan-chev {
+  font-size: 18px;
+}
+
+/* Chart marks */
+.plan-label {
+  font-size: 12px;
+  font-weight: 500;
+  fill: #8b8b94;
+}
+
+.plan-label--bold {
+  font-weight: 700;
+}
+
+.plan-label--strong {
+  fill: #e4e4e7;
+}
+
+.plan-label--band {
+  fill: var(--band-color);
+}
+
+.plan-label--cap {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.plan-bar,
+.plan-cost-bar {
+  fill: var(--band-color);
+}
+
+.plan-bar--past {
+  opacity: 0.32;
+}
+
+.plan-peak {
+  fill: var(--band-expensive);
+  opacity: 0.08;
+}
+
+.plan-divider {
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-dasharray: 2 3;
+}
+
+.plan-block {
+  fill: color-mix(in srgb, var(--band-color) 12%, transparent);
+  stroke: var(--band-color);
+  stroke-width: 1.5;
+}
+
+.plan-now-line {
+  stroke: #e4e4e7;
+  stroke-opacity: 0.7;
+  stroke-width: 1.5;
+}
+
+.plan-now-dot {
+  fill: #38bdf8;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: plan-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes plan-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.35);
+  }
+}
+
+.plan-late {
+  fill: rgba(13, 15, 19, 0.72);
+}
+
+.plan-late-line {
+  stroke: #a1a1aa;
+  stroke-dasharray: 3 3;
+}
+
+.plan-knob {
+  fill: #8b8b94;
+}
+
+.plan-plan-line {
+  stroke: var(--band-color);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 2;
+}
+
+.plan-plan-dot {
+  fill: #141518;
+  stroke: var(--band-color);
+  stroke-width: 2;
+}
+
+/* Week ahead */
+.plan-week--plain {
+  --band-color: #a1a1aa;
+}
+
+.plan-week-halo {
+  stroke: var(--band-color);
+  stroke-width: 8;
+  stroke-linecap: round;
+  opacity: 0.22;
+}
+
+.plan-week-range {
+  stroke: var(--band-color);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.plan-week-range--est {
+  stroke-dasharray: 3 3;
+}
+
+.plan-week-mean {
+  fill: #141518;
+  stroke: var(--band-color);
+  stroke-width: 2;
+}
+
+/* Sheet */
+.plan-cmp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plan-cmp-t {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.plan-cmp-t--best {
+  background: rgba(52, 211, 153, 0.1);
+  outline: 1.5px solid rgba(52, 211, 153, 0.45);
+}
+
+.plan-k {
+  font-size: 12px;
+  font-weight: 600;
+  color: #a1a1aa;
+}
+
+.plan-cmp-v {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--band-color, #e4e4e7);
+}
+
+.plan-cmp-v small {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.plan-cmp-s {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #a1a1aa;
+}
+
+.plan-toggle {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.plan-toggle button {
+  position: relative;
+  min-width: 52px;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: #a1a1aa;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.plan-toggle button::before {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+
+.plan-toggle .plan-toggle-on {
+  background: rgba(56, 189, 248, 0.16);
+  color: #38bdf8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-now-dot {
+    animation: none;
+  }
+
+  .plan-chip--button,
+  button.plan-approw {
+    transition: none;
+  }
+}

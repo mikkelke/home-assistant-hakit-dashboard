@@ -8,9 +8,11 @@ interface StatusBarProps {
   entities: HassEntities;
   hassUrl: string | null;
   onMenuToggle: () => void;
+  /** Opens the Energy page on its Plan tab. */
+  onOpenPlan: () => void;
 }
 
-export function StatusBar({ entities, hassUrl, onMenuToggle }: StatusBarProps) {
+export function StatusBar({ entities, hassUrl, onMenuToggle, onOpenPlan }: StatusBarProps) {
   const entityKeys = Object.keys(entities || {});
   const personEntities = entityKeys.filter(key => key.startsWith('person.'));
 
@@ -22,7 +24,7 @@ export function StatusBar({ entities, hassUrl, onMenuToggle }: StatusBarProps) {
             <PersonStatus key={person} entity={person} entities={entities} hassUrl={hassUrl} />
           ))}
         </div>
-        <PriceAdvisor />
+        <PriceAdvisor onOpen={onOpenPlan} />
         <div className='status-section'>
           <button className='sidebar-toggle-btn' onClick={onMenuToggle} title='Open menu' aria-label='Open menu'>
             <Icon icon='mdi:menu' />

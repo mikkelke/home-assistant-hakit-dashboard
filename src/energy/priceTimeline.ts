@@ -2,9 +2,16 @@
  * it keeps elapsed hours (bands rank whole days) and accepts free and negative prices. */
 import { PLAN_PRICE_RANGE_KR } from '../config/plan';
 import type { RawTodayPoint } from './assemble';
-import type { PricePointMs } from './priceAdvice';
 
 const HOUR_MS = 3_600_000;
+
+/** One hour's all-in price in kr/kWh, keyed by the hour's start. `estimated` marks an hour priced
+ * from the Carnot forecast rather than the published day-ahead price. */
+export interface PricePointMs {
+  ms: number;
+  price: number;
+  estimated?: true;
+}
 
 export function isPlanPrice(price: unknown): price is number {
   return typeof price === 'number' && Number.isFinite(price) && price >= PLAN_PRICE_RANGE_KR.min && price <= PLAN_PRICE_RANGE_KR.max;

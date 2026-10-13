@@ -9,7 +9,8 @@ import {
 } from '../config/plan';
 import { useTrackedEntities } from '../hooks/useTrackedEntities';
 import { assembleAppliancePlan, readApplianceRun, type AppliancePlan } from './appliancePlan';
-import type { PricePointMs } from './priceAdvice';
+import type { PricePointMs } from './priceTimeline';
+import { peakHoursFromTariffs } from './planView';
 import { buildHourlyPrices } from './priceTimeline';
 import { parseRunProfiles } from './runProfiles';
 import { cheapestBlock, type PriceBlock } from './startPlan';
@@ -24,6 +25,10 @@ export interface UseAppliancePlansResult {
   timeline: PricePointMs[];
   /** Cheapest `CHEAPEST_BLOCK_HOURS` consecutive hours from the current hour on. */
   cheapest: PriceBlock | null;
+  /** Tomorrow's day-ahead prices are published (until then tomorrow comes from the forecast). */
+  tomorrowValid: boolean;
+  /** Home-time hours of the grid's peak tariff; null when the tariff table is unavailable. */
+  peakHours: number[] | null;
   /** Why no profiles are available (entity missing or malformed); null when they are. */
   profilesError: string | null;
   appliances: AppliancePlan[];
@@ -52,6 +57,10 @@ export function useAppliancePlans(selection: AppliancePlanSelection = {}): UseAp
     );
   }, [priceEntity]);
 
+  const tomorrowValid = priceEntity?.attributes?.tomorrow_valid === true;
+  const tariffs = priceEntity?.attributes?.tariffs;
+  const peakHours = useMemo(() => peakHoursFromTariffs(tariffs), [tariffs]);
+
   const profilesEntity = entities[RUN_PROFILES_ENTITY_ID];
   const parsed = useMemo(
     () => (profilesEntity ? parseRunProfiles(profilesEntity.attributes) : { ok: false as const, error: 'profiles entity missing' }),
@@ -77,5 +86,5 @@ export function useAppliancePlans(selection: AppliancePlanSelection = {}): UseAp
 
   const cheapest = useMemo(() => cheapestBlock(timeline, CHEAPEST_BLOCK_HOURS, nowMs), [timeline, nowMs]);
 
-  return { nowMs, timeline, cheapest, profilesError: parsed.ok ? null : parsed.error, appliances };
+  return { nowMs, timeline, cheapest, tomorrowValid, peakHours, profilesError: parsed.ok ? null : parsed.error, appliances };
 }

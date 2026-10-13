@@ -135,7 +135,7 @@ export function EnergyChart({
         const barTopY = yFor(value);
         const barHeight = Math.max(0, plotBottom - barTopY);
         const isSelected = selectedStartMs === bar.startMs;
-        const classNames = ['energy-chart-bar', `energy-chart-bar--${bar.level}`];
+        const classNames = ['energy-chart-bar', `band--${bar.level}`];
         if (bar.partial) classNames.push('energy-chart-bar--partial');
         if (isSelected) classNames.push('energy-chart-bar--selected');
         return <path key={bar.startMs} d={roundedTopRect(barX, barTopY, barWidth, barHeight, 4)} className={classNames.join(' ')} />;

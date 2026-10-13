@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { assembleBill, assembleBillPriceStats, type BillPriceStats, type EnergyBar, type EnergyView } from '../../energy';
+import { assembleBill, assembleBillPriceStats, type BillPriceStats, type EnergyView } from '../../energy';
 import { formatClockHour, formatKr, formatKWh, formatPrice } from '../../utils/format';
 import './BillCard.css';
 
@@ -7,15 +7,6 @@ interface BillCardProps {
   view: EnergyView;
   nowMs: number;
 }
-
-/** Tints a min/max price value the same way EnergyChart/PriceTab/PriceAdvisor color price
- * levels — see BillCard.css's own `.bill-card-price-stat-value--<level>` for the shared ramp. */
-const PRICE_LEVEL_CLASS: Record<EnergyBar['level'], string> = {
-  low: 'bill-card-price-stat-value--low',
-  mid: 'bill-card-price-stat-value--mid',
-  high: 'bill-card-price-stat-value--high',
-  unknown: 'bill-card-price-stat-value--unknown',
-};
 
 /** WHEN a min/max bucket fell, phrased per `BillPriceStats.bucket`: "14:00" for an hour, "Mon
  * 14/7" for a day, "July" for a month — mirrors the app's other per-component local date-label
@@ -88,7 +79,7 @@ export function BillCard({ view, nowMs }: BillCardProps) {
         <div className='bill-card-price-stats'>
           <div className='bill-card-price-stat'>
             <span className='bill-card-price-stat-label'>Cheapest {priceStats.bucket}</span>
-            <span className={`bill-card-price-stat-value ${PRICE_LEVEL_CLASS[priceStats.min.level]}`}>
+            <span className={`bill-card-price-stat-value bill-card-price-stat-value--band band--${priceStats.min.level}`}>
               {formatPrice(priceStats.min.price)}
             </span>
             <span className='bill-card-price-stat-sub'>{bucketWhenLabel(priceStats.bucket, priceStats.min.startMs)}</span>
@@ -101,7 +92,7 @@ export function BillCard({ view, nowMs }: BillCardProps) {
 
           <div className='bill-card-price-stat'>
             <span className='bill-card-price-stat-label'>Priciest {priceStats.bucket}</span>
-            <span className={`bill-card-price-stat-value ${PRICE_LEVEL_CLASS[priceStats.max.level]}`}>
+            <span className={`bill-card-price-stat-value bill-card-price-stat-value--band band--${priceStats.max.level}`}>
               {formatPrice(priceStats.max.price)}
             </span>
             <span className='bill-card-price-stat-sub'>{bucketWhenLabel(priceStats.bucket, priceStats.max.startMs)}</span>
