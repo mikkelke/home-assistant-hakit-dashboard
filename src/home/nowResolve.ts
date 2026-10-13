@@ -13,6 +13,9 @@ export interface NowCandidate {
 
 export type NowResolution = { status: 'none' } | { status: 'pending' } | { status: 'found'; id: string } | { status: 'unavailable' };
 
+/** How long the timeline waits for the viewer and the feed before a miss counts as settled. */
+export const NOW_RESOLVE_GIVE_UP_MS = 3_000;
+
 /** How far a candidate's time may lie from the focus time: an in-app `evt` tap carries the row's
  * own time, a push carries the time its event shares with the feed row. */
 export function focusWindowMs(kind: NowFocusKind): number {

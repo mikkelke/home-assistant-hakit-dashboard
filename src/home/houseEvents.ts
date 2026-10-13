@@ -88,7 +88,7 @@ export interface HouseEventViewer {
   name: string | null;
 }
 
-/** Kinds only admins see, whatever a row's own audience says. Mikkel is the admin. */
+/** Kinds only admins see, whatever a row's own audience says. */
 const ADMIN_ONLY_KINDS: ReadonlySet<NowFocusKind> = new Set(['wake']);
 
 export function canViewerSeeKind(kind: NowFocusKind, viewer: HouseEventViewer): boolean {
