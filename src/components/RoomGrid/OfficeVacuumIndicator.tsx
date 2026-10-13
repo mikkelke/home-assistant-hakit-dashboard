@@ -11,7 +11,7 @@ import {
   ROBOT_PAUSED_BOOLEAN_ENTITY,
   ROBOT_PAUSE_REASON_ENTITY,
 } from '../../config/entities';
-import { Timeline } from '../Timeline';
+import { LazyTimeline } from '../Timeline';
 import { RobotCleaningNarrativeTimeline } from './RobotCleaningNarrativeTimeline';
 import './OfficeVacuumIndicator.css';
 
@@ -255,7 +255,7 @@ export function OfficeVacuumIndicator({ entities, hassUrl, cleaningToggleId, las
         {tab === 'robot' && robotStatePanel}
         {tab === 'cleaning' && cleaningEntity && (
           <div className='modal-timeline-content office-vacuum-modal__panel office-vacuum-modal__panel--cleaning' role='tabpanel'>
-            <Timeline
+            <LazyTimeline
               entityId={cleaningToggleId!}
               entity={cleaningEntity}
               hassUrl={hassUrl}

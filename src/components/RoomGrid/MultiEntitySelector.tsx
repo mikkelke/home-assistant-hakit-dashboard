@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
-import { Timeline } from '../Timeline';
+import { LazyTimeline } from '../Timeline';
 import type { HassEntities } from '../../types';
 import './MultiEntitySelector.css';
 
@@ -350,7 +350,7 @@ export function MultiEntitySelector({
                   </button>
                 </div>
                 <div className='modal-timeline-content'>
-                  <Timeline
+                  <LazyTimeline
                     entityId={selectedEntityId}
                     entity={entity}
                     hassUrl={hassUrl}

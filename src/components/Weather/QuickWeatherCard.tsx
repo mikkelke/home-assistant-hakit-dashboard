@@ -4,7 +4,7 @@ import { useWeather, useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import type { HassEntities, HassEntity } from '../../types';
 import { useModalBackButton, useSwipeToClose } from '../../hooks';
-import { Timeline } from '../Timeline';
+import { LazyTimeline } from '../Timeline';
 import { getWeatherConditionIcon } from './weatherIcons';
 import './QuickWeatherCard.css';
 
@@ -1615,7 +1615,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
                 </button>
               </div>
               <div className='modal-timeline-content'>
-                <Timeline
+                <LazyTimeline
                   entityId={historyEntityId}
                   entity={historyEntity ?? ({ entity_id: historyEntityId, state: '', attributes: {} } as HassEntity)}
                   hassUrl={hassUrl}

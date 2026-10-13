@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import type { PersonStatusProps } from '../../types';
 import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
-import { Timeline } from '../Timeline';
+import { LazyTimeline } from '../Timeline';
 import { useSwipeToClose } from '../../hooks';
 import './StatusBar.css';
 
@@ -129,7 +129,7 @@ export function PersonStatus({ entity, entities, hassUrl }: PersonStatusProps) {
           </button>
         </div>
         <div className='modal-timeline-content'>
-          <Timeline entityId={entity} entity={person} hassUrl={hassUrl} hours={168} limit={100} />
+          <LazyTimeline entityId={entity} entity={person} hassUrl={hassUrl} hours={168} limit={100} />
         </div>
       </div>
     </div>

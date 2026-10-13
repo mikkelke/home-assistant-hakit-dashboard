@@ -4,7 +4,7 @@ import { Icon } from '@iconify/react';
 import type { HassEntities, HassEntity, CallServiceFunction } from '../../types';
 import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
 import { useTouchScrollSlopGuard } from '../../hooks';
-import { Timeline } from '../Timeline';
+import { LazyTimeline } from '../Timeline';
 import './WeatherCard.css';
 
 interface WeatherCardProps {
@@ -243,7 +243,7 @@ function WeatherItemWithTimeline({
           </button>
         </div>
         <div className='modal-timeline-content'>
-          <Timeline
+          <LazyTimeline
             entityId={entityId}
             entity={entity ?? ({ entity_id: entityId, state: '', attributes: {} } as HassEntity)}
             hassUrl={hassUrl}

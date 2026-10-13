@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
-import { Timeline } from '../Timeline';
+import { LazyTimeline } from '../Timeline';
 import type { HassEntities } from '../../types';
 
 function timelineHistoryUrl(): string {
@@ -143,7 +143,7 @@ export function IndicatorWithTimeline({
           </button>
         </div>
         <div className='modal-timeline-content'>
-          <Timeline
+          <LazyTimeline
             entityId={entityId}
             entity={entity}
             entities={entities}

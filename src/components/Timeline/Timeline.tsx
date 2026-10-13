@@ -4,7 +4,6 @@ import { Icon } from '@iconify/react';
 import type { HassEntities, HassEntity } from '../../types';
 import { APARTMENT_DOOR_OPEN_ENTITY, BEDROOM_BED_OCCUPANCY_SENSORS } from '../../config/entities';
 import { extractRoomActiveZone, parseRoomActiveReason } from '../../utils/roomActiveReason';
-import './Timeline.css';
 
 interface TimelineEvent {
   entity_id: string;
@@ -23,7 +22,7 @@ interface TimelineEvent {
   witnessIcon?: string;
 }
 
-interface TimelineProps {
+export interface TimelineProps {
   entityId: string;
   entity: HassEntity;
   /** Only used to resolve a witness device's friendly_name for room-active entities (see
