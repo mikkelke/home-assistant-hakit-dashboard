@@ -195,8 +195,9 @@ body.modal-open .room-card {
 }
 
 .room-orb--bell {
-  background: rgba(56, 189, 248, 0.22);
   z-index: 1;
+  background: #16303f;
+  box-shadow: 0 0 30px rgba(56, 189, 248, 0.25);
 }
 
 .room-orb--bell svg {
