@@ -2,91 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities } from '../../types';
 import { HOUSE_EVENTS_ENTITY } from '../../config/entities';
+import { parseHouseEvents, visibleHouseEvents, type HouseEvent } from '../../home/houseEvents';
 import { useSwipeToClose, useViewer } from '../../hooks';
 import './HomeActivity.css';
-
-/** One published house-event row — see config/entities.ts's HOUSE_EVENTS_ENTITY doc for the
- * backend contract. `tsMs` is pre-parsed (rather than kept as the raw ISO string) so nothing
- * downstream needs to re-parse it, and so a malformed timestamp is caught once, at parse time.
- * `cause`/`effect` are set together, or not at all (see `parseHouseEvents`) — `EventRow` shows
- * `effect` as the row's headline (falling back to plain `text` for events the backend hasn't
- * upgraded to publish both halves of yet), with `cause` underneath as a muted second line — the
- * reverse of the hierarchy implied by `text`'s own "cause -> effect" wording, matching HA's own
- * Activity view (action first, explanation second). `by` is a newer, independently-optional field
- * (a person's display name, e.g. "Mikkel") rendered as a third, more-muted "By {by}" line when
- * present. */
-interface HouseEvent {
-  tsMs: number;
-  icon: string;
-  text: string;
-  cause?: string;
-  effect?: string;
-  by?: string;
-  /** 'admin' = shown only to HA admin viewers (Mikkel) — plumbing-level entries (override
-   * expiries, self-heals, his own room's automations) the housemates shouldn't wade through.
-   * Absent = everyone. Mirrors the backend's v5 `audience` field; any other value is dropped
-   * at parse time so a future backend change can't accidentally hide rows from admins. */
-  audience?: 'admin';
-  /** v5.1 — HA user display names (matched case-insensitively against the logged-in user) who
-   * see this entry besides admins: room-scoped entries like Claudia's room's overrides carry
-   * ['Claudia']. Never set together with `audience: 'admin'` (admin-only outranks). */
-  audienceUsers?: string[];
-}
-
-// Mirrors the backend's own documented cap (AppDaemon HouseEvents keeps at most 40) — re-applied
-// here defensively since attributes.events is external data, never trusted blind.
-const MAX_EVENTS = 40;
-
-/** Defensively parses `attributes.events` into newest-first {@link HouseEvent}s: array check,
- * per-item ts/text string checks, a fallback icon, and a hard cap — one malformed publish can't
- * crash the card or blow up the DOM. Order is trusted as newest-first (the backend's documented
- * contract), not re-sorted here. `cause`/`effect` are optional, upgraded-backend fields — kept on
- * the parsed event only when BOTH are strings that are still non-empty after trimming; otherwise
- * left unset entirely, so `EventRow` never has to re-check trimmed-emptiness itself. `by` is
- * independent of cause/effect — kept whenever it's a string that's still non-empty after
- * trimming, unset otherwise. */
-function parseHouseEvents(value: unknown): HouseEvent[] {
-  if (!Array.isArray(value)) return [];
-
-  const events: HouseEvent[] = [];
-  for (const raw of value) {
-    if (typeof raw !== 'object' || raw === null) continue;
-    const item = raw as Record<string, unknown>;
-    if (typeof item.ts !== 'string' || typeof item.text !== 'string') continue;
-
-    const tsMs = new Date(item.ts).getTime();
-    if (!Number.isFinite(tsMs)) continue; // unparseable timestamp — nothing downstream can place this event on the timeline
-
-    const cause = typeof item.cause === 'string' ? item.cause.trim() : '';
-    const effect = typeof item.effect === 'string' ? item.effect.trim() : '';
-    const hasCauseEffect = cause.length > 0 && effect.length > 0;
-
-    const by = typeof item.by === 'string' ? item.by.trim() : '';
-
-    // Kept only when non-empty: an empty (or fully-junk) list must degrade to "everyone",
-    // never to "admins only" — same fail-open stance as the backend's own validation.
-    const audienceUsers =
-      item.audience !== 'admin' && Array.isArray(item.audience_users)
-        ? item.audience_users
-            .filter((u): u is string => typeof u === 'string' && u.trim().length > 0)
-            .map(u => u.trim())
-            .slice(0, 8)
-        : [];
-
-    events.push({
-      tsMs,
-      text: item.text,
-      icon: typeof item.icon === 'string' ? item.icon : 'mdi:information-outline',
-      cause: hasCauseEffect ? cause : undefined,
-      effect: hasCauseEffect ? effect : undefined,
-      by: by.length > 0 ? by : undefined,
-      audience: item.audience === 'admin' ? 'admin' : undefined,
-      audienceUsers: audienceUsers.length > 0 ? audienceUsers : undefined,
-    });
-    if (events.length >= MAX_EVENTS) break;
-  }
-  return events;
-}
 
 function sameLocalDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -224,15 +142,7 @@ export function HouseEventsModal({ entities, onClose }: HouseEventsModalProps) {
   // plus any rows naming them in audienceUsers (e.g. Claudia sees her own room's overrides). See
   // useViewer/HouseEvent.audience/audienceUsers.
   const viewer = useViewer();
-  const events = useMemo(() => {
-    if (viewer.isAdmin) return allEvents;
-    const name = viewer.name?.trim().toLowerCase();
-    return allEvents.filter(e => {
-      if (e.audience === 'admin') return false;
-      if (e.audienceUsers) return name != null && e.audienceUsers.some(u => u.toLowerCase() === name);
-      return true;
-    });
-  }, [allEvents, viewer]);
+  const events = useMemo(() => visibleHouseEvents(allEvents, viewer), [allEvents, viewer]);
 
   // Same now-tick pattern as PriceAdvisor.tsx: state + a 60s interval, so nothing else in this
   // component reads Date.now()/new Date() during render — only the interval callback (an

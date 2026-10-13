@@ -1,0 +1,283 @@
+{
+  "entity_id": "sensor.house_events",
+  "state": "2026-10-13T12:26:06.404260+02:00",
+  "attributes": {
+    "friendly_name": "House events",
+    "icon": "mdi:history",
+    "events": [
+      {
+        "ts": "2026-10-13T12:26:06.404260+02:00",
+        "icon": "mdi:door-open",
+        "text": "Someone rang the front door -> The door was opened for them",
+        "cause": "Someone rang the front door",
+        "effect": "The door was opened for them"
+      },
+      {
+        "ts": "2026-10-13T12:26:01.941170+02:00",
+        "icon": "mdi:bell-ring",
+        "text": "Someone rang the front door -> Announcing on the speakers and opening the door",
+        "cause": "Someone rang the front door",
+        "effect": "Announcing on the speakers and opening the door"
+      },
+      {
+        "ts": "2026-10-13T11:30:25.897469+02:00",
+        "icon": "mdi:speaker-multiple",
+        "text": "Kitchen, Dining room, Claudias room + 3 more speakers idle for 20 min -> Kitchen, Dining room, Claudias room + 3 more speakers back to default volume and ungrouped",
+        "cause": "Kitchen, Dining room, Claudias room + 3 more speakers idle for 20 min",
+        "effect": "Kitchen, Dining room, Claudias room + 3 more speakers back to default volume and ungrouped",
+        "audience": "admin"
+      },
+      {
+        "ts": "2026-10-13T10:55:30.638596+02:00",
+        "icon": "mdi:basket-check",
+        "text": "Washer emptied"
+      },
+      {
+        "ts": "2026-10-13T10:55:30.468247+02:00",
+        "icon": "mdi:washing-machine",
+        "text": "Washer finished - used 0.99 kWh"
+      },
+      {
+        "ts": "2026-10-13T10:32:36.986062+02:00",
+        "icon": "mdi:door-open",
+        "text": "Someone rang the front door -> The door was opened for them",
+        "cause": "Someone rang the front door",
+        "effect": "The door was opened for them"
+      },
+      {
+        "ts": "2026-10-13T10:32:33.914666+02:00",
+        "icon": "mdi:bell-ring",
+        "text": "Someone rang the front door -> Announcing on the speakers and opening the door",
+        "cause": "Someone rang the front door",
+        "effect": "Announcing on the speakers and opening the door"
+      },
+      {
+        "ts": "2026-10-13T09:57:39.853474+02:00",
+        "icon": "mdi:lock-alert",
+        "text": "Door closed while the lock still read unlocked with no corroborating update -> pressed Yale wake button (auto-lock corroborator nudge)",
+        "cause": "Door closed while the lock still read unlocked with no corroborating update",
+        "effect": "pressed Yale wake button (auto-lock corroborator nudge)",
+        "audience": "admin"
+      },
+      {
+        "ts": "2026-10-13T08:41:47.432043+02:00",
+        "icon": "mdi:robot-vacuum",
+        "text": "All queued rooms cleaned -> Vacuum finished its round - heading to the dock",
+        "cause": "All queued rooms cleaned",
+        "effect": "Vacuum finished its round - heading to the dock"
+      },
+      {
+        "ts": "2026-10-13T07:51:17.251896+02:00",
+        "icon": "mdi:robot-vacuum",
+        "text": "Nobody home -> Vacuum starting its cleaning round",
+        "cause": "Nobody home",
+        "effect": "Vacuum starting its cleaning round"
+      },
+      {
+        "ts": "2026-10-12T11:47:09.073892+02:00",
+        "icon": "mdi:speaker-multiple",
+        "text": "Claudias room, Kitchen, Guest bathroom + 3 more speakers idle for 20 min -> Claudias room, Kitchen, Guest bathroom + 3 more speakers back to default volume and ungrouped",
+        "cause": "Claudias room, Kitchen, Guest bathroom + 3 more speakers idle for 20 min",
+        "effect": "Claudias room, Kitchen, Guest bathroom + 3 more speakers back to default volume and ungrouped",
+        "audience": "admin"
+      },
+      {
+        "ts": "2026-10-12T11:41:37.244890+02:00",
+        "icon": "mdi:robot-vacuum",
+        "text": "All queued rooms cleaned -> Vacuum finished its round - heading to the dock",
+        "cause": "All queued rooms cleaned",
+        "effect": "Vacuum finished its round - heading to the dock"
+      },
+      {
+        "ts": "2026-10-12T10:58:21.721209+02:00",
+        "icon": "mdi:speaker-multiple",
+        "text": "Guest bathroom speaker idle for 20 min -> Guest bathroom speaker back to default volume and ungrouped",
+        "cause": "Guest bathroom speaker idle for 20 min",
+        "effect": "Guest bathroom speaker back to default volume and ungrouped",
+        "audience": "admin"
+      },
+      {
+        "ts": "2026-10-12T09:58:38.248572+02:00",
+        "icon": "mdi:speaker-multiple",
+        "text": "Bedroom, Bathroom speakers idle for 20 min -> Bedroom, Bathroom speakers back to default volume and ungrouped",
+        "cause": "Bedroom, Bathroom speakers idle for 20 min",
+        "effect": "Bedroom, Bathroom speakers back to default volume and ungrouped",
+        "audience": "admin"
+      },
+      {
+        "ts": "2026-10-12T09:44:45.396183+02:00",
+        "icon": "mdi:robot-vacuum",
+        "text": "Nobody home -> Vacuum starting its cleaning round",
+        "cause": "Nobody home",
+        "effect": "Vacuum starting its cleaning round"
+      },
+      {
+        "ts": "2026-10-12T08:45:00.109202+02:00",
+        "icon": "mdi:weather-sunset-up",
+        "text": "Wake-up alarm (08:45) -> Raising the blinds and fading the lights in",
+        "cause": "Wake-up alarm (08:45)",
+        "effect": "Raising the blinds and fading the lights in",
+        "audience": "admin"
+      },
+      {
+        "ts": "2026-10-12T07:00:15.494899+02:00",
+        "icon": "mdi:speaker-multiple",
+        "text": "Bedroom, Bathroom speakers idle for 20 min -> Bedroom, Bathroom speakers back to default volume and ungrouped",
+        "cause": "Bedroom, Bathroom speakers idle for 20 min",
+        "effect": "Bedroom, Bathroom speakers back to default volume and ungrouped",
+        "audience": "admin"
+      },
+      {
+        "ts": "2026-10-12T06:30:47.522948+02:00",
+        "icon": "mdi:radio",
+        "text": "Wake music stream failed to start -> Switched to the fallback stream",
+        "cause": "Wake music stream failed to start",
+        "effect": "Switched to the fallback stream",
+        "audience": "admin"
+      },
+      {
+        "ts": "2026-10-12T06:30:01.368240+02:00",
+        "icon": "mdi:weather-sunset-up",
+        "text": "Wake-up alarm (06:30) -> Raising the blinds and fading the lights in",
+        "cause": "Wake-up alarm (06:30)",
+        "effect": "Raising the blinds and fading the lights in",
+        "audience": "admin"
+      },
+      {
+        "ts": "2026-10-11T23:18:45.028245+02:00",
+        "icon": "mdi:television",
+        "text": "Bedroom TV turned off -> TV lift going up",
+        "cause": "Bedroom TV turned off",
+        "effect": "TV lift going up",
+        "audience": "admin"
+      },
+      {
+        "ts": "2026-10-11T21:18:14.045847+02:00",
+        "icon": "mdi:television",
+        "text": "Living room TV turned off -> TV moving to wall",
+        "cause": "Living room TV turned off",
+        "effect": "TV moving to wall"
+      },
+      {
+        "ts": "2026-10-11T20:58:22.693634+02:00",
+        "icon": "mdi:door-open",
+        "text": "Someone rang the front door -> The door was opened for them",
+        "cause": "Someone rang the front door",
+        "effect": "The door was opened for them"
+      },
+      {
+        "ts": "2026-10-11T20:58:19.350460+02:00",
+        "icon": "mdi:bell-ring",
+        "text": "Someone rang the front door -> Announcing on the speakers and opening the door",
+        "cause": "Someone rang the front door",
+        "effect": "Announcing on the speakers and opening the door"
+      },
+      {
+        "ts": "2026-10-11T19:18:23.246351+02:00",
+        "icon": "mdi:television",
+        "text": "Bedroom TV turned on -> TV lift going down",
+        "cause": "Bedroom TV turned on",
+        "effect": "TV lift going down",
+        "audience": "admin"
+      },
+      {
+        "ts": "2026-10-11T18:11:39.390677+02:00",
+        "icon": "mdi:door-open",
+        "text": "Someone rang the front door -> The door was opened for them",
+        "cause": "Someone rang the front door",
+        "effect": "The door was opened for them"
+      },
+      {
+        "ts": "2026-10-11T18:11:36.054365+02:00",
+        "icon": "mdi:bell-ring",
+        "text": "Someone rang the front door -> Announcing on the speakers and opening the door",
+        "cause": "Someone rang the front door",
+        "effect": "Announcing on the speakers and opening the door"
+      },
+      {
+        "ts": "2026-10-11T13:37:13.252768+02:00",
+        "icon": "mdi:door-open",
+        "text": "Someone rang the front door -> The door was opened for them",
+        "cause": "Someone rang the front door",
+        "effect": "The door was opened for them"
+      },
+      {
+        "ts": "2026-10-11T13:37:08.246158+02:00",
+        "icon": "mdi:bell-ring",
+        "text": "Someone rang the front door -> Announcing on the speakers and opening the door",
+        "cause": "Someone rang the front door",
+        "effect": "Announcing on the speakers and opening the door"
+      },
+      {
+        "ts": "2026-10-11T13:16:58.155682+02:00",
+        "icon": "mdi:basket-check",
+        "text": "Dishwasher emptied"
+      },
+      {
+        "ts": "2026-10-11T13:10:42.705133+02:00",
+        "icon": "mdi:basket-check",
+        "text": "Dryer emptied"
+      },
+      {
+        "ts": "2026-10-11T04:59:40.607696+02:00",
+        "icon": "mdi:dishwasher",
+        "text": "Dishwasher finished - used 0.71 kWh"
+      },
+      {
+        "ts": "2026-10-11T01:51:24.703541+02:00",
+        "icon": "mdi:tumble-dryer",
+        "text": "Dryer finished - used 0.47 kWh"
+      },
+      {
+        "ts": "2026-10-11T00:22:16.334373+02:00",
+        "icon": "mdi:basket-check",
+        "text": "Washer emptied"
+      },
+      {
+        "ts": "2026-10-10T22:31:02.984926+02:00",
+        "icon": "mdi:washing-machine",
+        "text": "Washer finished - used 0.40 kWh"
+      },
+      {
+        "ts": "2026-10-10T21:13:50.841802+02:00",
+        "icon": "mdi:basket-check",
+        "text": "Washer emptied"
+      },
+      {
+        "ts": "2026-10-10T20:09:38.096940+02:00",
+        "icon": "mdi:washing-machine",
+        "text": "Washer finished - used 0.50 kWh"
+      },
+      {
+        "ts": "2026-10-10T13:45:03.561424+02:00",
+        "icon": "mdi:door-open",
+        "text": "Someone rang the front door -> The door was opened for them",
+        "cause": "Someone rang the front door",
+        "effect": "The door was opened for them"
+      },
+      {
+        "ts": "2026-10-10T13:45:00.295684+02:00",
+        "icon": "mdi:bell-ring",
+        "text": "Someone rang the front door -> Announcing on the speakers and opening the door",
+        "cause": "Someone rang the front door",
+        "effect": "Announcing on the speakers and opening the door"
+      },
+      {
+        "ts": "2026-10-10T11:46:26.010699+02:00",
+        "icon": "mdi:door-open",
+        "text": "Someone rang the front door -> The door was opened for them",
+        "cause": "Someone rang the front door",
+        "effect": "The door was opened for them"
+      },
+      {
+        "ts": "2026-10-10T11:46:22.486964+02:00",
+        "icon": "mdi:bell-ring",
+        "text": "Someone rang the front door -> Announcing on the speakers and opening the door",
+        "cause": "Someone rang the front door",
+        "effect": "Announcing on the speakers and opening the door"
+      }
+    ]
+  },
+  "last_changed": "2026-10-13T10:26:06.409468+00:00",
+  "last_updated": "2026-10-13T10:26:06.409468+00:00"
+}
