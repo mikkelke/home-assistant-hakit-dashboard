@@ -46,13 +46,19 @@ export function runCost(programme: PlanProgramme, prices: PriceIndex, startMs: n
   return { kr, estimated };
 }
 
-export function completionMs(programme: PlanProgramme, startMs: number): number {
-  return startMs + programme.completionMin * MINUTE_MS;
+/** When a run starting at `startMs` is done; null when the programme's completion is unknown. */
+export function completionMs(programme: PlanProgramme, startMs: number): number | null {
+  return programme.completionMin == null ? null : startMs + programme.completionMin * MINUTE_MS;
 }
 
-/** `runCost` for a start that is also allowed: completion no later than `doneByMs` when set. */
+function missesDoneBy(programme: PlanProgramme, startMs: number, doneByMs: number | null): boolean {
+  const doneMs = completionMs(programme, startMs);
+  return doneByMs != null && doneMs != null && doneMs > doneByMs;
+}
+
+/** `runCost` for a start that is also allowed: completion no later than `doneByMs` when both are known. */
 export function startCost(programme: PlanProgramme, prices: PriceIndex, startMs: number, doneByMs: number | null): CostResult | null {
-  if (doneByMs != null && completionMs(programme, startMs) > doneByMs) return null;
+  if (missesDoneBy(programme, startMs, doneByMs)) return null;
   return runCost(programme, prices, startMs);
 }
 
@@ -84,9 +90,9 @@ export interface PlanChoice {
   pressUntilMs: number;
   /** The window closes early enough in the hour to be worth saying "press by". */
   showPressBy: boolean;
-  /** Start and completion when pressed at `pressFromMs`. */
+  /** Start and completion when pressed at `pressFromMs`; completion null when unknown. */
   startMs: number;
-  doneMs: number;
+  doneMs: number | null;
   costKr: number;
   /** Some press in the window prices an hour from the forecast. */
   estimated: boolean;
@@ -137,7 +143,7 @@ export function planStart(programme: PlanProgramme, timeline: readonly PricePoin
 
   const costs = steps.map(knob => grid.map(press => startCost(programme, prices, press + knob * MINUTE_MS, doneByMs)));
   const noDelay = costs[0][0];
-  const doneByMissed = doneByMs != null && completionMs(programme, pressFromMs) > doneByMs;
+  const doneByMissed = missesDoneBy(programme, pressFromMs, doneByMs);
   const pricedUntilMs = pricedUntil(prices, pressFromMs);
 
   let nowBest: { k: number; cost: CostResult } | null = null;
@@ -213,7 +219,7 @@ function curvePoint(programme: PlanProgramme, prices: PriceIndex, startMs: numbe
     startMs,
     costKr: cost?.kr ?? null,
     estimated: cost?.estimated ?? false,
-    tooLate: doneByMs != null && completionMs(programme, startMs) > doneByMs,
+    tooLate: missesDoneBy(programme, startMs, doneByMs),
   };
 }
 

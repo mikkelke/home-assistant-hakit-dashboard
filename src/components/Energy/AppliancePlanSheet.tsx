@@ -88,10 +88,12 @@ export function AppliancePlanSheet({ appliance, timeline, nowMs, onClose }: Appl
           <span className='plan-chip plan-chip--ghost'>
             <Icon icon='mdi:flash-outline' aria-hidden='true' />≈ {krValue(programme.kwh)} kWh
           </span>
-          <span className='plan-chip plan-chip--ghost'>
-            <Icon icon='mdi:clock-outline' aria-hidden='true' />
-            {durationLabel(programme.completionMin)}
-          </span>
+          {programme.completionMin != null && (
+            <span className='plan-chip plan-chip--ghost'>
+              <Icon icon='mdi:clock-outline' aria-hidden='true' />
+              {durationLabel(programme.completionMin)}
+            </span>
+          )}
           <span className='plan-chip plan-chip--ghost'>{programme.n} runs</span>
         </div>
 
@@ -113,7 +115,9 @@ export function AppliancePlanSheet({ appliance, timeline, nowMs, onClose }: Appl
                 {plan.noDelay ? krValue(plan.noDelay.kr) : '—'}
                 <small> kr</small>
               </span>
-              <span className='plan-cmp-s'>done {formatHomeClock(plan.pressFromMs + programme.completionMin * 60_000)}</span>
+              {programme.completionMin != null && (
+                <span className='plan-cmp-s'>done {formatHomeClock(plan.pressFromMs + programme.completionMin * 60_000)}</span>
+              )}
             </div>
             {showPlanTile && choice && (
               <>
@@ -131,7 +135,7 @@ export function AppliancePlanSheet({ appliance, timeline, nowMs, onClose }: Appl
                         {chips.knob}
                       </>
                     ) : (
-                      `done ${formatHomeClock(choice.doneMs)}`
+                      choice.doneMs != null && `done ${formatHomeClock(choice.doneMs)}`
                     )}
                   </span>
                 </div>
@@ -177,19 +181,23 @@ export function AppliancePlanSheet({ appliance, timeline, nowMs, onClose }: Appl
         {run.status !== 'paused' && (
           <div className='plan-row-head plan-row-head--in'>
             <span>Done by</span>
-            <span className='plan-toggle' role='group' aria-label='Done by'>
-              {DONE_BY_OPTIONS.map(option => (
-                <button
-                  key={option.label}
-                  type='button'
-                  aria-pressed={doneBy === option.value}
-                  className={doneBy === option.value ? 'plan-toggle-on' : ''}
-                  onClick={() => setDoneBy(option.value)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </span>
+            {programme.completionMin == null ? (
+              <span className='plan-chip plan-chip--ghost'>finish time unknown</span>
+            ) : (
+              <span className='plan-toggle' role='group' aria-label='Done by'>
+                {DONE_BY_OPTIONS.map(option => (
+                  <button
+                    key={option.label}
+                    type='button'
+                    aria-pressed={doneBy === option.value}
+                    className={doneBy === option.value ? 'plan-toggle-on' : ''}
+                    onClick={() => setDoneBy(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </span>
+            )}
           </div>
         )}
       </div>

@@ -106,7 +106,7 @@ describe('press window (A4)', () => {
     for (const minute of [5, 40]) {
       const plan = planStart(dishwasher, timeline, { nowMs: home(2026, 10, 9, 20, minute), knobStepsMin: dishwasherSteps, doneByMs });
       const choice = plan.plan!;
-      expect(choice.pressUntilMs + choice.knobMin * MINUTE_MS + dishwasher.completionMin * MINUTE_MS).toBeLessThanOrEqual(doneByMs);
+      expect(choice.pressUntilMs + choice.knobMin * MINUTE_MS + dishwasher.completionMin! * MINUTE_MS).toBeLessThanOrEqual(doneByMs);
       expectWindowHolds(dishwasher, timeline, plan, doneByMs);
     }
   });
@@ -127,6 +127,18 @@ describe('press window (A4)', () => {
     });
     expect(plan.doneByMissed).toBe(true);
     expect(plan.plan).toBeNull();
+  });
+
+  it('makes no finish claim and applies no done-by when completion is unknown', () => {
+    const p = programme(Array(60).fill(10), null);
+    const flat = hourly(home(2026, 10, 9, 20), Array(10).fill(1));
+    const doneByMs = home(2026, 10, 9, 20, 30);
+    const plan = planStart(p, flat, { nowMs: home(2026, 10, 9, 20, 5), knobStepsMin: [0], doneByMs });
+    expect(plan.doneByMissed).toBe(false);
+    expect(plan.plan?.doneMs).toBeNull();
+    expect(plan.plan?.costKr).toBeCloseTo(0.6);
+    const curve = costCurve(p, flat, { pressFromMs: home(2026, 10, 9, 20, 5), knobStepsMin: [0], doneByMs });
+    expect(curve.points.some(point => point.tooLate)).toBe(false);
   });
 
   it('plans from the earliest press time of a running appliance, not from now', () => {

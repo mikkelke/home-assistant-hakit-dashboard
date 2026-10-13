@@ -11,7 +11,7 @@
  *         n: int >= 1             cycles behind the profile
  *         energy_min: int         profile length in minutes; must equal the profile's length
  *         completion_min: int     conservative power onset -> machine really done, in minutes;
- *                                 optional (absent with too few trusted finishes), then energy_min
+ *                                 optional (absent with too few trusted finishes): then unknown
  *         label_source: "confirmed" | "inferred" | "mixed"   absent means inferred; only
  *                                 "confirmed" counts as a confirmed label
  *         p: "16,27,0,..."        0.1 Wh per minute from power onset, comma-separated ints >= 0
@@ -53,8 +53,10 @@ export interface RunProfileProgramme {
   kwh: number;
   /** Profile length in minutes; minute 0 starts at power onset. */
   energyMin: number;
-  /** Conservative minutes from power onset until the machine is really done; never below `energyMin`. */
-  completionMin: number;
+  /** Conservative minutes from power onset until the machine is really done; never below `energyMin`.
+   * Null when the publisher has too few trusted finishes: power can end well before the machine is
+   * done, so the energy length is no stand-in. */
+  completionMin: number | null;
   labelConfirmed: boolean;
   /** Energy per minute in Wh. */
   whPerMin: Float64Array;
@@ -120,8 +122,8 @@ function parseProgramme(raw: unknown, where: string): RunProfileProgramme {
   const energyMin = energyRaw === undefined ? whPerMin.length : toInt(energyRaw);
   if (energyMin !== whPerMin.length) fail(`${at}: energy_min does not match the profile length`);
   const completionRaw = pick(raw, WIRE.completionMin);
-  const completion = completionRaw === undefined ? energyMin : toInt(completionRaw);
-  if (completion == null || completion < 1 || completion > 1440) fail(`${at}: completion_min must be 1..1440`);
+  const completion = completionRaw === undefined ? null : toInt(completionRaw);
+  if (completionRaw !== undefined && (completion == null || completion < 1 || completion > 1440)) fail(`${at}: completion_min must be 1..1440`);
 
   const source = pick(raw, WIRE.labelSource);
   if (source !== undefined && !LABEL_SOURCES.includes(source as string)) fail(`${at}: unknown label_source`);
@@ -135,7 +137,7 @@ function parseProgramme(raw: unknown, where: string): RunProfileProgramme {
     n,
     kwh: cumWh[whPerMin.length] / 1000,
     energyMin,
-    completionMin: Math.max(completion, energyMin),
+    completionMin: completion == null ? null : Math.max(completion, energyMin),
     labelConfirmed: source === 'confirmed',
     whPerMin,
     cumWh,

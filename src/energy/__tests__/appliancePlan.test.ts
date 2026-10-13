@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PLAN_APPLIANCES } from '../../config/plan';
 import { assembleAppliancePlan, parseEta, readApplianceRun } from '../appliancePlan';
-import { fixtureProgramme, fixtureTimeline, home } from './testUtils';
+import { fixtureProgramme, fixtureTimeline, home, programme } from './testUtils';
 
 const washer = PLAN_APPLIANCES.find(a => a.key === 'washer')!;
 const dishwasher = PLAN_APPLIANCES.find(a => a.key === 'dishwasher')!;
@@ -48,6 +48,15 @@ describe('assembleAppliancePlan', () => {
     const result = assembleAppliancePlan({ config: washer, run, programmes, timeline, nowMs, doneBy: 7 });
     expect(result.plan?.pressFromMs).toBe(home(2026, 10, 9, 21, 40));
     expect(result.doneByMs).toBe(home(2026, 10, 10, 7));
+  });
+
+  it('sets no done-by deadline for a programme whose completion is unknown', () => {
+    const idle = readApplianceRun(undefined, 'hhmm', nowMs);
+    const unknown = { ...programme(Array(60).fill(10), null), key: 'unknown' };
+    const result = assembleAppliancePlan({ config: washer, run: idle, programmes: [unknown], timeline, nowMs, doneBy: 7 });
+    expect(result.doneByMs).toBeNull();
+    expect(result.plan?.doneByMissed).toBe(false);
+    expect(result.plan?.plan?.doneMs).toBeNull();
   });
 
   it('gives no next-run advice while paused or when the ETA is unknown', () => {

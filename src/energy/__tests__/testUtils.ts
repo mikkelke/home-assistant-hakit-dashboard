@@ -28,13 +28,13 @@ export function fixtureProgramme(appliance: 'washer' | 'dishwasher' | 'dryer'): 
   return result.profiles.appliances[appliance][0];
 }
 
-/** A programme from Wh per minute. */
-export function programme(whPerMin: number[], completionMin = whPerMin.length): RunProfileProgramme {
+/** A programme from Wh per minute; a null completion leaves `completion_min` out. */
+export function programme(whPerMin: number[], completionMin: number | null = whPerMin.length): RunProfileProgramme {
   const result = parseRunProfiles({
     schema: 1,
     appliances: {
       test: {
-        programmes: [{ key: 't', label: 'T', n: 5, completion_min: completionMin, p: whPerMin.map(wh => Math.round(wh * 10)).join(',') }],
+        programmes: [{ key: 't', label: 'T', n: 5, completion_min: completionMin ?? undefined, p: whPerMin.map(wh => Math.round(wh * 10)).join(',') }],
       },
     },
   });

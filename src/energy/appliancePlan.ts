@@ -57,6 +57,7 @@ export interface AppliancePlan {
   programmes: RunProfileProgramme[];
   /** The selected programme, else the most typical one; null when none is published. */
   programme: RunProfileProgramme | null;
+  /** The done-by deadline; null when none is set or the programme's completion is unknown. */
   doneByMs: number | null;
   /** Advice for the next run. Null without a profile, while paused, or while running with no ETA. */
   plan: StartPlan | null;
@@ -78,7 +79,7 @@ export function assembleAppliancePlan(input: AppliancePlanInput): AppliancePlan 
   const blocked = run.status === 'paused' || (run.status === 'running' && run.etaMs == null);
   const earliestPressMs = run.status === 'running' ? run.etaMs : null;
   const pressFromMs = Math.max(nowMs, earliestPressMs ?? nowMs);
-  const doneByMs = input.doneBy == null ? null : nextHomeClockMs(pressFromMs, input.doneBy);
+  const doneByMs = input.doneBy == null || programme?.completionMin == null ? null : nextHomeClockMs(pressFromMs, input.doneBy);
   const plan =
     programme && !blocked ? planStart(programme, timeline, { nowMs, earliestPressMs, knobStepsMin: config.knobStepsMin, doneByMs }) : null;
   return { config, run, programmes, programme, doneByMs, plan };

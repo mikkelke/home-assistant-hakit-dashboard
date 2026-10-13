@@ -56,7 +56,6 @@ describe('parseRunProfiles', () => {
     expect(dishwasher.energyMin).toBe(101);
     expect(dishwasher.completionMin).toBe(250);
     expect(dishwasher.labelConfirmed).toBe(false);
-    expect(appliances.dryer[0].completionMin).toBe(appliances.dryer[0].energyMin);
   });
 
   it('accepts a mixed label source as not confirmed', () => {
@@ -64,10 +63,10 @@ describe('parseRunProfiles', () => {
     expect(parsed(programmeAttrs({ label_source: 'confirmed' })).appliances.washer[0].labelConfirmed).toBe(true);
   });
 
-  it('reads a missing done_min as the energy profile length', () => {
+  it('keeps a missing done_min unknown rather than taking the energy profile length', () => {
     const p = parsed(programmeAttrs({ completion_min: undefined, run_min: undefined, energy_min: undefined })).appliances.washer[0];
     expect(p.energyMin).toBe(5);
-    expect(p.completionMin).toBe(5);
+    expect(p.completionMin).toBeNull();
     expect(parsed(programmeAttrs({ completion_min: undefined, done_min: '12' })).appliances.washer[0].completionMin).toBe(12);
   });
 
