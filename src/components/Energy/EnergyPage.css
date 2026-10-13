@@ -56,7 +56,7 @@
 }
 
 /* Phone layout (≤768px, matches useIsMobile) — the page-chrome rules this file still owns
-   (header/tabs/content shell). Each tab's own stylesheet (e.g. UsageTab.css, StatTiles.css) owns
+   (header/tabs/content shell). Each tab's own stylesheet (e.g. UsageTab.css, EnergyViews.css) owns
    its own content's phone breakpoint now that the page has split into tabs. */
 @media (max-width: 768px) {
   .energy-page-tabs {
