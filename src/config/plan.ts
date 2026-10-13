@@ -53,6 +53,8 @@ export interface PlanApplianceConfig {
   label: string;
   icon: string;
   stateEntityId: string;
+  /** Live power (W) of the appliance's plug; also places the appliance in a room. */
+  powerEntityId: string;
   etaFormat: EtaFormat;
   /** Delay-start knob positions in minutes, ascending, starting at 0 (no delay). */
   knobStepsMin: readonly number[];
@@ -64,6 +66,7 @@ export const PLAN_APPLIANCES: readonly PlanApplianceConfig[] = [
     label: 'Washer',
     icon: 'mdi:washing-machine',
     stateEntityId: 'sensor.washer_state',
+    powerEntityId: 'sensor.washer_plug_power',
     etaFormat: 'hhmm',
     knobStepsMin: knobSteps(180, 1440),
   },
@@ -72,6 +75,7 @@ export const PLAN_APPLIANCES: readonly PlanApplianceConfig[] = [
     label: 'Dishwasher',
     icon: 'mdi:dishwasher',
     stateEntityId: 'sensor.dishwasher_state',
+    powerEntityId: 'sensor.athom_smart_plug_v3_50ec44_power',
     etaFormat: 'iso',
     knobStepsMin: knobSteps(180, 1440),
   },
@@ -80,6 +84,7 @@ export const PLAN_APPLIANCES: readonly PlanApplianceConfig[] = [
     label: 'Dryer',
     icon: 'mdi:tumble-dryer',
     stateEntityId: 'sensor.dryer_state',
+    powerEntityId: 'sensor.dryer_plug_power',
     etaFormat: 'iso',
     knobStepsMin: knobSteps(0, 1440),
   },

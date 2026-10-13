@@ -23,3 +23,10 @@ export const FIXED_FEES_EXCL_MOMS_KR_PER_MONTH = {
 // Live tab constants. Below this, a device's (or the grid's) live power reading is noise, not
 // "drawing" — used by `assembleLivePower` to decide which rows belong in the "Drawing now" list.
 export const LIVE_POWER_MIN_WATTS = 1;
+
+/** Live tab flow diagram: at most this many room nodes; beyond it the smallest rooms share one node. */
+export const FLOW_MAX_ROOMS = 8;
+
+/** First month the bill history shows (the meter's statistics start in December 2025). */
+export const BILL_HISTORY_START = { year: 2025, monthIndex: 11 } as const;
+export const BILL_HISTORY_MAX_MONTHS = 12;
