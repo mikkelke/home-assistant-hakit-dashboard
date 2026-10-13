@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState, type TouchEvent } from 'react';
 import { Icon } from '@iconify/react';
 import { useEnergyConfig, type Period } from '../../energy';
 import { nextDisabled, startOfLocalDay, startOfPeriod, stepAnchor } from '../../energy/period';
@@ -38,7 +38,11 @@ function EnergyPageView({ onClose }: EnergyPageProps) {
   // interactive-target allowlist already ignores buttons/[role="button"] and anything marked
   // data-interactive="true" (the Usage chart and clock, and the period label's long-press target);
   // it's a no-op on non-mobile viewports.
-  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(onClose);
+  const swipe = useSwipeToClose(onClose);
+  // Sheets are portaled to document.body, but React still bubbles their touch events through this
+  // page; only touches on the page's own DOM may swipe it closed.
+  const onPage = (handler: ((e: TouchEvent) => void) | undefined) =>
+    handler && ((e: TouchEvent) => e.currentTarget.contains(e.target as Node) && handler(e));
 
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 60_000);
@@ -73,7 +77,12 @@ function EnergyPageView({ onClose }: EnergyPageProps) {
   const nextStepDisabled = nextDisabled(period, anchorStartMs, nowMs);
 
   return (
-    <div className='energy-page' onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+    <div
+      className='energy-page'
+      onTouchStart={onPage(swipe.handleTouchStart)}
+      onTouchMove={onPage(swipe.handleTouchMove)}
+      onTouchEnd={onPage(swipe.handleTouchEnd)}
+    >
       <div className='energy-page-tabs'>
         <EnergyTabs tab={tab} onChange={handleTabChange} />
       </div>
