@@ -77,11 +77,17 @@ describe('resolveNowFocus', () => {
     expect(resolveNowFocus(at('washer', runningWasher.atMs), [...mine, runningWasher], true)).toEqual({ status: 'found', id: 'washer' });
 
     const finishedWasher: NowCandidate = { id: 'washer-live', kind: 'washer', atMs: WASHER_FINISHED_MS + 30_000, live: true };
-    expect(resolveNowFocus(at('washer', WASHER_FINISHED_MS), [...mine, finishedWasher], true)).toEqual({
-      status: 'found',
-      id: 'washer-live',
-    });
     expect(resolveNowFocus(at('evt', finishedWasher.atMs), [finishedWasher], true)).toEqual({ status: 'unavailable' });
+  });
+
+  it('keeps an old washer push on its own row when the next cycle starts a minute later', () => {
+    const nextCycle: NowCandidate = { id: 'washer', kind: 'washer', atMs: WASHER_FINISHED_MS + 60_000, live: true };
+    expect(resolveNowFocus(at('washer', WASHER_FINISHED_MS), [nextCycle, ...mine], true)).toEqual({
+      status: 'found',
+      id: String(WASHER_FINISHED_MS),
+    });
+    expect(resolveNowFocus(at('washer', WASHER_FINISHED_MS + 30_000), [nextCycle], true)).toEqual({ status: 'unavailable' });
+    expect(resolveNowFocus(at('washer', nextCycle.atMs), [nextCycle, ...mine], true)).toEqual({ status: 'found', id: 'washer' });
   });
 
   it('takes the nearest of several matches', () => {

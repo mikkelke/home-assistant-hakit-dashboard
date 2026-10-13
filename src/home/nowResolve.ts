@@ -22,10 +22,10 @@ export function focusWindowMs(kind: NowFocusKind): number {
   return kind === 'evt' ? 2_000 : 120_000;
 }
 
-/** Identity-strict: only a candidate of the focus kind whose own time lies within the window, a live
- * item before a feed row, then the nearest. An `evt` focus matches any feed row and no live item.
- * Pass only candidates the viewer may see. Until `settled` (viewer and feed loaded, or the wait
- * given up) a miss is `pending`, after it `unavailable`. */
+/** Identity-strict: only a candidate of the focus kind. A live item matches only its own second, the
+ * one its links carry, and wins over feed rows; a feed row matches within the window, the nearest
+ * first. An `evt` focus matches any feed row and no live item. Pass only candidates the viewer may
+ * see. Until `settled` a miss is `pending`, after it `unavailable`. */
 export function resolveNowFocus(focus: NowFocus | null, candidates: readonly NowCandidate[], settled: boolean): NowResolution {
   if (!focus) return { status: 'none' };
   const targetMs = focus.epochS * 1000;
@@ -34,6 +34,7 @@ export function resolveNowFocus(focus: NowFocus | null, candidates: readonly Now
   let bestDistance = Infinity;
   for (const candidate of candidates) {
     if (focus.kind === 'evt' ? candidate.live : candidate.kind !== focus.kind) continue;
+    if (candidate.live && Math.floor(candidate.atMs / 1000) !== focus.epochS) continue;
     const distance = Math.abs(candidate.atMs - targetMs);
     if (distance > windowMs) continue;
     const better = best == null || (candidate.live !== best.live ? candidate.live : distance < bestDistance);
