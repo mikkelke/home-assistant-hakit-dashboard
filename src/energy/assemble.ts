@@ -73,12 +73,13 @@ export function assembleBars(
     });
 }
 
-/** Sets each bar's relative price band. With a day's price series, an hourly bar takes its hour's
- * band within that home day (so today's elapsed hours rank against the whole day, not just each
- * other); otherwise bars are ranked against each other by their own price. */
-export function applyBarBands(bars: EnergyBar[], priceSeries: PriceSeries | null): EnergyBar[] {
-  if (priceSeries) {
-    const banded = assignPriceBands(priceSeries.points);
+/** Sets each bar's relative price band. A day view's hourly bar takes its hour's band within the
+ * home day's price series (so today's elapsed hours rank against the whole day, not just each
+ * other), and is `unknown` unless that day is fully priced. Week, month and year bars are ranked
+ * against each other by the price paid. */
+export function applyBarBands(period: Period, bars: EnergyBar[], priceSeries: PriceSeries | null): EnergyBar[] {
+  if (period === 'day') {
+    const banded = priceSeries ? assignPriceBands(priceSeries.points) : [];
     return bars.map(bar => ({ ...bar, level: bandAt(banded, bar.startMs) }));
   }
   const bands = rankBands(bars.map(bar => bar.price));

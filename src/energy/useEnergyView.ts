@@ -231,7 +231,7 @@ export function useEnergyView(period: Period, anchorStartMs: number, calendar: P
           }
         }
 
-        bars = applyBarBands(bars, priceSeries);
+        bars = applyBarBands(period, bars, priceSeries);
         const totals = bars.reduce((sum, bar) => ({ kWh: sum.kWh + bar.kWh, costKr: sum.costKr + bar.costKr }), { kWh: 0, costKr: 0 });
 
         const view: EnergyView = {
