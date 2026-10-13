@@ -1,15 +1,19 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef, lazy } from 'react';
 import { Icon } from '@iconify/react';
+import { useHass } from '@hakit/core';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { IntercomCard } from '../Intercom';
 import { SonosPlayer, TVCard } from '../MediaPlayer';
-import { QuickWeatherCard, getWeatherConditionIcon } from '../Weather';
-import { TRANSIT_LAST_UPDATED_SENSOR, TRANSIT_REFRESH_BUTTON } from '../../config/entities';
+import { getWeatherConditionIcon } from '../Weather/weatherIcons';
+import { LazyBoundary } from '../Lazy/LazyBoundary';
+import { TRANSIT_LAST_UPDATED_SENSOR, TRANSIT_REFRESH_BUTTON, WEATHER_ENTITY } from '../../config/entities';
 import { QUICK_ACCESS_OPEN_EVENT, TRANSIT_LINES, getTransitSeverity, isTransitAlert, type TransitStatus } from '../../config/transit';
 import { getTransitLineDisplayStatus, minsFromNow, TRANSIT_UPCOMING_MIN_MINS } from '../../utils/transitDisplay';
 import { isMediaPlayerOutOfSync, resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { SONOS_SPEAKERS } from '../../config/speakers';
 import { useModalBackButton, useSwipeToClose } from '../../hooks';
+import { useTrackedEntities } from '../../hooks/useTrackedEntities';
+import { onIdle } from '../../utils/idle';
 import { HouseEventsModal } from '../HomeActivity';
 import { RequestSheet, RequestTile, useRequestAccess } from '../Request';
 import './QuickAccess.css';
@@ -133,6 +137,16 @@ interface SpeakerInfo {
   state: string;
   isPlaying: boolean;
   groupSize: number;
+}
+
+const QuickWeatherCard = lazy(() => import('../Weather/QuickWeatherCard').then(module => ({ default: module.QuickWeatherCard })));
+const warmQuickWeatherCard = () => void import('../Weather/QuickWeatherCard');
+
+/** The weather card reads the roof station's wind and temperature, which change every minute; its own
+ * subscription keeps them out of the dashboard's and drops them when the modal closes. */
+function WeatherModalBody({ entityId }: { entityId: string }) {
+  const entities = useTrackedEntities();
+  return <QuickWeatherCard entityId={entityId} entities={entities} />;
 }
 
 // Front street door open command (trial): ABB Welcome integration button, not the ESP lock -
@@ -348,16 +362,11 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
     [entities]
   );
 
-  const weatherEntityId = useMemo(() => {
-    const found = Object.keys(entities || {}).find(k => k.startsWith('weather.'));
-    return found || null;
-  }, [entities]);
+  const weatherCondition = useHass(s => s.entities[WEATHER_ENTITY]?.state);
+  const weatherEntityId = weatherCondition != null ? WEATHER_ENTITY : null;
+  const weatherConditionIcon = getWeatherConditionIcon(weatherCondition);
 
-  const weatherConditionIcon = useMemo(() => {
-    if (!weatherEntityId || !entities?.[weatherEntityId]) return 'mdi:weather-partly-cloudy';
-    const condition = entities[weatherEntityId]?.state;
-    return getWeatherConditionIcon(typeof condition === 'string' ? condition : undefined);
-  }, [weatherEntityId, entities]);
+  useEffect(() => onIdle(warmQuickWeatherCard, 4000, 6000), []);
 
   const transitStationGroups = useMemo<TransitStationGroup[]>(() => {
     const lineData = TRANSIT_LINES.map(line => {
@@ -865,7 +874,22 @@ export function QuickAccess({ entities, hassUrl, callService }: QuickAccessProps
                 })()}
               {openModal === 'weather' && weatherEntityId && (
                 <div className='quick-weather-wrapper'>
-                  <QuickWeatherCard entityId={weatherEntityId} entities={entities} />
+                  <LazyBoundary
+                    fallback={
+                      <div className='timeline-loading'>
+                        <Icon icon='mdi:loading' className='timeline-spinner' />
+                        <span>Loading weather...</span>
+                      </div>
+                    }
+                    error={
+                      <div className='timeline-error'>
+                        <Icon icon='mdi:alert-circle' />
+                        <span>Could not load the weather</span>
+                      </div>
+                    }
+                  >
+                    <WeatherModalBody entityId={weatherEntityId} />
+                  </LazyBoundary>
                 </div>
               )}
             </div>
