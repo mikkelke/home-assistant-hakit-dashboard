@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { useHass } from '@hakit/core';
 import type { HassEntities, CallServiceFunction } from '../../types';
@@ -1003,33 +1004,35 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
       )}
 
       {/* Story sheet - what the robot did, in its own words */}
-      {storyOpen && (
-        <>
-          <div className='vacuum-map-overlay' onClick={requestCloseStory} />
-          <div
-            className='vacuum-map-modal rober-story-modal'
-            role='dialog'
-            aria-modal='true'
-            aria-label='Rober2 story'
-            onTouchStart={handleStoryTouchStart}
-            onTouchMove={handleStoryTouchMove}
-            onTouchEnd={handleStoryTouchEnd}
-          >
-            <div className='vacuum-map-modal-header'>
-              <div className='vacuum-map-modal-title'>
-                <Icon icon='mdi:robot-vacuum' />
-                <span className='room'>Story</span>
+      {storyOpen &&
+        createPortal(
+          <>
+            <div className='vacuum-map-overlay' onClick={requestCloseStory} />
+            <div
+              className='vacuum-map-modal rober-story-modal'
+              role='dialog'
+              aria-modal='true'
+              aria-label='Rober2 story'
+              onTouchStart={handleStoryTouchStart}
+              onTouchMove={handleStoryTouchMove}
+              onTouchEnd={handleStoryTouchEnd}
+            >
+              <div className='vacuum-map-modal-header'>
+                <div className='vacuum-map-modal-title'>
+                  <Icon icon='mdi:robot-vacuum' />
+                  <span className='room'>Story</span>
+                </div>
+                <button className='vacuum-map-modal-close modal-close-button' onClick={requestCloseStory} aria-label='Close'>
+                  <Icon icon='mdi:close' />
+                </button>
               </div>
-              <button className='vacuum-map-modal-close modal-close-button' onClick={requestCloseStory} aria-label='Close'>
-                <Icon icon='mdi:close' />
-              </button>
+              <div className='vacuum-map-modal-content rober-story-content'>
+                <RobotCleaningNarrativeTimeline hassUrl={hassUrl} enabled hours={168} limit={100} showPhaseTrack />
+              </div>
             </div>
-            <div className='vacuum-map-modal-content rober-story-content'>
-              <RobotCleaningNarrativeTimeline hassUrl={hassUrl} enabled hours={168} limit={100} showPhaseTrack />
-            </div>
-          </div>
-        </>
-      )}
+          </>,
+          document.body
+        )}
 
       {/* Map Modal */}
       {selectedMap && (

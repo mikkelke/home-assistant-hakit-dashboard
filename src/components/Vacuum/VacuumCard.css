@@ -254,9 +254,14 @@
   max-width: 560px;
 }
 
-.rober-story-content {
+.vacuum-map-modal-content.rober-story-content {
   display: block;
-  padding: 0.75rem 1rem 1rem;
+}
+
+/* The sheet scrolls the story as a whole instead of a box inside it. */
+.rober-story-content .timeline-container {
+  max-height: none;
+  overflow: visible;
 }
 
 /* Rooms sheet - map tiles, three across */
