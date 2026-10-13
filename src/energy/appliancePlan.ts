@@ -1,7 +1,7 @@
 /** Per-appliance plan assembly from entity-shaped inputs. Pure; `useAppliancePlans` is its React
  * wrapper. */
 import type { DoneByHour, EtaFormat, PlanApplianceConfig } from '../config/plan';
-import { homeWallTime, homeWallTimeToMs, nextHomeClockMs } from './homeTime';
+import { homeWallTime, homeWallTimeOccurrences, nextHomeClockMs } from './homeTime';
 import type { PricePointMs } from './priceTimeline';
 import type { RunProfileProgramme } from './runProfiles';
 import { planStart, type StartPlan } from './startPlan';
@@ -16,8 +16,10 @@ export interface ApplianceRun {
   etaMs: number | null;
 }
 
-/** Reads `estimated_end_time`. `hhmm` is home time and resolves to the occurrence nearest `nowMs`
- * (an overrunning cycle's ETA may lie in the past); `iso` must be a full timestamp. */
+/** Reads `estimated_end_time`. `hhmm` is home time and resolves to the day nearest `nowMs` (an
+ * overrunning cycle's ETA may lie in the past). On a time the autumn fall-back repeats, the one
+ * future occurrence wins; with both ahead the ETA is ambiguous and unknown. `iso` must be a full
+ * timestamp. */
 export function parseEta(value: unknown, format: EtaFormat, nowMs: number): number | null {
   if (typeof value !== 'string') return null;
   const text = value.trim();
@@ -32,12 +34,15 @@ export function parseEta(value: unknown, format: EtaFormat, nowMs: number): numb
   const minute = Number(match[2]);
   if (hour > 23 || minute > 59) return null;
   const { year, month, day } = homeWallTime(nowMs);
-  let best: number | null = null;
+  const distance = (occurrences: number[]) => Math.min(...occurrences.map(ms => Math.abs(ms - nowMs)));
+  let nearest: number[] = [];
   for (const offset of [-1, 0, 1]) {
-    const ms = homeWallTimeToMs(year, month, day + offset, hour, minute);
-    if (best == null || Math.abs(ms - nowMs) < Math.abs(best - nowMs)) best = ms;
+    const occurrences = homeWallTimeOccurrences(year, month, day + offset, hour, minute);
+    if (nearest.length === 0 || distance(occurrences) < distance(nearest)) nearest = occurrences;
   }
-  return best != null && Math.abs(best - nowMs) <= 12 * HOUR_MS ? best : null;
+  const ahead = nearest.filter(ms => ms >= nowMs);
+  const eta = ahead.length === 0 ? Math.max(...nearest) : ahead.length === 1 ? ahead[0] : null;
+  return eta != null && Math.abs(eta - nowMs) <= 12 * HOUR_MS ? eta : null;
 }
 
 export function readApplianceRun(

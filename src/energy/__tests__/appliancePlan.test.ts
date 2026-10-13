@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PLAN_APPLIANCES } from '../../config/plan';
 import { assembleAppliancePlan, parseEta, readApplianceRun } from '../appliancePlan';
-import { fixtureProgramme, fixtureTimeline, home, programme } from './testUtils';
+import { fixtureProgramme, fixtureTimeline, home, HOUR_MS, programme } from './testUtils';
 
 const washer = PLAN_APPLIANCES.find(a => a.key === 'washer')!;
 const dishwasher = PLAN_APPLIANCES.find(a => a.key === 'dishwasher')!;
@@ -11,6 +11,16 @@ describe('parseEta', () => {
     expect(parseEta('21:40', 'hhmm', home(2026, 10, 9, 21))).toBe(home(2026, 10, 9, 21, 40));
     expect(parseEta('00:10', 'hhmm', home(2026, 10, 9, 23, 50))).toBe(home(2026, 10, 10, 0, 10));
     expect(parseEta('23:50', 'hhmm', home(2026, 10, 10, 0, 10))).toBe(home(2026, 10, 9, 23, 50));
+  });
+
+  it('takes the future occurrence of a time the autumn fall-back repeats, else gives up', () => {
+    const first = (h: number, m: number) => home(2026, 10, 25, h, m);
+    expect(parseEta('02:45', 'hhmm', first(1, 50))).toBeNull();
+    const second = (h: number, m: number) => home(2026, 10, 25, h, m) + HOUR_MS;
+    expect(parseEta('02:45', 'hhmm', second(2, 30))).toBe(second(2, 45));
+    expect(parseEta('02:45', 'hhmm', first(2, 30))).toBeNull();
+    expect(parseEta('02:45', 'hhmm', home(2026, 10, 25, 1, 30))).toBeNull();
+    expect(parseEta('02:45', 'hhmm', home(2026, 10, 25, 3, 30))).toBe(second(2, 45));
   });
 
   it('reads dryer and dishwasher UTC ISO timestamps', () => {

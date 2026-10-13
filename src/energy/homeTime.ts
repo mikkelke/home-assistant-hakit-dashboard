@@ -45,15 +45,21 @@ function offsetMs(ms: number): number {
   return asUtc - Math.floor(ms / MINUTE_MS) * MINUTE_MS;
 }
 
-/** Epoch ms of a home-time wall clock reading. Day overflow (day 32, hour 24) rolls over like
- * `Date.UTC`. A reading repeated by the autumn fall-back resolves to its first occurrence; a reading
- * skipped by the spring-forward gap is moved forward by the gap's length. */
-export function homeWallTimeToMs(year: number, month: number, day: number, hour = 0, minute = 0): number {
+/** Every instant a home-time wall clock reading occurs, ascending: two for a reading the autumn
+ * fall-back repeats, one otherwise. A reading skipped by the spring-forward gap is moved forward by
+ * the gap's length. Day overflow (day 32, hour 24) rolls over like `Date.UTC`. */
+export function homeWallTimeOccurrences(year: number, month: number, day: number, hour = 0, minute = 0): number[] {
   const asUtc = Date.UTC(year, month - 1, day, hour, minute);
   const before = asUtc - offsetMs(asUtc - DAY_MS);
   const after = asUtc - offsetMs(asUtc + DAY_MS);
-  const valid = [before, after].filter(ms => ms + offsetMs(ms) === asUtc);
-  return valid.length > 0 ? Math.min(...valid) : before;
+  const valid = Array.from(new Set([before, after].filter(ms => ms + offsetMs(ms) === asUtc))).sort((a, b) => a - b);
+  return valid.length > 0 ? valid : [before];
+}
+
+/** Epoch ms of a home-time wall clock reading; a repeated reading resolves to its first occurrence
+ * (see `homeWallTimeOccurrences`). */
+export function homeWallTimeToMs(year: number, month: number, day: number, hour = 0, minute = 0): number {
+  return homeWallTimeOccurrences(year, month, day, hour, minute)[0];
 }
 
 /** Start of the home-time calendar day containing `ms`. */
