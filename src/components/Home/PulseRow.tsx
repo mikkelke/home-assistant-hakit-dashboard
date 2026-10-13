@@ -49,7 +49,8 @@ function NextChip({ onOpenNow }: { onOpenNow: OpenNow }) {
   const viewer = useViewer();
   const nowMs = useNowMs();
   const next = useMemo(() => nextTimedItem(readUpcoming(id => entities[id], nowMs, viewer)), [entities, nowMs, viewer]);
-  const time = next?.atMs != null ? formatHomeClock(next.atMs) : null;
+  const overrun = next?.atMs != null && next.atMs <= nowMs;
+  const time = next?.atMs != null ? (overrun ? 'Soon' : formatHomeClock(next.atMs)) : null;
   return (
     <button
       type='button'

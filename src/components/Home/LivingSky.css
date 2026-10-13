@@ -1,6 +1,7 @@
 /* The sky card above the grid, and its 52 px strip. Phase classes set the gradient; the drawing,
    the sun or moon, and the text sit on top of it. */
 .sky {
+  --sky-ground: #0e1118;
   --sky-horizon: rgba(255, 255, 255, 0.12);
   --sky-arc: rgba(255, 255, 255, 0.16);
   --sky-cloud: #2c3a66;
@@ -14,18 +15,20 @@
   color: #fff;
 }
 
-.sky::after {
-  content: '';
+/* The ground band: the sun and moon set behind it. */
+.sky-ground {
   position: absolute;
   left: 0;
   right: 0;
   top: 104px;
-  height: 1px;
-  background: var(--sky-horizon);
+  bottom: 0;
+  background: var(--sky-ground);
+  border-top: 1px solid var(--sky-horizon);
   pointer-events: none;
 }
 
 .sky.sky--night {
+  --sky-ground: #0b0d13;
   --sky-horizon: rgba(255, 255, 255, 0.08);
   --sky-arc: rgba(255, 255, 255, 0.1);
   background: linear-gradient(180deg, #04060e 0%, #0c1430 68.4%, #0b0d13 68.4%);
@@ -36,10 +39,12 @@
 }
 
 .sky.sky--dawn {
+  --sky-ground: #10121a;
   background: linear-gradient(180deg, #121a3c 0%, #2c3464 44.5%, #5a4f78 68.4%, #10121a 68.4%);
 }
 
 .sky.sky--evening {
+  --sky-ground: #11131a;
   --sky-horizon: rgba(255, 190, 140, 0.25);
   --sky-arc: rgba(255, 255, 255, 0.22);
   --sky-cloud: #f6b7a0;
@@ -48,6 +53,7 @@
 }
 
 .sky.sky--morning {
+  --sky-ground: #12141a;
   --sky-horizon: rgba(255, 220, 180, 0.3);
   --sky-arc: rgba(255, 255, 255, 0.35);
   --sky-cloud: #fff;
@@ -56,6 +62,7 @@
 }
 
 .sky.sky--day {
+  --sky-ground: #12141a;
   --sky-horizon: rgba(255, 255, 255, 0.18);
   --sky-arc: rgba(255, 255, 255, 0.3);
   --sky-cloud: #fff;

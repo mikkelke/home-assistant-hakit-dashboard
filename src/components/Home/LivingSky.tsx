@@ -114,6 +114,7 @@ export function LivingSky({ entities, hassUrl, onMenu, ref }: LivingSkyProps) {
     <section ref={ref} className={`sky sky--${sky.phase}`} aria-label='Weather and people'>
       <SkyDrawing sky={sky} />
       <CelestialBody sky={sky} />
+      <i className='sky-ground' />
       <div className='sky-wx'>
         <SkyTemp sky={sky} />
         {sky.windMs != null && (
