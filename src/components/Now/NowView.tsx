@@ -1,11 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import { HOUSE_EVENTS_ENTITY } from '../../config/entities';
-import { HOME_TIME_ZONE } from '../../config/plan';
 import { formatApplianceEta } from '../../energy/applianceRun';
-import { formatHomeClock, homeDayKey } from '../../energy/homeTime';
+import { formatHomeClock } from '../../energy/homeTime';
 import {
   canViewerSeeKind,
   episodeCandidates,
@@ -23,32 +22,18 @@ import { useViewer } from '../../hooks/useViewer';
 import { formatKWh } from '../../utils/format';
 import type { NowFocus } from '../../utils/navigation';
 import { SkyStrip } from '../Home/LivingSky';
-import { buildNowTimeline, rowTone, type PastRow, type PlanRow, type RunningRow } from './nowModel';
+import { buildNowTimeline, dayBreaks, rowTone, type PastRow, type PlanRow, type RunningRow } from './nowModel';
 import './NowView.css';
 
 /** How long a focused item keeps its ring, in ms; its glow plays three times within it. */
 const FOCUS_MS = 10_000;
 const FOCUS_GLOW_MS = 3 * 3200;
 
-const DAY_LABEL = new Intl.DateTimeFormat('en-GB', { weekday: 'long', timeZone: HOME_TIME_ZONE });
-const DAY_DATE = new Intl.DateTimeFormat('da-DK', { day: '2-digit', month: '2-digit', timeZone: HOME_TIME_ZONE });
-
-function dayLabel(atMs: number, nowMs: number): string {
-  const key = homeDayKey(atMs);
-  if (key === homeDayKey(nowMs)) return 'Today';
-  if (key === homeDayKey(nowMs - 86_400_000)) return 'Yesterday';
-  return `${DAY_LABEL.format(atMs)} ${DAY_DATE.format(atMs)}`;
-}
-
-function minutesUntil(atMs: number, nowMs: number): string {
-  const minutes = Math.max(0, Math.round((atMs - nowMs) / 60_000));
-  return minutes < 60 ? `in ${minutes} min` : `in ${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')} min`;
-}
-
 interface RowShellProps {
   id: string;
-  time: string;
-  tone: string;
+  /** The rail's time and dot; null for a row that sits on the NOW line. */
+  time: string | null;
+  tone: string | null;
   focused: boolean;
   className?: string;
   children: ReactNode;
@@ -58,9 +43,13 @@ function RowShell({ id, time, tone, focused, className = '', children }: RowShel
   return (
     <div className={`now-ev ${className} ${focused ? 'is-focus' : ''}`} data-row-id={id} data-focus={focused ? id : undefined}>
       <span className='now-t'>{time}</span>
-      <span className={`now-dot tone-${tone}`}>
-        <i />
-      </span>
+      {tone ? (
+        <span className={`now-dot tone-${tone}`}>
+          <i />
+        </span>
+      ) : (
+        <span aria-hidden='true' />
+      )}
       {children}
     </div>
   );
@@ -153,19 +142,26 @@ function ApplianceTitle({ item }: { item: UpcomingAppliance }) {
   const programme = item.cycle.programme && !UNKNOWN_PROGRAMMES.has(item.cycle.programme.toLowerCase()) ? item.cycle.programme : null;
   return (
     <b>
-      {item.appliance.config.label}
-      {programme ? ` · ${programme}` : ''}
+      <span className='now-pt-name'>
+        {item.appliance.config.label}
+        {programme ? ` · ${programme}` : ''}
+      </span>
     </b>
   );
 }
 
+/** A running or paused appliance, on the NOW line: when it started goes in the card, not on the rail. */
 function RunningCard({ row, focused, onOpenRoom }: { row: RunningRow; focused: boolean; onOpenRoom: (areaId: string) => void }) {
-  const { cycle, appliance } = row.item;
+  const { cycle, appliance, announce } = row.item;
   const sheen = useMotionSlot(`sheen:${row.id}`, 'appliance', cycle.status === 'running');
   const pct = Math.round(cycle.progressPct ?? 0);
-  const energy = cycle.energyKwh ? ` · ${formatKWh(cycle.energyKwh, 2)} so far` : '';
+  const parts = [
+    row.atMs != null ? `since ${formatHomeClock(row.atMs)}` : null,
+    cycle.status === 'paused' ? `paused at ${pct} %` : `${pct} %`,
+    cycle.status !== 'paused' && cycle.energyKwh ? formatKWh(cycle.energyKwh, 2) : null,
+  ];
   return (
-    <RowShell id={row.id} time={row.atMs != null ? formatHomeClock(row.atMs) : ''} tone='sky' focused={focused} className='is-live'>
+    <RowShell id={row.id} time={null} tone={null} focused={focused} className='is-live'>
       <RowBody areaId={row.areaId} onOpenRoom={onOpenRoom} className='now-card is-run' label={`${appliance.config.label}, ${pct} %`}>
         <span className='now-ph'>
           <span className='now-ico tone-sky'>
@@ -173,7 +169,7 @@ function RunningCard({ row, focused, onOpenRoom }: { row: RunningRow; focused: b
           </span>
           <span className='now-pt'>
             <ApplianceTitle item={row.item} />
-            <small>{cycle.status === 'paused' ? `Paused at ${pct} %` : `${pct} %${energy}`}</small>
+            <small>{parts.filter(Boolean).join(' · ')}</small>
           </span>
           <span className='now-when'>
             <Icon icon={cycle.status === 'paused' ? 'mdi:pause' : 'mdi:clock-outline'} />
@@ -183,6 +179,12 @@ function RunningCard({ row, focused, onOpenRoom }: { row: RunningRow; focused: b
         <span className={`now-prog ${sheen ? 'is-anim' : ''}`}>
           <i style={{ width: `${pct}%` }} />
         </span>
+        {announce && (
+          <span className='now-status tone-purple'>
+            <Icon icon='mdi:bullhorn-outline' />
+            Announces when done
+          </span>
+        )}
       </RowBody>
     </RowShell>
   );
@@ -190,47 +192,16 @@ function RunningCard({ row, focused, onOpenRoom }: { row: RunningRow; focused: b
 
 function PlanCard({
   row,
-  nowMs,
   isAdmin,
   focused,
   onOpenRoom,
 }: {
   row: PlanRow;
-  nowMs: number;
   isAdmin: boolean;
   focused: boolean;
   onOpenRoom: (areaId: string) => void;
 }) {
   const item = row.item;
-  const time = row.atMs != null ? formatHomeClock(row.atMs) : '—';
-  if (item.type === 'appliance') {
-    return (
-      <RowShell id={row.id} time={time} tone='sky' focused={focused}>
-        <RowBody areaId={row.areaId} onOpenRoom={onOpenRoom} className='now-card' label={`${item.appliance.config.label} done ${time}`}>
-          <span className='now-ph'>
-            <span className='now-ico tone-sky'>
-              <Icon icon={item.appliance.config.icon} />
-            </span>
-            <span className='now-pt'>
-              <b>{item.appliance.config.label} done</b>
-              <small>{row.atMs != null ? minutesUntil(row.atMs, nowMs) : 'Soon'}</small>
-            </span>
-            <span className='now-when'>
-              <Icon icon='mdi:clock-outline' />≈ {time}
-            </span>
-          </span>
-          {item.announce && (
-            <span className='now-ctx'>
-              <span className='now-chip is-tiny is-tone tone-purple'>
-                <Icon icon='mdi:bullhorn-outline' />
-                <span className='now-chip-text'>Announce</span>
-              </span>
-            </span>
-          )}
-        </RowBody>
-      </RowShell>
-    );
-  }
   if (item.type === 'wake') {
     return (
       <RowShell id={row.id} time={item.clock} tone='gold' focused={focused} className={item.enabled ? '' : 'is-off'}>
@@ -246,7 +217,7 @@ function PlanCard({
             </span>
             <span className='now-pt'>
               <b>
-                Wake routine
+                <span className='now-pt-name'>Wake routine</span>
                 {isAdmin && <Icon icon='mdi:eye-off-outline' className='now-adm' aria-label='Only you see this' />}
               </b>
               <small>{item.enabled ? 'Alarm on' : 'Alarm off'}</small>
@@ -269,7 +240,9 @@ function PlanCard({
             <Icon icon='mdi:robot-vacuum' />
           </span>
           <span className='now-pt'>
-            <b>Rober2 cleans</b>
+            <b>
+              <span className='now-pt-name'>Rober2 cleans</span>
+            </b>
             <small>{item.narrative ?? item.rooms.join(', ')}</small>
           </span>
           <span className='now-when'>
@@ -384,13 +357,14 @@ export function NowView({ focus, itemId, arrival, onBack, onOpenRoom }: NowViewP
     };
   }, [focusedId]);
 
-  const todayKey = homeDayKey(nowMs);
-  const pastRows = timeline.past.map((row, index, all) => {
-    const day = homeDayKey(row.atMs);
-    const dayBefore = index > 0 ? homeDayKey(all[index - 1].atMs) : null;
-    const labelled = day !== dayBefore && (dayBefore !== null || day !== todayKey);
-    return { row, day: labelled ? dayLabel(row.atMs, nowMs) : null, age: all.length - 1 - index };
-  });
+  const pastBreaks = dayBreaks(
+    timeline.past.map(row => row.atMs),
+    nowMs
+  );
+  const planBreaks = dayBreaks(
+    timeline.plans.map(row => row.atMs),
+    nowMs
+  );
 
   return createPortal(
     <MotionScopeContext.Provider value='timeline'>
@@ -405,25 +379,21 @@ export function NowView({ focus, itemId, arrival, onBack, onOpenRoom }: NowViewP
         />
         <div className='now-scroll' ref={scrollRef}>
           <div className='now-rail' ref={railRef}>
-            {pastRows.map(({ row, day, age }) => (
+            {timeline.past.map((row, index) => (
               <div key={row.id} className='now-group'>
-                {day && <div className='now-day'>{day}</div>}
-                <PastEpisode row={row} age={age} focused={isFocused(row.id)} onOpenRoom={onOpenRoom} />
+                {pastBreaks[index] && <div className='now-day'>{pastBreaks[index]}</div>}
+                <PastEpisode row={row} age={timeline.past.length - 1 - index} focused={isFocused(row.id)} onOpenRoom={onOpenRoom} />
               </div>
             ))}
             {timeline.running.map(row => (
               <RunningCard key={row.id} row={row} focused={isFocused(row.id)} onOpenRoom={onOpenRoom} />
             ))}
             <NowLine nowMs={nowMs} missing={missing} />
-            {timeline.plans.map(row => (
-              <PlanCard
-                key={row.id}
-                row={row}
-                nowMs={nowMs}
-                isAdmin={viewer.isAdmin === true}
-                focused={isFocused(row.id)}
-                onOpenRoom={onOpenRoom}
-              />
+            {timeline.plans.map((row, index) => (
+              <Fragment key={row.id}>
+                {planBreaks[index] && <div className='now-day'>{planBreaks[index]}</div>}
+                <PlanCard row={row} isAdmin={viewer.isAdmin === true} focused={isFocused(row.id)} onOpenRoom={onOpenRoom} />
+              </Fragment>
             ))}
           </div>
           <div ref={spacerRef} aria-hidden='true' />

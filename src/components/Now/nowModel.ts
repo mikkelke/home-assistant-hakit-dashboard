@@ -1,4 +1,6 @@
 /** The rows of the `#now` timeline: what the house did, what runs now, and what comes next. Pure. */
+import { HOME_TIME_ZONE } from '../../config/plan';
+import { homeDayKey, homeDayStartMs, nextHomeDayStartMs } from '../../energy/homeTime';
 import { houseEventKind, type HouseEpisode, type HouseEvent } from '../../home/houseEvents';
 import type { UpcomingAppliance, UpcomingItem } from '../../home/upcoming';
 import type { NowFocusKind } from '../../utils/navigation';
@@ -15,6 +17,8 @@ export interface PastRow {
   restricted: boolean;
 }
 
+/** A running or paused appliance. It sits on the NOW line, and its card carries the ETA, so no separate
+ * done row repeats it. */
 export interface RunningRow {
   type: 'running';
   id: string;
@@ -27,7 +31,7 @@ export interface RunningRow {
 export interface PlanRow {
   type: 'plan';
   id: string;
-  item: UpcomingItem;
+  item: Exclude<UpcomingItem, UpcomingAppliance>;
   atMs: number | null;
   areaId: string;
 }
@@ -82,9 +86,6 @@ export function buildNowTimeline(episodes: readonly HouseEpisode[], upcoming: re
   for (const item of upcoming) {
     if (item.type === 'appliance') {
       running.push({ type: 'running', id: item.id, item, atMs: item.cycle.startMs, areaId: item.appliance.areaId });
-      if (item.cycle.status === 'running' && item.atMs != null) {
-        plans.push({ type: 'plan', id: `${item.id}-done`, item, atMs: item.atMs, areaId: item.appliance.areaId });
-      }
     } else {
       plans.push({ type: 'plan', id: item.id, item, atMs: item.atMs, areaId: item.areaId });
     }
@@ -109,4 +110,27 @@ export function rowTone(row: Pick<HouseEvent, 'icon'>): string {
   if (/^(blinds|weather|white-balance)/.test(name)) return 'sun';
   if (/^(smoke|fire)/.test(name)) return 'rose';
   return 'slate';
+}
+
+const DAY_LABEL = new Intl.DateTimeFormat('en-GB', { weekday: 'long', timeZone: HOME_TIME_ZONE });
+const DAY_DATE = new Intl.DateTimeFormat('da-DK', { day: '2-digit', month: '2-digit', timeZone: HOME_TIME_ZONE });
+
+/** "Today", "Yesterday", "Tomorrow", else "Sunday 11.10", by the house's calendar days. */
+export function dayLabel(atMs: number, nowMs: number): string {
+  const key = homeDayKey(atMs);
+  if (key === homeDayKey(nowMs)) return 'Today';
+  if (key === homeDayKey(homeDayStartMs(nowMs) - 1)) return 'Yesterday';
+  if (key === homeDayKey(nextHomeDayStartMs(nowMs))) return 'Tomorrow';
+  return `${DAY_LABEL.format(atMs)} ${DAY_DATE.format(atMs)}`;
+}
+
+/** The day label each row in time order opens with: one wherever the calendar day changes, counting
+ * from today, so rows of today need none. Untimed rows get none and do not count. */
+export function dayBreaks(times: readonly (number | null)[], nowMs: number): (string | null)[] {
+  let day = homeDayKey(nowMs);
+  return times.map(atMs => {
+    if (atMs == null || homeDayKey(atMs) === day) return null;
+    day = homeDayKey(atMs);
+    return dayLabel(atMs, nowMs);
+  });
 }

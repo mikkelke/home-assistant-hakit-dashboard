@@ -265,12 +265,6 @@
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 22%, transparent);
 }
 
-.now-chip.is-tiny {
-  height: 22px;
-  padding: 0 7px;
-  font-size: 11px;
-}
-
 .now-effect {
   display: inline-flex;
   align-items: center;
@@ -488,9 +482,14 @@
   display: flex;
   align-items: center;
   gap: 5px;
+  min-width: 0;
   font-size: 13px;
   font-weight: 600;
   color: var(--now-t1);
+}
+
+.now-pt-name {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -538,10 +537,20 @@
   color: var(--now-t3);
 }
 
-.now-ctx {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+/* A status line under a card, not a control: text and icon in the tone, nothing to press. */
+.now-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--c);
+}
+
+.now-status svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 .now-prog {

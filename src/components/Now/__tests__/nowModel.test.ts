@@ -3,7 +3,7 @@ import { home } from '../../../energy/__tests__/testUtils';
 import { houseEpisodes, parseHouseEvents, visibleHouseEvents, type HouseEventViewer } from '../../../home/houseEvents';
 import feed from '../../../home/__tests__/fixtures/house-events-2026-10-13.json';
 import { readUpcoming, type UpcomingEntity } from '../../../home/upcoming';
-import { buildNowTimeline, episodeAreaId, rowTone } from '../nowModel';
+import { buildNowTimeline, dayBreaks, dayLabel, episodeAreaId, rowTone } from '../nowModel';
 
 const MIKKEL: HouseEventViewer = { isAdmin: true, name: 'Mikkel' };
 const KRISTINE: HouseEventViewer = { isAdmin: false, name: 'Kristine' };
@@ -85,17 +85,17 @@ describe('the NOW line and what comes after it', () => {
     MIKKEL
   );
 
-  it('puts running and paused appliances on the line and a done row at a running one ETA', () => {
+  it('puts running and paused appliances on the line, and no separate done row for them', () => {
     const { running, plans } = buildNowTimeline([], upcoming);
     expect(running.map(row => [row.id, row.areaId])).toEqual([
       ['dryer', 'guest_bathroom'],
       ['washer', 'guest_bathroom'],
     ]);
     expect(running[1].atMs).toBe(Date.parse('2026-10-13T16:50:00Z'));
-    expect(plans.map(row => row.id)).toEqual(['washer-done', 'wake', 'rober2']);
-    expect(plans[0].atMs).toBe(home(2026, 10, 13, 20, 23));
-    expect(plans[1].atMs).toBe(home(2026, 10, 14, 6, 45));
-    expect(plans[2].atMs).toBeNull();
+    expect(running[1].item.atMs).toBe(home(2026, 10, 13, 20, 23));
+    expect(plans.map(row => row.id)).toEqual(['wake', 'rober2']);
+    expect(plans[0].atMs).toBe(home(2026, 10, 14, 6, 45));
+    expect(plans[1].atMs).toBeNull();
   });
 
   it('orders running appliances on the rail by when they started', () => {
@@ -122,5 +122,34 @@ describe('the NOW line and what comes after it', () => {
       KRISTINE
     );
     expect(buildNowTimeline([], theirs).plans).toEqual([]);
+  });
+});
+
+describe('day labels on the house calendar', () => {
+  it('names today, yesterday and older days', () => {
+    const nowMs = home(2026, 10, 13, 18, 30);
+    expect(dayLabel(home(2026, 10, 13, 7, 51), nowMs)).toBe('Today');
+    expect(dayLabel(home(2026, 10, 12, 23, 59), nowMs)).toBe('Yesterday');
+    expect(dayLabel(home(2026, 10, 11, 13, 37), nowMs)).toBe('Sunday 11.10');
+  });
+
+  it('names tomorrow', () => {
+    expect(dayLabel(home(2026, 10, 14, 8, 45), home(2026, 10, 13, 18, 30))).toBe('Tomorrow');
+    expect(dayLabel(home(2026, 10, 26, 6, 30), home(2026, 10, 25, 23, 30))).toBe('Tomorrow');
+  });
+
+  it('breaks the rows where the day changes, from today on', () => {
+    const nowMs = home(2026, 10, 13, 18, 30);
+    expect(
+      dayBreaks([home(2026, 10, 11, 13, 37), home(2026, 10, 11, 18, 11), home(2026, 10, 12, 8, 45), home(2026, 10, 13, 7, 51)], nowMs)
+    ).toEqual(['Sunday 11.10', null, 'Yesterday', 'Today']);
+    expect(dayBreaks([home(2026, 10, 13, 9, 0), home(2026, 10, 13, 10, 0)], nowMs)).toEqual([null, null]);
+    expect(dayBreaks([home(2026, 10, 13, 19, 41), home(2026, 10, 14, 8, 45), null], nowMs)).toEqual([null, 'Tomorrow', null]);
+  });
+
+  it('finds yesterday by the calendar the night after the spring change', () => {
+    const nowMs = home(2027, 3, 29, 0, 30);
+    expect(dayLabel(home(2027, 3, 28, 12, 0), nowMs)).toBe('Yesterday');
+    expect(dayLabel(home(2027, 3, 27, 12, 0), nowMs)).toBe('Saturday 27.03');
   });
 });
