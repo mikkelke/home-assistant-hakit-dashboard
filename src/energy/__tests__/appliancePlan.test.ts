@@ -50,6 +50,15 @@ describe('assembleAppliancePlan', () => {
     expect(result.doneByMs).toBe(home(2026, 10, 10, 7));
   });
 
+  it('resolves done-by from now, so a running cycle can make it impossible', () => {
+    const morning = home(2026, 10, 10, 6);
+    const run = { status: 'running' as const, etaMs: home(2026, 10, 10, 8) };
+    const result = assembleAppliancePlan({ config: washer, run, programmes, timeline, nowMs: morning, doneBy: 7 });
+    expect(result.doneByMs).toBe(home(2026, 10, 10, 7));
+    expect(result.plan?.doneByMissed).toBe(true);
+    expect(result.plan?.plan).toBeNull();
+  });
+
   it('sets no done-by deadline for a programme whose completion is unknown', () => {
     const idle = readApplianceRun(undefined, 'hhmm', nowMs);
     const unknown = { ...programme(Array(60).fill(10), null), key: 'unknown' };

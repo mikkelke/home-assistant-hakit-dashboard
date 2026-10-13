@@ -78,8 +78,9 @@ export function assembleAppliancePlan(input: AppliancePlanInput): AppliancePlan 
   const programme = programmes.find(p => p.key === input.programmeKey) ?? programmes[0] ?? null;
   const blocked = run.status === 'paused' || (run.status === 'running' && run.etaMs == null);
   const earliestPressMs = run.status === 'running' ? run.etaMs : null;
-  const pressFromMs = Math.max(nowMs, earliestPressMs ?? nowMs);
-  const doneByMs = input.doneBy == null || programme?.completionMin == null ? null : nextHomeClockMs(pressFromMs, input.doneBy);
+  // The next such clock time from now, not from when the machine frees up: a cycle that runs past
+  // the deadline makes it impossible rather than moving it to tomorrow.
+  const doneByMs = input.doneBy == null || programme?.completionMin == null ? null : nextHomeClockMs(nowMs, input.doneBy);
   const plan =
     programme && !blocked ? planStart(programme, timeline, { nowMs, earliestPressMs, knobStepsMin: config.knobStepsMin, doneByMs }) : null;
   return { config, run, programmes, programme, doneByMs, plan };
