@@ -1,0 +1,470 @@
+/* The sky card above the grid, and its 52 px strip. Phase classes set the gradient; the drawing,
+   the sun or moon, and the text sit on top of it. */
+.sky {
+  --sky-horizon: rgba(255, 255, 255, 0.12);
+  --sky-arc: rgba(255, 255, 255, 0.16);
+  --sky-cloud: #2c3a66;
+  --sky-cloud-opacity: 0.7;
+  position: relative;
+  flex-shrink: 0;
+  height: 152px;
+  border-radius: 22px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.sky::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 104px;
+  height: 1px;
+  background: var(--sky-horizon);
+  pointer-events: none;
+}
+
+.sky.sky--night {
+  --sky-horizon: rgba(255, 255, 255, 0.08);
+  --sky-arc: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, #04060e 0%, #0c1430 68.4%, #0b0d13 68.4%);
+}
+
+.sky.sky--dusk {
+  background: linear-gradient(180deg, #0a1430 0%, #18264f 44.5%, #2d2a58 68.4%, #0e1118 68.4%);
+}
+
+.sky.sky--dawn {
+  background: linear-gradient(180deg, #121a3c 0%, #2c3464 44.5%, #5a4f78 68.4%, #10121a 68.4%);
+}
+
+.sky.sky--evening {
+  --sky-horizon: rgba(255, 190, 140, 0.25);
+  --sky-arc: rgba(255, 255, 255, 0.22);
+  --sky-cloud: #f6b7a0;
+  --sky-cloud-opacity: 0.35;
+  background: linear-gradient(180deg, #1c2a58 0%, #5b4a78 37.6%, #c06f6a 58.1%, #f0995e 68.4%, #11131a 68.4%);
+}
+
+.sky.sky--morning {
+  --sky-horizon: rgba(255, 220, 180, 0.3);
+  --sky-arc: rgba(255, 255, 255, 0.35);
+  --sky-cloud: #fff;
+  --sky-cloud-opacity: 0.45;
+  background: linear-gradient(180deg, #3f6ea8 0%, #8fb0d2 41%, #f1c39c 68.4%, #12141a 68.4%);
+}
+
+.sky.sky--day {
+  --sky-horizon: rgba(255, 255, 255, 0.18);
+  --sky-arc: rgba(255, 255, 255, 0.3);
+  --sky-cloud: #fff;
+  --sky-cloud-opacity: 0.45;
+  background: linear-gradient(180deg, #2a5a98 0%, #4f86c6 41%, #8fb8e0 68.4%, #12141a 68.4%);
+}
+
+.sky-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.sky-star {
+  fill: #fff;
+  opacity: 0.6;
+}
+
+.sky-clouds {
+  fill: var(--sky-cloud);
+  opacity: var(--sky-cloud-opacity);
+}
+
+.sky-clouds.is-anim {
+  animation: sky-drift 90s ease-in-out infinite alternate;
+}
+
+@keyframes sky-drift {
+  to {
+    transform: translateX(12px);
+  }
+}
+
+.sky-rain {
+  fill: none;
+  stroke: #bae6fd;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  opacity: 0.8;
+}
+
+.sky-arc {
+  fill: none;
+  stroke: var(--sky-arc);
+  stroke-dasharray: 2 5;
+  vector-effect: non-scaling-stroke;
+}
+
+.sky-sun {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: #ffe2b0;
+  box-shadow:
+    0 0 0 9px rgba(255, 213, 154, 0.16),
+    0 0 36px 16px rgba(255, 176, 112, 0.42);
+  pointer-events: none;
+}
+
+.sky--morning .sky-sun,
+.sky--day .sky-sun {
+  background: #fff4d6;
+  box-shadow:
+    0 0 0 9px rgba(255, 240, 200, 0.2),
+    0 0 36px 16px rgba(255, 220, 160, 0.4);
+}
+
+.sky-moon {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  color: #e6eaff;
+  filter: drop-shadow(0 0 6px rgba(199, 210, 254, 0.45));
+  pointer-events: none;
+}
+
+.sky-wx {
+  position: absolute;
+  left: 14px;
+  top: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
+}
+
+.sky-temp {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.sky-temp-icon {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.sky-temp-value small {
+  font-size: 14px;
+  font-weight: 600;
+  margin-left: 2px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.sky-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.28);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.sky-chip svg {
+  width: 13px;
+  height: 13px;
+}
+
+.sky-menu {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+
+.sky-menu:active {
+  transform: scale(0.95);
+}
+
+.sky-menu svg {
+  width: 22px;
+  height: 22px;
+}
+
+.sky-people {
+  position: absolute;
+  left: 6px;
+  bottom: 3px;
+  display: flex;
+}
+
+.sky-suntime {
+  position: absolute;
+  right: 14px;
+  bottom: 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #8b8b94;
+  font-variant-numeric: tabular-nums;
+}
+
+.sky-suntime svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Avatars: a 44 px slot around a 38 px (sky) or 30 px (strip) face. */
+.sky-av-slot {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+span.sky-av-slot {
+  cursor: default;
+}
+
+.sky-av {
+  position: relative;
+  display: flex;
+}
+
+.sky-av-face {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2a2a4a;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: 0 0 0 2px #0e1118;
+}
+
+.sky-av-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sky-av--strip .sky-av-face {
+  width: 30px;
+  height: 30px;
+  font-size: 12px;
+}
+
+.sky-av.is-away .sky-av-face {
+  opacity: 0.38;
+  filter: saturate(0.2);
+}
+
+.sky-av.is-you .sky-av-face {
+  box-shadow:
+    0 0 0 2px #0e1118,
+    0 0 0 3.5px #38bdf8;
+}
+
+.sky-av-dot {
+  position: absolute;
+  right: -1px;
+  bottom: 0;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 0 2px #0e1118;
+}
+
+.sky-av--strip .sky-av-dot {
+  width: 9px;
+  height: 9px;
+  right: -2px;
+  bottom: -1px;
+}
+
+.sky-av-zz {
+  position: absolute;
+  right: -4px;
+  top: -4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #312e81;
+  color: #c7d2fe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 2px #0e1118;
+}
+
+.sky-av-zz svg {
+  width: 11px;
+  height: 11px;
+}
+
+.sky-av--strip .sky-av-zz {
+  width: 15px;
+  height: 15px;
+}
+
+.sky-av--strip .sky-av-zz svg {
+  width: 9px;
+  height: 9px;
+}
+
+/* Strip */
+.sky-strip {
+  position: relative;
+  flex-shrink: 0;
+  height: 52px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #fff;
+  background: linear-gradient(90deg, #0f1a3a, #1d2650 60%, #2d2a58);
+}
+
+.sky-strip.sky--night {
+  background: linear-gradient(90deg, #04060e, #0c1430 60%, #131b3a);
+}
+
+.sky-strip.sky--dawn {
+  background: linear-gradient(90deg, #121a3c, #2c3464 60%, #5a4f78);
+}
+
+.sky-strip.sky--evening {
+  background: linear-gradient(90deg, #1c2a58, #5b4a78 60%, #a0646c);
+}
+
+.sky-strip.sky--morning {
+  background: linear-gradient(90deg, #3f6ea8, #7f9fc2 60%, #c9a68c);
+}
+
+.sky-strip.sky--day {
+  background: linear-gradient(90deg, #2a5a98, #4a7bb8 60%, #6f9ccb);
+}
+
+.sky-strip-temp {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+  padding-left: 8px;
+  font-size: 17px;
+  font-weight: 700;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
+}
+
+.sky-strip-back + .sky-strip-temp {
+  padding-left: 4px;
+}
+
+.sky-strip-temp .sky-temp-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.sky-strip-back {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.09);
+  color: #e4e4e7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+
+.sky-strip-back:active {
+  transform: scale(0.95);
+}
+
+.sky-strip-back svg:first-child {
+  width: 15px;
+  height: 15px;
+}
+
+.sky-strip-back svg + svg {
+  width: 17px;
+  height: 17px;
+  margin-left: -2px;
+}
+
+.sky-strip-menu {
+  position: static;
+}
+
+/* The grid's strip sits over the content once the big sky has scrolled away. */
+.sky-strip--sticky {
+  position: sticky;
+  top: 4px;
+  z-index: 6;
+  margin-bottom: -52px;
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  transition:
+    opacity 200ms var(--ease-out),
+    transform 200ms var(--ease-out);
+}
+
+.sky-strip--sticky.is-shown {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}

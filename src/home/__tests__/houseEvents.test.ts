@@ -5,6 +5,8 @@ import {
   EPISODE_MERGE_MS,
   houseEpisodes,
   houseEventKind,
+  houseEventLabel,
+  newestEventMs,
   parseHouseEvents,
   visibleHouseEvents,
   type HouseEvent,
@@ -199,5 +201,22 @@ describe('houseEpisodes', () => {
       `${Date.parse(ts)}-2`,
       String(Date.parse(ts)),
     ]);
+  });
+});
+
+describe('labels and the newest row of a kind', () => {
+  it('names a row in one word only where its icon is unambiguous', () => {
+    expect(houseEventLabel({ icon: 'mdi:door-open' })).toBe('Opened');
+    expect(houseEventLabel({ icon: 'mdi:basket-check' })).toBe('Emptied');
+    expect(houseEventLabel({ icon: 'mdi:washing-machine' })).toBe('Done');
+    expect(houseEventLabel({ icon: 'mdi:television' })).toBeNull();
+    expect(houseEventLabel({ icon: 'mdi:speaker-multiple' })).toBeNull();
+  });
+
+  it('finds the newest ring and the newest washer finish in the live feed', () => {
+    expect(newestEventMs(feed.attributes.events, 'ring')).toBe(Date.parse('2026-10-13T12:26:01.941170+02:00'));
+    expect(newestEventMs(feed.attributes.events, 'washer')).toBe(Date.parse('2026-10-13T10:55:30.468247+02:00'));
+    expect(newestEventMs([], 'ring')).toBeNull();
+    expect(newestEventMs(undefined, 'ring')).toBeNull();
   });
 });

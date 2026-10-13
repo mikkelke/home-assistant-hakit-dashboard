@@ -1,0 +1,99 @@
+.pulse-row {
+  display: flex;
+  gap: 6px;
+  padding-top: 8px;
+  flex-shrink: 0;
+}
+
+.pulse-chip {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 38px;
+  padding: 0 8px;
+  border-radius: 12px;
+  background: #15161a;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #e4e4e7;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 120ms var(--ease-out),
+    background 120ms ease,
+    border-color 120ms ease;
+}
+
+/* Pads the 38 px chip to a 44 px target. */
+.pulse-chip::before {
+  content: '';
+  position: absolute;
+  inset: -3px 0;
+}
+
+.pulse-chip:active {
+  transform: scale(0.97);
+  border-color: rgba(56, 189, 248, 0.7);
+  background: rgba(56, 189, 248, 0.14);
+}
+
+.pulse-live {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.22);
+  flex-shrink: 0;
+}
+
+.pulse-next {
+  border-color: rgba(56, 189, 248, 0.22);
+}
+
+.pulse-next.is-empty {
+  flex: 0 0 44px;
+}
+
+.pulse-rail {
+  width: 14px;
+  height: 14px;
+  color: #38bdf8;
+  margin-right: -2px;
+  flex-shrink: 0;
+}
+
+.pulse-next-icon {
+  width: 15px;
+  height: 15px;
+  color: #38bdf8;
+  flex-shrink: 0;
+}
+
+/* PriceAdvisor keeps its own component and stylesheet; in this row it only takes the chips' size. */
+.pulse-row .price-advisor-segment {
+  position: relative;
+  flex: 1 1 auto;
+  margin-left: 0;
+  min-height: 0;
+  height: 38px;
+  padding: 0 8px;
+  justify-content: center;
+  border-radius: 12px;
+  background: #15161a;
+  border-color: rgba(255, 255, 255, 0.07);
+  overflow: visible;
+}
+
+.pulse-row .price-advisor-segment::before {
+  content: '';
+  position: absolute;
+  inset: -3px 0;
+}

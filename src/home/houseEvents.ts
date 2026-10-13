@@ -82,6 +82,29 @@ export function houseEventKind(event: Pick<HouseEvent, 'icon'>): NowFocusKind {
   return KIND_BY_ICON.get(event.icon) ?? 'evt';
 }
 
+/** One word for what a row's icon says happened, for icons only one kind of row carries. */
+const LABEL_BY_ICON: ReadonlyMap<string, string> = new Map([
+  ['mdi:door-open', 'Opened'],
+  ['mdi:bell-ring', 'Rang'],
+  ['mdi:bell-off', 'Missed'],
+  ['mdi:basket-check', 'Emptied'],
+  ['mdi:washing-machine', 'Done'],
+  ['mdi:tumble-dryer', 'Done'],
+  ['mdi:dishwasher', 'Done'],
+  ['mdi:lock-open-variant', 'Unlocked'],
+  ['mdi:weather-sunset-up', 'Wake'],
+]);
+
+export function houseEventLabel(event: Pick<HouseEvent, 'icon'>): string | null {
+  return LABEL_BY_ICON.get(event.icon) ?? null;
+}
+
+/** Time of the newest row of `kind` in a raw `attributes.events` value, in epoch ms; null without
+ * one. Rows are newest first. */
+export function newestEventMs(value: unknown, kind: NowFocusKind): number | null {
+  return parseHouseEvents(value).find(event => houseEventKind(event) === kind)?.tsMs ?? null;
+}
+
 export interface HouseEventViewer {
   /** null while the HA user lookup resolves. */
   isAdmin: boolean | null;

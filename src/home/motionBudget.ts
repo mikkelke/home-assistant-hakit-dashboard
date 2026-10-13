@@ -1,7 +1,7 @@
 /** A cap on looping animations: a module store grants slots by priority to the animations in the
  * scope on screen, and `useMotionSlot` reads it through `useSyncExternalStore`. Anything not
  * granted renders its static frame. */
-import { createContext, useContext, useEffect, useSyncExternalStore } from 'react';
+import { createContext, useContext, useLayoutEffect, useSyncExternalStore } from 'react';
 
 /** Highest first. */
 export const MOTION_PRIORITIES = ['oneShot', 'appliance', 'equaliser', 'nowPulse', 'breathing', 'clouds'] as const;
@@ -132,10 +132,11 @@ export function holdMotionSlot(
 }
 
 /** Whether the animation `id` may play now. It asks for a slot while `active`; a one-shot (with
- * `oneShotMs`) plays once each time `active` turns true. */
+ * `oneShotMs`) plays once each time `active` turns true. The slot is taken before the browser
+ * paints, so a one-shot never shows its end frame first. */
 export function useMotionSlot(id: string, priority: MotionPriority, active: boolean, oneShotMs?: number): boolean {
   const scope = useContext(MotionScopeContext);
-  useEffect(
+  useLayoutEffect(
     () => (active ? holdMotionSlot(motionBudget, id, priority, scope, oneShotMs) : undefined),
     [id, priority, scope, active, oneShotMs]
   );

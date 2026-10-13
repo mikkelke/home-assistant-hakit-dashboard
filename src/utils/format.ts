@@ -12,6 +12,11 @@ function getNumberFormatter(decimals: number): Intl.NumberFormat {
 
 const twoDecimalFormatter = new Intl.NumberFormat('da-DK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+/** e.g. `formatDecimal(9.43, 1)` → `"9,4"` */
+export function formatDecimal(value: number, decimals: number): string {
+  return getNumberFormatter(decimals).format(value);
+}
+
 /** e.g. `formatKWh(12.4)` → `"12,4 kWh"` */
 export function formatKWh(value: number, decimals = 1): string {
   return `${getNumberFormatter(decimals).format(value)} kWh`;
