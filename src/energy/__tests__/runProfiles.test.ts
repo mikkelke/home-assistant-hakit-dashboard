@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { energyBetweenWh, parseRunProfiles, type RunProfiles } from '../runProfiles';
 import entity from './fixtures/run-profiles.json';
+import published from './fixtures/run-profiles-published.json';
 
 function programmeAttrs(overrides: Record<string, unknown> = {}) {
   return {
@@ -47,6 +48,29 @@ describe('parseRunProfiles', () => {
     expect(p.labelConfirmed).toBe(false);
   });
 
+  it('parses a payload as the AppDaemon publisher writes it', () => {
+    const { appliances } = parsed(published);
+    expect(Object.keys(appliances)).toEqual(['washer', 'dishwasher', 'dryer']);
+    const dishwasher = appliances.dishwasher[0];
+    expect(dishwasher.key).toBe('typical');
+    expect(dishwasher.energyMin).toBe(101);
+    expect(dishwasher.completionMin).toBe(250);
+    expect(dishwasher.labelConfirmed).toBe(false);
+    expect(appliances.dryer[0].completionMin).toBe(appliances.dryer[0].energyMin);
+  });
+
+  it('accepts a mixed label source as not confirmed', () => {
+    expect(parsed(programmeAttrs({ label_source: 'mixed' })).appliances.washer[0].labelConfirmed).toBe(false);
+    expect(parsed(programmeAttrs({ label_source: 'confirmed' })).appliances.washer[0].labelConfirmed).toBe(true);
+  });
+
+  it('reads a missing done_min as the energy profile length', () => {
+    const p = parsed(programmeAttrs({ completion_min: undefined, run_min: undefined, energy_min: undefined })).appliances.washer[0];
+    expect(p.energyMin).toBe(5);
+    expect(p.completionMin).toBe(5);
+    expect(parsed(programmeAttrs({ completion_min: undefined, done_min: '12' })).appliances.washer[0].completionMin).toBe(12);
+  });
+
   it('never lets completion end before the energy profile', () => {
     expect(parsed(programmeAttrs({ completion_min: '3' })).appliances.washer[0].completionMin).toBe(5);
   });
@@ -58,7 +82,6 @@ describe('parseRunProfiles', () => {
     ['empty profile', { p: '', energy_min: undefined }],
     ['longer than 720 minutes', { p: Array(721).fill('1').join(','), energy_min: '721' }],
     ['energy_min mismatch', { energy_min: '6' }],
-    ['missing completion', { completion_min: undefined }],
     ['n of zero', { n: '0' }],
     ['unknown label source', { label_source: 'maybe' }],
     ['missing label', { label: '' }],

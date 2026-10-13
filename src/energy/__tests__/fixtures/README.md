@@ -11,3 +11,7 @@
   (38 cycles), dishwasher ECO (74), dryer Ekspres skabstoert (8, unverified energy). Completion
   minutes are fixture values: washer 190 (p90 onset to end 186), dishwasher 250 (onset to
   completion incl. passive drying measured at 248 to 249), dryer 95.
+- `run-profiles-published.json`: the entity attributes exactly as the AppDaemon publisher
+  (`run_profile_model.py`, branch run-profiles) builds them from the house's feedback records and
+  recorder power, dry run 2026-10-13. Uses the publisher's own wire names (`run_min`, `done_min`,
+  `label_source` "mixed"), and omits `done_min` where fewer than three trusted finishes exist.

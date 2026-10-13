@@ -10,8 +10,10 @@
  *         label: string
  *         n: int >= 1             cycles behind the profile
  *         energy_min: int         profile length in minutes; must equal the profile's length
- *         completion_min: int     conservative power onset -> machine really done, in minutes
- *         label_source: "confirmed" | "inferred"   absent means inferred
+ *         completion_min: int     conservative power onset -> machine really done, in minutes;
+ *                                 optional (absent with too few trusted finishes), then energy_min
+ *         label_source: "confirmed" | "inferred" | "mixed"   absent means inferred; only
+ *                                 "confirmed" counts as a confirmed label
  *         p: "16,27,0,..."        0.1 Wh per minute from power onset, comma-separated ints >= 0
  *       }, ...]                   most typical programme first
  *     }
@@ -39,6 +41,7 @@ const WIRE = {
 } as const;
 
 const SUPPORTED_SCHEMA = 1;
+const LABEL_SOURCES: readonly string[] = ['confirmed', 'inferred', 'mixed'];
 const PROFILE_PATTERN = /^\d+(,\d+)*$/;
 
 export interface RunProfileProgramme {
@@ -116,11 +119,12 @@ function parseProgramme(raw: unknown, where: string): RunProfileProgramme {
   const energyRaw = pick(raw, WIRE.energyMin);
   const energyMin = energyRaw === undefined ? whPerMin.length : toInt(energyRaw);
   if (energyMin !== whPerMin.length) fail(`${at}: energy_min does not match the profile length`);
-  const completion = toInt(pick(raw, WIRE.completionMin));
+  const completionRaw = pick(raw, WIRE.completionMin);
+  const completion = completionRaw === undefined ? energyMin : toInt(completionRaw);
   if (completion == null || completion < 1 || completion > 1440) fail(`${at}: completion_min must be 1..1440`);
 
   const source = pick(raw, WIRE.labelSource);
-  if (source !== undefined && source !== 'confirmed' && source !== 'inferred') fail(`${at}: unknown label_source`);
+  if (source !== undefined && !LABEL_SOURCES.includes(source as string)) fail(`${at}: unknown label_source`);
 
   const cumWh = new Float64Array(whPerMin.length + 1);
   for (let i = 0; i < whPerMin.length; i++) cumWh[i + 1] = cumWh[i] + whPerMin[i];
