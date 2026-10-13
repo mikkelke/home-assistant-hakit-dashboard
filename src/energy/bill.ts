@@ -1,7 +1,7 @@
 /** Pure "Bill" assembly — no React, no clock reads; every
  * function takes explicit ms args, so it stays independently testable (mirrors assemble.ts). */
 import { FIXED_FEES_EXCL_MOMS_KR_PER_MONTH, MOMS_FACTOR } from '../config/energy';
-import { addDays, startOfLocalDay } from './period';
+import { homeDayStartMs, homeDaysInMonth, nextHomeDayStartMs } from './homeTime';
 import type { EnergyView } from './types';
 
 /** Full month's fixed subscription fees, VAT included — mirrors the Vindstød invoice's line
@@ -11,21 +11,14 @@ export function monthlyFixedFeesInclMoms(): number {
   return exclMoms * MOMS_FACTOR;
 }
 
-/** Days in the calendar month containing `dayStartMs` — component Date math (DST-safe: day 0 of
- * the following month is always the last day of this one, regardless of any DST shift inside it). */
-function daysInMonthOf(dayStartMs: number): number {
-  const d = new Date(dayStartMs);
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-}
-
-/** Σ over each local calendar day in [startMs, endMs) of that day's share of the monthly fee
+/** Σ over each Copenhagen calendar day in [startMs, endMs) of that day's share of the monthly fee
  * (monthlyFee ÷ days in ITS OWN month) — correct across a month boundary, and a full calendar
  * month sums back to exactly the monthly fee (dayCount × monthlyFee/dayCount). */
 export function fixedFeesForRange(startMs: number, endMs: number): number {
   const monthlyFee = monthlyFixedFeesInclMoms();
   let total = 0;
-  for (let day = startOfLocalDay(startMs); day < endMs; day = addDays(day, 1)) {
-    total += monthlyFee / daysInMonthOf(day);
+  for (let day = homeDayStartMs(startMs); day < endMs; day = nextHomeDayStartMs(day)) {
+    total += monthlyFee / homeDaysInMonth(day);
   }
   return total;
 }

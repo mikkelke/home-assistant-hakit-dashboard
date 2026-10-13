@@ -1,4 +1,5 @@
 /** Pure period math — every function takes explicit ms args, never reads the clock itself. */
+import { homeWallTime, homeWallTimeToMs } from './homeTime';
 import type { Period } from './types';
 
 /** Local-midnight of the day containing `ms`, via component construction (DST-safe). */
@@ -100,18 +101,57 @@ export function stepAnchor(period: Period, anchorStartMs: number, delta: 1 | -1)
   }
 }
 
+/** Where periods start and how they step: the viewing device's own calendar, or the house's. A
+ * period's range is [anchor, step(anchor, 1)). */
+export interface PeriodCalendar {
+  startOf(period: Period, ms: number): number;
+  step(period: Period, anchorStartMs: number, delta: 1 | -1): number;
+}
+
+export const LOCAL_CALENDAR: PeriodCalendar = { startOf: startOfPeriod, step: stepAnchor };
+
+/** Europe/Copenhagen calendar, matching how HA buckets its statistics wherever the phone is. */
+export const HOME_CALENDAR: PeriodCalendar = {
+  startOf(period, ms) {
+    const { year, month, day } = homeWallTime(ms);
+    switch (period) {
+      case 'day':
+        return homeWallTimeToMs(year, month, day);
+      case 'week':
+        return homeWallTimeToMs(year, month, day - ((new Date(Date.UTC(year, month - 1, day)).getUTCDay() + 6) % 7));
+      case 'month':
+        return homeWallTimeToMs(year, month, 1);
+      case 'year':
+        return homeWallTimeToMs(year, 1, 1);
+    }
+  },
+  step(period, anchorStartMs, delta) {
+    const { year, month, day } = homeWallTime(anchorStartMs);
+    switch (period) {
+      case 'day':
+        return homeWallTimeToMs(year, month, day + delta);
+      case 'week':
+        return homeWallTimeToMs(year, month, day + 7 * delta);
+      case 'month':
+        return homeWallTimeToMs(year, month + delta, 1);
+      case 'year':
+        return homeWallTimeToMs(year + delta, month, day);
+    }
+  },
+};
+
 /** True once the period's own range already reaches `nowMs` (it's the in-progress period),
  * meaning there's no further "next" period to step to yet. */
-export function nextDisabled(period: Period, anchorStartMs: number, nowMs: number): boolean {
-  return rangeFor(period, anchorStartMs).endMs > nowMs;
+export function nextDisabled(period: Period, anchorStartMs: number, nowMs: number, calendar = LOCAL_CALENDAR): boolean {
+  return calendar.step(period, anchorStartMs, 1) > nowMs;
 }
 
 /** True once a period is BOTH fully closed (its own range has already ended) AND older than the
  * immediately-previous period — i.e. it can no longer be revised by a late-arriving recorder
  * write and is safe to cache indefinitely (see cache.ts). The current period and the immediately
  * previous one always revalidate on every fetch; anything older than that is immutable. */
-export function isImmutablePeriod(period: Period, anchorStartMs: number, endMs: number, nowMs: number): boolean {
-  const previousPeriodStartMs = stepAnchor(period, startOfPeriod(period, nowMs), -1);
+export function isImmutablePeriod(period: Period, anchorStartMs: number, endMs: number, nowMs: number, calendar = LOCAL_CALENDAR): boolean {
+  const previousPeriodStartMs = calendar.step(period, calendar.startOf(period, nowMs), -1);
   return endMs <= nowMs && anchorStartMs < previousPeriodStartMs;
 }
 

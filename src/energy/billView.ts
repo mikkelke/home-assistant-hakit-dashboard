@@ -1,7 +1,7 @@
 /** Display helpers for the Energy page's Bill tab. Pure; amounts come from `assembleBill`. */
 import { BILL_HISTORY_MAX_MONTHS, BILL_HISTORY_START } from '../config/energy';
 import { assembleBill, fixedFeesForRange, type BillBreakdown } from './bill';
-import { addMonths, startOfLocalMonth } from './period';
+import { homeMonthStartMs, homeWallTimeToMs } from './homeTime';
 import type { EnergyBar } from './types';
 
 export interface KronerSegment {
@@ -33,15 +33,19 @@ export interface BillMonth {
   projected: boolean;
 }
 
-/** One entry per month from `BILL_HISTORY_START` (at most the last `maxMonths`) to the month of
- * `nowMs`, priced like `assembleBill` from monthly bars. */
+/** First month with a bill, as its Copenhagen start. */
+export function billHistoryStartMs(): number {
+  return homeWallTimeToMs(BILL_HISTORY_START.year, BILL_HISTORY_START.monthIndex + 1, 1);
+}
+
+/** One entry per Copenhagen month from `BILL_HISTORY_START` (at most the last `maxMonths`) to the
+ * month of `nowMs`, priced like `assembleBill` from monthly bars. */
 export function billHistory(monthBars: readonly EnergyBar[], nowMs: number, maxMonths = BILL_HISTORY_MAX_MONTHS): BillMonth[] {
-  const current = startOfLocalMonth(nowMs);
-  const first = new Date(BILL_HISTORY_START.year, BILL_HISTORY_START.monthIndex, 1).getTime();
-  let start = Math.max(first, addMonths(current, -(maxMonths - 1)));
+  const current = homeMonthStartMs(nowMs);
+  let start = Math.max(billHistoryStartMs(), homeMonthStartMs(nowMs, -(maxMonths - 1)));
   const out: BillMonth[] = [];
-  for (; start <= current; start = addMonths(start, 1)) {
-    const endMs = addMonths(start, 1);
+  for (; start <= current; start = homeMonthStartMs(start, 1)) {
+    const endMs = homeMonthStartMs(start, 1);
     const bar = monthBars.find(candidate => candidate.startMs === start);
     if (!bar) {
       out.push({ startMs: start, kr: null, projected: false });

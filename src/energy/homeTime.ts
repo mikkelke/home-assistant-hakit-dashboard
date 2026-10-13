@@ -68,6 +68,18 @@ export function nextHomeDayStartMs(ms: number): number {
   return homeWallTimeToMs(year, month, day);
 }
 
+/** Start of the home-time month containing `ms`, moved by `addMonths` months. */
+export function homeMonthStartMs(ms: number, addMonths = 0): number {
+  const { year, month } = homeWallTime(ms);
+  return homeWallTimeToMs(year, month + addMonths, 1);
+}
+
+/** Days in the home-time month containing `ms`. */
+export function homeDaysInMonth(ms: number): number {
+  const { year, month } = homeWallTime(ms);
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
 /** First instant strictly after `afterMs` whose home-time clock reads `hour:minute`. */
 export function nextHomeClockMs(afterMs: number, hour: number, minute = 0): number {
   const { year, month, day } = homeWallTime(afterMs);

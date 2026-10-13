@@ -1,10 +1,12 @@
 import { useId, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { BILL_HISTORY_MAX_MONTHS, BILL_HISTORY_START } from '../../config/energy';
+import { BILL_HISTORY_MAX_MONTHS } from '../../config/energy';
+import { HOME_TIME_ZONE } from '../../config/plan';
 import { assembleBill, assembleBillPriceStats, fixedFeesForRange, useEnergyView, type Period } from '../../energy';
-import { billHistory, kronerBreakdown, ringFraction, type BillMonth } from '../../energy/billView';
-import { addMonths, nextDisabled, startOfLocalMonth, startOfPeriod, stepAnchor } from '../../energy/period';
-import { krValue } from '../../energy/planView';
+import { billHistory, billHistoryStartMs, kronerBreakdown, ringFraction, type BillMonth } from '../../energy/billView';
+import { homeDaysInMonth, homeMonthStartMs, homeWallTime } from '../../energy/homeTime';
+import { HOME_CALENDAR, nextDisabled } from '../../energy/period';
+import { krValue, weekdayShort } from '../../energy/planView';
 import { PeriodPicker } from './PeriodPicker';
 import { StatsState } from './StatsState';
 
@@ -20,31 +22,30 @@ const CIRCUMFERENCE = 2 * Math.PI * R;
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const monthName = (ms: number, style: 'long' | 'short') =>
-  style === 'short' ? MONTHS[new Date(ms).getMonth()] : new Date(ms).toLocaleDateString('en-GB', { month: 'long' });
+  style === 'short'
+    ? MONTHS[homeWallTime(ms).month - 1]
+    : new Date(ms).toLocaleDateString('en-GB', { month: 'long', timeZone: HOME_TIME_ZONE });
 const kr0 = (value: number) => Math.round(value).toLocaleString('da-DK');
+const pad = (n: number) => String(n).padStart(2, '0');
 
+/** Copenhagen time throughout, like HA's own statistics buckets. */
 function whenLabel(bucket: 'hour' | 'day' | 'month', ms: number): string {
-  const d = new Date(ms);
   if (bucket === 'month') return monthName(ms, 'short');
-  const date = `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}`;
-  return `${d.toLocaleDateString('en-GB', { weekday: 'short' })} ${date}`;
+  const t = homeWallTime(ms);
+  return `${weekdayShort(ms)} ${pad(t.day)}.${pad(t.month)}`;
 }
 
 /** Tab "Bill": the month (or year) so far against its projection, what the kroner pay for, the
  * cheapest and priciest day paid, and every month since December 2025. Amounts are `assembleBill`'s. */
 export function BillTab({ nowMs, todayStartMs }: BillTabProps) {
   const [period, setPeriod] = useState<BillPeriod>('month');
-  const [anchor, setAnchor] = useState(() => startOfPeriod('month', Date.now()));
-  const { data, error, reload, forceReload } = useEnergyView(period, anchor);
-  const { data: previous } = useEnergyView(period, stepAnchor(period, anchor, -1));
+  const [anchor, setAnchor] = useState(() => HOME_CALENDAR.startOf('month', Date.now()));
+  const { data, error, reload, forceReload } = useEnergyView(period, anchor, HOME_CALENDAR);
+  const { data: previous } = useEnergyView(period, HOME_CALENDAR.step(period, anchor, -1), HOME_CALENDAR);
 
-  const currentMonth = startOfLocalMonth(nowMs);
-  const firstMonth = Math.max(
-    new Date(BILL_HISTORY_START.year, BILL_HISTORY_START.monthIndex, 1).getTime(),
-    addMonths(currentMonth, -(BILL_HISTORY_MAX_MONTHS - 1))
-  );
-  const { data: firstYear } = useEnergyView('year', startOfPeriod('year', firstMonth));
-  const { data: thisYear } = useEnergyView('year', startOfPeriod('year', nowMs));
+  const firstMonth = Math.max(billHistoryStartMs(), homeMonthStartMs(nowMs, -(BILL_HISTORY_MAX_MONTHS - 1)));
+  const { data: firstYear } = useEnergyView('year', HOME_CALENDAR.startOf('year', firstMonth), HOME_CALENDAR);
+  const { data: thisYear } = useEnergyView('year', HOME_CALENDAR.startOf('year', nowMs), HOME_CALENDAR);
 
   const bill = useMemo(() => (data ? assembleBill(data, nowMs) : null), [data, nowMs]);
   const previousBill = useMemo(() => (previous ? assembleBill(previous, nowMs) : null), [previous, nowMs]);
@@ -57,14 +58,16 @@ export function BillTab({ nowMs, todayStartMs }: BillTabProps) {
   const changePeriod = (next: Period) => {
     if (next !== 'month' && next !== 'year') return;
     setPeriod(next);
-    setAnchor(startOfPeriod(next, Date.now()));
+    setAnchor(HOME_CALENDAR.startOf(next, Date.now()));
   };
   const step = (delta: 1 | -1) =>
-    setAnchor(current => (delta === 1 && nextDisabled(period, current, nowMs) ? current : stepAnchor(period, current, delta)));
+    setAnchor(current =>
+      delta === 1 && nextDisabled(period, current, nowMs, HOME_CALENDAR) ? current : HOME_CALENDAR.step(period, current, delta)
+    );
 
-  const name = period === 'month' ? monthName(anchor, 'long') : String(new Date(anchor).getFullYear());
-  const previousName =
-    period === 'month' ? monthName(stepAnchor('month', anchor, -1), 'short') : String(new Date(anchor).getFullYear() - 1);
+  const anchorYear = homeWallTime(anchor).year;
+  const name = period === 'month' ? monthName(anchor, 'long') : String(anchorYear);
+  const previousName = period === 'month' ? monthName(homeMonthStartMs(anchor, -1), 'short') : String(anchorYear - 1);
   const inProgress = bill?.projectedTotalKr != null;
   const headline = bill ? (bill.projectedTotalKr ?? bill.totalKr) : null;
   const change =
@@ -73,10 +76,8 @@ export function BillTab({ nowMs, todayStartMs }: BillTabProps) {
       : null;
   const progress = (() => {
     if (!data || nowMs < data.startMs || nowMs >= data.endMs) return null;
-    const d = new Date(nowMs);
-    return period === 'month'
-      ? `day ${d.getDate()} of ${new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()}`
-      : `month ${d.getMonth() + 1} of 12`;
+    const t = homeWallTime(nowMs);
+    return period === 'month' ? `day ${t.day} of ${homeDaysInMonth(nowMs)}` : `month ${t.month} of 12`;
   })();
   const breakdown = bill ? kronerBreakdown(bill) : null;
 
@@ -88,9 +89,10 @@ export function BillTab({ nowMs, todayStartMs }: BillTabProps) {
         todayStartMs={todayStartMs}
         onPeriodChange={changePeriod}
         onStep={step}
-        nextStepDisabled={nextDisabled(period, anchor, nowMs)}
+        nextStepDisabled={nextDisabled(period, anchor, nowMs, HOME_CALENDAR)}
         onForceReload={forceReload}
         options={OPTIONS}
+        label={period === 'month' ? `${name} ${anchorYear}` : name}
       />
 
       {!data && <StatsState error={error} onRetry={reload} />}
@@ -136,7 +138,7 @@ export function BillTab({ nowMs, todayStartMs }: BillTabProps) {
                 {krValue(data.totals.kWh, 1)} kWh
               </span>
               <span className='plan-chip plan-chip--ghost'>
-                fees {krValue(fixedFeesForRange(startOfLocalMonth(anchor), addMonths(startOfLocalMonth(anchor), 1)))} kr/mo
+                fees {krValue(fixedFeesForRange(homeMonthStartMs(anchor), homeMonthStartMs(anchor, 1)))} kr/mo
               </span>
               {change != null && (
                 <span className='plan-chip plan-chip--ghost'>
@@ -212,7 +214,7 @@ function BillHistory({ months }: { months: BillMonth[] }) {
   const min = Math.min(...known.map(m => m.kr));
   const slot = HW / months.length;
   const barW = Math.min(20, slot * 0.62);
-  const first = new Date(months[0].startMs);
+  const first = months[0].startMs;
   const labelled = new Set([
     known.find(m => m.kr === max)?.startMs,
     known.find(m => m.kr === min)?.startMs,
@@ -223,7 +225,7 @@ function BillHistory({ months }: { months: BillMonth[] }) {
     <>
       <div className='plan-row-head'>
         <span>
-          Since {monthName(first.getTime(), 'short')} {first.getFullYear()}
+          Since {monthName(first, 'short')} {homeWallTime(first).year}
         </span>
         <span className='plan-chip plan-chip--ghost'>kr / month</span>
         {months[months.length - 1].projected && <span className='plan-chip plan-chip--sky'>projected</span>}

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { assembleBill } from '../bill';
+import { assembleBill, fixedFeesForRange } from '../bill';
 import { billHistory, kronerBreakdown, ringFraction } from '../billView';
-import { addMonths } from '../period';
 import type { EnergyBar, EnergyView } from '../types';
+import { HOME_CALENDAR, isImmutablePeriod, nextDisabled } from '../period';
 import { bandShares, changeVsPrevious, ordinal, priceRank, rankLabel } from '../usageView';
+import { home } from './testUtils';
 
 const HOUR = 3_600_000;
 
@@ -66,9 +67,9 @@ describe('usage comparison and band share', () => {
   });
 });
 
-describe('bill breakdown', () => {
-  const october = new Date(2026, 9, 1).getTime();
-  const november = new Date(2026, 10, 1).getTime();
+describe('bill breakdown (Copenhagen months, phone abroad: tests run in America/Los_Angeles)', () => {
+  const october = home(2026, 10, 1);
+  const november = home(2026, 11, 1);
   const monthView: EnergyView = {
     period: 'month',
     startMs: october,
@@ -77,7 +78,7 @@ describe('bill breakdown', () => {
     totals: { kWh: 128.4, costKr: 271.47 },
     complete: false,
   };
-  const now = new Date(2026, 9, 13, 14, 20).getTime();
+  const now = home(2026, 10, 13, 14, 20);
 
   it('splits the bill into consumption and fees that sum to the assembled total', () => {
     const bill = assembleBill(monthView, now);
@@ -89,6 +90,12 @@ describe('bill breakdown', () => {
     expect(totalKr).toBeCloseTo(bill.totalKr, 9);
   });
 
+  it('prorates fees over Copenhagen days, so a full home month is exactly one monthly fee', () => {
+    expect(fixedFeesForRange(home(2026, 2, 1), home(2026, 3, 1))).toBeCloseTo(70.525, 9);
+    expect(fixedFeesForRange(home(2026, 3, 1), home(2026, 4, 1))).toBeCloseTo(70.525, 9);
+    expect(fixedFeesForRange(home(2026, 2, 1), home(2026, 2, 15))).toBeCloseTo(70.525 / 2, 9);
+  });
+
   it('fills the ring with the bill so far against the projection, full once settled', () => {
     const bill = assembleBill(monthView, now);
     expect(ringFraction(bill)).toBeCloseTo(bill.totalKr / bill.projectedTotalKr!);
@@ -96,23 +103,48 @@ describe('bill breakdown', () => {
   });
 
   it('lists months since December 2025 with full fees and the current month projected', () => {
-    const monthBar = (startMs: number, costKr: number): EnergyBar => ({
-      startMs,
-      endMs: addMonths(startMs, 1),
+    const monthBar = (year: number, month: number, costKr: number): EnergyBar => ({
+      startMs: home(year, month, 1),
+      endMs: home(year, month + 1, 1),
       kWh: costKr / 2,
       costKr,
       price: 2,
       level: 'normal',
     });
-    const december = new Date(2025, 11, 1).getTime();
-    const bars = [monthBar(december, 600), monthBar(new Date(2026, 0, 1).getTime(), 620), monthBar(october, 271.47)];
+    const bars = [monthBar(2025, 12, 600), monthBar(2026, 1, 620), monthBar(2026, 10, 271.47)];
     const months = billHistory(bars, now);
     expect(months).toHaveLength(11);
-    expect(months[0]).toEqual({ startMs: december, kr: 600 + 70.525, projected: false });
+    expect(months[0]).toEqual({ startMs: home(2025, 12, 1), kr: 600 + 70.525, projected: false });
+    expect(months[1].kr).toBeCloseTo(620 + 70.525);
     expect(months[2].kr).toBeNull();
     const last = months[months.length - 1];
+    expect(last.startMs).toBe(october);
     expect(last.projected).toBe(true);
     expect(last.kr).toBeCloseTo(assembleBill(monthView, now).projectedTotalKr!);
-    expect(billHistory(bars, new Date(2027, 5, 2).getTime())).toHaveLength(12);
+    expect(billHistory(bars, home(2027, 6, 2)).map(m => m.startMs)).toEqual(
+      Array.from({ length: 12 }, (_, i) => home(2026, 7 + i, 1))
+    );
+  });
+});
+
+describe('home calendar (phone in America/Los_Angeles)', () => {
+  const now = home(2026, 10, 13, 1, 30);
+
+  it('starts and steps periods at Copenhagen midnights', () => {
+    expect(HOME_CALENDAR.startOf('day', now)).toBe(home(2026, 10, 13));
+    expect(HOME_CALENDAR.startOf('week', now)).toBe(home(2026, 10, 12));
+    expect(HOME_CALENDAR.startOf('month', now)).toBe(home(2026, 10, 1));
+    expect(HOME_CALENDAR.startOf('year', now)).toBe(home(2026, 1, 1));
+    expect(HOME_CALENDAR.step('month', home(2026, 10, 1), 1)).toBe(home(2026, 11, 1));
+    expect(HOME_CALENDAR.step('month', home(2026, 1, 1), -1)).toBe(home(2025, 12, 1));
+    expect(HOME_CALENDAR.step('day', home(2026, 10, 25), 1) - home(2026, 10, 25)).toBe(25 * HOUR);
+    expect(HOME_CALENDAR.step('year', home(2026, 1, 1), 1)).toBe(home(2027, 1, 1));
+  });
+
+  it('decides the in-progress and immutable periods in home time', () => {
+    expect(nextDisabled('month', home(2026, 10, 1), now, HOME_CALENDAR)).toBe(true);
+    expect(nextDisabled('month', home(2026, 9, 1), now, HOME_CALENDAR)).toBe(false);
+    expect(isImmutablePeriod('month', home(2026, 9, 1), home(2026, 10, 1), now, HOME_CALENDAR)).toBe(false);
+    expect(isImmutablePeriod('month', home(2026, 8, 1), home(2026, 9, 1), now, HOME_CALENDAR)).toBe(true);
   });
 });

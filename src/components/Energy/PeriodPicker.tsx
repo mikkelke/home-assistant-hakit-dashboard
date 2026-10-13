@@ -18,6 +18,8 @@ interface PeriodPickerProps {
   onForceReload?: () => void;
   /** Periods to offer; all four by default. */
   options?: readonly Period[];
+  /** Period label, when the caller's calendar is not the device's own. */
+  label?: string;
 }
 
 const PERIOD_OPTIONS: Array<{ value: Period; label: string }> = [
@@ -38,6 +40,7 @@ export function PeriodPicker({
   nextStepDisabled,
   onForceReload,
   options,
+  label,
 }: PeriodPickerProps) {
   const longPressTimeoutRef = useRef<number | null>(null);
 
@@ -91,7 +94,7 @@ export function PeriodPicker({
             if (onForceReload) e.preventDefault();
           }}
         >
-          {labelFor(period, anchorStartMs, todayStartMs)}
+          {label ?? labelFor(period, anchorStartMs, todayStartMs)}
         </span>
         <button
           type='button'

@@ -15,7 +15,7 @@ import {
 import type { EnergyView, Period } from './types';
 import { useEnergyConfig } from './useEnergyConfig';
 import { fetchStatistics } from './ws';
-import { bucketPeriodFor, isImmutablePeriod, rangeFor, startOfLocalDay } from './period';
+import { bucketPeriodFor, isImmutablePeriod, LOCAL_CALENDAR, type PeriodCalendar } from './period';
 
 /** Identifies "what should be fetched" so loading/committed state can be compared without a
  * synchronous setState at the top of the effect (react-hooks/set-state-in-effect). */
@@ -95,7 +95,8 @@ export interface UseEnergyViewResult {
   priceAttrs: EnergyPriceAttrs;
 }
 
-export function useEnergyView(period: Period, anchorStartMs: number): UseEnergyViewResult {
+/** `calendar` decides where the period ends; `anchorStartMs` must be one of its period starts. */
+export function useEnergyView(period: Period, anchorStartMs: number, calendar: PeriodCalendar = LOCAL_CALENDAR): UseEnergyViewResult {
   const connection = useHass(s => s.connection);
   const { config, loading: configLoading, error: configError } = useEnergyConfig();
 
@@ -157,11 +158,11 @@ export function useEnergyView(period: Period, anchorStartMs: number): UseEnergyV
   useEffect(() => {
     if (!connection || !config) return;
 
-    const { endMs } = rangeFor(period, anchorStartMs);
+    const endMs = calendar.step(period, anchorStartMs, 1);
     const key = buildRequestKey(config.gridStatId, period, anchorStartMs, reloadTick);
     const requestId = ++requestSeqRef.current;
     const effectNowMs = Date.now();
-    const immutable = isImmutablePeriod(period, anchorStartMs, endMs, effectNowMs);
+    const immutable = isImmutablePeriod(period, anchorStartMs, endMs, effectNowMs, calendar);
 
     if (immutable) {
       // Closed period, at least two periods old — L1 first (fast reopen), then L3 (survives a
@@ -205,7 +206,7 @@ export function useEnergyView(period: Period, anchorStartMs: number): UseEnergyV
           ? assemblePriceSeries(anchorStartMs, priceRows ?? [], priceAttrs.rawToday, nowMs, priceAttrs.currentPrice)
           : null;
 
-        const isTodayDayView = isDay && anchorStartMs === startOfLocalDay(nowMs);
+        const isTodayDayView = isDay && anchorStartMs === calendar.startOf('day', nowMs);
         const currentHourStartMs = Math.floor(nowMs / 3_600_000) * 3_600_000;
 
         if (isTodayDayView && !bars.some(bar => bar.startMs === currentHourStartMs)) {
@@ -259,7 +260,7 @@ export function useEnergyView(period: Period, anchorStartMs: number): UseEnergyV
         if (requestId !== requestSeqRef.current) return;
         setResult({ key, data: null, error: String(err), refreshing: false });
       });
-  }, [connection, config, period, anchorStartMs, reloadTick, priceAttrs, isDay, statisticIds, cacheKey]);
+  }, [connection, config, period, anchorStartMs, calendar, reloadTick, priceAttrs, isDay, statisticIds, cacheKey]);
 
   useEffect(() => {
     if (!connection) return;
