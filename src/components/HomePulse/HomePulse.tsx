@@ -6,10 +6,19 @@ import { ROBOT_MAPS_PATH, ROBOT_PAUSED_BOOLEAN_ENTITY, ROBOT_PAUSE_REASON_ENTITY
 import { QUICK_ACCESS_OPEN_EVENT } from '../../config/transit';
 import { deriveHomePulseSummary } from '../../utils/homePulse';
 import { FIRE_SAFETY_OPEN_EVENT } from '../../utils/fireSafety';
+import { useMotionSlot } from '../../home/motionBudget';
 import '../Vacuum/VacuumCard.css';
 import './HomePulse.css';
 
+/** An attention chip glows three times when it appears, as a one-shot under the motion budget. */
+const PULSE_MS = 3 * 2800;
+
+function usePulseClass(id: string, active: boolean): string {
+  return useMotionSlot(`pulse:${id}`, 'oneShot', active, PULSE_MS) ? 'is-pulsing' : '';
+}
+
 function PulseChipButton({ chip, onRoomSelect }: { chip: PulseChip; onRoomSelect?: (areaId: string) => void }) {
+  const pulseClass = usePulseClass(chip.id, !!chip.pulse);
   const content = (
     <>
       <span className='home-pulse-chip-icon' aria-hidden='true'>
@@ -24,7 +33,7 @@ function PulseChipButton({ chip, onRoomSelect }: { chip: PulseChip; onRoomSelect
     return (
       <button
         type='button'
-        className={`home-pulse-chip tone-${chip.tone} ${chip.pulse ? 'is-pulsing' : ''}`}
+        className={`home-pulse-chip tone-${chip.tone} ${pulseClass}`}
         onClick={() =>
           window.dispatchEvent(
             chip.action === 'fire'
@@ -42,7 +51,7 @@ function PulseChipButton({ chip, onRoomSelect }: { chip: PulseChip; onRoomSelect
     return (
       <button
         type='button'
-        className={`home-pulse-chip tone-${chip.tone} ${chip.pulse ? 'is-pulsing' : ''}`}
+        className={`home-pulse-chip tone-${chip.tone} ${pulseClass}`}
         onClick={() => onRoomSelect(chip.areaId as string)}
       >
         {content}
@@ -71,6 +80,7 @@ export function HomePulse({ areas, entities, hassUrl, onRoomSelect }: HomePulseP
   const [stuckMapUrl, setStuckMapUrl] = useState<string | null>(null);
   const [stuckMapLoading, setStuckMapLoading] = useState(false);
   const [stuckMapViewerOpen, setStuckMapViewerOpen] = useState(false);
+  const robotPulseClass = usePulseClass('rober2', robotNeedsAttention);
   const handleCloseStuckMapViewer = useCallback(() => {
     setStuckMapViewerOpen(false);
   }, []);
@@ -151,7 +161,11 @@ export function HomePulse({ areas, entities, hassUrl, onRoomSelect }: HomePulseP
           {(summary.chips.length > 0 || robotNeedsAttention) && (
             <div className='home-pulse-chips'>
               {robotNeedsAttention && stuckMapUrl && (
-                <button type='button' className='home-pulse-chip tone-attention is-pulsing' onClick={() => setStuckMapViewerOpen(true)}>
+                <button
+                  type='button'
+                  className={`home-pulse-chip tone-attention ${robotPulseClass}`}
+                  onClick={() => setStuckMapViewerOpen(true)}
+                >
                   <span className='home-pulse-chip-icon' aria-hidden='true'>
                     <Icon icon='mdi:map-outline' />
                   </span>
@@ -160,7 +174,7 @@ export function HomePulse({ areas, entities, hassUrl, onRoomSelect }: HomePulseP
               )}
 
               {robotNeedsAttention && !stuckMapUrl && (
-                <div className={`home-pulse-chip tone-attention ${stuckMapLoading ? 'is-disabled' : 'is-pulsing'}`}>
+                <div className={`home-pulse-chip tone-attention ${stuckMapLoading ? 'is-disabled' : robotPulseClass}`}>
                   <span className='home-pulse-chip-icon' aria-hidden='true'>
                     <Icon icon={stuckMapLoading ? 'mdi:map-clock-outline' : 'mdi:robot-vacuum-alert'} />
                   </span>

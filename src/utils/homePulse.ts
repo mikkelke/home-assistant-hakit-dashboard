@@ -38,11 +38,6 @@ function formatAreaName(value: string): string {
   return value.replace(/\b(\p{L})(\p{L}*)/gu, (_, first: string, rest: string) => first.toUpperCase() + rest.toLowerCase());
 }
 
-function toNumber(value: unknown): number | null {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 function formatMinutesCompact(minutes: number): string {
   const rounded = Math.max(1, Math.round(minutes));
   if (rounded < 60) return `${rounded}m`;
@@ -67,15 +62,6 @@ function getApplianceStatus(state: string | undefined): 'ready' | 'running' | nu
   return 'running';
 }
 
-/** Pulse copy while a cycle is active (dryer dries; washer/dishwasher wash). */
-function getApplianceRunningLabel(config: ApplianceConfig, remainingMin: number | null): string {
-  const activity = config.id === 'dryer' ? 'drying' : 'washing';
-  if (remainingMin != null && remainingMin > 0) {
-    return `${config.label} ${activity} · ${formatMinutesCompact(remainingMin)} left`;
-  }
-  return `${config.label} ${activity}`;
-}
-
 function buildApplianceChip(config: ApplianceConfig, entity: HassEntity | undefined, entities: HassEntities): ChipCandidate | null {
   let status: ReturnType<typeof getApplianceStatus>;
   if (config.id === 'dishwasher' && entity) {
@@ -87,22 +73,17 @@ function buildApplianceChip(config: ApplianceConfig, entity: HassEntity | undefi
   } else {
     status = getApplianceStatus(entity?.state);
   }
-  if (!status) return null;
-
-  const remainingMin = toNumber(entity?.attributes?.estimated_remaining_min);
-  const label =
-    status === 'ready'
-      ? `${config.label} ready to be emptied`
-      : getApplianceRunningLabel(config, remainingMin != null && remainingMin > 0 ? remainingMin : null);
+  // A running cycle shows as its room card's ring; only one waiting to be emptied asks for attention here.
+  if (status !== 'ready') return null;
 
   return {
     id: `appliance-${config.id}`,
     icon: config.icon,
-    label,
-    tone: status === 'ready' ? 'active' : config.id === 'dryer' ? 'attention' : 'calm',
+    label: `${config.label} ready to be emptied`,
+    tone: 'active',
     areaId: config.areaId,
-    pulse: status === 'ready',
-    priority: status === 'ready' ? 90 : 70,
+    pulse: true,
+    priority: 90,
   };
 }
 
