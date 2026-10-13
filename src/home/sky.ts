@@ -36,7 +36,12 @@ export interface CelestialPosition {
 
 /** The sun from sunrise to sunset, the moon from sunset to sunrise. `sun.sun` only names the next
  * rising and setting; the last one is taken as a day before. */
-export function celestialPosition(sunUp: boolean, nextRisingMs: number | null, nextSettingMs: number | null, nowMs: number): CelestialPosition | null {
+export function celestialPosition(
+  sunUp: boolean,
+  nextRisingMs: number | null,
+  nextSettingMs: number | null,
+  nowMs: number
+): CelestialPosition | null {
   if (nextRisingMs == null || nextSettingMs == null) return null;
   const [startMs, endMs] = sunUp ? [nextRisingMs - DAY_MS, nextSettingMs] : [nextSettingMs - DAY_MS, nextRisingMs];
   if (endMs <= startMs) return null;
