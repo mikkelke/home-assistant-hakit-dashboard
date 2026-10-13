@@ -55,11 +55,11 @@ describe('parseRunProfiles', () => {
     expect(dishwasher.key).toBe('typical');
     expect(dishwasher.energyMin).toBe(101);
     expect(dishwasher.completionMin).toBe(250);
-    expect(dishwasher.labelConfirmed).toBe(false);
+    expect(dishwasher.labelConfirmed).toBe(true);
   });
 
   it('accepts a mixed label source as not confirmed', () => {
-    expect(parsed(programmeAttrs({ label_source: 'mixed' })).appliances.washer[0].labelConfirmed).toBe(false);
+    expect(parsed(programmeAttrs({ label_source: 'mixed' })).appliances.washer[0].labelConfirmed).toBe(true);
     expect(parsed(programmeAttrs({ label_source: 'confirmed' })).appliances.washer[0].labelConfirmed).toBe(true);
   });
 

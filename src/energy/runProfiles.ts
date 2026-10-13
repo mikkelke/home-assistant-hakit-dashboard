@@ -57,6 +57,7 @@ export interface RunProfileProgramme {
    * Null when the publisher has too few trusted finishes: power can end well before the machine is
    * done, so the energy length is no stand-in. */
   completionMin: number | null;
+  /** At least one of the profile's cycles had its programme confirmed by a person. */
   labelConfirmed: boolean;
   /** Energy per minute in Wh. */
   whPerMin: Float64Array;
@@ -139,7 +140,7 @@ function parseProgramme(raw: unknown, where: string): RunProfileProgramme {
     kwh: cumWh[whPerMin.length] / 1000,
     energyMin,
     completionMin: completion == null ? null : Math.max(completion, energyMin),
-    labelConfirmed: source === 'confirmed',
+    labelConfirmed: source === 'confirmed' || source === 'mixed',
     whPerMin,
     cumWh,
   };
