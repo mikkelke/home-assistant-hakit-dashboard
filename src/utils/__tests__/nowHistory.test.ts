@@ -13,7 +13,7 @@ import {
 } from '../nowHistory';
 
 const GRID = '/dashboard-rooftop/home';
-const WASHER_LINK = `${GRID}#now=washer-1791881730`;
+const WASHER_LINK = `${GRID}#now=washer-1791891464`;
 
 /** A session history: entries are cloned like the browser's, and a fragment link pushes an entry
  * with a null state like a same-document navigation. */
@@ -151,10 +151,10 @@ describe('cold open of a #now link', () => {
 describe('warm #now link', () => {
   it('marks the entry the link pushed over the grid without adding a grid entry', () => {
     const history = new FakeHistory(GRID, { root: true });
-    history.followLink('#now=ring-1791887161');
+    history.followLink('#now=ring-1791895872');
 
     expect(settleNowEntry(history, history.location, 'navigation', 'grid')).toBe('adopted');
-    expect(history.urls).toEqual([GRID, `${GRID}#now=ring-1791887161`]);
+    expect(history.urls).toEqual([GRID, `${GRID}#now=ring-1791895872`]);
     expect(history.state).toEqual({ [NOW_ENTRY_KEY]: 'grid' });
     expect(settleNowEntry(history, history.location, 'load')).toBe('none');
 
@@ -175,14 +175,14 @@ describe('warm #now link', () => {
 
   it('stacks a repeated link on the first one and marks it once', () => {
     const history = new FakeHistory(GRID, { root: true });
-    history.followLink('#now=ring-1791887161');
+    history.followLink('#now=ring-1791895872');
     settleNowEntry(history, history.location, 'navigation', 'grid');
-    history.followLink('#now=washer-1791881730');
+    history.followLink('#now=washer-1791891464');
 
     expect(settleNowEntry(history, history.location, 'navigation', 'other')).toBe('adopted');
     history.back();
     expect(settleNowEntry(history, history.location, 'navigation', 'other')).toBe('none');
-    expect(history.location.hash).toBe('#now=ring-1791887161');
+    expect(history.location.hash).toBe('#now=ring-1791895872');
     expect(history.length).toBe(3);
   });
 });
@@ -190,8 +190,8 @@ describe('warm #now link', () => {
 describe('opening and leaving the timeline in the app', () => {
   it('pushes one entry over the grid and leaves it by going back', () => {
     const history = new FakeHistory(GRID, { root: true });
-    pushNowEntry(history, history.location, { kind: 'evt', epochS: 1791881730 }, 'grid');
-    expect(history.urls).toEqual([GRID, `${GRID}#now=evt-1791881730`]);
+    pushNowEntry(history, history.location, { kind: 'evt', epochS: 1791891464 }, 'grid');
+    expect(history.urls).toEqual([GRID, `${GRID}#now=evt-1791891464`]);
 
     expect(leaveNowEntry(history, history.location)).toBe('back');
     expect(history.location.hash).toBe('');
@@ -201,13 +201,13 @@ describe('opening and leaving the timeline in the app', () => {
 
   it('keeps the exact item an in-app tap opens on, through Back and Forward', () => {
     const history = new FakeHistory(GRID, { root: true });
-    pushNowEntry(history, history.location, { kind: 'evt', epochS: 1791881730 }, 'grid', '1791881730638');
-    expect(nowEntryItem(history.state)).toBe('1791881730638');
+    pushNowEntry(history, history.location, { kind: 'evt', epochS: 1791891464 }, 'grid', '1791891464775');
+    expect(nowEntryItem(history.state)).toBe('1791891464775');
     expect(nowEntryBelow(history.state)).toBe('grid');
     history.back();
     expect(nowEntryItem(history.state)).toBeNull();
     history.forward();
-    expect(nowEntryItem(history.state)).toBe('1791881730638');
+    expect(nowEntryItem(history.state)).toBe('1791891464775');
     expect(settleNowEntry(history, history.location, 'navigation', 'grid')).toBe('none');
 
     pushNowEntry(history, history.location, null, 'other');
@@ -233,7 +233,7 @@ describe('opening and leaving the timeline in the app', () => {
     expect(history.urls).toEqual([GRID, `${GRID}#room=kitchen`, GRID]);
     expect(history.state).toEqual({ from: '/dashboard-rooftop/home' });
 
-    pushNowEntry(history, history.location, null, 'other', '1791881730638');
+    pushNowEntry(history, history.location, null, 'other', '1791891464775');
     expect(leaveNowEntry(history, history.location)).toBe('replaced');
     expect(history.state).toBeNull();
   });

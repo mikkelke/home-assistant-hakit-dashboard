@@ -3,7 +3,7 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { home } from '../../../energy/__tests__/testUtils';
-import feed from '../../../home/__tests__/fixtures/house-events-2026-10-13.json';
+import feed from '../../../home/__tests__/fixtures/house-events.json';
 import { NOW_RESOLVE_GIVE_UP_MS } from '../../../home/nowResolve';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -45,7 +45,7 @@ vi.mock('home-assistant-js-websocket', () => ({ getUser: async () => user.curren
 const { NowView } = await import('../NowView');
 
 const rows = feed.attributes.events;
-/** The washer finish a push names, 13.10 10:55:30.468, and the feed as it was a little before it. */
+/** The washer finish a push names, 13.10 13:37:44.605, and the feed as it was a little before it. */
 const FINISHED = rows.findIndex(row => row.text.startsWith('Washer finished'));
 const FINISHED_MS = Date.parse(rows[FINISHED].ts);
 const before = rows.slice(FINISHED + 1);

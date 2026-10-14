@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { useModalBackButton, useSwipeToClose } from '../../hooks';
+import { ArchiveImage } from '../Archive/ArchiveMedia';
 import { formatRoberRoomName } from './rooms';
 import { formatMapDate, type MapEntry } from './maps';
 import './VacuumCard.css';
@@ -56,7 +57,7 @@ export default function RoomMapModal({
           </button>
         </div>
         <div className='vacuum-map-modal-content'>
-          <img src={map.url} alt={`${room} map`} />
+          <ArchiveImage path={map.url} alt={`${room} map`} />
         </div>
         {maps.length > 1 && (
           <div className='vacuum-map-steps'>

@@ -3,11 +3,13 @@ import { Icon } from '@iconify/react';
 import type { HomePulseProps, PulseChip } from '../../types';
 import { useModalBackButton } from '../../hooks';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
-import { ROBOT_MAPS_PATH, ROBOT_PAUSED_BOOLEAN_ENTITY, ROBOT_PAUSE_REASON_ENTITY } from '../../config/entities';
+import { ROBOT_PAUSED_BOOLEAN_ENTITY, ROBOT_PAUSE_REASON_ENTITY } from '../../config/entities';
 import { QUICK_ACCESS_OPEN_EVENT } from '../../config/transit';
 import { deriveHomePulseSummary } from '../../utils/homePulse';
 import { FIRE_SAFETY_OPEN_EVENT } from '../../utils/fireSafety';
 import { useMotionSlot } from '../../home/motionBudget';
+import { readArchiveIndex } from '../../utils/haArchive';
+import { ArchiveImage } from '../Archive/ArchiveMedia';
 import '../Vacuum/VacuumCard.css';
 import './HomePulse.css';
 
@@ -63,18 +65,10 @@ function PulseChipButton({ chip, onRoomSelect }: { chip: PulseChip; onRoomSelect
   return <div className={`home-pulse-chip tone-${chip.tone}`}>{content}</div>;
 }
 
-interface RobotMapEntry {
-  filename: string;
-  timestamp: string;
-  datetime?: string;
-  room?: string;
-  url: string;
-}
-
 // Stuck-diagnostic snapshots are keyed "stuck_…" by the rober2 app (room name varies with the dock location)
 const isStuckMapRoom = (room?: string) => !!room && room.startsWith('stuck');
 
-export function HomePulse({ areas, entities: demoEntities, hassUrl, onRoomSelect }: HomePulseProps) {
+export function HomePulse({ areas, entities: demoEntities, onRoomSelect }: HomePulseProps) {
   // Appliance sensors update every few seconds while a cycle runs; tracked here, they re-render only this row.
   const tracked = useTrackedEntities();
   const entities = demoEntities ?? tracked;
@@ -94,25 +88,6 @@ export function HomePulse({ areas, entities: demoEntities, hassUrl, onRoomSelect
     historyKey: 'home-pulse-rober2-map',
   });
 
-  const haBase = useMemo(() => {
-    const base =
-      (typeof window !== 'undefined' && (import.meta.env.VITE_HA_URL as string)?.length > 0
-        ? (import.meta.env.VITE_HA_URL as string)
-        : (hassUrl ?? (typeof window !== 'undefined' ? window.location.origin : ''))
-      )?.replace(/\/$/, '') ?? '';
-    return base;
-  }, [hassUrl]);
-
-  const sameOrigin = useMemo(
-    () => (typeof window !== 'undefined' && haBase ? new URL(haBase).origin === window.location.origin : false),
-    [haBase]
-  );
-
-  const isDev = useMemo(
-    () => typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'),
-    []
-  );
-
   useEffect(() => {
     if (!robotNeedsAttention) {
       setStuckMapUrl(null);
@@ -121,26 +96,13 @@ export function HomePulse({ areas, entities: demoEntities, hassUrl, onRoomSelect
     }
 
     let cancelled = false;
-    const toHaUrl = (path: string) => (path.startsWith('http') ? path : `${haBase}${path}`);
-
     const load = async () => {
       setStuckMapLoading(true);
       setStuckMapUrl(null);
-
       try {
-        const indexUrl = sameOrigin || isDev ? `/local/${ROBOT_MAPS_PATH}/index.json` : toHaUrl(`/local/${ROBOT_MAPS_PATH}/index.json`);
-        const res = await fetch(indexUrl, { cache: 'no-cache' });
-        if (!res.ok || cancelled) return;
-
-        const data = await res.json();
-        const entries: RobotMapEntry[] = Array.isArray(data?.maps) ? data.maps : [];
-        const stuck = entries.find(entry => isStuckMapRoom(entry.room));
-        if (cancelled) return;
-
-        if (stuck) {
-          const fullUrl = sameOrigin || isDev ? stuck.url : toHaUrl(stuck.url);
-          setStuckMapUrl(fullUrl);
-        }
+        const maps = ((await readArchiveIndex('rober2_maps_index')) as { maps?: { room?: string; url: string }[] } | null)?.maps;
+        const stuck = Array.isArray(maps) ? maps.find(entry => isStuckMapRoom(entry.room)) : undefined;
+        if (!cancelled) setStuckMapUrl(stuck?.url ?? null);
       } catch {
         if (!cancelled) setStuckMapUrl(null);
       } finally {
@@ -152,7 +114,7 @@ export function HomePulse({ areas, entities: demoEntities, hassUrl, onRoomSelect
     return () => {
       cancelled = true;
     };
-  }, [robotNeedsAttention, haBase, sameOrigin, isDev]);
+  }, [robotNeedsAttention]);
 
   if (!summary.insight && summary.chips.length === 0 && !robotNeedsAttention) {
     return null;
@@ -216,7 +178,7 @@ export function HomePulse({ areas, entities: demoEntities, hassUrl, onRoomSelect
               </button>
             </div>
             <div className='vacuum-map-modal-content'>
-              <img src={stuckMapUrl} alt='Map when Rober2 got stuck' />
+              <ArchiveImage path={stuckMapUrl} alt='Map when Rober2 got stuck' />
             </div>
           </div>
         </>

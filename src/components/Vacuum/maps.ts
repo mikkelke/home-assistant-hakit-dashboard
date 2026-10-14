@@ -1,9 +1,8 @@
-import { ROBOT_MAPS_PATH } from '../../config/entities';
+import { readArchiveIndex } from '../../utils/haArchive';
 
-// The rober2 AppDaemon app drops one PNG per finished room pass plus an index.json
-// under HA's /local/<ROBOT_MAPS_PATH>/. Entries carry the SAME room slugs as the
-// robot_clean_* request booleans (the kitchen sides are "kitchen" / "kitchen_2"),
-// which is what lets a request row find its own last run.
+// The rober2 AppDaemon app drops one PNG per finished room pass plus an index.json in HA's private media folder (see
+// utils/haArchive). Entries carry the SAME room slugs as the robot_clean_* request booleans (the kitchen sides are
+// "kitchen" / "kitchen_2"), which is what lets a request row find its own last run.
 
 export type MapEntry = {
   filename: string;
@@ -13,32 +12,11 @@ export type MapEntry = {
   url: string;
 };
 
-const haBase = (
-  import.meta.env.VITE_HA_URL && import.meta.env.VITE_HA_URL.length > 0
-    ? import.meta.env.VITE_HA_URL
-    : typeof window !== 'undefined'
-      ? window.location.origin
-      : ''
-)?.replace(/\/$/, '');
-
-/** Fetch the maps index. Relative URLs in dev (Vite proxy) and same-origin prod;
- * absolute only in a cross-origin prod scenario — same rules the Rober2 card always used. */
+/** The maps index with the files' unsigned /media/local paths: whatever shows one signs it (components/Archive). []
+ * while no map was ever saved; a failed read rejects. */
 export async function fetchMapsIndex(): Promise<MapEntry[]> {
-  const haOrigin = (() => {
-    try {
-      return new URL(haBase).origin;
-    } catch {
-      return '';
-    }
-  })();
-  const sameOrigin = typeof window !== 'undefined' && haOrigin === window.location.origin;
-  const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-  const toHaUrl = (path: string) => (path.startsWith('http') ? path : `${haBase}${path}`);
-  const indexUrl = sameOrigin || isDev ? `/local/${ROBOT_MAPS_PATH}/index.json` : toHaUrl(`/local/${ROBOT_MAPS_PATH}/index.json`);
-  const res = await fetch(indexUrl, { cache: 'no-cache' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  return Array.isArray(data?.maps) ? data.maps.map((m: MapEntry) => ({ ...m, url: sameOrigin || isDev ? m.url : toHaUrl(m.url) })) : [];
+  const data = (await readArchiveIndex('rober2_maps_index')) as { maps?: unknown } | null;
+  return Array.isArray(data?.maps) ? (data.maps as MapEntry[]) : [];
 }
 
 /** Latest entry for one room slug, by datetime (falls back to the filename timestamp). */

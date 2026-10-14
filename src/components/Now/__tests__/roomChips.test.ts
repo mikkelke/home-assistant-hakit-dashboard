@@ -2,9 +2,10 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
-import feed from '../../../home/__tests__/fixtures/house-events-2026-10-13.json';
+import feed from '../../../home/__tests__/fixtures/house-events.json';
 import { houseEpisodes, parseHouseEvents } from '../../../home/houseEvents';
-import archive from '../../Vacuum/__tests__/fixtures/rober2-maps-2026-10-14.json';
+import { archiveConnection } from '../../../utils/__tests__/archiveConnectionStub';
+import archive from '../../Vacuum/__tests__/fixtures/rober2-maps.json';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -41,12 +42,12 @@ const { NowView } = await import('../NowView');
 
 const episodes = houseEpisodes(parseHouseEvents(feed.attributes.events));
 const finishOf = (iso: string) => episodes.find(episode => episode.startMs === Date.parse(iso))!.id;
-const LATEST = finishOf('2026-10-13T08:41:47.432+02:00');
-const EARLIER = finishOf('2026-10-12T11:41:37.244+02:00');
+const LATEST = finishOf('2026-10-13T10:57:19.084+02:00');
+const EARLIER = finishOf('2026-10-12T14:38:02.716+02:00');
 
 let root: Root;
 let openRoom: Mock<(areaId: string) => void>;
-let fetchMock: Mock<(url: string) => Promise<Response>>;
+let ha: ReturnType<typeof archiveConnection>;
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: false });
@@ -56,11 +57,9 @@ beforeEach(() => {
     disconnect() {}
     unobserve() {}
   } as unknown as typeof ResizeObserver;
-  fetchMock = vi.fn(async (url: string) =>
-    url.endsWith('/rober2_maps/index.json') ? new Response(JSON.stringify(archive), { status: 200 }) : new Response('', { status: 404 })
-  );
-  vi.stubGlobal('fetch', fetchMock);
+  ha = archiveConnection({ rober2_maps_index: archive });
   store.setState({
+    connection: ha.connection,
     entities: { 'sensor.house_events': { entity_id: 'sensor.house_events', state: 'x', attributes: { events: feed.attributes.events } } },
     areas: { kitchen: { area_id: 'kitchen', icon: 'mdi:chef-hat' }, hallway: { area_id: 'hallway', icon: 'mdi:door' } },
   });
@@ -71,11 +70,10 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   document.body.innerHTML = '';
-  vi.unstubAllGlobals();
   vi.useRealTimers();
 });
 
-/** Opens the timeline and lets the map index fetch, and any lazy sheet, land. */
+/** Opens the timeline and lets the map index read, any lazy sheet and its signature land. */
 async function open() {
   await act(async () => {
     root.render(createElement(NowView, { focus: null, itemId: null, arrival: 'cold', onBack: () => {}, onOpenRoom: openRoom }));
@@ -117,7 +115,8 @@ describe('room chips on a Rober2 finish row', () => {
     ]);
     expect(chips(EARLIER)).toHaveLength(5);
     expect(document.querySelectorAll('.now-room')).toHaveLength(10);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(ha.reads('rober2_maps_index')).toBe(1);
+    expect(ha.signedPaths()).toEqual([]);
   });
 
   it('open the tapped room map over the timeline, step through the round, and close on Back', async () => {
@@ -126,13 +125,19 @@ describe('room chips on a Rober2 finish row', () => {
     await settle();
     expect(openRoom).not.toHaveBeenCalled();
     expect(title()).toBe('Kitchen cook side');
-    expect(sheet()?.querySelector('.date')?.textContent).toBe('Today 08:01');
-    expect(sheet()?.querySelector('img')?.getAttribute('src')).toMatch(/rober2_map_20261013_080153_kitchen\.png$/);
+    expect(sheet()?.querySelector('.date')?.textContent).toBe('Today 10:18');
+    expect(sheet()?.querySelector('img')?.getAttribute('src')).toBe(
+      '/media/local/rober2_maps/rober2_map_20261013_101847_kitchen.png?authSig=1'
+    );
     expect(sheet()?.querySelector('.vacuum-map-step-count')?.textContent).toBe('2 / 5');
     expect(history.state).toEqual({ modal: 'rober-session-map' });
 
     await act(async () => step('Next room').click());
     expect(title()).toBe('Kitchen dining side');
+    expect(ha.signedPaths()).toEqual([
+      '/media/local/rober2_maps/rober2_map_20261013_101847_kitchen.png',
+      '/media/local/rober2_maps/rober2_map_20261013_102731_kitchen_2.png',
+    ]);
     await act(async () => step('Previous room').click());
     await act(async () => step('Previous room').click());
     expect(title()).toBe('Hallway');
@@ -151,13 +156,13 @@ describe('room chips on a Rober2 finish row', () => {
   });
 
   it('stay away when the index has no maps for the round or cannot be read', async () => {
-    fetchMock.mockImplementation(async () => new Response(JSON.stringify({ maps: archive.maps.slice(0, 5) }), { status: 200 }));
+    store.setState({ connection: archiveConnection({ rober2_maps_index: { maps: archive.maps.slice(0, 5) } }).connection });
     await open();
     expect(document.querySelectorAll('.now-room')).toHaveLength(0);
 
     act(() => root.unmount());
     root = createRoot(document.createElement('div'));
-    fetchMock.mockImplementation(async () => new Response('', { status: 500 }));
+    store.setState({ connection: archiveConnection({ rober2_maps_index: new Error('cat: Permission denied') }).connection });
     await open();
     expect(document.querySelectorAll('.now-room')).toHaveLength(0);
   });

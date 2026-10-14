@@ -12,7 +12,7 @@ import {
   type HouseEvent,
   type HouseEventViewer,
 } from '../houseEvents';
-import feed from './fixtures/house-events-2026-10-13.json';
+import feed from './fixtures/house-events.json';
 
 const MIKKEL: HouseEventViewer = { isAdmin: true, name: 'Mikkel' };
 const KRISTINE: HouseEventViewer = { isAdmin: false, name: 'Kristine' };
@@ -29,10 +29,10 @@ function row(ts: string, icon: string, extra: Partial<HouseEvent> = {}): HouseEv
 const countBy = <T>(items: T[], key: (item: T) => string) =>
   items.reduce<Record<string, number>>((counts, item) => ({ ...counts, [key(item)]: (counts[key(item)] ?? 0) + 1 }), {});
 
-describe('the live feed of 13.10.2026 (40 rows, about 3 days)', () => {
+describe('the fixture feed of 13.10.2026 (40 rows, about 3 days)', () => {
   it('parses every row, newest first', () => {
     expect(live).toHaveLength(40);
-    expect(live[0].tsMs).toBe(Date.parse('2026-10-13T12:26:06.404260+02:00'));
+    expect(live[0].tsMs).toBe(Date.parse('2026-10-13T14:51:17.205121+02:00'));
     expect(live.every((event, i) => i === 0 || event.tsMs <= live[i - 1].tsMs)).toBe(true);
   });
 
@@ -83,7 +83,7 @@ describe('the live feed of 13.10.2026 (40 rows, about 3 days)', () => {
   it('keeps the newest episode first', () => {
     const episodes = houseEpisodes(live);
     expect(episodes[0].kind).toBe('ring');
-    expect(episodes[0].startMs).toBe(Date.parse('2026-10-13T12:26:01.941170+02:00'));
+    expect(episodes[0].startMs).toBe(Date.parse('2026-10-13T14:51:12.742031+02:00'));
     expect(episodes.every((episode, i) => i === 0 || episode.startMs <= episodes[i - 1].startMs)).toBe(true);
   });
 });
@@ -190,13 +190,13 @@ describe('houseEpisodes', () => {
   });
 
   it('never merges rows without a cause, and tolerates an unsorted feed', () => {
-    const finished = row('2026-10-13T08:55:30.468Z', 'mdi:washing-machine');
-    const emptied = row('2026-10-13T08:55:30.638Z', 'mdi:basket-check');
+    const finished = row('2026-10-13T11:37:44.605Z', 'mdi:washing-machine');
+    const emptied = row('2026-10-13T11:37:44.775Z', 'mdi:basket-check');
     expect(houseEpisodes([finished, emptied]).map(e => e.kind)).toEqual(['evt', 'washer']);
   });
 
   it('keeps ids unique when two episodes start in the same millisecond', () => {
-    const ts = '2026-10-13T08:55:30.468Z';
+    const ts = '2026-10-13T11:37:44.605Z';
     expect(houseEpisodes([row(ts, 'mdi:washing-machine'), row(ts, 'mdi:basket-check')]).map(e => e.id)).toEqual([
       `${Date.parse(ts)}-2`,
       String(Date.parse(ts)),
@@ -213,9 +213,9 @@ describe('labels and the newest row of a kind', () => {
     expect(houseEventLabel({ icon: 'mdi:speaker-multiple' })).toBeNull();
   });
 
-  it('finds the newest ring and the newest washer finish in the live feed', () => {
-    expect(newestEventMs(feed.attributes.events, 'ring')).toBe(Date.parse('2026-10-13T12:26:01.941170+02:00'));
-    expect(newestEventMs(feed.attributes.events, 'washer')).toBe(Date.parse('2026-10-13T10:55:30.468247+02:00'));
+  it('finds the newest ring and the newest washer finish in the fixture feed', () => {
+    expect(newestEventMs(feed.attributes.events, 'ring')).toBe(Date.parse('2026-10-13T14:51:12.742031+02:00'));
+    expect(newestEventMs(feed.attributes.events, 'washer')).toBe(Date.parse('2026-10-13T13:37:44.605454+02:00'));
     expect(newestEventMs([], 'ring')).toBeNull();
     expect(newestEventMs(undefined, 'ring')).toBeNull();
   });

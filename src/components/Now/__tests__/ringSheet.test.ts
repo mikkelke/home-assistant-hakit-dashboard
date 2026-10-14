@@ -2,8 +2,9 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
-import feed from '../../../home/__tests__/fixtures/house-events-2026-10-13.json';
+import feed from '../../../home/__tests__/fixtures/house-events.json';
 import { houseEpisodes, parseHouseEvents } from '../../../home/houseEvents';
+import { archiveConnection } from '../../../utils/__tests__/archiveConnectionStub';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -37,25 +38,26 @@ const { NowView } = await import('../NowView');
 
 const rows = feed.attributes.events;
 const rings = houseEpisodes(parseHouseEvents(rows)).filter(episode => episode.kind === 'ring');
-/** The bridge's entry for the newest ring of the fixture, 13.10 12:26:01; the fixture's other rings have none here. */
+/** The bridge's entry for the newest ring of the fixture, 13.10 14:51:12; the fixture's other rings have none here. */
 const ARCHIVE = {
   images: [
     {
-      ts: 1791887161,
-      datetime: '2026-10-13T12:26:01+02:00',
+      ts: 1791895872,
+      datetime: '2026-10-13T14:51:12+02:00',
       station: '100000002',
       door: 'front door',
       event_type: 'ring_auto_opened',
       filename: '',
       url: '',
       clip_filename: 'clip.mp4',
-      clip_url: '/local/abb_doorbell/clip.mp4',
+      clip_url: '/media/local/abb_doorbell/clip.mp4',
     },
   ],
 };
 
 let root: Root;
 let openRoom: Mock<(areaId: string) => void>;
+let ha: ReturnType<typeof archiveConnection>;
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: false });
@@ -65,18 +67,18 @@ beforeEach(() => {
     disconnect() {}
     unobserve() {}
   } as unknown as typeof ResizeObserver;
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async () => new Response(JSON.stringify(ARCHIVE), { status: 200 }))
-  );
-  store.setState({ entities: { 'sensor.house_events': { entity_id: 'sensor.house_events', state: 'x', attributes: { events: rows } } } });
+  ha = archiveConnection({ doorbell_archive_index: ARCHIVE });
+  store.setState({
+    entities: { 'sensor.house_events': { entity_id: 'sensor.house_events', state: 'x', attributes: { events: rows } } },
+    connection: ha.connection,
+  });
   openRoom = vi.fn<(areaId: string) => void>();
   root = createRoot(document.createElement('div'));
 });
 
 afterEach(() => {
   act(() => root.unmount());
-  vi.unstubAllGlobals();
+  document.body.innerHTML = '';
   vi.useRealTimers();
 });
 
@@ -96,9 +98,9 @@ async function open(props: { arrival: 'cold' | 'warm'; itemId?: string }) {
   await settle();
 }
 
-/** Lets the lazy sheet load and its index fetch land. */
+/** Lets the lazy sheet load, and its index read and signatures land. */
 async function settle() {
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     await act(async () => {
       await vi.dynamicImportSettled();
     });
@@ -119,7 +121,7 @@ describe('a ring row on the timeline', () => {
     await settle();
     expect(openRoom).not.toHaveBeenCalled();
     const video = sheet()?.querySelector('video');
-    expect(video?.getAttribute('src')).toBe('/local/abb_doorbell/clip.mp4#t=0.1');
+    expect(video?.getAttribute('src')).toBe('/media/local/abb_doorbell/clip.mp4?authSig=1#t=0.1');
     expect(video?.hasAttribute('autoplay')).toBe(false);
     expect(video?.hasAttribute('controls')).toBe(true);
     expect(sheet()?.querySelector('.doorbell-tag')?.textContent).toBe('Opened');

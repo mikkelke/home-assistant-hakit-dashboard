@@ -75,5 +75,11 @@ This generates `supported-types.d.ts` locally. The project is set up so that any
 ### HA TOKEN (security)
 **Do not put your HA token in `.env`.** Use `.env.development` (gitignored) for local dev only. The app only uses the token when running in dev (`npm run dev`); production builds do not embed it. Never commit `.env` or `.env.development`, and never set `VITE_HA_TOKEN` when building for production.
 
+## Tests
+
+`npm test` (vitest). Test fixtures are written by hand: never commit a live export from Home
+Assistant (an entity dump, a log, an archive index), because this repo is public and real
+timestamps show when people are home, asleep or away.
+
 ## Further documentation
 For further documentation, please visit the [documentation website](https://shannonhochkins.github.io/ha-component-kit/) for more information.

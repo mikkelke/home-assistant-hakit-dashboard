@@ -2,6 +2,8 @@ import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { useModalBackButton, useSwipeToClose } from '../../hooks';
+import { useSignedArchiveUrl } from '../../hooks/useArchiveMedia';
+import { ArchiveImage, ArchiveVideo } from '../Archive/ArchiveMedia';
 import { doorWord, formatRingTime, outcomeTag, type DoorbellImage } from './doorbellArchive';
 import './IntercomCard.css';
 
@@ -70,25 +72,23 @@ export function DoorbellViewer({
  * screen. Clip-only entries show the video alone; photo-only entries the still.
  *
  * Without autoPlay the clip waits for a tap and shows its own first frame meanwhile:
- * #t=0.1 makes Safari paint one. */
+ * #t=0.1 makes Safari paint one. Both files are signed when the viewer opens. */
 export function DoorbellMedia({ image, autoPlay }: { image: DoorbellImage; autoPlay: boolean }) {
+  const still = useSignedArchiveUrl(image.url || undefined);
+  const stillImg = (className: string | undefined, alt: string) => (
+    <img className={className} src={still.src} onError={still.onError} onLoad={still.onLoad} alt={alt} />
+  );
   return image.clip_url ? (
     <div className='doorbell-media'>
       {autoPlay ? (
-        <video controls autoPlay playsInline poster={image.url || undefined} src={image.clip_url} />
+        <ArchiveVideo path={image.clip_url} controls autoPlay playsInline poster={still.src} />
       ) : (
-        <video controls playsInline preload='metadata' src={`${image.clip_url}#t=0.1`} />
+        <ArchiveVideo path={image.clip_url} fragment='#t=0.1' controls playsInline preload='metadata' />
       )}
-      {image.url && (
-        <img
-          className='doorbell-media-still'
-          src={image.url}
-          alt={`Ring moment at the ${image.door || 'door'}, ${formatRingTime(image)}`}
-        />
-      )}
+      {image.url && stillImg('doorbell-media-still', `Ring moment at the ${image.door || 'door'}, ${formatRingTime(image)}`)}
     </div>
   ) : (
-    <img src={image.url} alt={`Ring at the ${image.door || 'door'}, ${formatRingTime(image)}`} />
+    stillImg(undefined, `Ring at the ${image.door || 'door'}, ${formatRingTime(image)}`)
   );
 }
 
@@ -140,16 +140,18 @@ export function DoorbellGallery({ images, onClose }: { images: DoorbellImage[]; 
             >
               <span className='doorbell-tile-image'>
                 {img.url ? (
-                  <img src={img.url} alt={`Ring at the ${img.door || 'door'}, ${formatRingTime(img)}`} loading='lazy' />
+                  <ArchiveImage path={img.url} lazy alt={`Ring at the ${img.door || 'door'}, ${formatRingTime(img)}`} />
                 ) : img.clip_url ? (
                   // Clip-only entry (the bridge got a recording but no snapshot): the clip's
                   // own first frame is the thumbnail. muted + preload=metadata paints the
                   // frame without downloading the whole file; #t=0.1 nudges Safari, which
                   // won't paint anything at t=0 with metadata-only preload. Never plays -
                   // the pointer-events:none span sits under the tile <button>'s tap.
-                  <video
+                  <ArchiveVideo
+                    path={img.clip_url}
+                    lazy
+                    fragment='#t=0.1'
                     className='doorbell-tile-clipframe'
-                    src={`${img.clip_url}#t=0.1`}
                     preload='metadata'
                     muted
                     playsInline

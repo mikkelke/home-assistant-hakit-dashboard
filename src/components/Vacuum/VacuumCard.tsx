@@ -15,6 +15,7 @@ import {
 } from '../../config/entities';
 import { useLocalStorageBoolean, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
 import { RobotCleaningNarrativeTimeline } from '../RoomGrid/RobotCleaningNarrativeTimeline';
+import { ArchiveImage } from '../Archive/ArchiveMedia';
 import { formatRoberRoomName } from './rooms';
 import { fetchMapsIndex, formatMapDate, type MapEntry } from './maps';
 import './VacuumCard.css';
@@ -123,7 +124,6 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   const [maps, setMaps] = useState<MapEntry[] | null>(null);
   const [mapsError, setMapsError] = useState<string | null>(null);
   const [mapsLoading, setMapsLoading] = useState(false);
-  const mapsLoadedRef = useRef(false);
   const [selectedMap, setSelectedMap] = useState<MapEntry | null>(null);
   const [roomsSheetOpen, setRoomsSheetOpen] = useState(false);
   const [showLiveMap, setShowLiveMap] = useState(false);
@@ -229,6 +229,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
 
   const handleOpenRoomsSheet = () => {
     setRoomsSheetOpen(true);
+    setMapsLoading(true); // no stale tiles while the index is read again
     try {
       withHistoryWindow(targetWindow => {
         targetWindow.history.pushState({ roomsSheet: true }, '', modalHistoryUrl());
@@ -464,10 +465,9 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     handleTouchEnd: handleBatteryGraphTouchEnd,
   } = useSwipeToClose(handleCloseBatteryGraph);
 
+  // Read on every open of the Rooms sheet: its maps are signed as it shows them, and a run may have saved new ones.
   useEffect(() => {
-    if (collapsed) return;
-    if (mapsLoadedRef.current) return;
-    mapsLoadedRef.current = true;
+    if (!roomsSheetOpen) return;
     const load = async () => {
       try {
         setMapsLoading(true);
@@ -482,7 +482,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
       }
     };
     load();
-  }, [collapsed]);
+  }, [roomsSheetOpen]);
 
   // Day strip: today's driving stretches, joined to the room sensor for their labels. One
   // history call, same shape as the battery graph's; re-read whenever the run state changes.
@@ -990,7 +990,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
                     const dateStr = formatMapDate(entry.datetime, entry.timestamp);
                     return (
                       <button key={entry.filename} type='button' className='rober-room-tile' onClick={() => handleOpenMap(entry)}>
-                        <img className='rober-room-img' src={entry.url} alt={label} loading='lazy' />
+                        <ArchiveImage className='rober-room-img' path={entry.url} lazy alt={label} />
                         <span className='rober-room-name'>{label}</span>
                         <span className='rober-room-date'>{dateStr}</span>
                       </button>
@@ -1054,7 +1054,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
               </button>
             </div>
             <div className='vacuum-map-modal-content'>
-              <img src={selectedMap.url} alt={selectedMap.filename} />
+              <ArchiveImage path={selectedMap.url} alt={selectedMap.filename} />
             </div>
           </div>
         </>

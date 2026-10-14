@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import feed from '../../../home/__tests__/fixtures/house-events-2026-10-13.json';
+import feed from '../../../home/__tests__/fixtures/house-events.json';
 import { houseEpisodes, parseHouseEvents } from '../../../home/houseEvents';
 import type { MapEntry } from '../maps';
 import {
@@ -11,7 +11,7 @@ import {
   roomsInWindow,
   sessionRooms,
 } from '../sessionRooms';
-import archive from './fixtures/rober2-maps-2026-10-14.json';
+import archive from './fixtures/rober2-maps.json';
 
 const START = ['Nobody home', 'Vacuum starting its cleaning round'] as const;
 const FINISH = ['All queued rooms cleaned', 'Vacuum finished its round - heading to the dock'] as const;
@@ -34,7 +34,7 @@ const map = (room: string, wall: string): MapEntry => {
     timestamp: stamp,
     datetime: wall,
     room,
-    url: `/local/rober2_maps/rober2_map_${stamp}_${room}.png`,
+    url: `/media/local/rober2_maps/rober2_map_${stamp}_${room}.png`,
   };
 };
 
@@ -49,24 +49,24 @@ describe('the rooms of a finished round', () => {
   const rooms = sessionRooms(roberSessions(episodes), archive.maps);
 
   it('are the maps saved from the start row to just after the finish row, in cleaning order', () => {
-    expect(rooms.get(finishOf('2026-10-13T08:41:47.432'))?.map(entry => entry.filename)).toEqual([
-      'rober2_map_20261013_075536_hallway.png',
-      'rober2_map_20261013_080153_kitchen.png',
-      'rober2_map_20261013_081055_kitchen_2.png',
-      'rober2_map_20261013_082722_living_room.png',
-      'rober2_map_20261013_084147_dining_room.png',
+    expect(rooms.get(finishOf('2026-10-13T10:57:19.084'))?.map(entry => entry.filename)).toEqual([
+      'rober2_map_20261013_101103_hallway.png',
+      'rober2_map_20261013_101847_kitchen.png',
+      'rober2_map_20261013_102731_kitchen_2.png',
+      'rober2_map_20261013_104305_living_room.png',
+      'rober2_map_20261013_105719_dining_room.png',
     ]);
-    expect(rooms.get(finishOf('2026-10-12T11:41:37.244'))?.map(entry => entry.filename)).toEqual([
-      'rober2_map_20261012_094914_hallway.png',
-      'rober2_map_20261012_100227_kitchen.png',
-      'rober2_map_20261012_101108_kitchen_2.png',
-      'rober2_map_20261012_102815_living_room.png',
-      'rober2_map_20261012_114137_dining_room.png',
+    expect(rooms.get(finishOf('2026-10-12T14:38:02.716'))?.map(entry => entry.filename)).toEqual([
+      'rober2_map_20261012_125409_hallway.png',
+      'rober2_map_20261012_130651_kitchen.png',
+      'rober2_map_20261012_131738_kitchen_2.png',
+      'rober2_map_20261012_133312_living_room.png',
+      'rober2_map_20261012_143802_dining_room.png',
     ]);
   });
 
   it('go only on finish rows', () => {
-    expect([...rooms.keys()].sort()).toEqual([finishOf('2026-10-12T11:41:37.244'), finishOf('2026-10-13T08:41:47.432')].sort());
+    expect([...rooms.keys()].sort()).toEqual([finishOf('2026-10-12T14:38:02.716'), finishOf('2026-10-13T10:57:19.084')].sort());
   });
 });
 
@@ -98,14 +98,14 @@ describe('roomsInWindow', () => {
 
 describe('roberSessions with mapped rooms', () => {
   it('leaves out maps saved before the start row or after the lag past the finish row', () => {
-    const rows = [row('2026-10-14T09:11:29.357', START), row('2026-10-14T10:03:11.835', FINISH)];
+    const rows = [row('2026-10-14T11:00:41.226', START), row('2026-10-14T11:49:05.180', FINISH)];
     expect(SESSION_MAP_LAG_MS).toBe(30_000);
     const entries = [
-      map('bathroom', '2026-10-14T09:11:29.300000'),
-      map('hallway', '2026-10-14T09:15:58.354052'),
-      map('dining_room', '2026-10-14T10:03:11.873893'),
-      map('bedroom', '2026-10-14T10:03:41.835000'),
-      map('guest_bathroom', '2026-10-14T10:03:41.836000'),
+      map('bathroom', '2026-10-14T11:00:41.169000'),
+      map('hallway', '2026-10-14T11:02:14.318842'),
+      map('dining_room', '2026-10-14T11:49:05.226485'),
+      map('bedroom', '2026-10-14T11:49:35.180000'),
+      map('guest_bathroom', '2026-10-14T11:49:35.181000'),
     ];
     expect(names(roomsOf(rows, entries)[0])).toEqual(['hallway', 'dining_room', 'bedroom']);
   });
@@ -130,24 +130,24 @@ describe('roberSessions with mapped rooms', () => {
   });
 
   it('reaches back at most the lookback when the start row has left the feed', () => {
-    const finish = '2026-10-14T10:03:11.835';
+    const finish = '2026-10-14T11:49:05.180';
     const [session] = roberSessions(episodesOf([row(finish, FINISH)]));
     expect(session.fromMs).toBe(at(finish) - SESSION_LOOKBACK_MS);
     const entries = [
-      map('hallway', '2026-10-14T08:33:00'),
-      map('kitchen', '2026-10-14T08:34:00'),
-      map('dining_room', '2026-10-14T10:03:11.873893'),
+      map('hallway', '2026-10-14T10:18:53'),
+      map('kitchen', '2026-10-14T10:19:53'),
+      map('dining_room', '2026-10-14T11:49:05.226485'),
     ];
     expect(names(roomsOf([row(finish, FINISH)], entries)[0])).toEqual(['kitchen', 'dining_room']);
   });
 
   it('starts just after a stop row when the restart left no start row', () => {
-    const rows = [row('2026-09-09T08:36:39.759', START), row('2026-09-09T09:18:40.008', STOP), row('2026-09-09T10:30:00', FINISH)];
+    const rows = [row('2026-09-09T13:12:08.415', START), row('2026-09-09T13:47:51.632', STOP), row('2026-09-09T15:05:00', FINISH)];
     const entries = [
-      map('hallway', '2026-09-09T08:41:00'),
-      map('kitchen_2', '2026-09-09T09:18:40.100000'),
-      map('living_room', '2026-09-09T09:50:00'),
-      map('dining_room', '2026-09-09T10:30:00.050000'),
+      map('hallway', '2026-09-09T13:16:00'),
+      map('kitchen_2', '2026-09-09T13:47:51.724000'),
+      map('living_room', '2026-09-09T14:25:00'),
+      map('dining_room', '2026-09-09T15:05:00.050000'),
     ];
     expect(names(roomsOf(rows, entries)[0])).toEqual(['living_room', 'dining_room']);
   });
@@ -165,35 +165,35 @@ describe('roberSessions with mapped rooms', () => {
   });
 
   it('gives no round rooms from an empty index, and no rounds without a finish row', () => {
-    const rows = [row('2026-10-14T09:11:29.357', START), row('2026-10-14T10:03:11.835', FINISH)];
+    const rows = [row('2026-10-14T11:00:41.226', START), row('2026-10-14T11:49:05.180', FINISH)];
     expect(roomsOf(rows, [])).toEqual([]);
-    expect(roberSessions(episodesOf([row('2026-10-14T09:11:29.357', START)]))).toEqual([]);
+    expect(roberSessions(episodesOf([row('2026-10-14T11:00:41.226', START)]))).toEqual([]);
     expect(roberSessions([])).toEqual([]);
   });
 
   it('ignores rows of other kinds that share a cause', () => {
     const shade = {
-      ts: '2026-10-14T09:11:30+02:00',
+      ts: '2026-10-14T11:00:42+02:00',
       icon: 'mdi:blinds',
       text: 'x',
       cause: 'Nobody home',
       effect: 'Closing the blinds fully',
     };
-    const rows = [row('2026-10-14T09:11:29.357', START), shade, row('2026-10-14T10:03:11.835', FINISH)];
-    expect(names(roomsOf(rows, [map('hallway', '2026-10-14T09:15:58')])[0])).toEqual(['hallway']);
+    const rows = [row('2026-10-14T11:00:41.226', START), shade, row('2026-10-14T11:49:05.180', FINISH)];
+    expect(names(roomsOf(rows, [map('hallway', '2026-10-14T11:02:14')])[0])).toEqual(['hallway']);
   });
 });
 
 describe('mapEntryMs', () => {
   it('reads the wall clock as Copenhagen time whatever the device zone', () => {
-    expect(mapEntryMs({ datetime: '2026-10-14T10:03:11.873893', timestamp: '20261014_100311' })).toBe(
-      Date.parse('2026-10-14T10:03:11.873+02:00')
+    expect(mapEntryMs({ datetime: '2026-10-14T11:49:05.226485', timestamp: '20261014_114905' })).toBe(
+      Date.parse('2026-10-14T11:49:05.226+02:00')
     );
-    expect(mapEntryMs({ datetime: '2026-12-13T16:07:23', timestamp: '' })).toBe(Date.parse('2026-12-13T16:07:23+01:00'));
+    expect(mapEntryMs({ datetime: '2026-12-05T14:28:03', timestamp: '' })).toBe(Date.parse('2026-12-05T14:28:03+01:00'));
   });
 
   it('falls back to the filename stamp, and gives null without either', () => {
-    expect(mapEntryMs({ timestamp: '20261014_100311' })).toBe(Date.parse('2026-10-14T10:03:11+02:00'));
+    expect(mapEntryMs({ timestamp: '20261014_114905' })).toBe(Date.parse('2026-10-14T11:49:05+02:00'));
     expect(mapEntryMs({ datetime: 'soon', timestamp: '' })).toBeNull();
     expect(mapEntryMs({ timestamp: '' })).toBeNull();
   });

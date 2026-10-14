@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { APARTMENT_DOOR_OPEN_ENTITY, APARTMENT_ENTRY_SECURE_ENTITY, resolveHallwayDoorSensorId } from '../../config/entities';
 import { useLocalStorageBoolean, useTouchScrollSlopGuard } from '../../hooks';
+import { LazyBoundary } from '../Lazy/LazyBoundary';
 import { fetchDoorbellIndex, formatRingTime, type DoorbellImage } from './doorbellArchive';
-import { DoorbellGallery } from './DoorbellGallery';
 import './IntercomCard.css';
+
+const DoorbellGallery = lazy(() => import('./DoorbellGallery').then(module => ({ default: module.DoorbellGallery })));
 
 // "Access" card - the apartment lock, the two building doors, and the auto-open ritual, in the
 // Climate-card grammar (see AC/TonightCard). Two homes, one component: the Hallway room detail
@@ -65,10 +67,9 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
     firedTimer.current = setTimeout(() => setFired(null), FIRED_FLASH_MS);
   };
 
-  // "Who rang" archive: the AbbWelcomeBridge keeps one snapshot per ring episode under
-  // /local/abb_doorbell/ (like the Rober2 maps index). The archive only exists after the
-  // first ring - a 404 or any fetch failure just means the Doorbell row stays hidden, so
-  // both resolve to [] without a word in the console.
+  // "Who rang" archive: the AbbWelcomeBridge keeps one snapshot per ring episode in HA's
+  // private media folder (doorbellArchive.ts). The archive only exists after the first
+  // ring, so until then the Doorbell row stays hidden; a failed read leaves it as it was.
   const [rings, setRings] = useState<DoorbellImage[]>([]);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const ringsMounted = useRef(true);
@@ -375,7 +376,12 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
     </>
   );
 
-  const gallery = galleryOpen && rings.length > 0 ? <DoorbellGallery images={rings} onClose={() => setGalleryOpen(false)} /> : null;
+  const gallery =
+    galleryOpen && rings.length > 0 ? (
+      <LazyBoundary fallback={null} error={null}>
+        <DoorbellGallery images={rings} onClose={() => setGalleryOpen(false)} />
+      </LazyBoundary>
+    ) : null;
 
   if (!showHeader) {
     return (

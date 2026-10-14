@@ -3,7 +3,7 @@ import { home } from '../../../energy/__tests__/testUtils';
 import { formatHomeClock } from '../../../energy/homeTime';
 import { houseEpisodes, parseHouseEvents, visibleHouseEvents, type HouseEventViewer } from '../../../home/houseEvents';
 import { parseHouseUpcoming } from '../../../home/houseUpcoming';
-import feed from '../../../home/__tests__/fixtures/house-events-2026-10-13.json';
+import feed from '../../../home/__tests__/fixtures/house-events.json';
 import { isQuietAt, readQuietHours } from '../../../home/quietHours';
 import { readUpcoming, type UpcomingAppliance, type UpcomingEntity } from '../../../home/upcoming';
 import { buildNowTimeline, dayBreaks, dayLabel, episodeAreaId, etaInQuietHours, rowTone, timelineMarkers } from '../nowModel';
@@ -16,27 +16,27 @@ const episodesFor = (viewer: HouseEventViewer) => houseEpisodes(visibleHouseEven
 
 const entity = (state: string, attributes: Record<string, unknown> = {}): UpcomingEntity => ({ state, attributes });
 
-describe('past rows from the live feed', () => {
+describe('past rows from the fixture feed', () => {
   it('lists episodes oldest first and gives each the room a tap opens', () => {
     const { past } = buildNowTimeline(episodesFor(MIKKEL), []);
-    expect(past[0].atMs).toBe(Date.parse('2026-10-10T11:46:22.486964+02:00'));
-    expect(past.at(-1)?.atMs).toBe(Date.parse('2026-10-13T12:26:01.941170+02:00'));
+    expect(past[0].atMs).toBe(Date.parse('2026-10-10T10:17:44.065312+02:00'));
+    expect(past.at(-1)?.atMs).toBe(Date.parse('2026-10-13T14:51:12.742031+02:00'));
     expect(past.every((row, i) => i === 0 || row.atMs >= past[i - 1].atMs)).toBe(true);
 
     const areaOf = (iso: string) => past.find(row => row.atMs === Date.parse(iso))?.areaId;
-    expect(areaOf('2026-10-13T12:26:01.941170+02:00')).toBe('hallway');
-    expect(areaOf('2026-10-13T10:55:30.468247+02:00')).toBe('guest_bathroom');
-    expect(areaOf('2026-10-11T04:59:40.607696+02:00')).toBe('kitchen');
-    expect(areaOf('2026-10-12T08:45:00.109202+02:00')).toBe('bedroom');
-    expect(areaOf('2026-10-13T07:51:17.251896+02:00')).toBe('kitchen');
+    expect(areaOf('2026-10-13T14:51:12.742031+02:00')).toBe('hallway');
+    expect(areaOf('2026-10-13T13:37:44.605454+02:00')).toBe('guest_bathroom');
+    expect(areaOf('2026-10-11T06:14:22.538871+02:00')).toBe('kitchen');
+    expect(areaOf('2026-10-12T09:20:00.143551+02:00')).toBe('bedroom');
+    expect(areaOf('2026-10-13T10:06:52.493110+02:00')).toBe('kitchen');
   });
 
   it('gives no room to rows several rooms share or none owns', () => {
     const { past } = buildNowTimeline(episodesFor(MIKKEL), []);
     const areaOf = (iso: string) => past.find(row => row.atMs === Date.parse(iso))?.areaId;
-    expect(areaOf('2026-10-13T10:55:30.638596+02:00')).toBeNull();
-    expect(areaOf('2026-10-11T21:18:14.045847+02:00')).toBeNull();
-    expect(areaOf('2026-10-13T11:30:25.897469+02:00')).toBeNull();
+    expect(areaOf('2026-10-13T13:37:44.775803+02:00')).toBeNull();
+    expect(areaOf('2026-10-11T20:36:52.778620+02:00')).toBeNull();
+    expect(areaOf('2026-10-13T14:20:08.330412+02:00')).toBeNull();
   });
 
   it('marks rows only part of the household sees, and shows a housemate none of the admin ones', () => {

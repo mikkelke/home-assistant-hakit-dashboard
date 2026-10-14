@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { nowFocusAt, type NowFocus } from '../../utils/navigation';
 import { episodeCandidates, houseEpisodes, parseHouseEvents, visibleHouseEvents, type HouseEventViewer } from '../houseEvents';
 import { focusWindowMs, resolveNowFocus, resolveNowItem, type NowCandidate } from '../nowResolve';
-import feed from './fixtures/house-events-2026-10-13.json';
+import feed from './fixtures/house-events.json';
 
 const MIKKEL: HouseEventViewer = { isAdmin: true, name: 'Mikkel' };
 const KRISTINE: HouseEventViewer = { isAdmin: false, name: 'Kristine' };
@@ -10,13 +10,13 @@ const KRISTINE: HouseEventViewer = { isAdmin: false, name: 'Kristine' };
 const events = parseHouseEvents(feed.attributes.events);
 const candidatesFor = (viewer: HouseEventViewer) => episodeCandidates(houseEpisodes(visibleHouseEvents(events, viewer)));
 
-/** Washer finished 13.10 10:55:30.468, the cycle record's `ts` a push links to. */
-const WASHER_FINISHED_MS = Date.parse('2026-10-13T10:55:30.468247+02:00');
-/** The ring at 12:26:01.94 and its door row at 12:26:06.40. */
-const RING_MS = Date.parse('2026-10-13T12:26:01.941170+02:00');
-const DOOR_MS = Date.parse('2026-10-13T12:26:06.404260+02:00');
-/** Wake-up alarm row, 12.10 08:45:00.109 (admin). */
-const WAKE_MS = Date.parse('2026-10-12T08:45:00.109202+02:00');
+/** Washer finished 13.10 13:37:44.605, the cycle record's `ts` a push links to. */
+const WASHER_FINISHED_MS = Date.parse('2026-10-13T13:37:44.605454+02:00');
+/** The ring at 14:51:12.74 and its door row at 14:51:17.21. */
+const RING_MS = Date.parse('2026-10-13T14:51:12.742031+02:00');
+const DOOR_MS = Date.parse('2026-10-13T14:51:17.205121+02:00');
+/** Wake-up alarm row, 12.10 09:20:00.144 (admin). */
+const WAKE_MS = Date.parse('2026-10-12T09:20:00.143551+02:00');
 
 const at = (kind: NowFocus['kind'], ms: number): NowFocus => nowFocusAt(kind, ms);
 
@@ -91,7 +91,7 @@ describe('resolveNowFocus', () => {
   });
 
   it('focuses the exact episode an in-app tap names, not another row of the same second', () => {
-    const emptiedMs = Date.parse('2026-10-13T10:55:30.638596+02:00');
+    const emptiedMs = Date.parse('2026-10-13T13:37:44.775803+02:00');
     expect(resolveNowFocus(at('evt', emptiedMs), mine, true)).toEqual({ status: 'found', id: String(WASHER_FINISHED_MS) });
     expect(resolveNowFocus(at('evt', emptiedMs), mine, true, String(emptiedMs))).toEqual({ status: 'found', id: String(emptiedMs) });
     expect(resolveNowFocus(at('evt', emptiedMs), mine, true, 'gone')).toEqual({ status: 'found', id: String(WASHER_FINISHED_MS) });

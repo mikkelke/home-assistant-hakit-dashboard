@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import feed from '../../../home/__tests__/fixtures/house-events-2026-10-13.json';
+import feed from '../../../home/__tests__/fixtures/house-events.json';
 import { houseEpisodes, parseHouseEvents } from '../../../home/houseEvents';
 import { RING_MATCH_WINDOW_MS, matchRingEntry, ringEntryMs } from '../ringMatch';
 
 const FRONT = 'Someone rang the front door';
 const BACK = 'Someone rang the back door';
-const T = Date.parse('2026-10-13T12:26:01+02:00');
+const T = Date.parse('2026-10-13T14:51:12+02:00');
 
 /** An archive entry for a ring at `atMs`, as the bridge writes it: whole epoch seconds. */
 const entry = (atMs: number, door = 'front door', media: { filename?: string; url?: string; clip_url?: string } = {}) => ({
@@ -30,14 +30,14 @@ describe('matchRingEntry', () => {
   });
 
   it('returns a clip-only entry as it is', () => {
-    const clipOnly = entry(T - 1000, 'front door', { filename: '', url: '', clip_url: '/local/abb_doorbell/clip.mp4' });
+    const clipOnly = entry(T - 1000, 'front door', { filename: '', url: '', clip_url: '/media/local/abb_doorbell/clip.mp4' });
     expect(matchRingEntry([clipOnly], T, FRONT)).toBe(clipOnly);
   });
 
   it('reads datetime when ts is missing, and skips an entry with neither', () => {
     const noTime = { door: 'front door', datetime: '' };
-    const filenameStamp = { door: 'front door', ts: '20261013_122601' };
-    const byDatetime = { door: 'front door', datetime: '2026-10-13T12:26:00+02:00' };
+    const filenameStamp = { door: 'front door', ts: '20261013_145112' };
+    const byDatetime = { door: 'front door', datetime: '2026-10-13T14:51:11+02:00' };
     expect(ringEntryMs(noTime)).toBeNull();
     expect(ringEntryMs(filenameStamp)).toBeNull();
     expect(ringEntryMs(byDatetime)).toBe(T - 1000);
@@ -62,26 +62,26 @@ describe('matchRingEntry', () => {
   });
 });
 
-describe('matchRingEntry on the live feed and archive', () => {
-  /** index.json on the box, 13.10: every entry from 10.10 06:28 to 13.10 17:44, all front door. */
-  const ARCHIVE = [1791906290, 1791887161, 1791880353, 1791745099, 1791735095, 1791718627, 1791632699, 1791625582, 1791606503].map(ts => ({
+describe('matchRingEntry on the fixture feed and a matching archive', () => {
+  /** An entry for each ring of the fixture feed, plus one after the newest and one before the oldest, all front door. */
+  const ARCHIVE = [1791905409, 1791895872, 1791889101, 1791738725, 1791730540, 1791710493, 1791637406, 1791620264, 1791612352].map(ts => ({
     ts,
     datetime: new Date(ts * 1000).toISOString(),
     door: 'front door',
   }));
 
-  it('finds its own entry for each of the seven rings in the 13.10 feed', () => {
+  it('finds its own entry for each of the seven rings in the feed', () => {
     const rings = houseEpisodes(parseHouseEvents(feed.attributes.events)).filter(episode => episode.kind === 'ring');
     expect(rings).toHaveLength(7);
     const matched = rings.map(ring => matchRingEntry(ARCHIVE, ring.startMs, ring.rows[0].cause ?? ring.rows[0].text)?.ts);
-    expect(matched).toEqual([1791887161, 1791880353, 1791745099, 1791735095, 1791718627, 1791632699, 1791625582]);
+    expect(matched).toEqual([1791895872, 1791889101, 1791738725, 1791730540, 1791710493, 1791637406, 1791620264]);
   });
 
-  it('shows nothing for rings the archive has no entry for (26.08 back door, 06.09 apartment door)', () => {
-    const front2608 = { ts: 1787732284, datetime: '2026-08-26T10:18:04+02:00', door: 'front door' };
-    expect(matchRingEntry([front2608], Date.parse('2026-08-26T10:18:04.401773+02:00'), FRONT)).toBe(front2608);
-    expect(matchRingEntry([front2608], Date.parse('2026-08-26T10:18:27.870903+02:00'), BACK)).toBeNull();
-    const front0609 = { ts: 1788689854, datetime: '2026-09-06T12:17:34+02:00', door: 'front door' };
-    expect(matchRingEntry([front0609], Date.parse('2026-09-06T12:18:54.490156+02:00'), 'Someone rang the apartment door')).toBeNull();
+  it('shows nothing for rings the archive has no entry for (a back door ring, an apartment door ring)', () => {
+    const front0309 = { ts: 1788441761, datetime: '2026-09-03T15:22:41+02:00', door: 'front door' };
+    expect(matchRingEntry([front0309], Date.parse('2026-09-03T15:22:41.402165+02:00'), FRONT)).toBe(front0309);
+    expect(matchRingEntry([front0309], Date.parse('2026-09-03T15:23:04.871288+02:00'), BACK)).toBeNull();
+    const front1709 = { ts: 1789630878, datetime: '2026-09-17T09:41:18+02:00', door: 'front door' };
+    expect(matchRingEntry([front1709], Date.parse('2026-09-17T09:42:38.490517+02:00'), 'Someone rang the apartment door')).toBeNull();
   });
 });

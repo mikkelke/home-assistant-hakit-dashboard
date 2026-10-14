@@ -145,12 +145,8 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
-      '/local/rober2_maps': {
-        target: HA_TARGET,
-        changeOrigin: true,
-        secure: false,
-      },
-      '/local/abb_doorbell': {
+      // Signed archive files (doorbell rings, Rober2 maps).
+      '/media': {
         target: HA_TARGET,
         changeOrigin: true,
         secure: false,
