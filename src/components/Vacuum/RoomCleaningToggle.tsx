@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import {
@@ -9,9 +8,9 @@ import {
   ROBOT_CLEAN_KITCHEN_1,
   ROBOT_CLEAN_KITCHEN_2,
 } from '../../config/entities';
-import { useModalBackButton, useSwipeToClose } from '../../hooks';
 import { formatRoberRoomName } from './rooms';
-import { fetchMapsIndex, formatMapDate, latestMapForRoom, type MapEntry } from './maps';
+import { fetchMapsIndex, latestMapForRoom, type MapEntry } from './maps';
+import RoomMapModal from './RoomMapModal';
 import './VacuumCard.css';
 
 // The request row every room that isn't the kitchen gets: one line, one control. The room's
@@ -100,38 +99,6 @@ function RequestRow({ title, requested, cleaningHere, lastClean, onToggle, onOpe
   );
 }
 
-/** The archived-run viewer: the Rober2 card's map modal, openable from a request row.
- * Portaled to <body>: the mobile room-detail panel animates with a transform, and a
- * transformed ancestor becomes the containing block for position:fixed - rendered
- * in place, the modal would land a full viewport below the screen. */
-function RoomMapModal({ map, onClose }: { map: MapEntry; onClose: () => void }) {
-  const { requestClose } = useModalBackButton({ isOpen: true, onRequestClose: onClose, historyKey: 'rober-room-map' });
-  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestClose);
-  return createPortal(
-    <>
-      <div className='vacuum-map-overlay' onClick={requestClose} />
-      <div className='vacuum-map-modal' onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
-        <div className='vacuum-map-modal-header'>
-          <div className='vacuum-map-modal-title'>
-            <Icon icon='mdi:map' />
-            <div>
-              <span className='room'>{formatRoberRoomName(map.room) || map.room || 'Unknown room'}</span>
-              <span className='date'>{formatMapDate(map.datetime, map.timestamp)}</span>
-            </div>
-          </div>
-          <button className='vacuum-map-modal-close modal-close-button' onClick={requestClose}>
-            <Icon icon='mdi:close' />
-          </button>
-        </div>
-        <div className='vacuum-map-modal-content'>
-          <img src={map.url} alt={map.filename} />
-        </div>
-      </div>
-    </>,
-    document.body
-  );
-}
-
 export function RoomCleaningToggle({ areaName, entities, callService }: RoomCleaningToggleProps) {
   const areaNameNormalized = areaName.toLowerCase().replace(/\s+/g, '_');
 
@@ -208,7 +175,7 @@ export function RoomCleaningToggle({ areaName, entities, callService }: RoomClea
             onOpenMap={openMapFor(mapFor('kitchen_2'))}
           />
         )}
-        {openMap && <RoomMapModal map={openMap} onClose={() => setOpenMap(null)} />}
+        {openMap && <RoomMapModal maps={[openMap]} historyKey='rober-room-map' onClose={() => setOpenMap(null)} />}
       </div>
     );
   }
@@ -231,7 +198,7 @@ export function RoomCleaningToggle({ areaName, entities, callService }: RoomClea
         onToggle={() => handleToggle(toggleId, isRequested)}
         onOpenMap={openMapFor(mapFor(areaNameNormalized))}
       />
-      {openMap && <RoomMapModal map={openMap} onClose={() => setOpenMap(null)} />}
+      {openMap && <RoomMapModal maps={[openMap]} historyKey='rober-room-map' onClose={() => setOpenMap(null)} />}
     </div>
   );
 }

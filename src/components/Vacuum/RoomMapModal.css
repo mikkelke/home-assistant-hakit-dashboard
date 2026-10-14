@@ -1,0 +1,48 @@
+.vacuum-map-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem calc(0.5rem + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.vacuum-map-step {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: #e4e4e7;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.vacuum-map-step:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.vacuum-map-step svg {
+  font-size: 1.5rem;
+}
+
+.vacuum-map-step-count {
+  min-width: 3.5rem;
+  font-size: 0.85rem;
+  color: #9ca3af;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.vacuum-map-modal.has-steps .vacuum-map-modal-content img {
+  max-height: calc(90vh - 190px);
+}
+
+@media (max-width: 768px) {
+  .vacuum-map-modal.has-steps .vacuum-map-modal-content img {
+    max-height: calc(100dvh - 170px - env(safe-area-inset-bottom));
+  }
+}

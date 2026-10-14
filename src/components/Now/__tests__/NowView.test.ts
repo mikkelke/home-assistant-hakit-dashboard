@@ -59,12 +59,17 @@ beforeEach(() => {
     disconnect() {}
     unobserve() {}
   } as unknown as typeof ResizeObserver;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => new Response('{}', { status: 200 }))
+  );
   store.setState({ entities: houseEvents(before), connection: {} });
   root = createRoot(document.createElement('div'));
 });
 
 afterEach(() => {
   act(() => root.unmount());
+  vi.unstubAllGlobals();
   vi.useRealTimers();
 });
 

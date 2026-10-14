@@ -1,0 +1,263 @@
+{
+  "maps": [
+    {
+      "filename": "rober2_map_20261014_100311_dining_room.png",
+      "timestamp": "20261014_100311",
+      "datetime": "2026-10-14T10:03:11.873893",
+      "room": "dining_room",
+      "url": "/local/rober2_maps/rober2_map_20261014_100311_dining_room.png"
+    },
+    {
+      "filename": "rober2_map_20261014_094806_living_room.png",
+      "timestamp": "20261014_094806",
+      "datetime": "2026-10-14T09:48:06.943119",
+      "room": "living_room",
+      "url": "/local/rober2_maps/rober2_map_20261014_094806_living_room.png"
+    },
+    {
+      "filename": "rober2_map_20261014_093119_kitchen_2.png",
+      "timestamp": "20261014_093119",
+      "datetime": "2026-10-14T09:31:19.979819",
+      "room": "kitchen_2",
+      "url": "/local/rober2_maps/rober2_map_20261014_093119_kitchen_2.png"
+    },
+    {
+      "filename": "rober2_map_20261014_092147_kitchen.png",
+      "timestamp": "20261014_092147",
+      "datetime": "2026-10-14T09:21:47.733673",
+      "room": "kitchen",
+      "url": "/local/rober2_maps/rober2_map_20261014_092147_kitchen.png"
+    },
+    {
+      "filename": "rober2_map_20261014_091558_hallway.png",
+      "timestamp": "20261014_091558",
+      "datetime": "2026-10-14T09:15:58.354052",
+      "room": "hallway",
+      "url": "/local/rober2_maps/rober2_map_20261014_091558_hallway.png"
+    },
+    {
+      "filename": "rober2_map_20261013_084147_dining_room.png",
+      "timestamp": "20261013_084147",
+      "datetime": "2026-10-13T08:41:47.479446",
+      "room": "dining_room",
+      "url": "/local/rober2_maps/rober2_map_20261013_084147_dining_room.png"
+    },
+    {
+      "filename": "rober2_map_20261013_082722_living_room.png",
+      "timestamp": "20261013_082722",
+      "datetime": "2026-10-13T08:27:22.231398",
+      "room": "living_room",
+      "url": "/local/rober2_maps/rober2_map_20261013_082722_living_room.png"
+    },
+    {
+      "filename": "rober2_map_20261013_081055_kitchen_2.png",
+      "timestamp": "20261013_081055",
+      "datetime": "2026-10-13T08:10:55.844701",
+      "room": "kitchen_2",
+      "url": "/local/rober2_maps/rober2_map_20261013_081055_kitchen_2.png"
+    },
+    {
+      "filename": "rober2_map_20261013_080153_kitchen.png",
+      "timestamp": "20261013_080153",
+      "datetime": "2026-10-13T08:01:54.026577",
+      "room": "kitchen",
+      "url": "/local/rober2_maps/rober2_map_20261013_080153_kitchen.png"
+    },
+    {
+      "filename": "rober2_map_20261013_075536_hallway.png",
+      "timestamp": "20261013_075536",
+      "datetime": "2026-10-13T07:55:36.215830",
+      "room": "hallway",
+      "url": "/local/rober2_maps/rober2_map_20261013_075536_hallway.png"
+    },
+    {
+      "filename": "rober2_map_20261012_114137_dining_room.png",
+      "timestamp": "20261012_114137",
+      "datetime": "2026-10-12T11:41:37.268868",
+      "room": "dining_room",
+      "url": "/local/rober2_maps/rober2_map_20261012_114137_dining_room.png"
+    },
+    {
+      "filename": "rober2_map_20261012_102815_living_room.png",
+      "timestamp": "20261012_102815",
+      "datetime": "2026-10-12T10:28:15.884935",
+      "room": "living_room",
+      "url": "/local/rober2_maps/rober2_map_20261012_102815_living_room.png"
+    },
+    {
+      "filename": "rober2_map_20261012_101108_kitchen_2.png",
+      "timestamp": "20261012_101108",
+      "datetime": "2026-10-12T10:11:08.219365",
+      "room": "kitchen_2",
+      "url": "/local/rober2_maps/rober2_map_20261012_101108_kitchen_2.png"
+    },
+    {
+      "filename": "rober2_map_20261012_100227_kitchen.png",
+      "timestamp": "20261012_100227",
+      "datetime": "2026-10-12T10:02:27.447634",
+      "room": "kitchen",
+      "url": "/local/rober2_maps/rober2_map_20261012_100227_kitchen.png"
+    },
+    {
+      "filename": "rober2_map_20261012_094914_hallway.png",
+      "timestamp": "20261012_094914",
+      "datetime": "2026-10-12T09:49:14.185969",
+      "room": "hallway",
+      "url": "/local/rober2_maps/rober2_map_20261012_094914_hallway.png"
+    },
+    {
+      "filename": "rober2_map_20261009_102414_dining_room.png",
+      "timestamp": "20261009_102414",
+      "datetime": "2026-10-09T10:24:14.703116",
+      "room": "dining_room",
+      "url": "/local/rober2_maps/rober2_map_20261009_102414_dining_room.png"
+    },
+    {
+      "filename": "rober2_map_20261009_100851_living_room.png",
+      "timestamp": "20261009_100851",
+      "datetime": "2026-10-09T10:08:51.375405",
+      "room": "living_room",
+      "url": "/local/rober2_maps/rober2_map_20261009_100851_living_room.png"
+    },
+    {
+      "filename": "rober2_map_20261009_095321_kitchen_2.png",
+      "timestamp": "20261009_095321",
+      "datetime": "2026-10-09T09:53:22.029396",
+      "room": "kitchen_2",
+      "url": "/local/rober2_maps/rober2_map_20261009_095321_kitchen_2.png"
+    },
+    {
+      "filename": "rober2_map_20261009_094509_kitchen.png",
+      "timestamp": "20261009_094509",
+      "datetime": "2026-10-09T09:45:09.325256",
+      "room": "kitchen",
+      "url": "/local/rober2_maps/rober2_map_20261009_094509_kitchen.png"
+    },
+    {
+      "filename": "rober2_map_20261009_093923_hallway.png",
+      "timestamp": "20261009_093923",
+      "datetime": "2026-10-09T09:39:23.302462",
+      "room": "hallway",
+      "url": "/local/rober2_maps/rober2_map_20261009_093923_hallway.png"
+    },
+    {
+      "filename": "rober2_map_20260928_104742_bathroom.png",
+      "timestamp": "20260928_104742",
+      "datetime": "2026-09-28T10:47:42.673366",
+      "room": "bathroom",
+      "url": "/local/rober2_maps/rober2_map_20260928_104742_bathroom.png"
+    },
+    {
+      "filename": "rober2_map_20260928_104129_bedroom.png",
+      "timestamp": "20260928_104129",
+      "datetime": "2026-09-28T10:41:29.508463",
+      "room": "bedroom",
+      "url": "/local/rober2_maps/rober2_map_20260928_104129_bedroom.png"
+    },
+    {
+      "filename": "rober2_map_20260915_105011_kristines_room.png",
+      "timestamp": "20260915_105011",
+      "datetime": "2026-09-15T10:50:11.662262",
+      "room": "kristines_room",
+      "url": "/local/rober2_maps/rober2_map_20260915_105011_kristines_room.png"
+    },
+    {
+      "filename": "rober2_map_20260825_104250_bedroom.png",
+      "timestamp": "20260825_104250",
+      "datetime": "2026-08-25T10:42:50.720359",
+      "room": "bedroom",
+      "url": "/local/rober2_maps/rober2_map_20260825_104250_bedroom.png"
+    },
+    {
+      "filename": "rober2_map_20260824_112118_bathroom.png",
+      "timestamp": "20260824_112118",
+      "datetime": "2026-08-24T11:21:18.464731",
+      "room": "bathroom",
+      "url": "/local/rober2_maps/rober2_map_20260824_112118_bathroom.png"
+    },
+    {
+      "filename": "rober2_map_20260824_111518_bedroom.png",
+      "timestamp": "20260824_111518",
+      "datetime": "2026-08-24T11:15:18.595986",
+      "room": "bedroom",
+      "url": "/local/rober2_maps/rober2_map_20260824_111518_bedroom.png"
+    },
+    {
+      "filename": "rober2_map_20260728_101603_bathroom.png",
+      "timestamp": "20260728_101603",
+      "datetime": "2026-07-28T10:16:03.407034",
+      "room": "bathroom",
+      "url": "/local/rober2_maps/rober2_map_20260728_101603_bathroom.png"
+    },
+    {
+      "filename": "rober2_map_20260713_130145_claudias_room.png",
+      "timestamp": "20260713_130145",
+      "datetime": "2026-07-13T13:01:45.514822",
+      "room": "claudias_room",
+      "url": "/local/rober2_maps/rober2_map_20260713_130145_claudias_room.png"
+    },
+    {
+      "filename": "rober2_map_20260712_152621_claudias_room.png",
+      "timestamp": "20260712_152621",
+      "datetime": "2026-07-12T15:26:21.306144",
+      "room": "claudias_room",
+      "url": "/local/rober2_maps/rober2_map_20260712_152621_claudias_room.png"
+    },
+    {
+      "filename": "rober2_map_20260611_123624_claudias_room.png",
+      "timestamp": "20260611_123624",
+      "datetime": "2026-06-11T12:36:24.609544",
+      "room": "claudias_room",
+      "url": "/local/rober2_maps/rober2_map_20260611_123624_claudias_room.png"
+    },
+    {
+      "filename": "rober2_map_20260421_143242_kristines_room.png",
+      "timestamp": "20260421_143242",
+      "datetime": "2026-04-21T14:32:42.262886",
+      "room": "kristines_room",
+      "url": "/local/rober2_maps/rober2_map_20260421_143242_kristines_room.png"
+    },
+    {
+      "filename": "rober2_map_20260309_133334_stuck_in_the_claudias_room.png",
+      "timestamp": "20260309_133334",
+      "datetime": "2026-03-09T13:33:34.721385",
+      "room": "stuck_in_the_claudias_room",
+      "url": "/local/rober2_maps/rober2_map_20260309_133334_stuck_in_the_claudias_room.png"
+    },
+    {
+      "filename": "rober2_map_20260307_173311_guest_bathroom.png",
+      "timestamp": "20260307_173311",
+      "datetime": "2026-03-07T17:33:11.143955",
+      "room": "guest_bathroom",
+      "url": "/local/rober2_maps/rober2_map_20260307_173311_guest_bathroom.png"
+    },
+    {
+      "filename": "rober2_map_20260307_171614_kristines_room.png",
+      "timestamp": "20260307_171614",
+      "datetime": "2026-03-07T17:16:14.313096",
+      "room": "kristines_room",
+      "url": "/local/rober2_maps/rober2_map_20260307_171614_kristines_room.png"
+    },
+    {
+      "filename": "rober2_map_20260305_095429_guest_bathroom.png",
+      "timestamp": "20260305_095429",
+      "datetime": "2026-03-05T09:54:29.295757",
+      "room": "guest_bathroom",
+      "url": "/local/rober2_maps/rober2_map_20260305_095429_guest_bathroom.png"
+    },
+    {
+      "filename": "rober2_map_20260224_164606_stuck_trying_to_leave_the_claudias_room.png",
+      "timestamp": "20260224_164606",
+      "datetime": "2026-02-24T16:46:06.445464",
+      "room": "stuck_trying_to_leave_the_claudias_room",
+      "url": "/local/rober2_maps/rober2_map_20260224_164606_stuck_trying_to_leave_the_claudias_room.png"
+    },
+    {
+      "filename": "rober2_map_20251213_160723_guest_bathroom.png",
+      "timestamp": "20251213_160723",
+      "datetime": "2025-12-13T16:07:23.702224",
+      "room": "guest_bathroom",
+      "url": "/local/rober2_maps/rober2_map_20251213_160723_guest_bathroom.png"
+    }
+  ]
+}
