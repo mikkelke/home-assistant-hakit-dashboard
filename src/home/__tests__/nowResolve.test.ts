@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { nowFocusAt, type NowFocus } from '../../utils/navigation';
 import { episodeCandidates, houseEpisodes, parseHouseEvents, visibleHouseEvents, type HouseEventViewer } from '../houseEvents';
-import { focusWindowMs, resolveNowFocus, type NowCandidate } from '../nowResolve';
+import { focusWindowMs, resolveNowFocus, resolveNowItem, type NowCandidate } from '../nowResolve';
 import feed from './fixtures/house-events-2026-10-13.json';
 
 const MIKKEL: HouseEventViewer = { isAdmin: true, name: 'Mikkel' };
@@ -108,5 +108,27 @@ describe('resolveNowFocus', () => {
     ];
     expect(resolveNowFocus({ kind: 'ring', epochS: 1_080 }, rows, true)).toEqual({ status: 'found', id: 'b' });
     expect(resolveNowFocus({ kind: 'ring', epochS: 1_010 }, rows, true)).toEqual({ status: 'found', id: 'a' });
+  });
+});
+
+describe('resolveNowItem: a tap that names an exact item and no link identity', () => {
+  const ids = ['1760346930468', 'washer', 'sun:set', 'quiet', 'train:kristine', 'maint:battery:sensor.ecowitt_battery_8351'];
+
+  it('focuses the item when the viewer has it', () => {
+    expect(resolveNowItem('sun:set', ids, false)).toEqual({ status: 'found', id: 'sun:set' });
+    expect(resolveNowItem('maint:battery:sensor.ecowitt_battery_8351', ids, false)).toEqual({
+      status: 'found',
+      id: 'maint:battery:sensor.ecowitt_battery_8351',
+    });
+  });
+
+  it('waits for an item that has not arrived, then says it is gone', () => {
+    expect(resolveNowItem('rain:terrace', ids, false)).toEqual({ status: 'pending' });
+    expect(resolveNowItem('rain:terrace', ids, true)).toEqual({ status: 'unavailable' });
+  });
+
+  it('does nothing without an item', () => {
+    expect(resolveNowItem(null, ids, true)).toEqual({ status: 'none' });
+    expect(resolveNowItem(undefined, ids, true)).toEqual({ status: 'none' });
   });
 });

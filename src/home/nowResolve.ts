@@ -53,3 +53,11 @@ export function resolveNowFocus(
   if (best) return { status: 'found', id: best.id };
   return settled ? { status: 'unavailable' } : { status: 'pending' };
 }
+
+/** An in-app tap that names an exact item and no link identity, such as the next chip on a marker or a
+ * `sensor.house_upcoming` row: found when the viewer has that item among `ids`. */
+export function resolveNowItem(itemId: string | null | undefined, ids: readonly string[], settled: boolean): NowResolution {
+  if (!itemId) return { status: 'none' };
+  if (ids.includes(itemId)) return { status: 'found', id: itemId };
+  return settled ? { status: 'unavailable' } : { status: 'pending' };
+}
