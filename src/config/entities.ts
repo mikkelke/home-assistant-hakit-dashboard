@@ -257,6 +257,11 @@ export const HOUSE_EVENTS_ENTITY = 'sensor.house_events';
 export const QUIET_HOURS_START_ENTITY = 'input_datetime.quiet_hours_start';
 export const QUIET_HOURS_END_ENTITY = 'input_datetime.quiet_hours_end';
 
+/** AppDaemon `HouseUpcoming` (apps/home_pulse/house_upcoming.py): upcoming rows that need server
+ * history or a forecast (maintenance, Kristine's train, rain while a terrace door is open), under a
+ * lease in `attributes.expires`. */
+export const HOUSE_UPCOMING_ENTITY = 'sensor.house_upcoming';
+
 // --- Fire safety (AppDaemon `FireSafety` app, apps/safety/fire_safety.py) ---
 
 /** Published phase sensor: state = clear | pre_alarm | alarm | hushed | cooldown | offline. */
