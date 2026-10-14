@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { home } from '../../energy/__tests__/testUtils';
 import { nowFocusAt } from '../../utils/navigation';
 import type { HouseEventViewer } from '../houseEvents';
+import { timelineMarkers } from '../markers';
+import { nextUp } from '../nextUp';
 import { resolveNowFocus } from '../nowResolve';
+import { readQuietHours } from '../quietHours';
 import {
   nextTimedItem,
   nextWakeMs,
@@ -137,7 +140,7 @@ describe('next chip and live identity', () => {
     expect(nextTimedItem(alarmOff)).toBeNull();
   });
 
-  it('never offers the sun or quiet hours, which are only markers', () => {
+  it('keeps the sun and quiet hours out of the items, and the next chip offers whichever comes first', () => {
     const items = readUpcoming(
       reader({
         ...evening,
@@ -152,6 +155,13 @@ describe('next chip and live identity', () => {
     );
     expect(items.map(item => item.id)).toEqual(['wake', 'dryer', 'rober2']);
     expect(nextTimedItem(items)?.id).toBe('wake');
+    const markers = timelineMarkers(
+      '2026-10-14T05:37:12+00:00',
+      '2026-10-14T16:13:29+00:00',
+      readQuietHours('22:00:00', '07:00:00'),
+      EVENING_MS
+    );
+    expect(nextUp(items, markers, [], MIKKEL)).toMatchObject({ itemId: 'quiet', atMs: home(2026, 10, 13, 22, 0), icon: 'mdi:volume-off' });
   });
 
   it('focuses a running appliance by its cycle start, so a link for an older cycle does not', () => {

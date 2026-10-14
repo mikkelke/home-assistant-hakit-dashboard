@@ -1,9 +1,14 @@
 import { useMemo } from 'react';
 import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
+import { HOUSE_UPCOMING_ENTITY, QUIET_HOURS_END_ENTITY, QUIET_HOURS_START_ENTITY, SUN_ENTITY } from '../../config/entities';
 import { formatHomeClock } from '../../energy/homeTime';
 import { useEnergyConfig } from '../../energy/useEnergyConfig';
-import { nextTimedItem, readUpcoming, upcomingFocus, type UpcomingItem } from '../../home/upcoming';
+import { parseHouseUpcoming } from '../../home/houseUpcoming';
+import { timelineMarkers } from '../../home/markers';
+import { nextUp } from '../../home/nextUp';
+import { readQuietHours } from '../../home/quietHours';
+import { readUpcoming } from '../../home/upcoming';
 import { useNowMs } from '../../hooks/useNowMs';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { useViewer } from '../../hooks/useViewer';
@@ -33,36 +38,39 @@ function PowerChip({ onOpen }: { onOpen: () => void }) {
   );
 }
 
-function itemIcon(item: UpcomingItem): string {
-  if (item.type === 'appliance') return item.appliance.config.icon;
-  return item.type === 'wake' ? 'mdi:alarm' : 'mdi:robot-vacuum';
-}
-
-function itemName(item: UpcomingItem): string {
-  if (item.type === 'appliance') return `${item.appliance.config.label} done`;
-  return item.type === 'wake' ? 'Wake alarm' : 'Rober2';
-}
-
-/** The next timed thing in the house; a tap opens the timeline on it. */
+/** The soonest thing in the house the viewer sees, of any kind; a tap opens the timeline on it. */
 function NextChip({ onOpenNow }: { onOpenNow: OpenNow }) {
   const entities = useTrackedEntities();
   const viewer = useViewer();
   const nowMs = useNowMs();
-  const next = useMemo(() => nextTimedItem(readUpcoming(id => entities[id], nowMs, viewer)), [entities, nowMs, viewer]);
-  const overrun = next?.atMs != null && next.atMs <= nowMs;
-  const time = next?.atMs != null ? (overrun ? 'Soon' : formatHomeClock(next.atMs)) : null;
+  // Primitive selectors: `sun.sun` changes every few minutes, but these values only a few times a day.
+  const nextRising = useHass(s => s.entities[SUN_ENTITY]?.attributes?.next_rising);
+  const nextSetting = useHass(s => s.entities[SUN_ENTITY]?.attributes?.next_setting);
+  const quietStart = useHass(s => s.entities[QUIET_HOURS_START_ENTITY]?.state);
+  const quietEnd = useHass(s => s.entities[QUIET_HOURS_END_ENTITY]?.state);
+  const next = useMemo(
+    () =>
+      nextUp(
+        readUpcoming(id => entities[id], nowMs, viewer),
+        timelineMarkers(nextRising, nextSetting, readQuietHours(quietStart, quietEnd), nowMs),
+        parseHouseUpcoming(entities[HOUSE_UPCOMING_ENTITY]?.attributes, nowMs),
+        viewer
+      ),
+    [entities, nowMs, viewer, nextRising, nextSetting, quietStart, quietEnd]
+  );
+  const time = next ? (next.atMs <= nowMs ? 'Soon' : formatHomeClock(next.atMs)) : null;
   return (
     <button
       type='button'
       className={`pulse-chip pulse-next ${next ? '' : 'is-empty'}`}
-      onClick={() => onOpenNow(next ? upcomingFocus(next) : null, next?.id)}
-      aria-label={next && time ? `Next: ${itemName(next)} ${time}, open timeline` : 'Open timeline'}
+      onClick={() => onOpenNow(next?.focus ?? null, next?.itemId)}
+      aria-label={next ? `Next: ${next.name} ${time}, open timeline` : 'Open timeline'}
     >
       <Icon icon='mdi:timeline-outline' className='pulse-rail' aria-hidden='true' />
-      {next && time && (
+      {next && (
         <>
           {time}
-          <Icon icon={itemIcon(next)} className='pulse-next-icon' aria-hidden='true' />
+          <Icon icon={next.icon} className='pulse-next-icon' aria-hidden='true' />
         </>
       )}
     </button>
