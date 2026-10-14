@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 import feed from '../../../home/__tests__/fixtures/house-events.json';
 import { houseEpisodes, parseHouseEvents } from '../../../home/houseEvents';
 import { archiveConnection } from '../../../utils/__tests__/archiveConnectionStub';
+import type { NowFocus } from '../../../utils/navigation';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -151,5 +152,169 @@ describe('a ring row on the timeline', () => {
     root = createRoot(document.createElement('div'));
     await open({ arrival: 'cold', itemId: rings[0].id });
     expect(sheet()).toBeNull();
+  });
+});
+
+describe('a ring push opening the timeline', () => {
+  /** The bridge links the ring's start, the `ts` of its archive entry. */
+  const RING_LINK: NowFocus = { kind: 'ring', epochS: ARCHIVE.images[0].ts };
+
+  async function arrive(focus: NowFocus, props: { arrival?: 'cold' | 'warm'; linkArrived: boolean }) {
+    await act(async () => {
+      root.render(
+        createElement(NowView, {
+          focus,
+          itemId: null,
+          arrival: props.arrival ?? 'cold',
+          linkArrived: props.linkArrived,
+          onBack: () => {},
+          onOpenRoom: openRoom,
+        })
+      );
+    });
+    await settle();
+  }
+
+  /** What the dashboard does on Back while a modal is up. */
+  const back = () =>
+    act(async () => {
+      window.dispatchEvent(new CustomEvent('modalBackButton', { cancelable: true }));
+    });
+
+  it('opens on the ring with its sheet up, whether the app was closed or open', async () => {
+    await arrive(RING_LINK, { linkArrived: true });
+    expect(document.querySelector('[data-focus]')?.getAttribute('data-focus')).toBe(rings[0].id);
+    expect(sheet()?.querySelector('video')?.getAttribute('src')).toBe('/media/local/abb_doorbell/clip.mp4?authSig=1#t=0.1');
+
+    act(() => root.unmount());
+    document.body.innerHTML = '';
+    root = createRoot(document.createElement('div'));
+    await arrive(RING_LINK, { arrival: 'warm', linkArrived: true });
+    expect(sheet()?.querySelector('video')).not.toBeNull();
+  });
+
+  it('leaves the sheet closed when Back, Forward or a reload return to the link', async () => {
+    await arrive(RING_LINK, { linkArrived: false });
+    expect(document.querySelector('[data-focus]')?.getAttribute('data-focus')).toBe(rings[0].id);
+    expect(sheet()).toBeNull();
+  });
+
+  it('opens no sheet for a washer link, or a ring link whose ring is gone', async () => {
+    const washer = parseHouseEvents(rows).find(row => row.icon === 'mdi:washing-machine')!;
+    await arrive({ kind: 'washer', epochS: Math.floor(washer.tsMs / 1000) }, { linkArrived: true });
+    expect(document.querySelector('[data-focus]')).not.toBeNull();
+    expect(sheet()).toBeNull();
+
+    act(() => root.unmount());
+    root = createRoot(document.createElement('div'));
+    await arrive({ kind: 'ring', epochS: RING_LINK.epochS - 3600 }, { linkArrived: true });
+    await act(async () => {
+      vi.advanceTimersByTime(3_000);
+    });
+    await settle();
+    expect(document.querySelector('[data-now-missing]')).not.toBeNull();
+    expect(sheet()).toBeNull();
+  });
+
+  it('closes on Back to the timeline, and stays closed as the feed moves on', async () => {
+    await arrive(RING_LINK, { linkArrived: true });
+    expect(sheet()).not.toBeNull();
+    await back();
+    expect(sheet()).toBeNull();
+    expect(document.querySelector('.now-view')).not.toBeNull();
+
+    const newer = { ts: '2026-10-13T15:29:00+02:00', icon: 'mdi:lightbulb', text: 'Kitchen lights on' };
+    await act(async () => {
+      store.setState({
+        entities: { 'sensor.house_events': { entity_id: 'sensor.house_events', state: 'y', attributes: { events: [newer, ...rows] } } },
+      });
+    });
+    await settle();
+    expect(sheet()).toBeNull();
+  });
+});
+
+describe('the sheet of a ring that has just rung', () => {
+  /** The newest ring of the fixture, 13.10 14:51:12.74, when its push is tapped 12 s later. */
+  const RING_MS = rings[0].startMs;
+  const index: { images: unknown[] } = { images: [] };
+
+  beforeEach(() => {
+    vi.setSystemTime(RING_MS + 12_000);
+    index.images = [];
+    ha = archiveConnection({ doorbell_archive_index: index });
+    store.setState({ connection: ha.connection });
+  });
+
+  const waiting = () => sheet()?.querySelector('[role="status"]') != null;
+
+  async function tapPush() {
+    await act(async () => {
+      root.render(
+        createElement(NowView, {
+          focus: { kind: 'ring', epochS: ARCHIVE.images[0].ts },
+          itemId: null,
+          arrival: 'cold',
+          linkArrived: true,
+          onBack: () => {},
+          onOpenRoom: openRoom,
+        })
+      );
+    });
+    await settle();
+  }
+
+  it('waits for the entry the bridge writes as the ring closes, then shows the clip', async () => {
+    await tapPush();
+    expect(waiting()).toBe(true);
+    expect(sheet()?.textContent).not.toContain('No photo');
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50_000);
+    });
+    expect(waiting()).toBe(true);
+    index.images = ARCHIVE.images;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_000);
+    });
+    await settle();
+    expect(waiting()).toBe(false);
+    expect(sheet()?.querySelector('video')).not.toBeNull();
+    const reads = ha.reads('doorbell_archive_index');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(ha.reads('doorbell_archive_index')).toBe(reads);
+  });
+
+  it('says there is no photo once the entry can no longer come, and reads no more', async () => {
+    await tapPush();
+    expect(waiting()).toBe(true);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(80_000);
+    });
+    await settle();
+    expect(waiting()).toBe(false);
+    expect(sheet()?.textContent).toContain('No photo for this ring');
+    const reads = ha.reads('doorbell_archive_index');
+    expect(reads).toBeGreaterThan(10);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(ha.reads('doorbell_archive_index')).toBe(reads);
+  });
+
+  it('reads again after a failed read while the entry may still come', async () => {
+    ha = archiveConnection({ doorbell_archive_index: new Error('busy') });
+    store.setState({ connection: ha.connection });
+    await tapPush();
+    expect(waiting()).toBe(true);
+    ha = archiveConnection({ doorbell_archive_index: ARCHIVE });
+    store.setState({ connection: ha.connection });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    await settle();
+    expect(sheet()?.querySelector('video')).not.toBeNull();
   });
 });

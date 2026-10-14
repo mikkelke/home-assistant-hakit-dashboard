@@ -2,15 +2,19 @@
  * Navigation check for the #now timeline in headless Chromium: a cold link into a fresh tab, a reload
  * on it, a ring row's sheet and a Rober2 room chip's map over the timeline, a row's room over the
  * timeline (reached again by Forward and after a reload), Back, Forward, opening and leaving the
- * timeline in the app, and a link arriving while a modal is open. Exits non-zero when any check fails.
+ * timeline in the app, and a link arriving while a modal is open. With --ring-link, a ring push too:
+ * opened on a closed app and on a running one, its ring's sheet comes up over the timeline. Exits
+ * non-zero when any check fails.
  *
  *   HA_TOKEN=... CHROME_PATH=... node scripts/now-history-check.ts \
- *     --url https://<home assistant>/local/<folder>/index.html --link '#now=washer-<epoch s>' [--framed]
+ *     --url https://<home assistant>/local/<folder>/index.html --link '#now=washer-<epoch s>' [--framed] \
+ *     [--ring-link '#now=ring-<epoch s of a ring the archive has>']
  *
  * HA_TOKEN is a long-lived access token; it is planted in the tab's localStorage the way the HA
  * frontend stores its own tokens. With --framed, --url is a same-origin page that marks its entry
  * `{ root: true }` and loads the dashboard in an iframe, the way Home Assistant's panel does: the
  * history and hash are the page's, the dashboard's DOM is the frame's, and a reload reloads the frame.
+ * --link names anything but a ring, whose sheet would add an entry the first checks do not expect.
  */
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -30,6 +34,7 @@ const framed = process.argv.includes('--framed');
 const DOC = framed ? "document.querySelector('iframe').contentDocument" : 'document';
 const query = (selector: string) => `${DOC}.querySelector(${JSON.stringify(selector)})`;
 const link = arg('link');
+const ringLink = process.argv.includes('--ring-link') ? arg('ring-link') : null;
 const token = process.env.HA_TOKEN;
 const chrome = process.env.CHROME_PATH;
 if (!token || !chrome) throw new Error('set HA_TOKEN and CHROME_PATH');
@@ -300,8 +305,53 @@ try {
     { length: state.length, hash: state.hash, overlay: await page.eval<boolean>(`!!${query('.person-info-overlay')}`) },
     { length: before + 1, hash: link, overlay: false }
   );
-
   page.close();
+
+  if (ringLink) {
+    // A ring push tapped while the app was closed: a fresh tab on the ring's link.
+    const { targetId: ringTarget } = (await first.send('Target.createTarget', { url: `${appUrl}${ringLink}` })) as { targetId: string };
+    const ring = await Page.open((await targets()).find(target => target.id === ringTarget)!.webSocketDebuggerUrl);
+    await ring.send('Runtime.enable');
+    const ringState = async () => JSON.parse(await ring.eval<string>(STATE)) as Snapshot;
+    const media = query('.doorbell-photo video, .doorbell-photo img');
+
+    for (const arrival of ['closed', 'running'] as const) {
+      if (arrival === 'running') {
+        await ring.eval(`history.pushState(null, '', location.pathname + location.search + ${JSON.stringify(ringLink)})`);
+      }
+      await ring.until(`the ring sheet a push opens on a ${arrival} app`, `${query('.now-view')} && ${query('.doorbell-photo')}`, 30_000);
+      state = await ringState();
+      check(
+        `a ring push on a ${arrival} app opens its sheet over the timeline over the grid`,
+        { length: state.length, hash: state.hash, focus: await ring.eval<boolean>(`!!${query('[data-focus]')}`) },
+        { length: 3, hash: ringLink, focus: true }
+      );
+      await ring.until(`the ring's photo or clip on a ${arrival} app`, media, 20_000).catch(() => undefined);
+      check(`the sheet shows the ring's photo or clip on a ${arrival} app`, await ring.eval<boolean>(`!!${media}`), true);
+
+      await ring.eval('history.back()');
+      await ring.until('the timeline after Back from the ring sheet', `${query('.now-view')} && !${query('.doorbell-photo')}`);
+      await sleep(800);
+      state = await ringState();
+      check(
+        `Back closes the sheet a ring push opened on a ${arrival} app and keeps the timeline`,
+        { hash: state.hash, now: state.now, marker: state.marker, sheet: await ring.eval<boolean>(`!!${query('.doorbell-photo')}`) },
+        { hash: ringLink, now: true, marker: 'grid', sheet: false }
+      );
+
+      await ring.eval('history.back()');
+      await ring.until('the grid after a second Back', `!${query('.now-view')} && location.hash === ''`);
+      state = await ringState();
+      check(
+        `a second Back after a ring push on a ${arrival} app lands on the grid`,
+        { hash: state.hash, grid: state.grid },
+        { hash: '', grid: true }
+      );
+      if (framed) check("the grid entry keeps Home Assistant's root marker after a ring push", state.root, true);
+    }
+    ring.close();
+  }
+
   first.close();
 } catch (error) {
   console.log(`FAIL ${(error as Error).message}`);

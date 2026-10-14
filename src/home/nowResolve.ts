@@ -54,6 +54,18 @@ export function resolveNowFocus(
   return settled ? { status: 'unavailable' } : { status: 'pending' };
 }
 
+/** The ring whose sheet a link that has just arrived opens over the timeline: the episode the link resolved to, when
+ * the link names a ring. Null for any other link, and while the link is unresolved or its event is gone. */
+export function linkedRing<T extends { id: string; kind: NowFocusKind }>(
+  focus: NowFocus | null,
+  resolution: NowResolution | null,
+  episodes: readonly T[]
+): T | null {
+  if (focus?.kind !== 'ring' || resolution?.status !== 'found') return null;
+  const { id } = resolution;
+  return episodes.find(episode => episode.id === id && episode.kind === 'ring') ?? null;
+}
+
 /** An in-app tap that names an exact item and no link identity, such as the next chip on a marker or a
  * `sensor.house_upcoming` row: found when the viewer has that item among `ids`. */
 export function resolveNowItem(itemId: string | null | undefined, ids: readonly string[], settled: boolean): NowResolution {

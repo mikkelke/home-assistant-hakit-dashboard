@@ -3,6 +3,16 @@
 /** How far an archive entry's ring time may lie from the start of the feed episode that reports the same ring. */
 export const RING_MATCH_WINDOW_MS = 10_000;
 
+/** How long after a ring its archive entry may still be on its way. The bridge writes the entry when the ring's
+ * episode closes, 75 s after the ring. */
+export const RING_ENTRY_WAIT_MS = 90_000;
+
+/** Whether a ring without an archive entry may still get one: within the wait after the ring, and never longer than
+ * that after the sheet opened, so a phone clock running behind cannot keep it waiting. */
+export function ringEntryMayArrive(startMs: number, openedMs: number, nowMs: number): boolean {
+  return nowMs - startMs < RING_ENTRY_WAIT_MS && nowMs - openedMs < RING_ENTRY_WAIT_MS;
+}
+
 /** What matching reads of an archive entry. The bridge writes `ts` in epoch seconds. */
 export interface RingEntry {
   ts?: unknown;
