@@ -29,7 +29,6 @@ import {
 import { onIdle } from '../../utils/idle';
 import type { EnergyTab } from '../Energy/energyTab';
 import { HomeHeader } from '../Home/HomeHeader';
-import { HouseTicker } from '../Home/HouseTicker';
 import { MotionConditions } from '../Home/MotionConditions';
 import { PulseRow } from '../Home/PulseRow';
 import { HomePulse } from '../HomePulse';
@@ -853,9 +852,8 @@ export function Dashboard() {
       <div className='dashboard-main'>
         <div className='dashboard-content'>
           <main className='rooms-container'>
-            <HomeHeader entities={displayEntities} hassUrl={hassUrl} onMenu={() => setIsMenuOpen(open => !open)} />
+            <HomeHeader entities={displayEntities} hassUrl={hassUrl} onMenu={() => setIsMenuOpen(open => !open)} onOpenNow={openNow} />
             <PulseRow onOpenEnergy={handleOpenEnergy} onOpenNow={openNow} />
-            <HouseTicker onOpenNow={openNow} />
             <HomePulse
               areas={areaList}
               entities={displayEntities === entities ? undefined : displayEntities}

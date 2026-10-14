@@ -41,7 +41,8 @@ function TickerChip({ episode, isNew, onOpen }: { episode: HouseEpisode; isNew: 
   );
 }
 
-/** The newest few things the house did, under the pulse row; a tap opens the timeline on one. */
+/** The newest few things the house did, on the sky's ground after the people: the newest shows in
+ * full, older ones scroll in from under the fade, and a tap opens the timeline on one. */
 export function HouseTicker({ onOpenNow }: { onOpenNow: OpenNow }) {
   const feed = useHass(s => s.entities[HOUSE_EVENTS_ENTITY]?.attributes?.events);
   const viewer = useViewer();
@@ -51,19 +52,20 @@ export function HouseTicker({ onOpenNow }: { onOpenNow: OpenNow }) {
     () => houseEpisodes(visibleHouseEvents(parseHouseEvents(feed), viewer)).slice(0, TICKER_EPISODES),
     [feed, viewer]
   );
+  if (episodes.length === 0) return null;
   return (
-    <div className='ticker'>
-      <button type='button' className='ticker-history' onClick={() => onOpenNow(null)} aria-label='House activity'>
-        <Icon icon='mdi:timeline-clock-outline' />
-      </button>
-      {episodes.map(episode => (
-        <TickerChip
-          key={episode.id}
-          episode={episode}
-          isNew={episode.endMs > shownSinceMs && nowMs - episode.endMs < NEW_FOR_MS}
-          onOpen={() => onOpenNow(nowFocusAt('evt', episode.startMs), episode.id)}
-        />
-      ))}
-    </div>
+    <>
+      <i className='ticker-divider' aria-hidden='true' />
+      <div className='ticker' role='group' aria-label='House activity, newest first'>
+        {episodes.map(episode => (
+          <TickerChip
+            key={episode.id}
+            episode={episode}
+            isNew={episode.endMs > shownSinceMs && nowMs - episode.endMs < NEW_FOR_MS}
+            onOpen={() => onOpenNow(nowFocusAt('evt', episode.startMs), episode.id)}
+          />
+        ))}
+      </div>
+    </>
   );
 }

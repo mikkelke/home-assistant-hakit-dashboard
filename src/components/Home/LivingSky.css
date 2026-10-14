@@ -225,29 +225,20 @@
   height: 22px;
 }
 
-.sky-people {
+/* The people, then whatever the sky is given to show after them, along the ground. */
+.sky-ground-line {
   position: absolute;
   left: 6px;
+  right: 0;
   bottom: 3px;
+  height: 44px;
   display: flex;
-}
-
-.sky-suntime {
-  position: absolute;
-  right: 14px;
-  bottom: 15px;
-  display: inline-flex;
   align-items: center;
-  gap: 3px;
-  font-size: 11px;
-  font-weight: 500;
-  color: #8b8b94;
-  font-variant-numeric: tabular-nums;
 }
 
-.sky-suntime svg {
-  width: 12px;
-  height: 12px;
+.sky-people {
+  display: flex;
+  flex-shrink: 0;
 }
 
 /* Avatars: a 44 px slot around a 38 px (sky) or 30 px (strip) face. */
@@ -278,6 +269,7 @@ span.sky-av-slot {
 }
 
 .sky-av-face {
+  position: relative;
   width: 38px;
   height: 38px;
   border-radius: 50%;
@@ -307,6 +299,22 @@ span.sky-av-slot {
 .sky-av.is-away .sky-av-face {
   opacity: 0.38;
   filter: saturate(0.2);
+}
+
+/* Asleep: the photo dimmed under an indigo wash, never as grey and faint as away. */
+.sky-av.is-asleep .sky-av-face {
+  opacity: 0.9;
+  filter: brightness(0.72) saturate(0.6);
+}
+
+.sky-av.is-asleep .sky-av-face::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #6366f1;
+  mix-blend-mode: color;
+  opacity: 0.8;
 }
 
 .sky-av.is-you .sky-av-face {
@@ -340,8 +348,8 @@ span.sky-av-slot {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #312e81;
-  color: #c7d2fe;
+  background: #6366f1;
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;

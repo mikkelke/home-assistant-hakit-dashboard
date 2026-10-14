@@ -1,7 +1,6 @@
-import type { Ref } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities } from '../../types';
-import { formatHomeClock } from '../../energy/homeTime';
 import { HOUSEHOLD } from '../../home/household';
 import { useMotionSlot } from '../../home/motionBudget';
 import { arcPoint, celestialPosition, windArrowDeg } from '../../home/sky';
@@ -102,14 +101,15 @@ interface LivingSkyProps {
   hassUrl: string | null;
   onMenu: () => void;
   ref?: Ref<HTMLElement>;
+  /** Shown on the ground after the people. */
+  children?: ReactNode;
 }
 
-/** The home screen's header: the sky as it is now, the outdoor temperature and wind, and who is
- * home. */
-export function LivingSky({ entities, hassUrl, onMenu, ref }: LivingSkyProps) {
+/** The home screen's header: the sky as it is now, the outdoor temperature and wind, and along its
+ * ground who is home. */
+export function LivingSky({ entities, hassUrl, onMenu, ref, children }: LivingSkyProps) {
   const sky = useSky();
   const windFrom = sky.windFromDeg;
-  const sunTimeMs = sky.sunUp ? sky.nextSettingMs : sky.nextRisingMs;
   return (
     <section ref={ref} className={`sky sky--${sky.phase}`} aria-label='Weather and people'>
       <SkyDrawing sky={sky} />
@@ -127,17 +127,14 @@ export function LivingSky({ entities, hassUrl, onMenu, ref }: LivingSkyProps) {
       <button type='button' className='sky-menu' onClick={onMenu} aria-label='Open menu'>
         <Icon icon='mdi:menu' />
       </button>
-      <div className='sky-people'>
-        {HOUSEHOLD.map(member => (
-          <PersonStatus key={member.key} entity={member.personEntityId} entities={entities} hassUrl={hassUrl} size='sky' />
-        ))}
+      <div className='sky-ground-line'>
+        <div className='sky-people'>
+          {HOUSEHOLD.map(member => (
+            <PersonStatus key={member.key} entity={member.personEntityId} entities={entities} hassUrl={hassUrl} size='sky' />
+          ))}
+        </div>
+        {children}
       </div>
-      {sunTimeMs != null && (
-        <span className='sky-suntime'>
-          <Icon icon={sky.sunUp ? 'mdi:weather-sunset-down' : 'mdi:weather-sunset-up'} />
-          {formatHomeClock(sunTimeMs)}
-        </span>
-      )}
     </section>
   );
 }

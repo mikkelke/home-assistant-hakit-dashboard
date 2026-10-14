@@ -1,41 +1,32 @@
+/* Keeps the events from reading as the last person's. */
+.ticker-divider {
+  width: 1px;
+  height: 22px;
+  flex-shrink: 0;
+  margin: 0 7px 0 6px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* The rest of the sky's ground line: the newest event in full, older ones under the right-edge fade
+   until swiped in. The end padding lets the last one scroll out from under the fade. */
 .ticker {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 44px;
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-right: -8px;
-  padding: 8px 0 0;
-  flex-shrink: 0;
-  overflow: hidden;
-  -webkit-mask-image: linear-gradient(90deg, #000 86%, transparent);
-  mask-image: linear-gradient(90deg, #000 86%, transparent);
+  padding-right: 28px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent);
 }
 
-.ticker-history {
-  position: relative;
-  width: 32px;
-  height: 30px;
-  flex-shrink: 0;
-  margin-left: -6px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: #8b8b94;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.ticker-history::before {
-  content: '';
-  position: absolute;
-  inset: -7px -6px;
-}
-
-.ticker-history svg {
-  width: 18px;
-  height: 18px;
+.ticker::-webkit-scrollbar {
+  display: none;
 }
 
 .ticker-chip {

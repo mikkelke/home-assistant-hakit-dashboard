@@ -1,4 +1,4 @@
-/* Attention chips only, as a row under the ticker. */
+/* Attention chips only, as a row under the pulse row. */
 .home-pulse {
   padding-top: 8px;
   display: flex;

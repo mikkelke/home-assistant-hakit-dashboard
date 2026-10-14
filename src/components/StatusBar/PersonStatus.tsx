@@ -49,10 +49,7 @@ function personLook(entity: string, entities: PersonStatusProps['entities'], has
 
 function AvatarFace({ look, size, isViewer }: { look: PersonLook; size: AvatarSize; isViewer: boolean }) {
   return (
-    <span
-      className={`sky-av sky-av--${size} ${look.isHome ? '' : 'is-away'} ${look.isSleeping ? 'is-asleep' : ''} ${isViewer ? 'is-you' : ''}`}
-      aria-hidden='true'
-    >
+    <span className={`sky-av sky-av--${size} is-${stateWord(look)} ${isViewer ? 'is-you' : ''}`} aria-hidden='true'>
       <span className='sky-av-face'>{look.imageUrl ? <img src={look.imageUrl} alt='' /> : look.name.charAt(0).toUpperCase()}</span>
       {look.isSleeping ? (
         <i className='sky-av-zz'>
