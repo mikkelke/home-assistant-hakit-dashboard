@@ -529,7 +529,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
           {hasTransitAlert && <span className='qa-badge qa-badge--alert' />}
         </button>
         <button className='qa-button' onClick={() => onOpenNow(null)} title='Timeline' aria-label='Open the timeline'>
-          <Icon icon='mdi:history' />
+          <Icon icon='mdi:timeline-clock-outline' />
         </button>
         <button
           className='qa-button'

@@ -54,7 +54,7 @@ export function HouseTicker({ onOpenNow }: { onOpenNow: OpenNow }) {
   return (
     <div className='ticker'>
       <button type='button' className='ticker-history' onClick={() => onOpenNow(null)} aria-label='House activity'>
-        <Icon icon='mdi:history' />
+        <Icon icon='mdi:timeline-clock-outline' />
       </button>
       {episodes.map(episode => (
         <TickerChip
