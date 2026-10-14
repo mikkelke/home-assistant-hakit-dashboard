@@ -251,6 +251,11 @@ button.ev-tile {
   height: 280px;
 }
 
+.ev-slot-skeleton {
+  aspect-ratio: auto;
+  height: 96px;
+}
+
 .ev-rrow,
 .ev-drow {
   display: flex;

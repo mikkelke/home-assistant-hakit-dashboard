@@ -15,12 +15,12 @@ import {
 import type { EnergyDevices, EnergyView, Period, StatisticsResponse } from './types';
 import { useEnergyConfig } from './useEnergyConfig';
 import { fetchStatistics } from './ws';
-import { isImmutablePeriod, rangeFor } from './period';
+import { bucketPeriodFor, isImmutablePeriod, rangeFor } from './period';
 
 /** Devices are fetched at PERIOD granularity (never finer, to keep the 41-id payload tiny): day,
  * week and month each get exactly one bucket per device spanning the whole period; year gets up
  * to 12 monthly buckets. This intentionally differs from `bucketPeriodFor` in period.ts, which
- * requests hourly buckets for the day view's chart bars. */
+ * requests one bucket per chart bar (hourly on the day view); only the hour sheet's `bySlot` does. */
 function deviceBucketPeriodFor(period: Period): 'day' | 'week' | 'month' {
   switch (period) {
     case 'day':
@@ -59,6 +59,8 @@ const RELOAD_COALESCE_MS = 2000;
 
 export interface UseEnergyDevicesResult {
   data: EnergyDevices | null;
+  /** The fetched rows by statistic id, before assembly. */
+  rows: StatisticsResponse | null;
   loading: boolean;
   refreshing: boolean;
   error: string | null;
@@ -68,7 +70,9 @@ export interface UseEnergyDevicesResult {
   forceReload: () => void;
 }
 
-export function useEnergyDevices(period: Period, anchorStartMs: number, view: EnergyView | null): UseEnergyDevicesResult {
+/** `bySlot` fetches one row per chart bar instead (hours on today's day view end with the in-progress
+ * hour's 5-minute rows), cached in memory apart from the period-granularity rows. */
+export function useEnergyDevices(period: Period, anchorStartMs: number, view: EnergyView | null, bySlot = false): UseEnergyDevicesResult {
   const connection = useHass(s => s.connection);
   const { config, loading: configLoading, error: configError } = useEnergyConfig();
   // A boolean gate, not the `view` object itself: `view` is a new object on every re-assemble
@@ -82,8 +86,8 @@ export function useEnergyDevices(period: Period, anchorStartMs: number, view: En
   // what's cached (its assembly depends on the live view's bars); the fetched `rowsByStatId` is.
   const deviceStatIds = useMemo(() => config?.devices.map(device => device.statId) ?? [], [config]);
   const cacheKey = useMemo(
-    () => statsCacheKey(hashIds(deviceStatIds), period, anchorStartMs, 'dev'),
-    [deviceStatIds, period, anchorStartMs]
+    () => statsCacheKey(hashIds(deviceStatIds), period, anchorStartMs, bySlot ? 'slot' : 'dev'),
+    [deviceStatIds, period, anchorStartMs, bySlot]
   );
 
   const [result, setResult] = useState<FetchResult>(EMPTY_RESULT);
@@ -140,27 +144,38 @@ export function useEnergyDevices(period: Period, anchorStartMs: number, view: En
       }
     }
 
-    dedupeFetch(cacheKey, effectNowMs, () =>
-      fetchStatistics(connection, {
+    dedupeFetch(cacheKey, effectNowMs, async () => {
+      const rows = await fetchStatistics(connection, {
         startTimeIso: new Date(anchorStartMs).toISOString(),
         endTimeIso: new Date(endMs).toISOString(),
         statisticIds: deviceStatIds,
-        period: deviceBucketPeriodFor(period),
+        period: bySlot ? bucketPeriodFor(period) : deviceBucketPeriodFor(period),
         types: ['change'],
-      })
-    )
+      });
+      if (bySlot && period === 'day' && effectNowMs < endMs) {
+        const live = await fetchStatistics(connection, {
+          startTimeIso: new Date(Math.floor(effectNowMs / 3_600_000) * 3_600_000).toISOString(),
+          statisticIds: deviceStatIds,
+          period: '5minute',
+          types: ['change'],
+        }).catch((): StatisticsResponse => ({}));
+        for (const [statId, list] of Object.entries(live)) rows[statId] = [...(rows[statId] ?? []), ...list];
+      }
+      return rows;
+    })
       .then(rows => {
         if (requestId !== requestSeqRef.current) return; // superseded by a newer request
         const persistNowMs = Date.now();
         setCached(cacheKey, rows, persistNowMs);
-        if (immutable) persistClosed(cacheKey, rows, persistNowMs);
+        // Per-bar rows run to tens of KB, too big for localStorage, so they stay in memory.
+        if (immutable && !bySlot) persistClosed(cacheKey, rows, persistNowMs);
         setResult({ key, rows, error: null, refreshing: false });
       })
       .catch((err: unknown) => {
         if (requestId !== requestSeqRef.current) return;
         setResult({ key, rows: null, error: String(err), refreshing: false });
       });
-  }, [connection, config, period, anchorStartMs, reloadTick, hasView, deviceStatIds, cacheKey]);
+  }, [connection, config, period, anchorStartMs, reloadTick, hasView, deviceStatIds, cacheKey, bySlot]);
 
   useEffect(() => {
     if (!connection) return;
@@ -193,6 +208,7 @@ export function useEnergyDevices(period: Period, anchorStartMs: number, view: En
 
   return {
     data,
+    rows,
     loading: configLoading || !hasView || fetchPending,
     refreshing: resultMatchesRequest && result.refreshing,
     error: configError ?? (resultMatchesRequest ? result.error : null),

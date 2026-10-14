@@ -1,12 +1,17 @@
+import { useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
-import type { EnergyBar, EnergyView, Period } from '../../energy';
+import { useRegistryData } from '@hakit/core';
+import { useEnergyConfig, useEnergyDevices, type EnergyBar, type EnergyView, type Period } from '../../energy';
+import { slotDevices } from '../../energy/hourDevices';
 import { labelFor } from '../../energy/period';
 import { krValue } from '../../energy/planView';
 import { PRICE_BAND_LABEL, type BandedPricePoint, type PriceBand } from '../../energy/priceBands';
 import { PERIOD_UNIT, priceRank, rankLabel, sameHourYesterdayMs } from '../../energy/usageView';
+import { useRoomResolver } from '../../energy/useRoomResolver';
 import { formatClockHour, hourRangeLabel } from '../../utils/format';
 import { ApplianceSheet } from '../Appliance';
 import { slotIndexFor, slotStartMsFor } from './chartGeometry';
+import { StatsState } from './StatsState';
 
 interface HourSheetProps {
   period: Period;
@@ -38,8 +43,68 @@ function usage(bar: EnergyBar): string {
   return `${krValue(bar.kWh, 2)} kWh · ${krValue(bar.costKr)} kr`;
 }
 
+/** The devices that used power in the bar's slot, biggest first, then what no device accounts for. */
+function SlotDeviceList({ period, view, bar }: { period: Period; view: EnergyView; bar: EnergyBar }) {
+  const [all, setAll] = useState(false);
+  const { config } = useEnergyConfig();
+  const { rows, loading, refreshing, error, forceReload } = useEnergyDevices(period, view.startMs, view, true);
+  const { areaOf, areas } = useRoomResolver();
+  const registry = useRegistryData('entitiesRegistryDisplay');
+  const slot = useMemo(
+    () => (config && rows ? slotDevices(config.devices, rows, period, bar.startMs, bar.kWh) : null),
+    [config, rows, period, bar]
+  );
+
+  if (!slot) {
+    return error || !(loading || refreshing) ? (
+      <StatsState error='Device data unavailable' onRetry={forceReload} />
+    ) : (
+      <div className='energy-chart-skeleton ev-slot-skeleton' aria-hidden='true' />
+    );
+  }
+
+  const body = (icon: string, name: string, kWh: number, barClassName = '') => (
+    <>
+      <span className='ev-ricon'>
+        <Icon icon={icon} aria-hidden='true' />
+      </span>
+      <span className='ev-rmain'>
+        <span className='ev-rname'>{name}</span>
+        <span className='ev-rbar'>
+          <i className={barClassName} style={{ width: `${Math.max(2, Math.min(100, (kWh / bar.kWh) * 100))}%` }} />
+        </span>
+      </span>
+      <span className='ev-rnum'>
+        <b>{kWh < 0.005 ? `< ${krValue(0.01)}` : krValue(kWh, 2)} kWh</b>
+      </span>
+    </>
+  );
+
+  return (
+    <div className='ev-list'>
+      {(all ? [...slot.top, ...slot.more] : slot.top).map(device => (
+        <div key={device.statId} className='ev-drow'>
+          {body(registry[device.statId]?.icon || areas[areaOf(device.statId) ?? '']?.icon || 'mdi:flash-outline', device.name, device.kWh)}
+        </div>
+      ))}
+      {!all && slot.more.length > 0 && (
+        <button type='button' className='ev-drow' onClick={() => setAll(true)}>
+          {body(
+            'mdi:chevron-down',
+            `${slot.more.length} more`,
+            slot.more.reduce((sum, device) => sum + device.kWh, 0)
+          )}
+        </button>
+      )}
+      {slot.unmeteredKWh > 0 && (
+        <div className='ev-drow'>{body('mdi:dots-horizontal', 'Unmetered', slot.unmeteredKWh, 'ev-rbar--untracked')}</div>
+      )}
+    </div>
+  );
+}
+
 /** One tapped hour (or day or month): its use and cost, its all-in price and where that price
- * ranks, and the same slot one period earlier. */
+ * ranks, the same slot one period earlier, and the devices that used it. */
 export function HourSheet({ period, view, previous, slotMs, prices, todayStartMs, onClose }: HourSheetProps) {
   const isDay = period === 'day';
   const bar = view.bars.find(candidate => candidate.startMs === slotMs) ?? null;
@@ -124,6 +189,8 @@ export function HourSheet({ period, view, previous, slotMs, prices, todayStartMs
             )}
           </div>
         )}
+
+        {bar && <SlotDeviceList period={period} view={view} bar={bar} />}
       </div>
     </ApplianceSheet>
   );
