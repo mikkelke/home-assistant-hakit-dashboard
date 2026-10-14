@@ -2,7 +2,6 @@ import { APARTMENT_DOOR_OPEN_ENTITY, resolveHallwayDoorSensorId, resolveHallwayL
 import { TRANSIT_LINES, getTransitSeverity, isTransitAlert } from '../config/transit';
 import { getTransitLineDisplayStatus } from './transitDisplay';
 import type { Area, HassEntities, HassEntity, HomePulseSummary, PulseChip } from '../types';
-import { deriveBatteryItems } from './batteryAlerts';
 import { resolveDishwasherSemanticState } from './dishwasherSemanticState';
 import { deriveFireSafety, faultLabel } from './fireSafety';
 
@@ -203,20 +202,6 @@ function buildFireSafetyChip(entities: HassEntities): ChipCandidate | null {
   };
 }
 
-function buildBatteryChip(entities: HassEntities): ChipCandidate | null {
-  const lowBatteries = deriveBatteryItems(entities).filter(item => item.isLow);
-  if (lowBatteries.length === 0) return null;
-
-  return {
-    id: 'battery-alert',
-    icon: 'mdi:battery-alert',
-    label: lowBatteries.length === 1 ? `${lowBatteries[0].name} battery low` : `${lowBatteries.length} batteries low`,
-    tone: 'attention',
-    pulse: true,
-    priority: 88,
-  };
-}
-
 function buildLockChip(entities: HassEntities, homePeopleCount: number): ChipCandidate | null {
   if (homePeopleCount > 0) return null;
 
@@ -280,7 +265,6 @@ export function deriveHomePulseSummary(areas: Area[], entities: HassEntities): H
     buildWeatherAlertChip(areas, entities),
     buildTransitAlertChip(entities),
     buildLockChip(entities, homePeopleCount),
-    buildBatteryChip(entities),
     ...APPLIANCES.map(config => buildApplianceChip(config, entities?.[config.sensorId], entities)),
   ]
     .filter((chip): chip is ChipCandidate => chip !== null)

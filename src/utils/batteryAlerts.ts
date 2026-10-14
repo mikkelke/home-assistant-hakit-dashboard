@@ -1,14 +1,14 @@
 import type { HassEntities } from '../types';
 import { peekEntities } from '../hooks/useTrackedEntities';
 
+/** One battery reading for the menu's overview. Whether a battery needs attention is AppDaemon
+ * HouseUpcoming's call, shown as maintenance rows on the timeline; this list only shows levels. */
 export interface BatteryAlertItem {
   entityId: string;
   name: string;
   value: number;
-  isLow: boolean;
 }
 
-export const ALERT_BATTERY_THRESHOLD = 12;
 const MOBILE_BATTERY_EXCLUDE_KEYWORDS = ['iphone', 'ipad', 'oppopad', 'ofx9p', 'phone', 'tablet'];
 
 export function deriveBatteryItems(entities: HassEntities): BatteryAlertItem[] {
@@ -43,9 +43,6 @@ export function deriveBatteryItems(entities: HassEntities): BatteryAlertItem[] {
   }
 
   return [...grouped.values()]
-    .map(item => ({ entityId: item.entityId, name: item.name, value: item.value, isLow: item.value <= ALERT_BATTERY_THRESHOLD }))
-    .sort((a, b) => {
-      if (a.isLow !== b.isLow) return a.isLow ? -1 : 1;
-      return a.value - b.value;
-    });
+    .map(item => ({ entityId: item.entityId, name: item.name, value: item.value }))
+    .sort((a, b) => a.value - b.value);
 }

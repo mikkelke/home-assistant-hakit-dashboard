@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import type { HassEntities } from '../../types';
 import { useModalBackButton, useViewer } from '../../hooks';
 import { SmokeAlarmSheet } from '../FireSafety';
 import { FIRE_SAFETY_SENSOR } from '../../config/entities';
-import { deriveBatteryItems } from '../../utils/batteryAlerts';
 import './Menu.css';
+
+// Rendered only after a tap, so it stays out of the main bundle.
+const BatteryOverview = lazy(() => import('./BatteryOverview').then(module => ({ default: module.BatteryOverview })));
 
 interface MenuProps {
   isOpen: boolean;
@@ -24,31 +26,12 @@ interface MenuProps {
 const KIOSK_TOGGLE_ENTITY = 'input_boolean.kiosk_mode';
 const BUILD_VERSION = __APP_BUILD_VERSION__;
 
-function getBatteryIcon(value: number): string {
-  if (value <= 10) return 'mdi:battery-alert-variant-outline';
-  if (value <= 20) return 'mdi:battery-10';
-  if (value <= 30) return 'mdi:battery-30';
-  if (value <= 50) return 'mdi:battery-50';
-  if (value <= 70) return 'mdi:battery-70';
-  if (value <= 90) return 'mdi:battery-90';
-  return 'mdi:battery';
-}
-
-function getBatteryColor(value: number): string {
-  if (value <= 10) return '#ef4444';
-  if (value <= 30) return '#f97316';
-  if (value <= 50) return '#fbbf24';
-  return '#22c55e';
-}
-
 export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy }: MenuProps) {
   const [isKioskActive, setIsKioskActive] = useState(false);
   const [isBatteryOverviewOpen, setIsBatteryOverviewOpen] = useState(false);
   const [isSmokeAlarmOpen, setIsSmokeAlarmOpen] = useState(false);
   const viewer = useViewer();
   const showSmokeAlarm = viewer.isAdmin === true && !!entities?.[FIRE_SAFETY_SENSOR];
-  const batteryItems = useMemo(() => deriveBatteryItems(entities), [entities]);
-  const lowBatteryCount = batteryItems.filter(item => item.isLow).length;
 
   const handleCloseBatteryOverview = useCallback(() => {
     setIsBatteryOverviewOpen(false);
@@ -114,59 +97,6 @@ export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy }: M
     setIsSmokeAlarmOpen(true);
   };
 
-  const batteryOverviewContent = isBatteryOverviewOpen ? (
-    <div className='battery-overview-overlay' role='presentation' onClick={requestCloseBatteryOverview}>
-      <div
-        className='battery-overview-modal'
-        role='dialog'
-        aria-modal='true'
-        aria-labelledby='battery-overview-title'
-        onClick={event => event.stopPropagation()}
-      >
-        <div className='battery-overview-header'>
-          <div className='battery-overview-title-wrap'>
-            <div className='battery-overview-title-icon'>
-              <Icon icon='mdi:battery-outline' />
-            </div>
-            <div>
-              <h2 id='battery-overview-title'>Battery overview</h2>
-              <p>{lowBatteryCount > 0 ? `${lowBatteryCount} devices need attention` : `${batteryItems.length} tracked devices`}</p>
-            </div>
-          </div>
-          <button
-            className='battery-overview-close modal-close-button'
-            onClick={requestCloseBatteryOverview}
-            aria-label='Close battery overview'
-          >
-            <Icon icon='mdi:close' />
-          </button>
-        </div>
-
-        <div className='battery-overview-body'>
-          <div className='battery-overview-summary'>
-            {lowBatteryCount > 0 ? <span className='menu-section-badge is-alert'>{`${lowBatteryCount} low`}</span> : null}
-            <span className='battery-overview-count'>{batteryItems.length} tracked devices</span>
-          </div>
-
-          <div className='menu-battery-list battery-overview-list'>
-            {batteryItems.map(item => (
-              <div key={item.entityId} className={`menu-battery-row ${item.isLow ? 'low' : ''}`}>
-                <Icon icon={getBatteryIcon(item.value)} style={{ color: getBatteryColor(item.value) }} />
-                <span className='menu-battery-name'>{item.name}</span>
-                <div className='menu-battery-bar-wrap'>
-                  <div className='menu-battery-bar-fill' style={{ width: `${item.value}%`, background: getBatteryColor(item.value) }} />
-                </div>
-                <span className='menu-battery-value' style={{ color: getBatteryColor(item.value) }}>
-                  {item.value}%
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  ) : null;
-
   return (
     <>
       {isOpen && <div className='menu-overlay' onClick={onClose} />}
@@ -188,7 +118,6 @@ export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy }: M
           <button className='menu-item menu-item-battery' onClick={handleOpenBatteryOverview}>
             <Icon icon='mdi:battery-outline' />
             <span>Batteries</span>
-            {lowBatteryCount > 0 ? <span className='menu-section-badge is-alert'>{`${lowBatteryCount} low`}</span> : null}
           </button>
 
           {showSmokeAlarm && (
@@ -211,7 +140,14 @@ export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy }: M
           </span>
         </div>
       </aside>
-      {typeof document !== 'undefined' && batteryOverviewContent ? createPortal(batteryOverviewContent, document.body) : null}
+      {isBatteryOverviewOpen && typeof document !== 'undefined'
+        ? createPortal(
+            <Suspense fallback={null}>
+              <BatteryOverview entities={entities} onRequestClose={requestCloseBatteryOverview} />
+            </Suspense>,
+            document.body
+          )
+        : null}
       {isSmokeAlarmOpen && showSmokeAlarm && (
         <SmokeAlarmSheet entities={entities} callService={callService} onClose={() => setIsSmokeAlarmOpen(false)} />
       )}
