@@ -246,8 +246,8 @@ function PlanCard({
             <small>{item.narrative ?? item.rooms.join(', ')}</small>
           </span>
           <span className='now-when'>
-            <Icon icon={cleaning ? 'mdi:play' : 'mdi:pause'} />
-            {cleaning ? 'cleaning' : 'waiting'}
+            <Icon icon={cleaning ? 'mdi:play' : 'mdi:home-export-outline'} />
+            {cleaning ? 'cleaning' : 'all out'}
           </span>
         </span>
       </RowBody>
