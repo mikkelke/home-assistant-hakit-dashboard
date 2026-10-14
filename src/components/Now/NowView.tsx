@@ -23,7 +23,7 @@ import {
 import { canViewerSeeUpcoming, parseHouseUpcoming } from '../../home/houseUpcoming';
 import { MARKERS } from '../../home/markers';
 import { MotionScopeContext, useMotionSlot } from '../../home/motionBudget';
-import { NOW_RESOLVE_GIVE_UP_MS, resolveNowFocus, resolveNowItem, type NowResolution } from '../../home/nowResolve';
+import { linkedRing, NOW_RESOLVE_GIVE_UP_MS, resolveNowFocus, resolveNowItem, type NowResolution } from '../../home/nowResolve';
 import { isQuietAt, quietEndClock, readQuietHours, type QuietHours } from '../../home/quietHours';
 import { readUpcoming, upcomingCandidates, type UpcomingAppliance } from '../../home/upcoming';
 import { useNowMs } from '../../hooks/useNowMs';
@@ -425,13 +425,16 @@ export interface NowViewProps {
   itemId?: string | null;
   /** `cold`: the app opened on this link, or Back returned to it; `warm`: pushed in from the grid. */
   arrival: 'cold' | 'warm';
+  /** The link has just arrived, rather than Back, Forward or a reload returning to its entry: a ring it names opens
+   * with its sheet up. */
+  linkArrived?: boolean;
   onBack: () => void;
   onOpenRoom: (areaId: string) => void;
 }
 
 /** The `#now` timeline: what the house did, what runs now, and what comes next, opened on the item a
  * link names. */
-export function NowView({ focus, itemId, arrival, onBack, onOpenRoom }: NowViewProps) {
+export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, onOpenRoom }: NowViewProps) {
   const entities = useTrackedEntities();
   const hassUrl = useHass(s => s.hassUrl);
   const viewer = useViewer();
@@ -477,6 +480,13 @@ export function NowView({ focus, itemId, arrival, onBack, onOpenRoom }: NowViewP
   if (resolution == null && liveResolution.status !== 'pending') setResolution(liveResolution);
   const focusedId = resolution?.status === 'found' ? resolution.id : null;
   const missing = resolution?.status === 'unavailable' && (focus != null ? canViewerSeeKind(focus.kind, viewer) : itemId != null);
+  // Opened once, as the link resolves, so the sheet stays closed after the viewer closes it.
+  const [linkSheetDue, setLinkSheetDue] = useState(linkArrived);
+  if (linkSheetDue && resolution != null) {
+    setLinkSheetDue(false);
+    const linked = linkedRing(focus, resolution, episodes);
+    if (linked) setRing(linked);
+  }
 
   const [focusShown, setFocusShown] = useState(true);
   useEffect(() => {

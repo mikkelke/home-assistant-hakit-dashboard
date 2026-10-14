@@ -67,6 +67,8 @@ interface NowRoute {
   itemId: string | null;
   /** `cold`: shown in place, as on an app opened by a link or Back; `warm`: pushed in from the grid. */
   arrival: 'cold' | 'warm';
+  /** A link that arrived just now, which this app seeded or adopted, rather than an entry it returned to. */
+  linkArrived: boolean;
 }
 
 const sameFocus = (a: NowFocus | null, b: NowFocus | null) => a?.kind === b?.kind && a?.epochS === b?.epochS;
@@ -613,7 +615,7 @@ export function Dashboard() {
       const itemId = targetWindow ? nowEntryItem(targetWindow.history.state) : null;
       const current = nowRouteRef.current;
       if (!current || !sameFocus(current.focus, view.focus) || current.itemId !== itemId)
-        showNow({ focus: view.focus, itemId, arrival: change === 'adopted' ? 'warm' : 'cold' });
+        showNow({ focus: view.focus, itemId, arrival: change === 'adopted' ? 'warm' : 'cold', linkArrived: change !== 'none' });
       if (selectedRoomRef.current) setSelectedRoom(null);
       if (energyOpenRef.current) setEnergyOpen(false);
       return;
@@ -806,7 +808,7 @@ export function Dashboard() {
           isUpdatingHashRef.current = false;
         }
       }
-      showNow({ focus: focus ?? null, itemId: itemId ?? null, arrival: 'warm' });
+      showNow({ focus: focus ?? null, itemId: itemId ?? null, arrival: 'warm', linkArrived: false });
       setSelectedRoom(null);
       setEnergyOpen(false);
     },
@@ -921,6 +923,7 @@ export function Dashboard() {
               focus={nowRoute.focus}
               itemId={nowRoute.itemId}
               arrival={nowRoute.arrival}
+              linkArrived={nowRoute.linkArrived}
               onBack={closeNow}
               onOpenRoom={openRoomFromNow}
             />

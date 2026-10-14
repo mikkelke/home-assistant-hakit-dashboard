@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { nowFocusAt, type NowFocus } from '../../utils/navigation';
 import { episodeCandidates, houseEpisodes, parseHouseEvents, visibleHouseEvents, type HouseEventViewer } from '../houseEvents';
-import { focusWindowMs, resolveNowFocus, resolveNowItem, type NowCandidate } from '../nowResolve';
+import { focusWindowMs, linkedRing, resolveNowFocus, resolveNowItem, type NowCandidate } from '../nowResolve';
 import feed from './fixtures/house-events.json';
 
 const MIKKEL: HouseEventViewer = { isAdmin: true, name: 'Mikkel' };
@@ -108,6 +108,38 @@ describe('resolveNowFocus', () => {
     ];
     expect(resolveNowFocus({ kind: 'ring', epochS: 1_080 }, rows, true)).toEqual({ status: 'found', id: 'b' });
     expect(resolveNowFocus({ kind: 'ring', epochS: 1_010 }, rows, true)).toEqual({ status: 'found', id: 'a' });
+  });
+});
+
+describe('linkedRing: the sheet a link that has just arrived opens', () => {
+  const episodes = houseEpisodes(visibleHouseEvents(events, MIKKEL));
+  const ringEpisode = episodes.find(episode => episode.id === String(RING_MS));
+  const linked = (focus: NowFocus) => linkedRing(focus, resolveNowFocus(focus, candidatesFor(MIKKEL), true), episodes);
+
+  it("is the ring a push names by the ring's start, the second its archive entry carries", () => {
+    expect(ringEpisode?.kind).toBe('ring');
+    expect(linked({ kind: 'ring', epochS: 1791895872 })).toBe(ringEpisode);
+    expect(linked(at('ring', RING_MS))).toBe(ringEpisode);
+  });
+
+  it('is none for a link of any other kind, an in-app tap on the ring included', () => {
+    expect(linked(at('washer', WASHER_FINISHED_MS))).toBeNull();
+    expect(resolveNowFocus(at('evt', DOOR_MS), candidatesFor(MIKKEL), true)).toEqual({ status: 'found', id: String(RING_MS) });
+    expect(linked(at('evt', DOOR_MS))).toBeNull();
+    expect(linked(at('wake', WAKE_MS))).toBeNull();
+  });
+
+  it('is none while the link is unresolved, and when its ring is gone', () => {
+    const focus = at('ring', RING_MS);
+    expect(linkedRing(focus, null, episodes)).toBeNull();
+    expect(linkedRing(focus, { status: 'pending' }, episodes)).toBeNull();
+    expect(linkedRing(focus, { status: 'unavailable' }, episodes)).toBeNull();
+    expect(linked(at('ring', RING_MS + 3_600_000))).toBeNull();
+  });
+
+  it('is none when the id it resolved to is not a ring episode', () => {
+    expect(linkedRing(at('ring', RING_MS), { status: 'found', id: String(WASHER_FINISHED_MS) }, episodes)).toBeNull();
+    expect(linkedRing(at('ring', RING_MS), { status: 'found', id: 'gone' }, episodes)).toBeNull();
   });
 });
 

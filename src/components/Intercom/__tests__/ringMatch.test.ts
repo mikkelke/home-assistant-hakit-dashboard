@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import feed from '../../../home/__tests__/fixtures/house-events.json';
 import { houseEpisodes, parseHouseEvents } from '../../../home/houseEvents';
-import { RING_MATCH_WINDOW_MS, matchRingEntry, ringEntryMs } from '../ringMatch';
+import { RING_ENTRY_WAIT_MS, RING_MATCH_WINDOW_MS, matchRingEntry, ringEntryMayArrive, ringEntryMs } from '../ringMatch';
 
 const FRONT = 'Someone rang the front door';
 const BACK = 'Someone rang the back door';
@@ -59,6 +59,26 @@ describe('matchRingEntry', () => {
     expect(matchRingEntry([back, front], T + 6800, BACK)).toBe(back);
     expect(matchRingEntry([front], T + 6800, BACK)).toBeNull();
     expect(matchRingEntry([back], T + 900, FRONT)).toBeNull();
+  });
+});
+
+describe('ringEntryMayArrive', () => {
+  it('waits out the 75 s the bridge takes to write a ring entry, and no longer', () => {
+    const opened = T + 12_000;
+    expect(ringEntryMayArrive(T, opened, opened)).toBe(true);
+    expect(ringEntryMayArrive(T, opened, T + 77_000)).toBe(true);
+    expect(ringEntryMayArrive(T, opened, T + RING_ENTRY_WAIT_MS - 1)).toBe(true);
+    expect(ringEntryMayArrive(T, opened, T + RING_ENTRY_WAIT_MS)).toBe(false);
+  });
+
+  it('does not wait for a ring that rang long ago', () => {
+    expect(ringEntryMayArrive(T, T + 3_600_000, T + 3_600_000)).toBe(false);
+  });
+
+  it('stops after the sheet has waited as long, on a phone whose clock runs behind', () => {
+    const opened = T - 300_000;
+    expect(ringEntryMayArrive(T, opened, opened + 60_000)).toBe(true);
+    expect(ringEntryMayArrive(T, opened, opened + RING_ENTRY_WAIT_MS)).toBe(false);
   });
 });
 
