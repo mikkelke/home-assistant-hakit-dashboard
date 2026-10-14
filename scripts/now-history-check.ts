@@ -1,8 +1,8 @@
 /**
  * Navigation check for the #now timeline in headless Chromium: a cold link into a fresh tab, a reload
- * on it, a ring row's sheet over the timeline, a row's room over the timeline (reached again by Forward
- * and after a reload), Back, Forward, opening and leaving the timeline in the app, and a link arriving
- * while a modal is open. Exits non-zero when any check fails.
+ * on it, a ring row's sheet and a Rober2 room chip's map over the timeline, a row's room over the
+ * timeline (reached again by Forward and after a reload), Back, Forward, opening and leaving the
+ * timeline in the app, and a link arriving while a modal is open. Exits non-zero when any check fails.
  *
  *   HA_TOKEN=... CHROME_PATH=... node scripts/now-history-check.ts \
  *     --url https://<home assistant>/local/<folder>/index.html --link '#now=washer-<epoch s>' [--framed]
@@ -178,6 +178,39 @@ try {
     );
   } else {
     console.log('skip the ring sheet: no ring row in the feed');
+  }
+
+  const roomChip = await page.until('a Rober2 room chip', query('.now-room'), 5000).then(
+    () => true,
+    () => false
+  );
+  if (roomChip) {
+    await page.eval(`${query('.now-room')}.click()`);
+    await page.until('the room map sheet', query('.vacuum-map-modal img'));
+    state = await snapshot();
+    check(
+      'a room chip opens its map as one entry over the timeline',
+      { length: state.length, hash: state.hash },
+      { length: 3, hash: link }
+    );
+    const next = query('.vacuum-map-step[aria-label="Next room"]:not(:disabled)');
+    if (await page.eval<boolean>(`!!${next}`)) {
+      const room = await page.eval<string>(`${query('.vacuum-map-modal .room')}.textContent`);
+      await page.eval(`${next}.click()`);
+      await page.until('the next room of the round', `${query('.vacuum-map-modal .room')}.textContent !== ${JSON.stringify(room)}`);
+      check('stepping to the next room adds no entry', (await snapshot()).length, 3);
+    }
+    await page.eval('history.back()');
+    await page.until('the timeline after closing the map sheet', `${query('.now-view')} && !${query('.vacuum-map-modal')}`);
+    await sleep(800);
+    state = await snapshot();
+    check(
+      'Back closes the map sheet and keeps the timeline',
+      { hash: state.hash, now: state.now, marker: state.marker },
+      { hash: link, now: true, marker: 'grid' }
+    );
+  } else {
+    console.log('skip the room map sheet: no Rober2 room chip in the feed');
   }
 
   await page.eval(`${query('.now-body.is-link:not(.is-ring), .now-card.is-link')}.click()`);

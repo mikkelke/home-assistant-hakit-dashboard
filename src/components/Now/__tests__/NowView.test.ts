@@ -67,10 +67,15 @@ beforeEach(() => {
   user.current = { is_admin: true, name: 'Mikkel' };
   store.setState({ entities: houseEvents(before), connection: {} });
   root = createRoot(document.createElement('div'));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => new Response('{}', { status: 200 }))
+  );
 });
 
 afterEach(() => {
   act(() => root.unmount());
+  vi.unstubAllGlobals();
   vi.useRealTimers();
 });
 

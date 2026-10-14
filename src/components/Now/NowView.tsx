@@ -33,9 +33,13 @@ import { formatKWh } from '../../utils/format';
 import type { NowFocus } from '../../utils/navigation';
 import { SkyStrip } from '../Home/LivingSky';
 import { LazyBoundary } from '../Lazy/LazyBoundary';
+import type { MapEntry } from '../Vacuum/maps';
+import { formatRoberRoomName } from '../Vacuum/rooms';
+import { mapEntryMs, roberRoomAreaId } from '../Vacuum/sessionRooms';
 import {
   buildNowTimeline,
   dayBreaks,
+  dayLabel,
   etaInQuietHours,
   rowTone,
   timelineMarkers,
@@ -46,9 +50,11 @@ import {
   type RunningRow,
   type UpRow,
 } from './nowModel';
+import { useSessionRooms } from './useSessionRooms';
 import './NowView.css';
 
 const RingSheet = lazy(() => import('../Intercom/RingSheet'));
+const RoomMapModal = lazy(() => import('../Vacuum/RoomMapModal'));
 
 /** How long a focused item keeps its ring, in ms; its glow plays three times within it. */
 const FOCUS_MS = 10_000;
@@ -108,18 +114,47 @@ function RowBody({
   );
 }
 
+/** The rooms a Rober2 round cleaned, in cleaning order: a tap opens that room's map. */
+function RoomChips({ maps, tone, onOpenMap }: { maps: MapEntry[]; tone: string; onOpenMap: (maps: MapEntry[], index: number) => void }) {
+  const areas = useHass(s => s.areas);
+  return (
+    <span className='now-rooms'>
+      {maps.map((map, index) => {
+        const name = formatRoberRoomName(map.room) ?? map.room;
+        const areaId = roberRoomAreaId(map.room);
+        return (
+          <button
+            key={map.filename}
+            type='button'
+            className={`now-room tone-${tone}`}
+            onClick={() => onOpenMap(maps, index)}
+            aria-label={`${name} map`}
+          >
+            <Icon icon={(areaId && areas?.[areaId]?.icon) || 'mdi:map-outline'} />
+            {name}
+          </button>
+        );
+      })}
+    </span>
+  );
+}
+
 function PastEpisode({
   row,
   age,
   focused,
+  rooms,
   onOpenRoom,
   onOpenRing,
+  onOpenMap,
 }: {
   row: PastRow;
   age: number;
   focused: boolean;
+  rooms: MapEntry[] | undefined;
   onOpenRoom: (areaId: string) => void;
   onOpenRing: (episode: HouseEpisode) => void;
+  onOpenMap: (maps: MapEntry[], index: number) => void;
 }) {
   const rows = row.episode.rows;
   const first = rows[0];
@@ -163,6 +198,7 @@ function PastEpisode({
           </span>
         </span>
       </RowBody>
+      {rooms && <RoomChips maps={rooms} tone={rowTone(last)} onOpenMap={onOpenMap} />}
     </RowShell>
   );
 }
@@ -420,6 +456,12 @@ export function NowView({ focus, itemId, arrival, onBack, onOpenRoom }: NowViewP
   const [ring, setRing] = useState<HouseEpisode | null>(() =>
     arrival === 'warm' && itemId ? (episodes.find(episode => episode.id === itemId && episode.kind === 'ring') ?? null) : null
   );
+  const sessionRooms = useSessionRooms(episodes);
+  const [roomMaps, setRoomMaps] = useState<{ maps: MapEntry[]; index: number } | null>(null);
+  const mapWhen = (map: MapEntry) => {
+    const atMs = mapEntryMs(map);
+    return atMs == null ? '' : `${dayLabel(atMs, nowMs)} ${formatHomeClock(atMs)}`;
+  };
 
   const [gaveUp, setGaveUp] = useState(false);
   useEffect(() => {
@@ -509,8 +551,10 @@ export function NowView({ focus, itemId, arrival, onBack, onOpenRoom }: NowViewP
                   row={row}
                   age={timeline.past.length - 1 - index}
                   focused={isFocused(row.id)}
+                  rooms={sessionRooms.get(row.id)}
                   onOpenRoom={onOpenRoom}
                   onOpenRing={setRing}
+                  onOpenMap={(maps, index) => setRoomMaps({ maps, index })}
                 />
               </div>
             ))}
@@ -537,6 +581,17 @@ export function NowView({ focus, itemId, arrival, onBack, onOpenRoom }: NowViewP
       {ring && (
         <LazyBoundary fallback={null} error={null}>
           <RingSheet episode={ring} onClose={() => setRing(null)} />
+        </LazyBoundary>
+      )}
+      {roomMaps && (
+        <LazyBoundary fallback={null} error={null}>
+          <RoomMapModal
+            maps={roomMaps.maps}
+            start={roomMaps.index}
+            historyKey='rober-session-map'
+            when={mapWhen}
+            onClose={() => setRoomMaps(null)}
+          />
         </LazyBoundary>
       )}
     </MotionScopeContext.Provider>,
