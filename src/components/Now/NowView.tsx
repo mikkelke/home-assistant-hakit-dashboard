@@ -2,7 +2,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type R
 import { createPortal } from 'react-dom';
 import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
-import { HOUSE_EVENTS_ENTITY } from '../../config/entities';
+import { HOUSE_EVENTS_ENTITY, QUIET_HOURS_END_ENTITY, QUIET_HOURS_START_ENTITY, SUN_ENTITY } from '../../config/entities';
 import { formatApplianceEta } from '../../energy/applianceRun';
 import { formatHomeClock } from '../../energy/homeTime';
 import {
@@ -15,6 +15,7 @@ import {
 } from '../../home/houseEvents';
 import { MotionScopeContext, useMotionSlot } from '../../home/motionBudget';
 import { NOW_RESOLVE_GIVE_UP_MS, resolveNowFocus, type NowResolution } from '../../home/nowResolve';
+import { isQuietAt, quietEndClock, readQuietHours, type QuietHours } from '../../home/quietHours';
 import { readUpcoming, upcomingCandidates, type UpcomingAppliance } from '../../home/upcoming';
 import { useNowMs } from '../../hooks/useNowMs';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
@@ -22,7 +23,17 @@ import { useViewer } from '../../hooks/useViewer';
 import { formatKWh } from '../../utils/format';
 import type { NowFocus } from '../../utils/navigation';
 import { SkyStrip } from '../Home/LivingSky';
-import { buildNowTimeline, dayBreaks, rowTone, type PastRow, type PlanRow, type RunningRow } from './nowModel';
+import {
+  buildNowTimeline,
+  dayBreaks,
+  etaInQuietHours,
+  rowTone,
+  timelineMarkers,
+  type MarkerRow,
+  type PastRow,
+  type PlanRow,
+  type RunningRow,
+} from './nowModel';
 import './NowView.css';
 
 /** How long a focused item keeps its ring, in ms; its glow plays three times within it. */
@@ -151,7 +162,17 @@ function ApplianceTitle({ item }: { item: UpcomingAppliance }) {
 }
 
 /** A running or paused appliance, on the NOW line: when it started goes in the card, not on the rail. */
-function RunningCard({ row, focused, onOpenRoom }: { row: RunningRow; focused: boolean; onOpenRoom: (areaId: string) => void }) {
+function RunningCard({
+  row,
+  quiet,
+  focused,
+  onOpenRoom,
+}: {
+  row: RunningRow;
+  quiet: QuietHours;
+  focused: boolean;
+  onOpenRoom: (areaId: string) => void;
+}) {
   const { cycle, appliance, announce } = row.item;
   const sheen = useMotionSlot(`sheen:${row.id}`, 'appliance', cycle.status === 'running');
   const pct = Math.round(cycle.progressPct ?? 0);
@@ -180,12 +201,39 @@ function RunningCard({ row, focused, onOpenRoom }: { row: RunningRow; focused: b
           <i style={{ width: `${pct}%` }} />
         </span>
         {announce && (
-          <span className='now-status tone-purple'>
-            <Icon icon='mdi:bullhorn-outline' />
-            Announces when done
+          <span className='now-statuses'>
+            <span className='now-status tone-purple'>
+              <Icon icon='mdi:bullhorn-outline' />
+              Finish announcements on
+            </span>
+            {etaInQuietHours(cycle, quiet) && (
+              <span className='now-status tone-slate'>
+                <Icon icon='mdi:volume-off' />
+                ETA in quiet hours
+              </span>
+            )}
           </span>
         )}
       </RowBody>
+    </RowShell>
+  );
+}
+
+const MARKERS: Record<MarkerRow['id'], { icon: string; word: string; tone: string }> = {
+  'sun:rise': { icon: 'mdi:weather-sunset-up', word: 'Sunrise', tone: 'sun' },
+  'sun:set': { icon: 'mdi:weather-sunset-down', word: 'Sunset', tone: 'sun' },
+  quiet: { icon: 'mdi:volume-off', word: 'Quiet', tone: 'slate' },
+};
+
+function Marker({ row }: { row: MarkerRow }) {
+  const { icon, word, tone } = MARKERS[row.id];
+  return (
+    <RowShell id={row.id} time={formatHomeClock(row.atMs)} tone={tone} focused={false} className='is-marker'>
+      <span className={`now-mark tone-${tone}`}>
+        <Icon icon={icon} />
+        {word}
+        {row.until && <small>until {row.until}</small>}
+      </span>
     </RowShell>
   );
 }
@@ -255,7 +303,7 @@ function PlanCard({
   );
 }
 
-function NowLine({ nowMs, missing }: { nowMs: number; missing: boolean }) {
+function NowLine({ nowMs, missing, quietUntil }: { nowMs: number; missing: boolean; quietUntil: string | null }) {
   const pulsing = useMotionSlot('now-pulse', 'nowPulse', true);
   return (
     <>
@@ -265,6 +313,12 @@ function NowLine({ nowMs, missing }: { nowMs: number; missing: boolean }) {
           <i className={pulsing ? 'is-anim' : ''} />
         </span>
         <span className='now-rule' />
+        {quietUntil && (
+          <span className='now-quiet' data-now-quiet=''>
+            <Icon icon='mdi:volume-off' />
+            Quiet until {quietUntil}
+          </span>
+        )}
         <span className='now-lbl'>now</span>
       </div>
       {missing && (
@@ -297,7 +351,14 @@ export function NowView({ focus, itemId, arrival, onBack, onOpenRoom }: NowViewP
   const feed = entities[HOUSE_EVENTS_ENTITY]?.attributes?.events;
   const episodes = useMemo(() => houseEpisodes(visibleHouseEvents(parseHouseEvents(feed), viewer)), [feed, viewer]);
   const upcoming = useMemo(() => readUpcoming(id => entities[id], nowMs, viewer), [entities, nowMs, viewer]);
-  const timeline = useMemo(() => buildNowTimeline(episodes, upcoming), [episodes, upcoming]);
+  // Primitive selectors: `sun.sun` changes every few minutes, but these values only a few times a day.
+  const nextRising = useHass(s => s.entities[SUN_ENTITY]?.attributes?.next_rising);
+  const nextSetting = useHass(s => s.entities[SUN_ENTITY]?.attributes?.next_setting);
+  const quietStart = useHass(s => s.entities[QUIET_HOURS_START_ENTITY]?.state);
+  const quietEnd = useHass(s => s.entities[QUIET_HOURS_END_ENTITY]?.state);
+  const quiet = useMemo(() => readQuietHours(quietStart, quietEnd), [quietStart, quietEnd]);
+  const markers = useMemo(() => timelineMarkers(nextRising, nextSetting, quiet, nowMs), [nextRising, nextSetting, quiet, nowMs]);
+  const timeline = useMemo(() => buildNowTimeline(episodes, upcoming, markers), [episodes, upcoming, markers]);
 
   const [gaveUp, setGaveUp] = useState(false);
   useEffect(() => {
@@ -361,8 +422,8 @@ export function NowView({ focus, itemId, arrival, onBack, onOpenRoom }: NowViewP
     timeline.past.map(row => row.atMs),
     nowMs
   );
-  const planBreaks = dayBreaks(
-    timeline.plans.map(row => row.atMs),
+  const futureBreaks = dayBreaks(
+    timeline.future.map(row => row.atMs),
     nowMs
   );
 
@@ -386,13 +447,17 @@ export function NowView({ focus, itemId, arrival, onBack, onOpenRoom }: NowViewP
               </div>
             ))}
             {timeline.running.map(row => (
-              <RunningCard key={row.id} row={row} focused={isFocused(row.id)} onOpenRoom={onOpenRoom} />
+              <RunningCard key={row.id} row={row} quiet={quiet} focused={isFocused(row.id)} onOpenRoom={onOpenRoom} />
             ))}
-            <NowLine nowMs={nowMs} missing={missing} />
-            {timeline.plans.map((row, index) => (
+            <NowLine nowMs={nowMs} missing={missing} quietUntil={isQuietAt(quiet, nowMs) ? quietEndClock(quiet) : null} />
+            {timeline.future.map((row, index) => (
               <Fragment key={row.id}>
-                {planBreaks[index] && <div className='now-day'>{planBreaks[index]}</div>}
-                <PlanCard row={row} isAdmin={viewer.isAdmin === true} focused={isFocused(row.id)} onOpenRoom={onOpenRoom} />
+                {futureBreaks[index] && <div className='now-day'>{futureBreaks[index]}</div>}
+                {row.type === 'marker' ? (
+                  <Marker row={row} />
+                ) : (
+                  <PlanCard row={row} isAdmin={viewer.isAdmin === true} focused={isFocused(row.id)} onOpenRoom={onOpenRoom} />
+                )}
               </Fragment>
             ))}
           </div>

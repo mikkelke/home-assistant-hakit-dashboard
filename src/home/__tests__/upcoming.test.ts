@@ -137,6 +137,23 @@ describe('next chip and live identity', () => {
     expect(nextTimedItem(alarmOff)).toBeNull();
   });
 
+  it('never offers the sun or quiet hours, which are only markers', () => {
+    const items = readUpcoming(
+      reader({
+        ...evening,
+        'sensor.washer_state': entity('Off'),
+        'sensor.dishwasher_state': entity('Off'),
+        'sun.sun': entity('below_horizon', { next_rising: '2026-10-14T05:37:12+00:00', next_setting: '2026-10-14T16:13:29+00:00' }),
+        'input_datetime.quiet_hours_start': entity('22:00:00'),
+        'input_datetime.quiet_hours_end': entity('07:00:00'),
+      }),
+      EVENING_MS,
+      MIKKEL
+    );
+    expect(items.map(item => item.id)).toEqual(['wake', 'dryer', 'rober2']);
+    expect(nextTimedItem(items)?.id).toBe('wake');
+  });
+
   it('focuses a running appliance by its cycle start, so a link for an older cycle does not', () => {
     const items = readUpcoming(reader(evening), EVENING_MS, MIKKEL);
     const candidates = upcomingCandidates(items);

@@ -84,7 +84,8 @@ export interface UpcomingRober2 {
 
 export type UpcomingItem = UpcomingAppliance | UpcomingWake | UpcomingRober2;
 
-function parseClock(text: string | undefined): { hour: number; minute: number } | null {
+/** "HH:MM" or "HH:MM:SS"; null for anything else. */
+export function parseClock(text: string | undefined): { hour: number; minute: number } | null {
   const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(text?.trim() ?? '');
   if (!match) return null;
   const hour = Number(match[1]);

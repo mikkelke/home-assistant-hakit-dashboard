@@ -251,6 +251,12 @@ export const BEDROOM_SOLAR_SHADE_STATUS = 'sensor.bedroom_solar_shade_status';
  */
 export const HOUSE_EVENTS_ENTITY = 'sensor.house_events';
 
+// --- Quiet hours (time-only input_datetime helpers): AppDaemon's SonosNotifier speaks no announcement
+// inside them, and keeps 22:00-07:00 for a helper it cannot read. ---
+
+export const QUIET_HOURS_START_ENTITY = 'input_datetime.quiet_hours_start';
+export const QUIET_HOURS_END_ENTITY = 'input_datetime.quiet_hours_end';
+
 // --- Fire safety (AppDaemon `FireSafety` app, apps/safety/fire_safety.py) ---
 
 /** Published phase sensor: state = clear | pre_alarm | alarm | hushed | cooldown | offline. */

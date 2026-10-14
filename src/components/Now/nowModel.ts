@@ -1,7 +1,9 @@
 /** The rows of the `#now` timeline: what the house did, what runs now, and what comes next. Pure. */
 import { HOME_TIME_ZONE } from '../../config/plan';
+import type { ApplianceCycle } from '../../energy/applianceRun';
 import { homeDayKey, homeDayStartMs, nextHomeDayStartMs } from '../../energy/homeTime';
 import { houseEventKind, type HouseEpisode, type HouseEvent } from '../../home/houseEvents';
+import { isQuietAt, nextQuietStartMs, quietEndClock, type QuietHours } from '../../home/quietHours';
 import type { UpcomingAppliance, UpcomingItem } from '../../home/upcoming';
 import type { NowFocusKind } from '../../utils/navigation';
 
@@ -36,12 +38,24 @@ export interface PlanRow {
   areaId: string;
 }
 
+/** A thin marker after the NOW line: its time, an icon and one word. Nothing to tap, and never the
+ * next chip. */
+export interface MarkerRow {
+  type: 'marker';
+  id: 'sun:rise' | 'sun:set' | 'quiet';
+  atMs: number;
+  /** "HH:MM" the quiet hours end at; null for the sun. */
+  until: string | null;
+}
+
+export type FutureRow = PlanRow | MarkerRow;
+
 export interface NowTimeline {
   /** Oldest first. */
   past: PastRow[];
   running: RunningRow[];
   /** Soonest first; untimed last. */
-  plans: PlanRow[];
+  future: FutureRow[];
 }
 
 const AREA_BY_KIND: Partial<Record<NowFocusKind, string>> = {
@@ -70,7 +84,33 @@ export function episodeAreaId(episode: HouseEpisode): string | null {
 
 const isRestricted = (row: HouseEvent) => row.audience === 'admin' || row.audienceUsers != null;
 
-export function buildNowTimeline(episodes: readonly HouseEpisode[], upcoming: readonly UpcomingItem[]): NowTimeline {
+function sunMarker(id: 'sun:rise' | 'sun:set', iso: unknown, nowMs: number): MarkerRow[] {
+  const atMs = typeof iso === 'string' ? Date.parse(iso) : Number.NaN;
+  return atMs > nowMs ? [{ type: 'marker', id, atMs, until: null }] : [];
+}
+
+/** The next sunrise and sunset `sun.sun` names, and the start of the next quiet hours unless they are
+ * on now, which the NOW line says instead. A time not after `nowMs` gets no marker. */
+export function timelineMarkers(nextRising: unknown, nextSetting: unknown, quiet: QuietHours, nowMs: number): MarkerRow[] {
+  const quietRow: MarkerRow[] = isQuietAt(quiet, nowMs)
+    ? []
+    : [{ type: 'marker', id: 'quiet', atMs: nextQuietStartMs(quiet, nowMs), until: quietEndClock(quiet) }];
+  return [...sunMarker('sun:rise', nextRising, nowMs), ...sunMarker('sun:set', nextSetting, nowMs), ...quietRow];
+}
+
+/** Whether the running card may say the ETA falls in quiet hours: only for a running cycle whose ETA is
+ * known and still ahead. */
+export function etaInQuietHours(cycle: Pick<ApplianceCycle, 'status' | 'etaMs' | 'overrun'>, quiet: QuietHours): boolean {
+  return cycle.status === 'running' && cycle.etaMs != null && !cycle.overrun && isQuietAt(quiet, cycle.etaMs);
+}
+
+const byTime = (a: { atMs: number | null }, b: { atMs: number | null }) => (a.atMs ?? Infinity) - (b.atMs ?? Infinity) || 0;
+
+export function buildNowTimeline(
+  episodes: readonly HouseEpisode[],
+  upcoming: readonly UpcomingItem[],
+  markers: readonly MarkerRow[] = []
+): NowTimeline {
   const past = [...episodes].reverse().map(
     (episode): PastRow => ({
       type: 'past',
@@ -82,17 +122,18 @@ export function buildNowTimeline(episodes: readonly HouseEpisode[], upcoming: re
     })
   );
   const running: RunningRow[] = [];
-  const plans: PlanRow[] = [];
+  const future: FutureRow[] = [];
   for (const item of upcoming) {
     if (item.type === 'appliance') {
       running.push({ type: 'running', id: item.id, item, atMs: item.cycle.startMs, areaId: item.appliance.areaId });
     } else {
-      plans.push({ type: 'plan', id: item.id, item, atMs: item.atMs, areaId: item.areaId });
+      future.push({ type: 'plan', id: item.id, item, atMs: item.atMs, areaId: item.areaId });
     }
   }
-  running.sort((a, b) => (a.atMs ?? Infinity) - (b.atMs ?? Infinity));
-  plans.sort((a, b) => (a.atMs ?? Infinity) - (b.atMs ?? Infinity));
-  return { past, running, plans };
+  future.push(...markers);
+  running.sort(byTime);
+  future.sort(byTime);
+  return { past, running, future };
 }
 
 /** The kind a row's tone comes from. */
