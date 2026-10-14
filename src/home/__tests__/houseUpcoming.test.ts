@@ -69,6 +69,7 @@ describe('parseHouseUpcoming', () => {
       areaId: null,
       adminOnly: false,
       users: ['Kristine'],
+      skipNext: false,
     });
     expect(rain).toMatchObject({ areaId: 'living_room', adminOnly: false, users: null, chip: null });
     expect(ws90).toMatchObject({ atMs: null, adminOnly: true, users: null, areaId: 'rooftop' });
@@ -146,6 +147,16 @@ describe('who sees which row', () => {
     const unnamed: Record<string, unknown> = { ...ROWS[0] };
     delete unnamed.audience_users;
     expect(parse([unnamed])).toEqual([]);
+  });
+
+  it('keeps a row that asks to be passed over out of the next chip, but not out of sight', () => {
+    const drum = { ...ROWS[3], at: '2026-10-14T05:00:00+00:00', next: 'skip' };
+    const [skipped, other] = parse([drum, { ...drum, id: 'maint:other', next: 'show' }]);
+    expect(skipped.skipNext).toBe(true);
+    expect(isUpcomingFor(skipped, MIKKEL)).toBe(false);
+    expect(canViewerSeeUpcoming(skipped, MIKKEL)).toBe(true);
+    expect(other.skipNext).toBe(false);
+    expect(isUpcomingFor(other, MIKKEL)).toBe(true);
   });
 
   it('offers the next chip a named row only for the people it names', () => {

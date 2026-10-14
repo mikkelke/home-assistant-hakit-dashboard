@@ -96,6 +96,20 @@ describe('the next chip offers the soonest item of any kind', () => {
     expect(chip(nowMs, CLAUDIA, AFTERNOON_SUN, null, [train])?.itemId).toBe('sun:set');
   });
 
+  it('passes over a row timed at now that asks to be skipped', () => {
+    const nowMs = home(2026, 10, 14, 14, 0);
+    const drum = {
+      id: 'maint:washer:drum',
+      kind: 'maint',
+      at: new Date(nowMs).toISOString(),
+      title: 'Washer drum clean',
+      detail: 'Bomuld 90, empty + a little powder, cheapest now',
+      audience: 'admin',
+    };
+    expect(chip(nowMs, MIKKEL, AFTERNOON_SUN, null, [drum])?.itemId).toBe('maint:washer:drum');
+    expect(chip(nowMs, MIKKEL, AFTERNOON_SUN, null, [{ ...drum, next: 'skip' }])?.itemId).toBe('sun:set');
+  });
+
   it('never offers an untimed row, a disabled alarm or a row whose lease ran out', () => {
     const nowMs = home(2026, 10, 14, 14, 0);
     const maint = { id: 'maint:washer:drum', kind: 'maint', title: 'Washer drum clean', audience: 'admin' };

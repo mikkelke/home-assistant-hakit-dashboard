@@ -19,6 +19,8 @@ export interface HouseUpcomingRow {
   adminOnly: boolean;
   /** HA display names who see it besides admins. */
   users: string[] | null;
+  /** The next chip passes over it (`next: "skip"`): a row timed at now that can stay so for days. */
+  skipNext: boolean;
 }
 
 /** The publisher keeps at most this many rows. */
@@ -60,6 +62,7 @@ function parseRow(raw: unknown): HouseUpcomingRow | null {
     areaId: text(row.area),
     adminOnly,
     users: adminOnly ? null : users,
+    skipNext: row.next === 'skip',
   };
 }
 
@@ -85,8 +88,8 @@ export function canViewerSeeUpcoming(row: HouseUpcomingRow, viewer: HouseEventVi
   return !row.adminOnly && (row.users == null || names(row, viewer));
 }
 
-/** Whether the next chip may offer `row`: the viewer sees it, and a row that names people names
- * them, so an admin's chip never offers someone else's train. */
+/** Whether the next chip may offer `row`: the row does not ask to be passed over, the viewer sees it,
+ * and a row that names people names them, so an admin's chip never offers someone else's train. */
 export function isUpcomingFor(row: HouseUpcomingRow, viewer: HouseEventViewer): boolean {
-  return canViewerSeeUpcoming(row, viewer) && (row.users == null || names(row, viewer));
+  return !row.skipNext && canViewerSeeUpcoming(row, viewer) && (row.users == null || names(row, viewer));
 }
