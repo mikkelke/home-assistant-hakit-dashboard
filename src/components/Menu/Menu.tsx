@@ -31,7 +31,8 @@ export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy }: M
   const [isBatteryOverviewOpen, setIsBatteryOverviewOpen] = useState(false);
   const [isSmokeAlarmOpen, setIsSmokeAlarmOpen] = useState(false);
   const viewer = useViewer();
-  const showSmokeAlarm = viewer.isAdmin === true && !!entities?.[FIRE_SAFETY_SENSOR];
+  const isAdmin = viewer.isAdmin === true;
+  const showSmokeAlarm = isAdmin && !!entities?.[FIRE_SAFETY_SENSOR];
 
   const handleCloseBatteryOverview = useCallback(() => {
     setIsBatteryOverviewOpen(false);
@@ -113,12 +114,15 @@ export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy }: M
             <span>Energy</span>
           </button>
 
-          <div className='menu-divider' />
-
-          <button className='menu-item menu-item-battery' onClick={handleOpenBatteryOverview}>
-            <Icon icon='mdi:battery-outline' />
-            <span>Batteries</span>
-          </button>
+          {isAdmin && (
+            <>
+              <div className='menu-divider' />
+              <button className='menu-item menu-item-battery' onClick={handleOpenBatteryOverview}>
+                <Icon icon='mdi:battery-outline' />
+                <span>Batteries</span>
+              </button>
+            </>
+          )}
 
           {showSmokeAlarm && (
             <button className='menu-item' onClick={handleOpenSmokeAlarm}>
