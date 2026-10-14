@@ -1,0 +1,13 @@
+.ring-none {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 2.5rem 1rem;
+  font-size: 0.9rem;
+  color: rgba(235, 235, 245, 0.6);
+}
+.ring-none svg {
+  font-size: 2rem;
+}

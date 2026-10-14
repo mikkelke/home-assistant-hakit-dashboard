@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
@@ -12,6 +12,7 @@ import {
   houseEventLabel,
   parseHouseEvents,
   visibleHouseEvents,
+  type HouseEpisode,
 } from '../../home/houseEvents';
 import { MotionScopeContext, useMotionSlot } from '../../home/motionBudget';
 import { NOW_RESOLVE_GIVE_UP_MS, resolveNowFocus, type NowResolution } from '../../home/nowResolve';
@@ -23,6 +24,7 @@ import { useViewer } from '../../hooks/useViewer';
 import { formatKWh } from '../../utils/format';
 import type { NowFocus } from '../../utils/navigation';
 import { SkyStrip } from '../Home/LivingSky';
+import { LazyBoundary } from '../Lazy/LazyBoundary';
 import {
   buildNowTimeline,
   dayBreaks,
@@ -35,6 +37,8 @@ import {
   type RunningRow,
 } from './nowModel';
 import './NowView.css';
+
+const RingSheet = lazy(() => import('../Intercom/RingSheet'));
 
 /** How long a focused item keeps its ring, in ms; its glow plays three times within it. */
 const FOCUS_MS = 10_000;
@@ -66,22 +70,25 @@ function RowShell({ id, time, tone, focused, className = '', children }: RowShel
   );
 }
 
-/** A row's body: a tap opens the room that owns it, when one does. */
+/** A row's body: a tap runs `onTap` when given, else opens the room that owns the row, when one does. */
 function RowBody({
   areaId,
   onOpenRoom,
+  onTap,
   className,
   label,
   children,
 }: {
   areaId: string | null;
   onOpenRoom: (areaId: string) => void;
+  onTap?: () => void;
   className: string;
   label: string;
   children: ReactNode;
 }) {
-  return areaId ? (
-    <button type='button' className={`${className} is-link`} onClick={() => onOpenRoom(areaId)} aria-label={label}>
+  const open = onTap ?? (areaId ? () => onOpenRoom(areaId) : null);
+  return open ? (
+    <button type='button' className={`${className} is-link`} onClick={open} aria-label={label}>
       {children}
     </button>
   ) : (
@@ -96,11 +103,13 @@ function PastEpisode({
   age,
   focused,
   onOpenRoom,
+  onOpenRing,
 }: {
   row: PastRow;
   age: number;
   focused: boolean;
   onOpenRoom: (areaId: string) => void;
+  onOpenRing: (episode: HouseEpisode) => void;
 }) {
   const rows = row.episode.rows;
   const first = rows[0];
@@ -108,6 +117,7 @@ function PastEpisode({
   const cause = first.cause;
   const effectText = cause ? (houseEventLabel(last) ?? last.effect ?? last.text) : first.text;
   const by = rows.find(event => event.by)?.by;
+  const ring = row.episode.kind === 'ring';
   return (
     <RowShell
       id={row.id}
@@ -119,7 +129,8 @@ function PastEpisode({
       <RowBody
         areaId={row.areaId}
         onOpenRoom={onOpenRoom}
-        className='now-body'
+        onTap={ring ? () => onOpenRing(row.episode) : undefined}
+        className={ring ? 'now-body is-ring' : 'now-body'}
         label={[cause, last.effect ?? last.text].filter(Boolean).join(', ')}
       >
         {cause && (
@@ -359,6 +370,10 @@ export function NowView({ focus, itemId, arrival, onBack, onOpenRoom }: NowViewP
   const quiet = useMemo(() => readQuietHours(quietStart, quietEnd), [quietStart, quietEnd]);
   const markers = useMemo(() => timelineMarkers(nextRising, nextSetting, quiet, nowMs), [nextRising, nextSetting, quiet, nowMs]);
   const timeline = useMemo(() => buildNowTimeline(episodes, upcoming, markers), [episodes, upcoming, markers]);
+  // A ring tapped elsewhere in the app, such as in the ticker, opens the timeline on its row with its sheet up.
+  const [ring, setRing] = useState<HouseEpisode | null>(() =>
+    arrival === 'warm' && itemId ? (episodes.find(episode => episode.id === itemId && episode.kind === 'ring') ?? null) : null
+  );
 
   const [gaveUp, setGaveUp] = useState(false);
   useEffect(() => {
@@ -443,7 +458,13 @@ export function NowView({ focus, itemId, arrival, onBack, onOpenRoom }: NowViewP
             {timeline.past.map((row, index) => (
               <div key={row.id} className='now-group'>
                 {pastBreaks[index] && <div className='now-day'>{pastBreaks[index]}</div>}
-                <PastEpisode row={row} age={timeline.past.length - 1 - index} focused={isFocused(row.id)} onOpenRoom={onOpenRoom} />
+                <PastEpisode
+                  row={row}
+                  age={timeline.past.length - 1 - index}
+                  focused={isFocused(row.id)}
+                  onOpenRoom={onOpenRoom}
+                  onOpenRing={setRing}
+                />
               </div>
             ))}
             {timeline.running.map(row => (
@@ -464,6 +485,11 @@ export function NowView({ focus, itemId, arrival, onBack, onOpenRoom }: NowViewP
           <div ref={spacerRef} aria-hidden='true' />
         </div>
       </section>
+      {ring && (
+        <LazyBoundary fallback={null} error={null}>
+          <RingSheet episode={ring} onClose={() => setRing(null)} />
+        </LazyBoundary>
+      )}
     </MotionScopeContext.Provider>,
     document.body
   );

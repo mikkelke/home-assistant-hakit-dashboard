@@ -1,8 +1,8 @@
 /**
  * Navigation check for the #now timeline in headless Chromium: a cold link into a fresh tab, a reload
- * on it, a row's room over the timeline (reached again by Forward and after a reload), Back, Forward,
- * opening and leaving the timeline in the app, and a link arriving while a modal is open. Exits
- * non-zero when any check fails.
+ * on it, a ring row's sheet over the timeline, a row's room over the timeline (reached again by Forward
+ * and after a reload), Back, Forward, opening and leaving the timeline in the app, and a link arriving
+ * while a modal is open. Exits non-zero when any check fails.
  *
  *   HA_TOKEN=... CHROME_PATH=... node scripts/now-history-check.ts \
  *     --url https://<home assistant>/local/<folder>/index.html --link '#now=washer-<epoch s>' [--framed]
@@ -158,7 +158,29 @@ try {
   state = await snapshot();
   check('a reload on the link adds no entry', state.length, 2);
 
-  await page.eval(`${query('.now-body.is-link, .now-card.is-link')}.click()`);
+  if (await page.eval<boolean>(`!!${query('.now-body.is-ring')}`)) {
+    await page.eval(`${query('.now-body.is-ring')}.click()`);
+    await page.until('the ring sheet', query('.doorbell-photo'));
+    state = await snapshot();
+    check(
+      'a ring row opens its sheet as one entry over the timeline',
+      { length: state.length, hash: state.hash },
+      { length: 3, hash: link }
+    );
+    await page.eval('history.back()');
+    await page.until('the timeline after closing the ring sheet', `${query('.now-view')} && !${query('.doorbell-photo')}`);
+    await sleep(800);
+    state = await snapshot();
+    check(
+      'Back closes the ring sheet and keeps the timeline',
+      { hash: state.hash, now: state.now, marker: state.marker },
+      { hash: link, now: true, marker: 'grid' }
+    );
+  } else {
+    console.log('skip the ring sheet: no ring row in the feed');
+  }
+
+  await page.eval(`${query('.now-body.is-link:not(.is-ring), .now-card.is-link')}.click()`);
   await page.until('a room opened from the timeline', `${query('.room-detail')} && location.hash.startsWith('#room=')`);
   state = await snapshot();
   check('a row opens its room as one entry over the timeline', { length: state.length, now: state.now }, { length: 3, now: false });

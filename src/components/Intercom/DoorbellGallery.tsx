@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { useModalBackButton, useSwipeToClose } from '../../hooks';
@@ -16,16 +16,24 @@ function RingTag({ eventType }: { eventType: string | undefined }) {
   return <span className={`doorbell-tag ${tag.kind}`}>{tag.word}</span>;
 }
 
-/** Full-size viewer for one snapshot - a second portaled layer above the sheet with its own
- * back-button entry (distinct historyKey, so back closes the photo first, then the sheet).
- *
- * A ring with BOTH shows the clip BIG with the still beneath it, together (user
- * 2026-08-19: "when open the clip i can see the clip big and the image"). The still
- * is the ring moment - the station captures it at the ring itself - while the clip
- * starts at the recording dial, so the pair is who-rang plus what-happened on one
- * screen. Clip-only entries show the video alone; photo-only entries the still. */
-function DoorbellPhoto({ image, onClose }: { image: DoorbellImage; onClose: () => void }) {
-  const { requestClose } = useModalBackButton({ isOpen: true, onRequestClose: onClose, historyKey: 'doorbell-photo' });
+/** Full-size viewer layer for one ring: portaled above everything with its own back-button entry
+ * (distinct historyKey, so back closes the viewer first, then whatever is under it). */
+export function DoorbellViewer({
+  door,
+  eventType,
+  when,
+  historyKey,
+  onClose,
+  children,
+}: {
+  door: string | undefined;
+  eventType: string | undefined;
+  when: string;
+  historyKey: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const { requestClose } = useModalBackButton({ isOpen: true, onRequestClose: onClose, historyKey });
   const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestClose);
   return createPortal(
     <>
@@ -37,34 +45,64 @@ function DoorbellPhoto({ image, onClose }: { image: DoorbellImage; onClose: () =
           </span>
           <div className='doorbell-sheet-title'>
             <span className='main'>
-              {doorWord(image.door) || 'Ring'}
-              <RingTag eventType={image.event_type} />
+              {doorWord(door) || 'Ring'}
+              <RingTag eventType={eventType} />
             </span>
-            <span className='sub'>{formatRingTime(image)}</span>
+            <span className='sub'>{when}</span>
           </div>
           <button type='button' className='doorbell-close modal-close-button' onClick={requestClose} aria-label='Close'>
             <Icon icon='mdi:close' aria-hidden='true' />
           </button>
         </div>
-        <div className='doorbell-photo-content'>
-          {image.clip_url ? (
-            <div className='doorbell-media'>
-              <video controls autoPlay playsInline poster={image.url || undefined} src={image.clip_url} />
-              {image.url && (
-                <img
-                  className='doorbell-media-still'
-                  src={image.url}
-                  alt={`Ring moment at the ${image.door || 'door'}, ${formatRingTime(image)}`}
-                />
-              )}
-            </div>
-          ) : (
-            <img src={image.url} alt={`Ring at the ${image.door || 'door'}, ${formatRingTime(image)}`} />
-          )}
-        </div>
+        <div className='doorbell-photo-content'>{children}</div>
       </div>
     </>,
     document.body
+  );
+}
+
+/** A ring's snapshot and clip.
+ *
+ * A ring with BOTH shows the clip BIG with the still beneath it, together (user
+ * 2026-08-19: "when open the clip i can see the clip big and the image"). The still
+ * is the ring moment - the station captures it at the ring itself - while the clip
+ * starts at the recording dial, so the pair is who-rang plus what-happened on one
+ * screen. Clip-only entries show the video alone; photo-only entries the still.
+ *
+ * Without autoPlay the clip waits for a tap and shows its own first frame meanwhile:
+ * #t=0.1 makes Safari paint one. */
+export function DoorbellMedia({ image, autoPlay }: { image: DoorbellImage; autoPlay: boolean }) {
+  return image.clip_url ? (
+    <div className='doorbell-media'>
+      {autoPlay ? (
+        <video controls autoPlay playsInline poster={image.url || undefined} src={image.clip_url} />
+      ) : (
+        <video controls playsInline preload='metadata' src={`${image.clip_url}#t=0.1`} />
+      )}
+      {image.url && (
+        <img
+          className='doorbell-media-still'
+          src={image.url}
+          alt={`Ring moment at the ${image.door || 'door'}, ${formatRingTime(image)}`}
+        />
+      )}
+    </div>
+  ) : (
+    <img src={image.url} alt={`Ring at the ${image.door || 'door'}, ${formatRingTime(image)}`} />
+  );
+}
+
+function DoorbellPhoto({ image, onClose }: { image: DoorbellImage; onClose: () => void }) {
+  return (
+    <DoorbellViewer
+      door={image.door}
+      eventType={image.event_type}
+      when={formatRingTime(image)}
+      historyKey='doorbell-photo'
+      onClose={onClose}
+    >
+      <DoorbellMedia image={image} autoPlay />
+    </DoorbellViewer>
   );
 }
 
