@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { PLAN_APPLIANCES } from '../../config/plan';
 import { homeWallTime } from '../homeTime';
-import { SLOT_TOP_DEVICES, slotDevices, slotEndMs } from '../hourDevices';
+import { SLOT_TOP_DEVICES, deviceIcon, slotDevices, slotEndMs } from '../hourDevices';
 import type { DevicePref, StatisticsResponse, StatisticValue } from '../types';
 import { HOUR_MS, MINUTE_MS, home } from './testUtils';
 
@@ -98,6 +99,143 @@ describe('slotDevices', () => {
     expect(slotDevices(prefs, {}, 'day', at(0), 1)).toBeNull();
     expect(slotDevices(prefs, { oven: rows(at(0), [1]), fridge: [] }, 'day', at(1), 1)).toBeNull();
     expect(slotDevices(prefs, { unknown: rows(at(0), [1]) }, 'day', at(0), 1)).toBeNull();
+  });
+});
+
+describe('slotDevices kr', () => {
+  const day = home(2026, 10, 13);
+  const at = (h: number) => day + h * HOUR_MS;
+  const price = 2.5;
+  // Eight top-level devices use 2,54 kWh; the grid says 3 kWh, so 0,46 kWh is unmetered.
+  const response = hour(at(9), {
+    relay: 0.08,
+    server: 0.05,
+    oven: 1.2,
+    fridge: 0.03,
+    washer: 0.5,
+    dryer: 0.6,
+    tv: 0.02,
+    lamp: 0.01,
+    kettle: 0.1,
+  });
+  const totalKWh = 3;
+  const costs = (devices: { costKr: number | null }[]) => devices.map(device => device.costKr);
+
+  it("prices each device at the hour's price", () => {
+    const slot = slotDevices(prefs, response, 'day', at(9), totalKWh, price)!;
+    expect(names(slot.top)).toEqual(['Oven', 'Dryer', 'Washer', 'Kettle', 'Technical relay']);
+    costs(slot.top).forEach((cost, i) => expect(cost).toBeCloseTo(slot.top[i].kWh * price));
+    expect(slot.top[0].costKr).toBeCloseTo(3);
+    expect(slot.top.every(device => device.costExact)).toBe(true);
+  });
+
+  it('prices the more row and the unmetered row the same way', () => {
+    const slot = slotDevices(prefs, response, 'day', at(9), totalKWh, price)!;
+    expect(names(slot.more)).toEqual(['Fridge', 'TV', 'Lamp']);
+    expect(slot.moreKWh).toBeCloseTo(0.06);
+    expect(slot.moreCostKr).toBeCloseTo(0.15);
+    expect(slot.unmeteredKWh).toBeCloseTo(0.46);
+    expect(slot.unmeteredCostKr).toBeCloseTo(1.15);
+    expect(costs(slot.more)).toEqual(slot.more.map(device => device.kWh * price));
+  });
+
+  it("adds up to the slot's kWh times the hour's price, the header's kr, a child meter counted once inside its parent", () => {
+    const slot = slotDevices(prefs, response, 'day', at(9), totalKWh, price)!;
+    const rowsKr = [...costs(slot.top), slot.moreCostKr, slot.unmeteredCostKr].reduce<number>((sum, kr) => sum + (kr ?? NaN), 0);
+    expect(rowsKr).toBeCloseTo(totalKWh * price);
+  });
+
+  it("prices the in-progress hour's 5-minute rows at its price", () => {
+    const partial = { oven: [...rows(at(1), [0.5]), ...rows(at(2), [0.05, 0.05, 0.04], 5 * MINUTE_MS)] };
+    expect(slotDevices(prefs, partial, 'day', at(2), 0.14, 2)!.top[0].costKr).toBeCloseTo(0.28);
+  });
+
+  it('keeps a free hour at 0 kr rather than leaving kr out', () => {
+    const slot = slotDevices(prefs, response, 'day', at(9), totalKWh, 0)!;
+    expect(costs(slot.top)).toEqual([0, 0, 0, 0, 0]);
+    expect([slot.moreCostKr, slot.unmeteredCostKr]).toEqual([0, 0]);
+  });
+
+  it('leaves kr out without a price', () => {
+    for (const slot of [
+      slotDevices(prefs, response, 'day', at(9), totalKWh)!,
+      slotDevices(prefs, response, 'day', at(9), totalKWh, null)!,
+    ]) {
+      expect(costs([...slot.top, ...slot.more])).toEqual(Array(8).fill(null));
+      expect([slot.moreCostKr, slot.unmeteredCostKr]).toEqual([null, null]);
+      expect(slot.top.some(device => device.costExact)).toBe(false);
+      expect(slot.unmeteredKWh).toBeCloseTo(0.46);
+    }
+  });
+
+  it('leaves kr out of a day or month slot, which spans hours at different prices, even given a price', () => {
+    const days = { oven: rows(home(2026, 10, 1), [2, 3, 4], 24 * HOUR_MS), fridge: rows(home(2026, 10, 1), [0.5, 0.6, 0.7], 24 * HOUR_MS) };
+    const months = {
+      oven: [{ start: home(2026, 10, 1), end: home(2026, 11, 1), change: 60 }],
+      fridge: [{ start: home(2026, 10, 1), end: home(2026, 11, 1), change: 9 }],
+    };
+    const slots = [
+      slotDevices(prefs, days, 'week', home(2026, 10, 2), 3.7, price)!,
+      slotDevices(prefs, days, 'month', home(2026, 10, 2), 4, price)!,
+      slotDevices(prefs, months, 'year', home(2026, 10, 1), 70, price)!,
+    ];
+    for (const slot of slots) {
+      expect(slot.top).toHaveLength(2);
+      expect(costs(slot.top)).toEqual([null, null]);
+      expect(slot.top.some(device => device.costExact)).toBe(false);
+      expect(slot.unmeteredKWh).toBeGreaterThan(0);
+      expect([slot.moreCostKr, slot.unmeteredCostKr]).toEqual([null, null]);
+    }
+  });
+});
+
+describe('deviceIcon', () => {
+  const device = (statId: string, powerEntityId?: string): DevicePref => ({ statId, name: statId, powerEntityId });
+  const devices: DevicePref[] = [
+    device('sensor.oven_plug_switch_0_energy', 'sensor.oven_plug_switch_0_power'),
+    device('sensor.hotplate_power_monitor_total_active_energy', 'sensor.hotplate_power_monitor_total_active_power'),
+    device('sensor.microwave_plug_energy', 'sensor.microwave_plug_power'),
+    device('sensor.fridge_plug_energy', 'sensor.fridge_plug_power'),
+    device('sensor.wine_fridge_energy', 'sensor.wine_fridge_power'),
+    device('sensor.living_room_tv_relay_energy', 'sensor.living_room_tv_relay_power'),
+    device('sensor.bedroom_tv_relay_energy', 'sensor.bedroom_tv_relay_power'),
+    device('sensor.technical_relay_energy', 'sensor.technical_relay_power'),
+    device('sensor.washer_plug_energy', 'sensor.washer_plug_power'),
+    device('sensor.athom_smart_plug_v3_50ec44_energy', 'sensor.athom_smart_plug_v3_50ec44_power'),
+    device('sensor.dryer_plug_energy', 'sensor.dryer_plug_power'),
+    device('sensor.small_lamp_device_energy', 'sensor.small_lamp_device_power'),
+    device('sensor.claudias_room_string_lights_energy'),
+  ];
+  const icon = (statId: string) => deviceIcon(devices, statId);
+
+  it('gives the clear cases their own icon', () => {
+    expect(icon('sensor.oven_plug_switch_0_energy')).toBe('mdi:toaster-oven');
+    expect(icon('sensor.hotplate_power_monitor_total_active_energy')).toBe('mdi:stove');
+    expect(icon('sensor.microwave_plug_energy')).toBe('mdi:microwave');
+    expect(icon('sensor.fridge_plug_energy')).toBe('mdi:fridge');
+    expect(icon('sensor.wine_fridge_energy')).toBe('mdi:fridge');
+    expect(icon('sensor.living_room_tv_relay_energy')).toBe('mdi:television');
+    expect(icon('sensor.bedroom_tv_relay_energy')).toBe('mdi:television');
+    expect(icon('sensor.technical_relay_energy')).toBe('mdi:server-network');
+  });
+
+  it('takes the washer, dishwasher and dryer icons from the plan config', () => {
+    const appliances = {
+      washer: 'sensor.washer_plug_energy',
+      dishwasher: 'sensor.athom_smart_plug_v3_50ec44_energy',
+      dryer: 'sensor.dryer_plug_energy',
+    };
+    for (const [key, statId] of Object.entries(appliances)) {
+      const planIcon = PLAN_APPLIANCES.find(appliance => appliance.key === key)?.icon;
+      expect(planIcon).toBeTruthy();
+      expect(icon(statId)).toBe(planIcon);
+    }
+  });
+
+  it('leaves the rest to their room icon', () => {
+    expect(icon('sensor.small_lamp_device_energy')).toBeUndefined();
+    expect(icon('sensor.claudias_room_string_lights_energy')).toBeUndefined();
+    expect(icon('sensor.not_a_device_energy')).toBeUndefined();
   });
 });
 

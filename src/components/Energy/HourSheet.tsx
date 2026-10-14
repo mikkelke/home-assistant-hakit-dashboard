@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { useRegistryData } from '@hakit/core';
 import { useEnergyConfig, useEnergyDevices, type EnergyBar, type EnergyView, type Period } from '../../energy';
-import { slotDevices } from '../../energy/hourDevices';
+import { deviceIcon, slotDevices } from '../../energy/hourDevices';
 import { labelFor } from '../../energy/period';
 import { krValue } from '../../energy/planView';
 import { PRICE_BAND_LABEL, type BandedPricePoint, type PriceBand } from '../../energy/priceBands';
@@ -43,16 +43,21 @@ function usage(bar: EnergyBar): string {
   return `${krValue(bar.kWh, 2)} kWh · ${krValue(bar.costKr)} kr`;
 }
 
+/** A figure to two decimals, or "< 0,01" for what would round to nothing. */
+function amount(value: number): string {
+  return value > 0 && value < 0.005 ? `< ${krValue(0.01)}` : krValue(value, 2);
+}
+
 /** The devices that used power in the bar's slot, biggest first, then what no device accounts for. */
-function SlotDeviceList({ period, view, bar }: { period: Period; view: EnergyView; bar: EnergyBar }) {
+function SlotDeviceList({ period, view, bar, price }: { period: Period; view: EnergyView; bar: EnergyBar; price: number | null }) {
   const [all, setAll] = useState(false);
   const { config } = useEnergyConfig();
   const { rows, loading, refreshing, error, forceReload } = useEnergyDevices(period, view.startMs, view, true);
   const { areaOf, areas } = useRoomResolver();
   const registry = useRegistryData('entitiesRegistryDisplay');
   const slot = useMemo(
-    () => (config && rows ? slotDevices(config.devices, rows, period, bar.startMs, bar.kWh) : null),
-    [config, rows, period, bar]
+    () => (config && rows ? slotDevices(config.devices, rows, period, bar.startMs, bar.kWh, price) : null),
+    [config, rows, period, bar, price]
   );
 
   if (!slot) {
@@ -63,7 +68,10 @@ function SlotDeviceList({ period, view, bar }: { period: Period; view: EnergyVie
     );
   }
 
-  const body = (icon: string, name: string, kWh: number, barClassName = '') => (
+  const iconOf = (statId: string) =>
+    registry[statId]?.icon || deviceIcon(config?.devices ?? [], statId) || areas[areaOf(statId) ?? '']?.icon || 'mdi:flash-outline';
+
+  const body = (icon: string, name: string, kWh: number, costKr: number | null, barClassName = '') => (
     <>
       <span className='ev-ricon'>
         <Icon icon={icon} aria-hidden='true' />
@@ -75,7 +83,8 @@ function SlotDeviceList({ period, view, bar }: { period: Period; view: EnergyVie
         </span>
       </span>
       <span className='ev-rnum'>
-        <b>{kWh < 0.005 ? `< ${krValue(0.01)}` : krValue(kWh, 2)} kWh</b>
+        <b>{amount(kWh)} kWh</b>
+        {costKr != null && <small>{amount(costKr)} kr</small>}
       </span>
     </>
   );
@@ -84,20 +93,18 @@ function SlotDeviceList({ period, view, bar }: { period: Period; view: EnergyVie
     <div className='ev-list'>
       {(all ? [...slot.top, ...slot.more] : slot.top).map(device => (
         <div key={device.statId} className='ev-drow'>
-          {body(registry[device.statId]?.icon || areas[areaOf(device.statId) ?? '']?.icon || 'mdi:flash-outline', device.name, device.kWh)}
+          {body(iconOf(device.statId), device.name, device.kWh, device.costKr)}
         </div>
       ))}
       {!all && slot.more.length > 0 && (
         <button type='button' className='ev-drow' onClick={() => setAll(true)}>
-          {body(
-            'mdi:chevron-down',
-            `${slot.more.length} more`,
-            slot.more.reduce((sum, device) => sum + device.kWh, 0)
-          )}
+          {body('mdi:chevron-down', `${slot.more.length} more`, slot.moreKWh, slot.moreCostKr)}
         </button>
       )}
       {slot.unmeteredKWh > 0 && (
-        <div className='ev-drow'>{body('mdi:dots-horizontal', 'Unmetered', slot.unmeteredKWh, 'ev-rbar--untracked')}</div>
+        <div className='ev-drow'>
+          {body('mdi:dots-horizontal', 'Unmetered', slot.unmeteredKWh, slot.unmeteredCostKr, 'ev-rbar--untracked')}
+        </div>
       )}
     </div>
   );
@@ -190,7 +197,7 @@ export function HourSheet({ period, view, previous, slotMs, prices, todayStartMs
           </div>
         )}
 
-        {bar && <SlotDeviceList period={period} view={view} bar={bar} />}
+        {bar && <SlotDeviceList period={period} view={view} bar={bar} price={price} />}
       </div>
     </ApplianceSheet>
   );
