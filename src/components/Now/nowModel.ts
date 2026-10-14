@@ -3,9 +3,13 @@ import { HOME_TIME_ZONE } from '../../config/plan';
 import type { ApplianceCycle } from '../../energy/applianceRun';
 import { homeDayKey, homeDayStartMs, nextHomeDayStartMs } from '../../energy/homeTime';
 import { houseEventKind, type HouseEpisode, type HouseEvent } from '../../home/houseEvents';
-import { isQuietAt, nextQuietStartMs, quietEndClock, type QuietHours } from '../../home/quietHours';
+import type { HouseUpcomingKind, HouseUpcomingRow } from '../../home/houseUpcoming';
+import type { MarkerRow } from '../../home/markers';
+import { isQuietAt, type QuietHours } from '../../home/quietHours';
 import type { UpcomingAppliance, UpcomingItem } from '../../home/upcoming';
 import type { NowFocusKind } from '../../utils/navigation';
+
+export { timelineMarkers, type MarkerRow } from '../../home/markers';
 
 export interface PastRow {
   type: 'past';
@@ -38,17 +42,17 @@ export interface PlanRow {
   areaId: string;
 }
 
-/** A thin marker after the NOW line: its time, an icon and one word. Nothing to tap, and never the
- * next chip. */
-export interface MarkerRow {
-  type: 'marker';
-  id: 'sun:rise' | 'sun:set' | 'quiet';
-  atMs: number;
-  /** "HH:MM" the quiet hours end at; null for the sun. */
-  until: string | null;
+/** A `sensor.house_upcoming` card: maintenance, a train or a rain forecast. */
+export interface UpRow {
+  type: 'up';
+  id: string;
+  row: HouseUpcomingRow;
+  atMs: number | null;
 }
 
-export type FutureRow = PlanRow | MarkerRow;
+export type FutureRow = PlanRow | MarkerRow | UpRow;
+
+export const UP_TONES: Record<HouseUpcomingKind, string> = { rain: 'sky', train: 'mint', maint: 'slate' };
 
 export interface NowTimeline {
   /** Oldest first. */
@@ -84,20 +88,6 @@ export function episodeAreaId(episode: HouseEpisode): string | null {
 
 const isRestricted = (row: HouseEvent) => row.audience === 'admin' || row.audienceUsers != null;
 
-function sunMarker(id: 'sun:rise' | 'sun:set', iso: unknown, nowMs: number): MarkerRow[] {
-  const atMs = typeof iso === 'string' ? Date.parse(iso) : Number.NaN;
-  return atMs > nowMs ? [{ type: 'marker', id, atMs, until: null }] : [];
-}
-
-/** The next sunrise and sunset `sun.sun` names, and the start of the next quiet hours unless they are
- * on now, which the NOW line says instead. A time not after `nowMs` gets no marker. */
-export function timelineMarkers(nextRising: unknown, nextSetting: unknown, quiet: QuietHours, nowMs: number): MarkerRow[] {
-  const quietRow: MarkerRow[] = isQuietAt(quiet, nowMs)
-    ? []
-    : [{ type: 'marker', id: 'quiet', atMs: nextQuietStartMs(quiet, nowMs), until: quietEndClock(quiet) }];
-  return [...sunMarker('sun:rise', nextRising, nowMs), ...sunMarker('sun:set', nextSetting, nowMs), ...quietRow];
-}
-
 /** Whether the running card may say the ETA falls in quiet hours: only for a running cycle whose ETA is
  * known and still ahead. */
 export function etaInQuietHours(cycle: Pick<ApplianceCycle, 'status' | 'etaMs' | 'overrun'>, quiet: QuietHours): boolean {
@@ -109,7 +99,8 @@ const byTime = (a: { atMs: number | null }, b: { atMs: number | null }) => (a.at
 export function buildNowTimeline(
   episodes: readonly HouseEpisode[],
   upcoming: readonly UpcomingItem[],
-  markers: readonly MarkerRow[] = []
+  markers: readonly MarkerRow[] = [],
+  upRows: readonly HouseUpcomingRow[] = []
 ): NowTimeline {
   const past = [...episodes].reverse().map(
     (episode): PastRow => ({
@@ -130,7 +121,7 @@ export function buildNowTimeline(
       future.push({ type: 'plan', id: item.id, item, atMs: item.atMs, areaId: item.areaId });
     }
   }
-  future.push(...markers);
+  future.push(...markers, ...upRows.map((row): UpRow => ({ type: 'up', id: row.id, row, atMs: row.atMs })));
   running.sort(byTime);
   future.sort(byTime);
   return { past, running, future };

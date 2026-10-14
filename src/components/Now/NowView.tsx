@@ -2,7 +2,13 @@ import { Fragment, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState, 
 import { createPortal } from 'react-dom';
 import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
-import { HOUSE_EVENTS_ENTITY, QUIET_HOURS_END_ENTITY, QUIET_HOURS_START_ENTITY, SUN_ENTITY } from '../../config/entities';
+import {
+  HOUSE_EVENTS_ENTITY,
+  HOUSE_UPCOMING_ENTITY,
+  QUIET_HOURS_END_ENTITY,
+  QUIET_HOURS_START_ENTITY,
+  SUN_ENTITY,
+} from '../../config/entities';
 import { formatApplianceEta } from '../../energy/applianceRun';
 import { formatHomeClock } from '../../energy/homeTime';
 import {
@@ -14,8 +20,10 @@ import {
   visibleHouseEvents,
   type HouseEpisode,
 } from '../../home/houseEvents';
+import { canViewerSeeUpcoming, parseHouseUpcoming } from '../../home/houseUpcoming';
+import { MARKERS } from '../../home/markers';
 import { MotionScopeContext, useMotionSlot } from '../../home/motionBudget';
-import { NOW_RESOLVE_GIVE_UP_MS, resolveNowFocus, type NowResolution } from '../../home/nowResolve';
+import { NOW_RESOLVE_GIVE_UP_MS, resolveNowFocus, resolveNowItem, type NowResolution } from '../../home/nowResolve';
 import { isQuietAt, quietEndClock, readQuietHours, type QuietHours } from '../../home/quietHours';
 import { readUpcoming, upcomingCandidates, type UpcomingAppliance } from '../../home/upcoming';
 import { useNowMs } from '../../hooks/useNowMs';
@@ -31,10 +39,12 @@ import {
   etaInQuietHours,
   rowTone,
   timelineMarkers,
+  UP_TONES,
   type MarkerRow,
   type PastRow,
   type PlanRow,
   type RunningRow,
+  type UpRow,
 } from './nowModel';
 import './NowView.css';
 
@@ -230,16 +240,10 @@ function RunningCard({
   );
 }
 
-const MARKERS: Record<MarkerRow['id'], { icon: string; word: string; tone: string }> = {
-  'sun:rise': { icon: 'mdi:weather-sunset-up', word: 'Sunrise', tone: 'sun' },
-  'sun:set': { icon: 'mdi:weather-sunset-down', word: 'Sunset', tone: 'sun' },
-  quiet: { icon: 'mdi:volume-off', word: 'Quiet', tone: 'slate' },
-};
-
-function Marker({ row }: { row: MarkerRow }) {
+function Marker({ row, focused }: { row: MarkerRow; focused: boolean }) {
   const { icon, word, tone } = MARKERS[row.id];
   return (
-    <RowShell id={row.id} time={formatHomeClock(row.atMs)} tone={tone} focused={false} className='is-marker'>
+    <RowShell id={row.id} time={formatHomeClock(row.atMs)} tone={tone} focused={focused} className='is-marker'>
       <span className={`now-mark tone-${tone}`}>
         <Icon icon={icon} />
         {word}
@@ -314,6 +318,43 @@ function PlanCard({
   );
 }
 
+/** A `sensor.house_upcoming` row, drawn like the Rober2 card: no buttons, a tap opens its room. */
+function UpCard({ row, focused, onOpenRoom }: { row: UpRow; focused: boolean; onOpenRoom: (areaId: string) => void }) {
+  const up = row.row;
+  const tone = UP_TONES[up.kind];
+  return (
+    <RowShell id={row.id} time={up.atMs != null ? formatHomeClock(up.atMs) : null} tone={tone} focused={focused}>
+      <RowBody
+        areaId={up.areaId}
+        onOpenRoom={onOpenRoom}
+        className='now-card'
+        label={[up.title, up.detail, up.chip].filter(Boolean).join(', ')}
+      >
+        <span className='now-ph'>
+          <span className={`now-ico tone-${tone}`}>
+            <Icon icon={up.icon} />
+          </span>
+          <span className='now-pt'>
+            <b>
+              <span className='now-pt-name'>{up.title}</span>
+              {(up.adminOnly || up.users) && <Icon icon='mdi:eye-off-outline' className='now-adm' aria-label='Not everyone sees this' />}
+            </b>
+            {up.detail && <small>{up.detail}</small>}
+          </span>
+        </span>
+        {up.chip && (
+          <span className='now-statuses'>
+            <span className='now-status tone-rose'>
+              <Icon icon='mdi:alert-outline' />
+              {up.chip}
+            </span>
+          </span>
+        )}
+      </RowBody>
+    </RowShell>
+  );
+}
+
 function NowLine({ nowMs, missing, quietUntil }: { nowMs: number; missing: boolean; quietUntil: string | null }) {
   const pulsing = useMotionSlot('now-pulse', 'nowPulse', true);
   return (
@@ -369,7 +410,12 @@ export function NowView({ focus, itemId, arrival, onBack, onOpenRoom }: NowViewP
   const quietEnd = useHass(s => s.entities[QUIET_HOURS_END_ENTITY]?.state);
   const quiet = useMemo(() => readQuietHours(quietStart, quietEnd), [quietStart, quietEnd]);
   const markers = useMemo(() => timelineMarkers(nextRising, nextSetting, quiet, nowMs), [nextRising, nextSetting, quiet, nowMs]);
-  const timeline = useMemo(() => buildNowTimeline(episodes, upcoming, markers), [episodes, upcoming, markers]);
+  const upAttributes = entities[HOUSE_UPCOMING_ENTITY]?.attributes;
+  const upRows = useMemo(
+    () => parseHouseUpcoming(upAttributes, nowMs).filter(row => canViewerSeeUpcoming(row, viewer)),
+    [upAttributes, nowMs, viewer]
+  );
+  const timeline = useMemo(() => buildNowTimeline(episodes, upcoming, markers, upRows), [episodes, upcoming, markers, upRows]);
   // A ring tapped elsewhere in the app, such as in the ticker, opens the timeline on its row with its sheet up.
   const [ring, setRing] = useState<HouseEpisode | null>(() =>
     arrival === 'warm' && itemId ? (episodes.find(episode => episode.id === itemId && episode.kind === 'ring') ?? null) : null
@@ -383,11 +429,12 @@ export function NowView({ focus, itemId, arrival, onBack, onOpenRoom }: NowViewP
   // A hit is kept at once. A miss is not final before the wait is over: the store a warm link finds may
   // be stale, and the row it names can land a moment after the view opens.
   const candidates = useMemo(() => [...episodeCandidates(episodes), ...upcomingCandidates(upcoming)], [episodes, upcoming]);
-  const liveResolution = resolveNowFocus(focus, candidates, gaveUp, itemId);
+  const rowIds = useMemo(() => [...timeline.past, ...timeline.running, ...timeline.future].map(row => row.id), [timeline]);
+  const liveResolution = focus ? resolveNowFocus(focus, candidates, gaveUp, itemId) : resolveNowItem(itemId, rowIds, gaveUp);
   const [resolution, setResolution] = useState<NowResolution | null>(null);
   if (resolution == null && liveResolution.status !== 'pending') setResolution(liveResolution);
   const focusedId = resolution?.status === 'found' ? resolution.id : null;
-  const missing = resolution?.status === 'unavailable' && focus != null && canViewerSeeKind(focus.kind, viewer);
+  const missing = resolution?.status === 'unavailable' && (focus != null ? canViewerSeeKind(focus.kind, viewer) : itemId != null);
 
   const [focusShown, setFocusShown] = useState(true);
   useEffect(() => {
@@ -475,7 +522,9 @@ export function NowView({ focus, itemId, arrival, onBack, onOpenRoom }: NowViewP
               <Fragment key={row.id}>
                 {futureBreaks[index] && <div className='now-day'>{futureBreaks[index]}</div>}
                 {row.type === 'marker' ? (
-                  <Marker row={row} />
+                  <Marker row={row} focused={isFocused(row.id)} />
+                ) : row.type === 'up' ? (
+                  <UpCard row={row} focused={isFocused(row.id)} onOpenRoom={onOpenRoom} />
                 ) : (
                   <PlanCard row={row} isAdmin={viewer.isAdmin === true} focused={isFocused(row.id)} onOpenRoom={onOpenRoom} />
                 )}

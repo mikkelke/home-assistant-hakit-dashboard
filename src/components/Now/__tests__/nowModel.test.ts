@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { home } from '../../../energy/__tests__/testUtils';
 import { formatHomeClock } from '../../../energy/homeTime';
 import { houseEpisodes, parseHouseEvents, visibleHouseEvents, type HouseEventViewer } from '../../../home/houseEvents';
+import { parseHouseUpcoming } from '../../../home/houseUpcoming';
 import feed from '../../../home/__tests__/fixtures/house-events-2026-10-13.json';
 import { isQuietAt, readQuietHours } from '../../../home/quietHours';
 import { readUpcoming, type UpcomingAppliance, type UpcomingEntity } from '../../../home/upcoming';
@@ -160,6 +161,45 @@ const QUIET = readQuietHours('22:00:00', '07:00:00');
 /** `sun.sun` on the evening of 13.10.2026: the next sunrise and sunset are both tomorrow. */
 const RISING = '2026-10-14T05:37:12.410000+00:00';
 const SETTING = '2026-10-14T16:13:29.927374+00:00';
+
+describe('house_upcoming rows after the NOW line', () => {
+  const nowMs = home(2026, 10, 13, 21, 0);
+  const plans = readUpcoming(
+    id =>
+      ({
+        'input_boolean.wakeup_bedroom': entity('on'),
+        'input_datetime.wakeup_bedroom': entity('06:45:00'),
+        'vacuum.rober2': entity('docked'),
+        'input_boolean.rober2_clean_kitchen': entity('on'),
+      })[id],
+    nowMs,
+    MIKKEL
+  );
+  const upRows = parseHouseUpcoming(
+    {
+      expires: new Date(nowMs + 15 * 60_000).toISOString(),
+      rows: [
+        { id: 'rain:terrace', kind: 'rain', title: 'Rain forecast', at: new Date(home(2026, 10, 13, 21, 30)).toISOString() },
+        { id: 'maint:washer:drum', kind: 'maint', title: 'Washer drum clean', audience: 'admin' },
+      ],
+    },
+    nowMs
+  );
+
+  it('sorts timed rows in among the markers and plans, and untimed ones last after Rober2', () => {
+    const { future } = buildNowTimeline([], plans, timelineMarkers(RISING, SETTING, QUIET, nowMs), upRows);
+    expect(future.map(row => [row.type, row.id, row.atMs == null ? null : formatHomeClock(row.atMs)])).toEqual([
+      ['up', 'rain:terrace', '21:30'],
+      ['marker', 'quiet', '22:00'],
+      ['plan', 'wake', '06:45'],
+      ['marker', 'sun:rise', '07:37'],
+      ['marker', 'sun:set', '18:13'],
+      ['plan', 'rober2', null],
+      ['up', 'maint:washer:drum', null],
+    ]);
+    expect(future[0]).toEqual({ type: 'up', id: 'rain:terrace', row: upRows[0], atMs: home(2026, 10, 13, 21, 30) });
+  });
+});
 
 describe('markers after the NOW line', () => {
   const nowMs = home(2026, 10, 13, 19, 42);

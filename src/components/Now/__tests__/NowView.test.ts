@@ -34,8 +34,13 @@ vi.mock('@hakit/core', async () => {
     useSyncExternalStore(store.subscribe, () => selector(store.getState()));
   return { useHass: Object.assign(useHass, store) };
 });
-vi.mock('@iconify/react', () => ({ Icon: () => null }));
-vi.mock('home-assistant-js-websocket', () => ({ getUser: async () => ({ is_admin: true, name: 'Mikkel' }) }));
+vi.mock('@iconify/react', async () => {
+  const { createElement } = await import('react');
+  return { Icon: ({ icon, className }: { icon: string; className?: string }) => createElement('i', { 'data-icon': icon, className }) };
+});
+/** The HA user the viewer lookup returns; a new `connection` object makes the next view look it up again. */
+const user = vi.hoisted(() => ({ current: { is_admin: true, name: 'Mikkel' } }));
+vi.mock('home-assistant-js-websocket', () => ({ getUser: async () => user.current }));
 
 const { NowView } = await import('../NowView');
 
@@ -59,6 +64,7 @@ beforeEach(() => {
     disconnect() {}
     unobserve() {}
   } as unknown as typeof ResizeObserver;
+  user.current = { is_admin: true, name: 'Mikkel' };
   store.setState({ entities: houseEvents(before), connection: {} });
   root = createRoot(document.createElement('div'));
 });
@@ -176,5 +182,131 @@ describe('sun and quiet hours on the timeline', () => {
       store.setState({ entities: washer('21:50') });
     });
     expect(status()).toBe('Finish announcements on');
+  });
+});
+
+describe('rows from sensor.house_upcoming', () => {
+  const NOW = home(2026, 10, 14, 7, 0);
+  const iso = (ms: number) => new Date(ms).toISOString();
+  const upcoming = (expiresMs: number): Entities => ({
+    'sensor.house_upcoming': {
+      entity_id: 'sensor.house_upcoming',
+      state: iso(NOW),
+      attributes: {
+        expires: iso(expiresMs),
+        rows: [
+          {
+            id: 'train:kristine',
+            kind: 'train',
+            at: iso(home(2026, 10, 14, 7, 46)),
+            icon: 'mdi:train',
+            title: 'Train to Odense',
+            detail: '07:46, 08:02 +5',
+            chip: 'S-tog delayed',
+            audience_users: ['Kristine'],
+          },
+          {
+            id: 'rain:terrace',
+            kind: 'rain',
+            at: iso(home(2026, 10, 14, 9, 0)),
+            icon: 'mdi:weather-pouring',
+            title: 'Rain forecast',
+            detail: 'living-room terrace door open',
+            area: 'living_room',
+          },
+          {
+            id: 'maint:battery:sensor.ecowitt_battery_8351',
+            kind: 'maint',
+            icon: 'mdi:battery-alert-variant-outline',
+            title: 'Roof weather station',
+            detail: 'replace, 2x AA',
+            area: 'rooftop',
+            audience: 'admin',
+          },
+        ],
+      },
+    },
+    'sun.sun': {
+      entity_id: 'sun.sun',
+      state: 'above_horizon',
+      attributes: { next_rising: '2026-10-15T05:39:15+00:00', next_setting: '2026-10-14T16:13:29+00:00' },
+    },
+  });
+
+  async function openAs(name: string, isAdmin: boolean, props: { itemId?: string } = {}, expiresMs = NOW + 10 * 60_000) {
+    user.current = { is_admin: isAdmin, name };
+    vi.setSystemTime(NOW);
+    const opened: string[] = [];
+    store.setState({ entities: upcoming(expiresMs), connection: {} });
+    await act(async () => {
+      root.render(
+        createElement(NowView, {
+          key: `${name}:${props.itemId ?? ''}`,
+          focus: null,
+          itemId: props.itemId ?? null,
+          arrival: 'cold',
+          onBack: () => {},
+          onOpenRoom: areaId => opened.push(areaId),
+        })
+      );
+    });
+    return opened;
+  }
+
+  const cards = () =>
+    [...document.querySelectorAll('.now-ev:not(.is-marker):not(.is-past) .now-card')].map(card => ({
+      label: card.getAttribute('aria-label'),
+      restricted: card.querySelector('.now-adm') != null,
+    }));
+
+  it('shows Mikkel every card, the restricted ones marked', async () => {
+    await openAs('Mikkel', true);
+    expect(cards()).toEqual([
+      { label: 'Train to Odense, 07:46, 08:02 +5, S-tog delayed', restricted: true },
+      { label: 'Rain forecast, living-room terrace door open', restricted: false },
+      { label: 'Roof weather station, replace, 2x AA', restricted: true },
+    ]);
+  });
+
+  it('shows Kristine her train and the rain, and Claudia only the rain', async () => {
+    await openAs('Kristine', false);
+    expect(cards().map(card => card.label?.split(',')[0])).toEqual(['Train to Odense', 'Rain forecast']);
+    await openAs('Claudia', false);
+    expect(cards().map(card => card.label?.split(',')[0])).toEqual(['Rain forecast']);
+  });
+
+  it('opens the room of a tapped card and leaves cards without a room untappable', async () => {
+    const opened = await openAs('Mikkel', true);
+    const rain = document.querySelector<HTMLButtonElement>('[data-row-id="rain:terrace"] button');
+    await act(async () => rain?.click());
+    expect(opened).toEqual(['living_room']);
+    expect(document.querySelector('[data-row-id="train:kristine"] button')).toBeNull();
+  });
+
+  it('drops every card once the lease has run out', async () => {
+    await openAs('Mikkel', true, {}, NOW + 60_000);
+    expect(cards()).toHaveLength(3);
+    await act(async () => {
+      vi.setSystemTime(NOW + 90_000);
+      vi.advanceTimersByTime(30_000);
+    });
+    expect(cards()).toEqual([]);
+  });
+
+  it('opens on the exact row the next chip names, a marker included', async () => {
+    await openAs('Kristine', false, { itemId: 'train:kristine' });
+    expect(focused()).toBe('train:kristine');
+    await openAs('Claudia', false, { itemId: 'sun:set' });
+    expect(focused()).toBe('sun:set');
+    expect(missing()).toBe(false);
+  });
+
+  it('says the row is gone when the one the chip named has vanished', async () => {
+    await openAs('Claudia', false, { itemId: 'train:kristine' });
+    expect(focused()).toBeNull();
+    await act(async () => {
+      vi.advanceTimersByTime(NOW_RESOLVE_GIVE_UP_MS);
+    });
+    expect(missing()).toBe(true);
   });
 });
