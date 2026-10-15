@@ -162,6 +162,7 @@
 
 /* Transport */
 .sonos-transport {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -197,6 +198,26 @@
 }
 .sonos-tbtn--main svg {
   font-size: 1.5rem;
+}
+/* Out of the flow at the row's end: prev/play/next stay centred and never shift when it appears. */
+.sonos-tbtn--phone {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  margin-block: auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: rgba(235, 235, 245, 0.6);
+}
+.sonos-tbtn--phone::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+.sonos-tbtn--phone svg {
+  font-size: 1rem;
 }
 
 /* Strips - the seek strip's native range input still drags (HA app WebView + useSwipeToClose's

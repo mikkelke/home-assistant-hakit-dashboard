@@ -10,6 +10,8 @@ export interface HouseholdMember {
   sleepModeEntityId: string;
   /** HA area id of their room. Claudia's room is still the area `office`. */
   roomAreaId: string;
+  /** The Music Assistant player their phone registers as; it exists only while the MA app runs. */
+  phonePlayerEntityId?: string;
 }
 
 export const HOUSEHOLD: readonly HouseholdMember[] = [
@@ -19,6 +21,7 @@ export const HOUSEHOLD: readonly HouseholdMember[] = [
     personEntityId: 'person.mikkel',
     sleepModeEntityId: 'input_boolean.mikkel_sleep_mode',
     roomAreaId: 'bedroom',
+    phonePlayerEntityId: 'media_player.mikkels_phone',
   },
   {
     key: 'kristine',
@@ -35,6 +38,12 @@ export const HOUSEHOLD: readonly HouseholdMember[] = [
     roomAreaId: 'office',
   },
 ];
+
+/** The phone player of the member whose HA user display name is `userName`, ignoring case. */
+export function phonePlayerOf(userName: string | null | undefined): string | undefined {
+  const name = userName?.trim().toLowerCase();
+  return name ? HOUSEHOLD.find(member => member.name.toLowerCase() === name)?.phonePlayerEntityId : undefined;
+}
 
 /** An entity's state string, or undefined when it is missing. */
 export type StateReader = (entityId: string) => string | undefined;

@@ -6,7 +6,8 @@ import { RADIO_STATIONS } from '../../config/radio';
 import { PODCAST_FEEDS } from '../../config/podcasts';
 import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
 import { hapticTick } from '../../utils/haptics';
-import { useLocalStorageBoolean, useLongPress, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
+import { useLocalStorageBoolean, useLongPress, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard, useViewer } from '../../hooks';
+import { phonePlayerOf } from '../../home/household';
 import { VolumeStrip } from './VolumeStrip';
 import { isUnsettled, runningVolume, sendVolume, type SentVolume } from './sentVolume';
 import './SonosPlayer.css';
@@ -99,6 +100,7 @@ export function SonosPlayer({
   // Collapsed by default in the room-detail home (same pattern as TonightCard/HeatCard).
   const [collapsed, setCollapsed] = useLocalStorageBoolean('sonoscard-collapsed', true);
   const topSlop = useTouchScrollSlopGuard();
+  const viewer = useViewer();
   const [showGroupModal, setShowGroupModal] = useState(false);
   // The Source sheet: one pop-up with three faces - the source grid, the podcast feed list,
   // and a feed's episodes. Same manual back/history machinery the podcast modal always used.
@@ -744,6 +746,20 @@ export function SonosPlayer({
     callService({ domain: 'media_player', service: 'media_next_track', target: { entity_id: entityId } });
   };
 
+  const phoneId = phonePlayerOf(viewer.name);
+  const phoneState = phoneId ? entities?.[phoneId]?.state : undefined;
+  const canMoveToPhone = phoneState !== undefined && phoneState !== 'unavailable' && (state === 'playing' || state === 'paused');
+
+  const handleMoveToPhone = () => {
+    if (!callService || !phoneId) return;
+    callService({
+      domain: 'music_assistant',
+      service: 'transfer_queue',
+      target: { entity_id: phoneId },
+      serviceData: { source_player: masterId, auto_play: true },
+    });
+  };
+
   const handleVolumeChange = (speakerId: string, newVolume: number) => {
     if (!callService) return;
     callService({
@@ -1263,6 +1279,11 @@ export function SonosPlayer({
         <button type='button' className='sonos-tbtn' onClick={handleNext} aria-label='Next track'>
           <Icon icon='mdi:skip-next' aria-hidden='true' />
         </button>
+        {canMoveToPhone && (
+          <button type='button' className='sonos-tbtn sonos-tbtn--phone' onClick={handleMoveToPhone} aria-label='Move to this phone'>
+            <Icon icon='mdi:cellphone-arrow-down' aria-hidden='true' />
+          </button>
+        )}
       </div>
 
       {/* Seek – only for seekable content (not radio, not line-in) */}
