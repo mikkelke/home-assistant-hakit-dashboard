@@ -35,7 +35,7 @@ import { SkyStrip } from '../Home/LivingSky';
 import { LazyBoundary } from '../Lazy/LazyBoundary';
 import type { MapEntry } from '../Vacuum/maps';
 import { formatRoberRoomName } from '../Vacuum/rooms';
-import { mapEntryMs, roberRoomAreaId } from '../Vacuum/sessionRooms';
+import { mapEntryMs, roberRounds } from '../Vacuum/sessionRooms';
 import {
   buildNowTimeline,
   dayBreaks,
@@ -47,10 +47,12 @@ import {
   type MarkerRow,
   type PastRow,
   type PlanRow,
+  type RoomRow,
+  type RoundSpan,
   type RunningRow,
   type UpRow,
 } from './nowModel';
-import { useSessionRooms } from './useSessionRooms';
+import { useRoberMaps } from './useRoberMaps';
 import './NowView.css';
 
 const RingSheet = lazy(() => import('../Intercom/RingSheet'));
@@ -114,28 +116,45 @@ function RowBody({
   );
 }
 
-/** The rooms a Rober2 round cleaned, in cleaning order: a tap opens that room's map. */
-function RoomChips({ maps, tone, onOpenMap }: { maps: MapEntry[]; tone: string; onOpenMap: (maps: MapEntry[], index: number) => void }) {
-  const areas = useHass(s => s.areas);
+/** The classes that draw a row's piece of a Rober2 round's line. */
+function roundClass(round: RoundSpan | null): string {
+  return round == null ? '' : round === 'inner' ? 'in-round' : `in-round round-${round}`;
+}
+
+/** A room a Rober2 round cleaned: a tap opens the room, and its map button that room's map, from which the sheet steps
+ * through the round's other rooms. */
+function CleanedRoom({
+  row,
+  age,
+  focused,
+  onOpenRoom,
+  onOpenMap,
+}: {
+  row: RoomRow;
+  age: number;
+  focused: boolean;
+  onOpenRoom: (areaId: string) => void;
+  onOpenMap: (maps: MapEntry[], index: number) => void;
+}) {
+  const name = formatRoberRoomName(row.map.room) ?? '';
   return (
-    <span className='now-rooms'>
-      {maps.map((map, index) => {
-        const name = formatRoberRoomName(map.room) ?? map.room;
-        const areaId = roberRoomAreaId(map.room);
-        return (
-          <button
-            key={map.filename}
-            type='button'
-            className={`now-room tone-${tone}`}
-            onClick={() => onOpenMap(maps, index)}
-            aria-label={`${name} map`}
-          >
-            <Icon icon={(areaId && areas?.[areaId]?.icon) || 'mdi:map-outline'} />
-            {name}
-          </button>
-        );
-      })}
-    </span>
+    <RowShell
+      id={row.id}
+      time={formatHomeClock(row.atMs)}
+      tone='green'
+      focused={focused}
+      className={`is-past is-room age-${Math.min(age, 3)} ${roundClass(row.round)}`}
+    >
+      <RowBody areaId={row.areaId} onOpenRoom={onOpenRoom} className='now-body' label={`${name} cleaned`}>
+        <span className='now-chip tone-green'>
+          <Icon icon='mdi:robot-vacuum' />
+          <span className='now-chip-text'>{name} cleaned</span>
+        </span>
+      </RowBody>
+      <button type='button' className='now-map' onClick={() => onOpenMap(row.maps, row.index)} aria-label={`${name} map`}>
+        <Icon icon='mdi:map-outline' />
+      </button>
+    </RowShell>
   );
 }
 
@@ -143,18 +162,14 @@ function PastEpisode({
   row,
   age,
   focused,
-  rooms,
   onOpenRoom,
   onOpenRing,
-  onOpenMap,
 }: {
   row: PastRow;
   age: number;
   focused: boolean;
-  rooms: MapEntry[] | undefined;
   onOpenRoom: (areaId: string) => void;
   onOpenRing: (episode: HouseEpisode) => void;
-  onOpenMap: (maps: MapEntry[], index: number) => void;
 }) {
   const rows = row.episode.rows;
   const first = rows[0];
@@ -169,7 +184,7 @@ function PastEpisode({
       time={formatHomeClock(row.atMs)}
       tone={rowTone(first)}
       focused={focused}
-      className={`is-past age-${Math.min(age, 3)}`}
+      className={`is-past age-${Math.min(age, 3)} ${roundClass(row.round)}`}
     >
       <RowBody
         areaId={row.areaId}
@@ -198,7 +213,6 @@ function PastEpisode({
           </span>
         </span>
       </RowBody>
-      {rooms && <RoomChips maps={rooms} tone={rowTone(last)} onOpenMap={onOpenMap} />}
     </RowShell>
   );
 }
@@ -457,12 +471,16 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
     () => parseHouseUpcoming(upAttributes, nowMs).filter(row => canViewerSeeUpcoming(row, viewer)),
     [upAttributes, nowMs, viewer]
   );
-  const timeline = useMemo(() => buildNowTimeline(episodes, upcoming, markers, upRows), [episodes, upcoming, markers, upRows]);
+  const roberMaps = useRoberMaps(episodes);
+  const rounds = useMemo(() => roberRounds(episodes, roberMaps), [episodes, roberMaps]);
+  const timeline = useMemo(
+    () => buildNowTimeline(episodes, upcoming, markers, upRows, rounds),
+    [episodes, upcoming, markers, upRows, rounds]
+  );
   // A ring tapped elsewhere in the app, such as in the ticker, opens the timeline on its row with its sheet up.
   const [ring, setRing] = useState<HouseEpisode | null>(() =>
     arrival === 'warm' && itemId ? (episodes.find(episode => episode.id === itemId && episode.kind === 'ring') ?? null) : null
   );
-  const sessionRooms = useSessionRooms(episodes);
   const [roomMaps, setRoomMaps] = useState<{ maps: MapEntry[]; index: number } | null>(null);
   const mapWhen = (map: MapEntry) => {
     const atMs = mapEntryMs(map);
@@ -560,15 +578,23 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
             {timeline.past.map((row, index) => (
               <div key={row.id} className='now-group'>
                 {pastBreaks[index] && <div className='now-day'>{pastBreaks[index]}</div>}
-                <PastEpisode
-                  row={row}
-                  age={timeline.past.length - 1 - index}
-                  focused={isFocused(row.id)}
-                  rooms={sessionRooms.get(row.id)}
-                  onOpenRoom={onOpenRoom}
-                  onOpenRing={setRing}
-                  onOpenMap={(maps, index) => setRoomMaps({ maps, index })}
-                />
+                {row.type === 'room' ? (
+                  <CleanedRoom
+                    row={row}
+                    age={timeline.past.length - 1 - index}
+                    focused={isFocused(row.id)}
+                    onOpenRoom={onOpenRoom}
+                    onOpenMap={(maps, index) => setRoomMaps({ maps, index })}
+                  />
+                ) : (
+                  <PastEpisode
+                    row={row}
+                    age={timeline.past.length - 1 - index}
+                    focused={isFocused(row.id)}
+                    onOpenRoom={onOpenRoom}
+                    onOpenRing={setRing}
+                  />
+                )}
               </div>
             ))}
             {timeline.running.map(row => (

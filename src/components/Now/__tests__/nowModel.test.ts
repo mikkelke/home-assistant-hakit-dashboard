@@ -6,7 +6,19 @@ import { parseHouseUpcoming } from '../../../home/houseUpcoming';
 import feed from '../../../home/__tests__/fixtures/house-events.json';
 import { isQuietAt, readQuietHours } from '../../../home/quietHours';
 import { readUpcoming, type UpcomingAppliance, type UpcomingEntity } from '../../../home/upcoming';
-import { buildNowTimeline, dayBreaks, dayLabel, episodeAreaId, etaInQuietHours, rowTone, timelineMarkers } from '../nowModel';
+import archive from '../../Vacuum/__tests__/fixtures/rober2-maps.json';
+import { roberRounds } from '../../Vacuum/sessionRooms';
+import {
+  buildNowTimeline,
+  dayBreaks,
+  dayLabel,
+  episodeAreaId,
+  etaInQuietHours,
+  rowTone,
+  timelineMarkers,
+  type PastRow,
+  type RoomRow,
+} from '../nowModel';
 
 const MIKKEL: HouseEventViewer = { isAdmin: true, name: 'Mikkel' };
 const KRISTINE: HouseEventViewer = { isAdmin: false, name: 'Kristine' };
@@ -40,9 +52,9 @@ describe('past rows from the fixture feed', () => {
   });
 
   it('marks rows only part of the household sees, and shows a housemate none of the admin ones', () => {
-    const mine = buildNowTimeline(episodesFor(MIKKEL), []).past;
+    const mine = buildNowTimeline(episodesFor(MIKKEL), []).past.filter(row => row.type === 'past');
     expect(mine.filter(row => row.restricted)).toHaveLength(11);
-    const hers = buildNowTimeline(episodesFor(KRISTINE), []).past;
+    const hers = buildNowTimeline(episodesFor(KRISTINE), []).past.filter(row => row.type === 'past');
     expect(hers.some(row => row.restricted)).toBe(false);
     expect(hers.some(row => row.episode.kind === 'wake')).toBe(false);
   });
@@ -65,6 +77,80 @@ describe('past rows from the fixture feed', () => {
     });
     expect(episodeAreaId(episode(['mdi:lock-open-variant']))).toBe('hallway');
     expect(episodeAreaId(episode(['mdi:lock-open-variant', 'mdi:television']))).toBeNull();
+  });
+});
+
+describe('the rooms of Rober2 rounds on the rail', () => {
+  const at = (iso: string) => Date.parse(iso);
+  const timelineFor = (viewer: HouseEventViewer) =>
+    buildNowTimeline(episodesFor(viewer), [], [], [], roberRounds(episodesFor(viewer), archive.maps)).past;
+  const describeRow = (row: PastRow | RoomRow) => [
+    formatHomeClock(row.atMs),
+    row.type === 'room' ? row.map.room : row.episode.rows[0].icon,
+    row.round,
+  ];
+  const span = (past: (PastRow | RoomRow)[], fromIso: string, toIso: string) =>
+    past.filter(row => row.atMs >= at(fromIso) && row.atMs <= at(toIso)).map(describeRow);
+
+  it('sit between the start and finish rows of their round, each at the time it was done, on one line', () => {
+    expect(span(timelineFor(KRISTINE), '2026-10-13T10:06:52.493+02:00', '2026-10-13T10:57:19.084+02:00')).toEqual([
+      ['10:06', 'mdi:robot-vacuum', 'first'],
+      ['10:11', 'hallway', 'inner'],
+      ['10:18', 'kitchen', 'inner'],
+      ['10:27', 'kitchen_2', 'inner'],
+      ['10:43', 'living_room', 'inner'],
+      ['10:57', 'dining_room', 'inner'],
+      ['10:57', 'mdi:robot-vacuum', 'last'],
+    ]);
+  });
+
+  it('step through their own round from the map sheet, and open the room they lie in', () => {
+    const past = timelineFor(KRISTINE);
+    const kitchen = past.find(row => row.id === 'rober2:rober2_map_20261013_102731_kitchen_2.png');
+    expect(kitchen?.type).toBe('room');
+    if (kitchen?.type !== 'room') return;
+    expect(kitchen.maps.map(map => map.room)).toEqual(['hallway', 'kitchen', 'kitchen_2', 'living_room', 'dining_room']);
+    expect([kitchen.index, kitchen.areaId]).toEqual([2, 'kitchen']);
+  });
+
+  it("put other rows that fell in a round on the round's line", () => {
+    expect(span(timelineFor(MIKKEL), '2026-10-12T12:49:27.035+02:00', '2026-10-12T14:38:02.716+02:00')).toEqual([
+      ['12:49', 'mdi:robot-vacuum', 'first'],
+      ['12:54', 'hallway', 'inner'],
+      ['13:01', 'mdi:speaker-multiple', 'inner'],
+      ['13:06', 'kitchen', 'inner'],
+      ['13:17', 'kitchen_2', 'inner'],
+      ['13:33', 'living_room', 'inner'],
+      ['14:05', 'mdi:speaker-multiple', 'inner'],
+      ['14:38', 'dining_room', 'inner'],
+      ['14:38', 'mdi:robot-vacuum', 'last'],
+    ]);
+  });
+
+  it('end the line of a round without an end row at its last room, and leave other rows off any line', () => {
+    const past = timelineFor(MIKKEL);
+    expect(span(past, '2026-10-14T00:00:00+02:00', '2026-10-15T00:00:00+02:00')).toEqual([
+      ['11:02', 'hallway', 'first'],
+      ['11:09', 'kitchen', 'inner'],
+      ['11:18', 'kitchen_2', 'inner'],
+      ['11:34', 'living_room', 'inner'],
+      ['11:49', 'dining_room', 'last'],
+    ]);
+    expect(past.filter(row => row.type === 'past' && row.episode.kind === 'ring').every(row => row.round == null)).toBe(true);
+  });
+
+  it('draw no line for a round of one row', () => {
+    const finish = {
+      ts: '2026-10-14T11:49:05.180+02:00',
+      icon: 'mdi:robot-vacuum',
+      text: 'x',
+      cause: 'All queued rooms cleaned',
+      effect: 'Vacuum finished its round - heading to the dock',
+    };
+    const episodes = houseEpisodes(parseHouseEvents([finish]));
+    expect(buildNowTimeline(episodes, [], [], [], roberRounds(episodes, [])).past.map(describeRow)).toEqual([
+      ['11:49', 'mdi:robot-vacuum', null],
+    ]);
   });
 });
 

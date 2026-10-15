@@ -1,54 +1,82 @@
-/** Which archived room maps belong to each Rober2 round that the house feed reports as finished. Pure. */
+/** The Rober2 rounds the house feed shows, and the rooms each cleaned by the archived room maps. Pure. */
 import { homeWallTimeToMs } from '../../energy/homeTime';
 import type { HouseEpisode, HouseEvent } from '../../home/houseEvents';
 import type { MapEntry } from './maps';
 
-/** How long after its finish row a round's last map may be saved. The app reports the finish first, then saves the
- * last room's map, giving its download 10 s. */
+/** How long after its finish or stop row a round's last map may be saved. The app reports the finish first, then saves
+ * the last room's map, giving its download 10 s. */
 export const SESSION_MAP_LAG_MS = 30_000;
 
-/** How far back from its finish row a round may reach when no earlier Rober2 row bounds it. Longer than an ordinary
- * round, and shorter than the gap to the maps of a round that was stopped and then restarted the same morning. */
-export const SESSION_LOOKBACK_MS = 90 * 60_000;
-
-/** One finished round: the episode of its finish row, and when its rooms' maps were saved. */
-export interface RoberSession {
-  episodeId: string;
-  fromMs: number;
-  toMs: number;
+/** One room the robot finished. */
+export interface RoberRoom {
+  map: MapEntry;
+  /** When the room was done: its map's save time, never after its round's finish or stop row, which the app writes
+   * before it saves the last room's map. */
+  atMs: number;
 }
 
-type Boundary = 'start' | 'finish' | 'stop';
+/** One Rober2 round: the episodes of its start row and of its finish or stop row, null where the feed shows none, and
+ * the rooms it cleaned, oldest first. */
+export interface RoberRound {
+  startId: string | null;
+  endId: string | null;
+  rooms: RoberRoom[];
+}
 
-/** The rober2 app's wording for a round starting, finishing, and being stopped by someone coming home or an error. */
+type Boundary = 'start' | 'end';
+
+/** The rober2 app's wording for a round starting, and for one ending: finished, or stopped by someone coming home or an
+ * error. */
 function boundaryOf(row: HouseEvent): Boundary | null {
   if (row.icon !== 'mdi:robot-vacuum') return null;
   if (row.effect === 'Vacuum starting its cleaning round') return 'start';
-  if (row.cause === 'All queued rooms cleaned') return 'finish';
-  if (row.effect?.startsWith('Vacuum stopped') || row.effect?.startsWith('Cleaning stopped')) return 'stop';
+  if (row.cause === 'All queued rooms cleaned' || row.effect?.startsWith('Vacuum stopped') || row.effect?.startsWith('Cleaning stopped')) {
+    return 'end';
+  }
   return null;
 }
 
-/** A round per finish row, oldest first. It starts at its start row; without one, just after the nearest earlier
- * finish or stop row, and never more than the lookback before its finish row. */
-export function roberSessions(episodes: readonly HouseEpisode[]): RoberSession[] {
-  const marks: { boundary: Boundary; atMs: number; episodeId: string }[] = [];
-  for (const episode of episodes) {
-    for (const row of episode.rows) {
+/** The rounds among `episodes`, oldest first, with a room for every map saved since the oldest episode began. A start
+ * row opens a round and a finish or stop row ends it, keeping the maps saved within the lag after it. A map saved while
+ * no round is open opens one without a start row, which the next finish or stop row ends. A stuck-robot snapshot is no
+ * room. */
+export function roberRounds(episodes: readonly HouseEpisode[], entries: readonly MapEntry[]): RoberRound[] {
+  if (episodes.length === 0) return [];
+  const fromMs = Math.min(...episodes.map(episode => episode.startMs));
+  const marks = episodes.flatMap(episode =>
+    episode.rows.flatMap(row => {
       const boundary = boundaryOf(row);
-      if (boundary) marks.push({ boundary, atMs: row.tsMs, episodeId: episode.id });
+      return boundary ? [{ atMs: row.tsMs, boundary, episode }] : [];
+    })
+  );
+  const passes = entries.flatMap(map => {
+    const atMs = mapEntryMs(map);
+    return atMs != null && atMs >= fromMs && map.room && !map.room.startsWith('stuck') ? [{ atMs, map }] : [];
+  });
+
+  const rounds: RoberRound[] = [];
+  let open: RoberRound | null = null;
+  let ended: { round: RoberRound; beforeMs: number; untilMs: number } | null = null;
+  for (const item of [...marks, ...passes].sort((a, b) => a.atMs - b.atMs)) {
+    if ('map' in item) {
+      if (ended && item.atMs <= ended.untilMs) {
+        ended.round.rooms.push({ map: item.map, atMs: Math.min(item.atMs, ended.beforeMs) });
+        continue;
+      }
+      if (!open) rounds.push((open = { startId: null, endId: null, rooms: [] }));
+      open.rooms.push({ map: item.map, atMs: item.atMs });
+    } else if (item.boundary === 'start') {
+      rounds.push((open = { startId: item.episode.id, endId: null, rooms: [] }));
+      ended = null;
+    } else {
+      const round: RoberRound = open ?? { startId: null, endId: null, rooms: [] };
+      if (!open) rounds.push(round);
+      round.endId = item.episode.id;
+      open = null;
+      ended = { round, beforeMs: item.episode.startMs, untilMs: item.atMs + SESSION_MAP_LAG_MS };
     }
   }
-  marks.sort((a, b) => a.atMs - b.atMs);
-  return marks.flatMap((mark, index) => {
-    if (mark.boundary !== 'finish') return [];
-    const previous = marks[index - 1];
-    const fromMs =
-      previous?.boundary === 'start'
-        ? previous.atMs
-        : Math.max(mark.atMs - SESSION_LOOKBACK_MS, previous ? previous.atMs + SESSION_MAP_LAG_MS : -Infinity);
-    return [{ episodeId: mark.episodeId, fromMs, toMs: mark.atMs + SESSION_MAP_LAG_MS }];
-  });
+  return rounds;
 }
 
 const WALL_DATETIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/;
@@ -62,31 +90,6 @@ export function mapEntryMs(entry: Pick<MapEntry, 'datetime' | 'timestamp'>): num
   const [year, month, day, hour, minute, second] = parts.slice(1, 7).map(Number);
   const millis = Number((parts[7] ?? '').padEnd(3, '0').slice(0, 3));
   return homeWallTimeToMs(year, month, day, hour, minute) + second * 1000 + millis;
-}
-
-/** The maps saved within the window, one per room (its newest), in cleaning order. A stuck-robot snapshot is no room. */
-export function roomsInWindow(entries: readonly MapEntry[], fromMs: number, toMs: number): MapEntry[] {
-  const timed = entries
-    .map(entry => ({ entry, atMs: mapEntryMs(entry) }))
-    .filter((item): item is { entry: MapEntry; atMs: number } => item.atMs != null && item.atMs >= fromMs && item.atMs <= toMs)
-    .sort((a, b) => a.atMs - b.atMs);
-  const byRoom = new Map<string, MapEntry>();
-  for (const { entry } of timed) {
-    if (!entry.room || entry.room.startsWith('stuck')) continue;
-    byRoom.delete(entry.room);
-    byRoom.set(entry.room, entry);
-  }
-  return [...byRoom.values()];
-}
-
-/** The room maps of each finished round, by the episode id of its finish row; rounds without maps are left out. */
-export function sessionRooms(sessions: readonly RoberSession[], entries: readonly MapEntry[]): Map<string, MapEntry[]> {
-  const out = new Map<string, MapEntry[]>();
-  for (const session of sessions) {
-    const rooms = roomsInWindow(entries, session.fromMs, session.toMs);
-    if (rooms.length > 0) out.set(session.episodeId, rooms);
-  }
-  return out;
 }
 
 /** The HA area a Rober2 room lies in: both kitchen sides are the kitchen, and Claudia's room is still the area `office`. */

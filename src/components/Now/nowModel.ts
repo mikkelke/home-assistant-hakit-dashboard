@@ -8,8 +8,13 @@ import type { MarkerRow } from '../../home/markers';
 import { isQuietAt, type QuietHours } from '../../home/quietHours';
 import type { UpcomingAppliance, UpcomingItem } from '../../home/upcoming';
 import type { NowFocusKind } from '../../utils/navigation';
+import type { MapEntry } from '../Vacuum/maps';
+import { roberRoomAreaId, type RoberRound } from '../Vacuum/sessionRooms';
 
 export { timelineMarkers, type MarkerRow } from '../../home/markers';
+
+/** Where a row sits on the line a Rober2 round draws along the rail, from its first row to its last. */
+export type RoundSpan = 'first' | 'inner' | 'last';
 
 export interface PastRow {
   type: 'past';
@@ -21,6 +26,21 @@ export interface PastRow {
   areaId: string | null;
   /** Hidden from part of the household. */
   restricted: boolean;
+  round: RoundSpan | null;
+}
+
+/** A room a Rober2 round cleaned. Everyone sees it, like the round's own rows. */
+export interface RoomRow {
+  type: 'room';
+  /** `rober2:` and the map's file name. */
+  id: string;
+  map: MapEntry;
+  atMs: number;
+  /** The maps of its round, which its map sheet steps through, and its own place among them. */
+  maps: MapEntry[];
+  index: number;
+  areaId: string | null;
+  round: RoundSpan | null;
 }
 
 /** A running or paused appliance. It sits on the NOW line, and its card carries the ETA, so no separate
@@ -56,7 +76,7 @@ export const UP_TONES: Record<HouseUpcomingKind, string> = { rain: 'sky', train:
 
 export interface NowTimeline {
   /** Oldest first. */
-  past: PastRow[];
+  past: (PastRow | RoomRow)[];
   running: RunningRow[];
   /** Soonest first; untimed last. */
   future: FutureRow[];
@@ -96,22 +116,61 @@ export function etaInQuietHours(cycle: Pick<ApplianceCycle, 'status' | 'etaMs' |
 
 const byTime = (a: { atMs: number | null }, b: { atMs: number | null }) => (a.atMs ?? Infinity) - (b.atMs ?? Infinity) || 0;
 
+const roomRowId = (map: MapEntry) => `rober2:${map.filename}`;
+
+/** Each round's rooms between its start and end rows: a room done at the instant its round ends goes before the end row.
+ * Every row from a round's first to its last, other rows that fell in it included, gets its place on the round's line. */
+function pastRows(episodes: readonly HouseEpisode[], rounds: readonly RoberRound[]): (PastRow | RoomRow)[] {
+  const rooms = rounds.flatMap(round => {
+    const maps = round.rooms.map(room => room.map);
+    return round.rooms.map(
+      (room, index): RoomRow => ({
+        type: 'room',
+        id: roomRowId(room.map),
+        map: room.map,
+        atMs: room.atMs,
+        maps,
+        index,
+        areaId: roberRoomAreaId(room.map.room) ?? null,
+        round: null,
+      })
+    );
+  });
+  const rows = [
+    ...rooms,
+    ...[...episodes].reverse().map(
+      (episode): PastRow => ({
+        type: 'past',
+        id: episode.id,
+        episode,
+        atMs: episode.startMs,
+        areaId: episodeAreaId(episode),
+        restricted: episode.rows.some(isRestricted),
+        round: null,
+      })
+    ),
+  ].sort(byTime);
+  const indexById = new Map(rows.map((row, index) => [row.id, index]));
+  for (const round of rounds) {
+    const ids = [round.startId, ...round.rooms.map(room => roomRowId(room.map)), round.endId].filter(id => id != null);
+    const first = indexById.get(ids[0]);
+    const last = indexById.get(ids[ids.length - 1]);
+    if (first == null || last == null || last <= first) continue;
+    for (let index = first; index <= last; index++) {
+      rows[index].round = index === first ? 'first' : index === last ? 'last' : 'inner';
+    }
+  }
+  return rows;
+}
+
 export function buildNowTimeline(
   episodes: readonly HouseEpisode[],
   upcoming: readonly UpcomingItem[],
   markers: readonly MarkerRow[] = [],
-  upRows: readonly HouseUpcomingRow[] = []
+  upRows: readonly HouseUpcomingRow[] = [],
+  rounds: readonly RoberRound[] = []
 ): NowTimeline {
-  const past = [...episodes].reverse().map(
-    (episode): PastRow => ({
-      type: 'past',
-      id: episode.id,
-      episode,
-      atMs: episode.startMs,
-      areaId: episodeAreaId(episode),
-      restricted: episode.rows.some(isRestricted),
-    })
-  );
+  const past = pastRows(episodes, rounds);
   const running: RunningRow[] = [];
   const future: FutureRow[] = [];
   for (const item of upcoming) {

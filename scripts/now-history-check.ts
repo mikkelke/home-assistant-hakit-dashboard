@@ -1,6 +1,6 @@
 /**
  * Navigation check for the #now timeline in headless Chromium: a cold link into a fresh tab, a reload
- * on it, a ring row's sheet and a Rober2 room chip's map over the timeline, a row's room over the
+ * on it, a ring row's sheet and a Rober2 room row's map over the timeline, a row's room over the
  * timeline (reached again by Forward and after a reload), Back, Forward, opening and leaving the
  * timeline in the app, and a link arriving while a modal is open. With --ring-link, a ring push too:
  * opened on a closed app and on a running one, its ring's sheet comes up over the timeline. Exits
@@ -185,19 +185,15 @@ try {
     console.log('skip the ring sheet: no ring row in the feed');
   }
 
-  const roomChip = await page.until('a Rober2 room chip', query('.now-room'), 5000).then(
+  const roomMap = await page.until('a Rober2 room row', query('.now-map'), 5000).then(
     () => true,
     () => false
   );
-  if (roomChip) {
-    await page.eval(`${query('.now-room')}.click()`);
+  if (roomMap) {
+    await page.eval(`${query('.now-map')}.click()`);
     await page.until('the room map sheet', query('.vacuum-map-modal img'));
     state = await snapshot();
-    check(
-      'a room chip opens its map as one entry over the timeline',
-      { length: state.length, hash: state.hash },
-      { length: 3, hash: link }
-    );
+    check('a room row opens its map as one entry over the timeline', { length: state.length, hash: state.hash }, { length: 3, hash: link });
     const next = query('.vacuum-map-step[aria-label="Next room"]:not(:disabled)');
     if (await page.eval<boolean>(`!!${next}`)) {
       const room = await page.eval<string>(`${query('.vacuum-map-modal .room')}.textContent`);
@@ -215,7 +211,7 @@ try {
       { hash: link, now: true, marker: 'grid' }
     );
   } else {
-    console.log('skip the room map sheet: no Rober2 room chip in the feed');
+    console.log('skip the room map sheet: no Rober2 room row on the timeline');
   }
 
   await page.eval(`${query('.now-body.is-link:not(.is-ring), .now-card.is-link')}.click()`);

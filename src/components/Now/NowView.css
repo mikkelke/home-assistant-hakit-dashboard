@@ -303,45 +303,84 @@
   height: 14px;
 }
 
-/* The rooms a Rober2 round cleaned, under its finish row: thumb-sized buttons that open each room's map. */
-.now-rooms {
-  grid-column: 3;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  min-width: 0;
-  margin-bottom: 4px;
+/* A room a Rober2 round cleaned: a lighter row, centred on its thumb-sized map button. */
+.now-ev.is-room {
+  grid-template-columns: 38px 20px minmax(0, 1fr) 44px;
+  align-items: center;
 }
 
-.now-room {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  padding: 0 12px;
+.now-ev.is-room .now-t {
+  padding-top: 0;
+}
+
+.now-ev.is-room .now-dot {
+  margin-top: 0;
+}
+
+.now-ev.is-room .now-dot i {
+  width: 6px;
+  height: 6px;
+}
+
+.now-map {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
   border: 0;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--now-t1);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
+  background: none;
+  color: #a1a1aa;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+}
+
+.now-map svg {
+  box-sizing: content-box;
+  width: 16px;
+  height: 16px;
+  padding: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
   transition: transform 120ms var(--ease-out);
 }
 
-.now-room:active {
+.now-map:active svg {
   background: rgba(255, 255, 255, 0.12);
-  transform: scale(0.97);
+  transform: scale(0.94);
 }
 
-.now-room svg {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  color: var(--c);
+/* A Rober2 round's line along the rail, from its first row's dot to its last, under the dots. A dot sits 17 px down a
+   row, or halfway down a room row; each piece also spans the 4 px gap below its row. */
+.now-dot {
+  position: relative;
+}
+
+.now-ev.in-round::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: -4px;
+  left: 53px;
+  width: 2px;
+  background: rgba(34, 197, 94, 0.35);
+}
+
+.now-ev.round-first::before {
+  top: 17px;
+}
+
+.now-ev.round-last::before {
+  bottom: auto;
+  height: 17px;
+}
+
+.now-ev.is-room.round-first::before {
+  top: 50%;
+}
+
+.now-ev.is-room.round-last::before {
+  height: 50%;
 }
 
 /* NOW line */
