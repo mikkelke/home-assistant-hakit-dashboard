@@ -61,16 +61,6 @@
   white-space: nowrap;
 }
 
-.sonos-sync-warning {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  color: #ff9f0a;
-}
-.sonos-sync-warning svg {
-  font-size: 1rem;
-}
-
 .sonos-top-right {
   display: flex;
   align-items: center;

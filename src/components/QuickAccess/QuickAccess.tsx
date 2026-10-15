@@ -9,7 +9,6 @@ import { LazyBoundary } from '../Lazy/LazyBoundary';
 import { TRANSIT_LAST_UPDATED_SENSOR, TRANSIT_REFRESH_BUTTON, WEATHER_ENTITY } from '../../config/entities';
 import { QUICK_ACCESS_OPEN_EVENT, TRANSIT_LINES, getTransitSeverity, isTransitAlert, type TransitStatus } from '../../config/transit';
 import { getTransitLineDisplayStatus, minsFromNow, TRANSIT_UPCOMING_MIN_MINS } from '../../utils/transitDisplay';
-import { isMediaPlayerOutOfSync, resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { SONOS_SPEAKERS } from '../../config/speakers';
 import { useModalBackButton, useSwipeToClose } from '../../hooks';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
@@ -193,7 +192,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
 
     // Find all playing speakers - only add coordinators (masters) of groups
     SONOS_SPEAKERS.forEach(speaker => {
-      const { entityId: actualEntityId, entity } = resolvePreferredMediaPlayer(entities, speaker.id);
+      const entity = entities?.[speaker.id];
       if (!entity) return;
 
       // Check if playing - Sonos can be 'playing', 'paused', 'idle', etc.
@@ -207,9 +206,9 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
       if (isTvUsingSonos) return;
 
       const rawGroup = entity.attributes?.group_members;
-      const groupMembers: string[] = Array.isArray(rawGroup) ? (rawGroup as string[]) : [actualEntityId];
+      const groupMembers: string[] = Array.isArray(rawGroup) ? (rawGroup as string[]) : [speaker.id];
       // Ensure groupMembers is not empty - if it is, treat as solo speaker
-      const actualGroupMembers = groupMembers.length > 0 ? groupMembers : [actualEntityId];
+      const actualGroupMembers = groupMembers.length > 0 ? groupMembers : [speaker.id];
       const groupKey = [...actualGroupMembers].sort().join(','); // Create unique key for group
 
       // Skip if we've already processed this group
@@ -218,7 +217,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
       // Check if this speaker is the coordinator/master (first in group_members)
       // Solo speakers (groupSize === 1) are always coordinators of their own group
       const isSolo = actualGroupMembers.length === 1;
-      const isCoordinator = actualGroupMembers[0] === actualEntityId;
+      const isCoordinator = actualGroupMembers[0] === speaker.id;
 
       // Only add coordinators/masters - never add non-coordinator group members
       // Solo speakers are always coordinators, so they get added
@@ -228,7 +227,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
         actualGroupMembers.forEach(memberId => seenSpeakerIds.add(memberId));
 
         playing.push({
-          entityId: actualEntityId,
+          entityId: speaker.id,
           name: speaker.name,
           groupSize: actualGroupMembers.length,
         });
@@ -322,11 +321,11 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
   // Get all speakers with their states, sorted alphabetically
   const allSpeakers = useMemo<SpeakerInfo[]>(() => {
     const speakers = SONOS_SPEAKERS.map(speaker => {
-      const { entityId: actualEntityId, entity } = resolvePreferredMediaPlayer(entities, speaker.id);
+      const entity = entities?.[speaker.id];
 
       if (!entity) {
         return {
-          entityId: actualEntityId,
+          entityId: speaker.id,
           name: speaker.name,
           state: 'unavailable',
           isPlaying: false,
@@ -335,10 +334,10 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
       }
 
       const rawGroupAll = entity.attributes?.group_members;
-      const groupMembers: string[] = Array.isArray(rawGroupAll) ? (rawGroupAll as string[]) : [actualEntityId];
-      const actualGroupMembers = groupMembers.length > 0 ? groupMembers : [actualEntityId];
+      const groupMembers: string[] = Array.isArray(rawGroupAll) ? (rawGroupAll as string[]) : [speaker.id];
+      const actualGroupMembers = groupMembers.length > 0 ? groupMembers : [speaker.id];
       const isPlaying = entity.state === 'playing';
-      const isCoordinator = actualGroupMembers[0] === actualEntityId;
+      const isCoordinator = actualGroupMembers[0] === speaker.id;
 
       // Only show coordinator speakers to avoid duplicates
       if (!isCoordinator && actualGroupMembers.length > 1) {
@@ -346,7 +345,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
       }
 
       return {
-        entityId: actualEntityId,
+        entityId: speaker.id,
         name: speaker.name,
         state: entity.state || 'unavailable',
         isPlaying,
@@ -357,14 +356,6 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
     // Sort alphabetically by name
     return speakers.sort((a, b) => a.name.localeCompare(b.name));
   }, [entities]);
-
-  const outOfSyncSpeakerNames = useMemo(
-    () =>
-      SONOS_SPEAKERS.filter(speaker => isMediaPlayerOutOfSync(entities, speaker.id))
-        .map(speaker => speaker.name)
-        .sort((a, b) => a.localeCompare(b)),
-    [entities]
-  );
 
   const weatherCondition = useHass(s => s.entities[WEATHER_ENTITY]?.state);
   const weatherEntityId = weatherCondition != null ? WEATHER_ENTITY : null;
@@ -576,15 +567,6 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                   >
                     <Icon icon='mdi:refresh' />
                   </button>
-                )}
-                {openModal === 'media' && mediaTab === 'audio' && outOfSyncSpeakerNames.length > 0 && (
-                  <div
-                    className='qa-media-sync-indicator'
-                    title={`Music Assistant and Sonos disagree for: ${outOfSyncSpeakerNames.join(', ')}`}
-                    aria-label='Music Assistant and Sonos are out of sync'
-                  >
-                    <Icon icon='mdi:information-outline' />
-                  </div>
                 )}
                 {openModal === 'media' && mediaTab === 'audio' && !selectedSpeakerForQuickStart && !showSpeakerSelector && (
                   <button className='qa-add-speaker-icon-btn' onClick={() => setShowSpeakerSelector(true)} title='Start music on a speaker'>

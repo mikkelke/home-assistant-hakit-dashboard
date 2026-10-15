@@ -1,11 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import type { SonosPlayerProps } from '../../types';
-import { FAMILY_ZONE, SONOS_SPEAKERS } from '../../config/speakers';
+import { FAMILY_ZONE, SONOS_SPEAKERS, rawSonosEntityId } from '../../config/speakers';
 import { RADIO_STATIONS } from '../../config/radio';
 import { PODCAST_FEEDS } from '../../config/podcasts';
-import { AUDIOCAST_STREAM_URI, rawSonosEntityId } from '../../config/audiocast';
-import { isMediaPlayerOutOfSync } from '../../utils/mediaPlayer';
 import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
 import { hapticTick } from '../../utils/haptics';
 import { useLocalStorageBoolean, useLongPress, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
@@ -64,14 +62,6 @@ const getMasterFromEntity = (entity: { attributes?: { group_members?: unknown[] 
   // Master is always the first member (group_members[0]), or fallback to the entity itself if empty
   return validMembers.length > 0 ? validMembers[0] : fallbackEntityId;
 };
-
-/**
- * MA players use the clean id (media_player.kitchen); the native Sonos twins carry a
- * `_2` suffix (media_player.kitchen_2). group_members always match the flavor of the
- * entity they came from, so names/membership must compare BASE ids while service calls
- * must target the ACTUAL (flavored) ids.
- */
-const baseEntityId = (id: string): string => (id.endsWith('_2') ? id.slice(0, -2) : id);
 
 /** While on, the family-room volume sync stays out of the way. */
 const FAMILY_SYNC_PARTY_ENTITY = 'input_boolean.family_volume_sync_party';
@@ -189,16 +179,13 @@ export function SonosPlayer({
   // Determine master from entity state: group_members[0] is always the coordinator/master
   const masterId = getMasterFromEntity(player ?? null, entityId);
 
-  // Resolve any id flavor to the configured display name; last resort = friendly_name.
+  // Configured display name for a speaker id; last resort = friendly_name.
   const speakerNameFor = (id: string): string => {
-    const cfg = SONOS_SPEAKERS.find(s => s.id === baseEntityId(id));
+    const cfg = SONOS_SPEAKERS.find(s => s.id === id);
     if (cfg) return cfg.name;
     const fn = entities?.[id]?.attributes?.friendly_name;
     return typeof fn === 'string' && fn ? fn : id.split('.')[1] || id;
   };
-  // Map a config (base) speaker id to the id actually used in this player's group flavor.
-  const idFlavor = entityId.endsWith('_2') ? '_2' : '';
-  const actualIdFor = (configId: string): string => groupMembers.find(m => baseEntityId(m) === configId) ?? `${configId}${idFlavor}`;
   const sourceList: string[] = Array.isArray(attributes.source_list)
     ? attributes.source_list.filter((s): s is string => typeof s === 'string')
     : [];
@@ -451,13 +438,11 @@ export function SonosPlayer({
   if (pendingPlay && pendingPlay.base !== state) setPendingPlay(null);
   const isPlaying = pendingPlay && pendingPlay.base === state ? pendingPlay.playing : state === 'playing';
   const hasGroup = groupMembers.length > 1;
-  const familyGroup = groupMembers.filter(m => FAMILY_ZONE.includes(baseEntityId(m))).length >= 2;
-
-  const isOutOfSync = isMediaPlayerOutOfSync(entities, entityId);
+  const familyGroup = groupMembers.filter(m => FAMILY_ZONE.includes(m)).length >= 2;
 
   const groupedSpeakers = useMemo(() => {
     const speakers = groupMembers.map((id, index) => {
-      const speaker = SONOS_SPEAKERS.find(s => s.id === baseEntityId(id));
+      const speaker = SONOS_SPEAKERS.find(s => s.id === id);
       const entity = entities?.[id];
       return {
         id,
@@ -565,18 +550,11 @@ export function SonosPlayer({
     return () => window.removeEventListener('modalBackButton', handleModalBack);
   }, []);
 
-  // Helper to check if source is line-in and get display name
+  // Helper to check if source is line-in
   const isLineIn = (source: string) => {
     if (!source) return false;
     const lower = source.toLowerCase();
-    return (
-      lower === 'line_in' ||
-      lower === 'line-in' ||
-      lower === 'line in' ||
-      lower === 'audiocast' ||
-      lower.includes('line') ||
-      lower.includes('audiocast')
-    );
+    return lower === 'line_in' || lower === 'line-in' || lower === 'line in' || lower.includes('line');
   };
 
   // Helper to check if current source is AirPlay (cast from iPhone/iPad to Sonos)
@@ -594,16 +572,12 @@ export function SonosPlayer({
   };
 
   const getSourceDisplayName = (source: string) => {
-    if (isLineIn(source)) return 'Audiocast';
-
     if (isAirPlaySource(source)) return 'AirPlay';
     return source;
   };
 
   // Inputs shown in the picker. Drop the MA queue (default), AirPlay (native, not
-  // selectable) and any line-in entry — Audiocast is synthesized for every room
-  // instead, since x-rincon-stream playback works regardless of a room's own
-  // source_list (e.g. the Arc Ultra never advertises Line-in).
+  // selectable) and line-in (MA lists it on every Sonos player, adapter or not).
   const inputSources = sourceList.filter(source => {
     const sourceLower = source.toLowerCase();
     if (sourceLower.includes('music assistant queue') || sourceLower.includes('music assistant')) return false;
@@ -612,10 +586,10 @@ export function SonosPlayer({
     return true;
   });
 
-  // When source is Audiocast (line-in), HA often leaves media_title empty – show "Audiocast" instead of "Not playing"
+  // On line-in HA often leaves media_title empty – show the source name instead of "Not playing"
   const displayTitle =
     currentRadio?.name ||
-    (isLineIn(currentSource) && (!mediaTitle || mediaTitle === 'Not playing') ? 'Audiocast' : mediaTitle) ||
+    (isLineIn(currentSource) && (!mediaTitle || mediaTitle === 'Not playing') ? currentSource : mediaTitle) ||
     'Not playing';
 
   // Determine source display - check specific sources first, then state
@@ -633,9 +607,6 @@ export function SonosPlayer({
     if (isAirPlay) return 'AirPlay';
 
     if (isPodcast) return 'Podcast'; // Podcast detected (playing, paused, or idle with media)
-
-    // Check if it's Audiocast (line-in) - should show even when idle if source is set
-    if (isLineIn(currentSource)) return 'Audiocast';
 
     // If current source is "Music Assistant Queue" (the default), show "Select source"
     if (currentSource) {
@@ -659,7 +630,7 @@ export function SonosPlayer({
   const displaySource = getDisplaySource();
   const masterSpeakerName = hasGroup ? groupedSpeakers.find(s => s.isMaster)?.name || '' : '';
 
-  // --- Media seeker: only when relevant (not radio, not audiocast/line-in) ---
+  // --- Media seeker: only when relevant (not radio, not line-in) ---
   const showSeeker =
     !currentRadio && !isLineIn(currentSource) && mediaDuration != null && mediaDuration > 0 && mediaPosition != null && mediaPosition >= 0;
 
@@ -724,16 +695,6 @@ export function SonosPlayer({
     clearTimeout(pendingPlayTimer.current);
     pendingPlayTimer.current = setTimeout(() => setPendingPlay(null), 10000);
 
-    // Line-in/Audiocast does not support play/pause – use media_stop to stop playback
-    if (isPlaying && isLineIn(currentSource)) {
-      callService({
-        domain: 'media_player',
-        service: 'media_stop',
-        target: { entity_id: entityId },
-      });
-      return;
-    }
-
     // When playing, pause
     if (isPlaying) {
       callService({
@@ -795,14 +756,14 @@ export function SonosPlayer({
 
   // Muted speakers write through the native twin: its SetVolume leaves mute alone,
   // whereas the MA-flavor write was seen un-muting. Re-assert mute as a backstop.
-  const writeVolume = (baseId: string, actualId: string, muted: boolean, pct: number) => {
+  const writeVolume = (speakerId: string, muted: boolean, pct: number) => {
     if (!callService) return;
     if (!muted) {
-      handleVolumeChange(actualId, pct);
+      handleVolumeChange(speakerId, pct);
       return;
     }
-    const nativeId = rawSonosEntityId(baseId);
-    const targetId = entities?.[nativeId] ? nativeId : actualId;
+    const nativeId = rawSonosEntityId(speakerId);
+    const targetId = entities?.[nativeId] ? nativeId : speakerId;
     handleVolumeChange(targetId, pct);
     callService({
       domain: 'media_player',
@@ -828,7 +789,7 @@ export function SonosPlayer({
       const sent = sentVolumes[sp.id];
       const next = Math.max(0, Math.min(100, runningVolume(sent, sp.volume) + direction * 3));
       updates[sp.id] = sendVolume(sent, sp.volume, next);
-      writeVolume(sp.id, sp.actualId, sp.isMuted, next);
+      writeVolume(sp.id, sp.isMuted, next);
     });
     setSentVolumes(prev => ({ ...prev, ...updates }));
   };
@@ -1142,26 +1103,12 @@ export function SonosPlayer({
 
   const handleSelectSource = (source: string) => {
     if (!callService) return;
-    if (isLineIn(source)) {
-      // Audiocast: pull the line-in host's feed onto this room. Must target the raw
-      // Sonos entity — x-rincon-stream is a Sonos-native URI Music Assistant can't play.
-      callService({
-        domain: 'media_player',
-        service: 'play_media',
-        target: { entity_id: rawSonosEntityId(baseEntityId(entityId)) },
-        serviceData: {
-          media_content_id: AUDIOCAST_STREAM_URI,
-          media_content_type: 'music',
-        },
-      });
-    } else {
-      callService({
-        domain: 'media_player',
-        service: 'select_source',
-        target: { entity_id: entityId },
-        serviceData: { source },
-      });
-    }
+    callService({
+      domain: 'media_player',
+      service: 'select_source',
+      target: { entity_id: entityId },
+      serviceData: { source },
+    });
     handleCloseSourceSheet();
   };
 
@@ -1170,17 +1117,16 @@ export function SonosPlayer({
   // group in the same call); unchecking always unjoins it. No two-step ungroup-then-add.
   const handleToggleSpeaker = (speakerId: string) => {
     if (!callService) return;
-    const actualId = actualIdFor(speakerId);
-    const isMember = groupMembers.some(m => baseEntityId(m) === speakerId);
+    const isMember = groupMembers.includes(speakerId);
     setPendingGroup(prev => ({ ...prev, [speakerId]: !isMember }));
     if (isMember) {
-      callService({ domain: 'media_player', service: 'unjoin', target: { entity_id: actualId } });
+      callService({ domain: 'media_player', service: 'unjoin', target: { entity_id: speakerId } });
     } else {
       callService({
         domain: 'media_player',
         service: 'join',
         target: { entity_id: masterId },
-        serviceData: { group_members: [actualId] },
+        serviceData: { group_members: [speakerId] },
       });
     }
   };
@@ -1197,12 +1143,10 @@ export function SonosPlayer({
   };
 
   // Unified picker rows: members first (master on top), then the rest alphabetically.
-  // All comparisons use BASE ids (MA/native `_2` flavors), service targets use actual ids.
   const pickerSpeakers = useMemo(() => {
     const rows = SONOS_SPEAKERS.map(speaker => {
-      const isMember = groupMembers.some(m => baseEntityId(m) === speaker.id);
-      const actualId = groupMembers.find(m => baseEntityId(m) === speaker.id) ?? `${speaker.id}${idFlavor}`;
-      const ent = entities?.[actualId] ?? entities?.[speaker.id];
+      const isMember = groupMembers.includes(speaker.id);
+      const ent = entities?.[speaker.id];
       const entState = ent?.state || 'unavailable';
       const rawMembers = ent?.attributes?.group_members;
       const members: string[] = Array.isArray(rawMembers)
@@ -1212,12 +1156,11 @@ export function SonosPlayer({
       const otherMaster = inOtherGroup ? getMasterFromEntity(ent ?? null, speaker.id) : null;
       return {
         id: speaker.id,
-        actualId,
         name: speaker.name,
         available: entState !== 'unavailable' && entState !== 'unknown',
         isMember,
-        isMaster: isMember && baseEntityId(masterId) === speaker.id,
-        isThis: speaker.id === baseEntityId(entityId),
+        isMaster: isMember && masterId === speaker.id,
+        isThis: speaker.id === entityId,
         playingTitle: entState === 'playing' ? String(ent?.attributes?.media_title || '') : '',
         otherMasterName: otherMaster ? speakerNameFor(otherMaster) : '',
         volume: Math.round((Number(ent?.attributes?.volume_level) || 0) * 100),
@@ -1229,9 +1172,9 @@ export function SonosPlayer({
       if (a.isMember && b.isMember && a.isMaster !== b.isMaster) return a.isMaster ? -1 : 1;
       return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
     });
-    // speakerNameFor/actualIdFor derive from entities+groupMembers+idFlavor already in deps
+    // speakerNameFor derives from entities, already in deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entities, groupMembers, masterId, entityId, idFlavor]);
+  }, [entities, groupMembers, masterId, entityId]);
 
   // Derive during render, no effect: drop a sent level once HA has settled on it or something else moved the speaker.
   const settledIds = pickerSpeakers.filter(sp => sentVolumes[sp.id] && !isUnsettled(sentVolumes[sp.id], sp.volume)).map(sp => sp.id);
@@ -1256,8 +1199,6 @@ export function SonosPlayer({
     <Icon icon='mdi:television' className='sonos-mark--tv' aria-hidden='true' />
   ) : isAirPlay ? (
     <Icon icon='mdi:airplay' aria-hidden='true' />
-  ) : isLineIn(currentSource) ? (
-    <Icon icon='mdi:cast' aria-hidden='true' />
   ) : isPodcast ? (
     <Icon icon='mdi:podcast' aria-hidden='true' />
   ) : (
@@ -1286,7 +1227,7 @@ export function SonosPlayer({
             <img src={safeImage || ''} alt='' onError={() => setImageError(true)} />
           ) : (
             <div className='sonos-art-placeholder'>
-              <Icon icon={isLineIn(currentSource) ? 'mdi:cast' : 'mdi:music'} aria-hidden='true' />
+              <Icon icon='mdi:music' aria-hidden='true' />
             </div>
           )}
         </div>
@@ -1324,7 +1265,7 @@ export function SonosPlayer({
         </button>
       </div>
 
-      {/* Seek – only for seekable content (not radio, not audiocast) */}
+      {/* Seek – only for seekable content (not radio, not line-in) */}
       {showSeeker && seekDuration > 0 && (
         <div className='sonos-seek'>
           <div className='sonos-strip sonos-strip--thin'>
@@ -1366,7 +1307,7 @@ export function SonosPlayer({
           label='Volume'
           onCommit={next => {
             setPendingVolume({ value: next, base: volume });
-            writeVolume(baseEntityId(entityId), entityId, Boolean(isMuted), next);
+            writeVolume(entityId, Boolean(isMuted), next);
           }}
         />
       </div>
@@ -1483,14 +1424,6 @@ export function SonosPlayer({
             <Icon icon='mdi:speaker' aria-hidden='true' />
           </span>
           <span className='sonos-title'>Sonos</span>
-          {isOutOfSync && (
-            <span
-              className='sonos-sync-warning'
-              title='Music Assistant and Sonos entities are out of sync. Controls may not work correctly.'
-            >
-              <Icon icon='mdi:alert-circle-outline' aria-hidden='true' />
-            </span>
-          )}
           {/* Collapsed quick actions (user 2026-08-07): play/pause + next without expanding.
               Same quick-dot grammar as the blind and light cards; play wears the Sonos
               green while something is playing. */}
@@ -1611,7 +1544,7 @@ export function SonosPlayer({
                         <button
                           type='button'
                           className={`sonos-mute ${sp.isMuted ? 'is-muted' : ''}`}
-                          onClick={() => handleSpeakerMuteToggle(sp.actualId)}
+                          onClick={() => handleSpeakerMuteToggle(sp.id)}
                           aria-label={sp.isMuted ? `Unmute ${sp.name}` : `Mute ${sp.name}`}
                         >
                           <Icon icon={sp.isMuted ? 'mdi:volume-off' : 'mdi:volume-high'} aria-hidden='true' />
@@ -1623,7 +1556,7 @@ export function SonosPlayer({
                           label={`${sp.name} volume`}
                           onCommit={next => {
                             setSentVolumes(prev => ({ ...prev, [sp.id]: sendVolume(sentVolumes[sp.id], sp.volume, next) }));
-                            writeVolume(sp.id, sp.actualId, sp.isMuted, next);
+                            writeVolume(sp.id, sp.isMuted, next);
                           }}
                         />
                       </div>
@@ -1729,13 +1662,6 @@ export function SonosPlayer({
                       </div>
                     )}
 
-                    <div className='sonos-srctile'>
-                      <button type='button' className='sonos-srcbtn' onClick={() => handleSelectSource('Audiocast')} aria-label='Audiocast'>
-                        <Icon icon='mdi:cast' aria-hidden='true' />
-                      </button>
-                      <span>Audiocast{isLineIn(currentSource) ? ' · now' : ''}</span>
-                    </div>
-
                     {tvSource && (
                       <div className='sonos-srctile'>
                         <button
@@ -1807,7 +1733,7 @@ export function SonosPlayer({
                             callService({
                               domain: 'media_player',
                               service: 'play_media',
-                              target: { entity_id: baseEntityId(hasGroup ? groupMembers[0] : entityId) },
+                              target: { entity_id: hasGroup ? groupMembers[0] : entityId },
                               serviceData: {
                                 media_content_id: ep.url,
                                 media_content_type: 'music',

@@ -15,7 +15,6 @@ import { DishwasherCard } from '../Dishwasher';
 import { DryerCard } from '../Dryer';
 import { RoomClimateHeader } from './RoomClimateHeader';
 import { ROBOT_CLEAN_PREFIX, VACUUM_ENTITY, roomThermostat } from '../../config/entities';
-import { resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { asleepAreaIds, roomGlow, roomLightIds } from '../../home/roomAmbient';
 import { useSwipeToClose } from '../../hooks';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
@@ -67,7 +66,7 @@ export function RoomDetail({
   const humiditySensor = `sensor.${areaName}_humidity`;
   const climateSensor = `climate.${areaName}_thermostat`;
 
-  const { entityId: mediaSensor } = resolvePreferredMediaPlayer(entities, `media_player.${areaName}`);
+  const mediaSensor = `media_player.${areaName}`;
   const coverId = `cover.${areaName}_blind`;
   const cleaningToggleId = `${ROBOT_CLEAN_PREFIX}${areaName}`;
 

@@ -22,7 +22,6 @@ import { HOME_APPLIANCES, type HomeAppliance } from '../../home/upcoming';
 import { useNowMs } from '../../hooks/useNowMs';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { formatDecimal } from '../../utils/format';
-import { resolvePreferredMediaPlayer } from '../../utils/mediaPlayer';
 import { IndicatorWithTimeline } from './IndicatorWithTimeline';
 import { MultiEntitySelector } from './MultiEntitySelector';
 import './RoomGrid.css';
@@ -385,7 +384,7 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
   const glowRgb = litKey?.split('/')[0] ?? null;
   const glowAlpha = litKey ? Number(litKey.split('/')[1]) : 0;
   const isOccupied = entities?.[`binary_sensor.${areaNameNormalized}_active`]?.state === 'on';
-  const { entity: mediaPlayer } = resolvePreferredMediaPlayer(entities, `media_player.${areaNameNormalized}`);
+  const mediaPlayer = entities?.[`media_player.${areaNameNormalized}`];
   const isMediaPlaying = mediaPlayer?.state === 'playing';
   const isMediaMuted = mediaPlayer?.attributes?.is_volume_muted === true;
   const roomAppliances = HOME_APPLIANCES.filter(appliance => appliance.areaId === area.area_id);

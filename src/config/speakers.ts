@@ -20,3 +20,13 @@ export const FAMILY_ZONE: string[] = [
   'media_player.dining_room',
   'media_player.rooftop',
 ];
+
+// media_player entities whose raw-Sonos sibling does not follow the `${id}_2`
+// convention (empty today; add entries if a speaker is renamed in HA without
+// its raw Sonos twin following).
+const RAW_SONOS_ENTITY_OVERRIDES: Record<string, string> = {};
+
+// Raw Sonos integration entity for a base (Music Assistant) media_player id.
+export function rawSonosEntityId(baseId: string): string {
+  return RAW_SONOS_ENTITY_OVERRIDES[baseId] ?? `${baseId}_2`;
+}
