@@ -4,7 +4,7 @@ import { useHass } from '@hakit/core';
 import type { Connection } from 'home-assistant-js-websocket';
 import { dumpOf, fetchDump } from '../../sensorMap/bermuda';
 import { CAPTURE_WINDOW_S, CaptureCancelled, abortableWait, finishCapture, runCapture } from '../../sensorMap/fingerprint';
-import { WALL_SNAP_M, markerNear, scaleBarLength, snapToWall } from '../../sensorMap/geometry';
+import { markerNear, scaleBarLength, snapToWall, wallSnapRadius } from '../../sensorMap/geometry';
 import type { GestureEvent, Hit } from '../../sensorMap/gestures';
 import {
   FACING_STEP_DEG,
@@ -70,10 +70,9 @@ const TOGGLE_LABEL: Record<(typeof TOGGLES)[number], string> = {
   light: 'Light',
 };
 
-/** Floor sensors, bed mats and anything at the ceiling sit where they are, not on a wall face. */
-function defaultSnap(device: Pick<MapDevice, 'type' | 'placement'>): boolean {
-  const h = device.placement.pos?.h ?? null;
-  return !(device.type === 'bed' || (h !== null && h <= 0.1));
+/** Bed mats lie under the mattress, not on a wall face; everything else defaults to the nearest wall. */
+function defaultSnap(device: Pick<MapDevice, 'type'>): boolean {
+  return device.type !== 'bed';
 }
 
 const isTyping = (target: EventTarget | null) => target instanceof Element && target.closest('input, select, textarea') !== null;
@@ -162,6 +161,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   const [weakOnly, setWeakOnly] = useState(false);
 
   const docRef = useRef(doc);
+  const scaleRef = useRef(0);
   const dragOrigin = useRef<DragOrigin | null>(null);
   const captureAbort = useRef<AbortController | null>(null);
 
@@ -223,7 +223,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   const place = useCallback(
     (key: string, fresh: NewDevice, x: number, y: number) => {
       const base = docRef.current.devices[key] ?? fresh;
-      const snapped = defaultSnap(base) ? snapToWall(docRef.current.plan.walls, x, y, WALL_SNAP_M) : null;
+      const snapped = defaultSnap(base) ? snapToWall(docRef.current.plan.walls, x, y, wallSnapRadius(scaleRef.current)) : null;
       queue.apply({ target: 'map', op: { kind: 'place', key, at: stamp(), x: snapped?.x ?? x, y: snapped?.y ?? y, device: fresh } });
       setSelection({ kind: 'device', key });
       setCollapsed(false);
@@ -278,7 +278,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
       if (origin.kind === 'move') {
         let x = origin.x + (event.world[0] - event.startWorld[0]);
         let y = origin.y + (event.world[1] - event.startWorld[1]);
-        const snapped = snapFor(origin.key, device) ? snapToWall(doc.plan.walls, x, y, WALL_SNAP_M) : null;
+        const snapped = snapFor(origin.key, device) ? snapToWall(doc.plan.walls, x, y, wallSnapRadius(scaleRef.current)) : null;
         if (snapped) [x, y] = [snapped.x, snapped.y];
         origin.last = { kind: 'move', key: origin.key, x, y };
       } else {
@@ -438,6 +438,9 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   );
 
   const view = viewport.view;
+  useLayoutEffect(() => {
+    if (view) scaleRef.current = view.s;
+  });
 
   useEffect(() => {
     const timer = setTimeout(() => saveUi({ layers, view }), 400);

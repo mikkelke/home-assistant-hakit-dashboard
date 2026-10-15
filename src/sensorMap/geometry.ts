@@ -22,6 +22,12 @@ export interface Px {
 export const MAX_SCALE = 420;
 const MIN_SCALE_OF_FIT = 0.6;
 export const WALL_SNAP_M = 0.15;
+export const WALL_SNAP_PX = 20;
+
+/** Wall snap reach in metres at scale `s` (px per metre): a fixed finger distance, never under WALL_SNAP_M. */
+export function wallSnapRadius(s: number): number {
+  return s > 0 ? Math.max(WALL_SNAP_M, WALL_SNAP_PX / s) : WALL_SNAP_M;
+}
 const BOUNDARY_EPS = 0.01;
 
 const clamp = (value: number, lo: number, hi: number) => Math.min(Math.max(value, lo), hi);

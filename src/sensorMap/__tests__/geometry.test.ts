@@ -17,6 +17,7 @@ import {
   scaleBarLength,
   screenToPlan,
   snapToWall,
+  wallSnapRadius,
   viewBoxOf,
   zoneAt,
   zoomAt,
@@ -239,5 +240,14 @@ describe('which marker a press means', () => {
     expect(markerNear(markers, view, size, at(5.2, 4), 22, 'a')).toBe('a');
     expect(markerNear(markers, view, size, at(5.2, 4), 22, 'b')).toBe('b');
     expect(markerNear(markers, view, size, at(5.2, 4), 22, 'far')).toBe('b');
+  });
+});
+
+describe('wallSnapRadius', () => {
+  it('reaches a fixed finger distance when zoomed out and never less than 15 cm', () => {
+    expect(wallSnapRadius(20)).toBeCloseTo(1.0);
+    expect(wallSnapRadius(100)).toBeCloseTo(0.2);
+    expect(wallSnapRadius(400)).toBeCloseTo(0.15);
+    expect(wallSnapRadius(0)).toBeCloseTo(0.15);
   });
 });
