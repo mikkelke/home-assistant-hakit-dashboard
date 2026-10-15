@@ -5,6 +5,11 @@ import { useEffect, useState, type ReactNode } from 'react';
  * is there now. The sheet takes no input until that moment has passed. */
 const SETTLE_MS = 350;
 
+/** A tap on the title toggles the sheet; the end of a drag that selected some of its text does not. */
+const toggleUnlessSelecting = (toggle: () => void) => () => {
+  if (!window.getSelection()?.toString()) toggle();
+};
+
 interface SheetProps {
   title: ReactNode;
   subtitle?: ReactNode;
@@ -15,7 +20,8 @@ interface SheetProps {
   children: ReactNode;
 }
 
-/** A bottom sheet on a phone and a side panel on a wide screen. Collapsed, it is one line: the handle. */
+/** A bottom sheet on a phone and a side panel on a wide screen. Collapsed, it is one line: the handle. Its text can be
+ * selected and copied, the title included. */
 export function Sheet({ title, subtitle, collapsed = false, onToggle, onClose, className = '', children }: SheetProps) {
   const [settled, setSettled] = useState(false);
   useEffect(() => {
@@ -29,12 +35,18 @@ export function Sheet({ title, subtitle, collapsed = false, onToggle, onClose, c
       style={settled ? undefined : { pointerEvents: 'none' }}
     >
       <header className='sm-sheet-head'>
-        <button type='button' className='sm-sheet-handle' onClick={onToggle} aria-expanded={!collapsed} disabled={!onToggle}>
+        <div className={`sm-sheet-handle${onToggle ? ' toggles' : ''}`} onClick={onToggle ? toggleUnlessSelecting(onToggle) : undefined}>
           <span className='sm-sheet-title'>{title}</span>
           {subtitle && <span className='sm-sheet-sub'>{subtitle}</span>}
-        </button>
+        </div>
         {onToggle && (
-          <button type='button' className='sm-icon-btn' onClick={onToggle} aria-label={collapsed ? 'Expand' : 'Collapse'}>
+          <button
+            type='button'
+            className='sm-icon-btn'
+            onClick={onToggle}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? 'Expand' : 'Collapse'}
+          >
             <Icon icon={collapsed ? 'mdi:chevron-up' : 'mdi:chevron-down'} />
           </button>
         )}

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DocError,
   FINGERPRINT_LIMIT_BYTES,
+  FINGERPRINT_SCHEMA_VERSION,
   HISTORY_LIMIT,
   KNOWN_TYPES,
   SUGGEST_LOG_LIMIT,
@@ -11,7 +12,10 @@ import {
   emptyFingerprintDoc,
   emptyMapDoc,
   fingerprintBytes,
+  migrateFingerprintDoc,
   newDeviceKey,
+  noWifi,
+  normalizeBssid,
   normalizeDeg,
   parseFingerprintDoc,
   parseMapDoc,
@@ -23,8 +27,9 @@ import {
   writableByCommand,
   type MapDoc,
   type MapOp,
+  type WifiSource,
 } from '../mapDoc';
-import { T0, device, makeDoc, makeFingerprint, makeFingerprintDoc, makeSuggestDoc, placement } from './docFixtures';
+import { SCANNER_A, T0, device, makeDoc, makeFingerprint, makeFingerprintDoc, makeSuggestDoc, placement } from './docFixtures';
 
 const at = (n: number) => new Date(Date.parse(T0) + n * 1000).toISOString();
 
@@ -73,7 +78,7 @@ describe('validation and parsing', () => {
     expect(validateSuggestDoc(doc).some(p => p.includes('used twice'))).toBe(true);
     const raw = JSON.parse(JSON.stringify(makeSuggestDoc())) as { items: { kind: string }[] };
     raw.items[0].kind = 'teleport';
-    expect(validateSuggestDoc(raw).some(p => p.includes('placement, answer or new_device'))).toBe(true);
+    expect(validateSuggestDoc(raw).some(p => p.includes('placement, answer, new_device, wifi or rename'))).toBe(true);
   });
 
   it('only lets set-suggest write the suggestion key and seed write the map or a scratch copy', () => {
@@ -436,5 +441,315 @@ describe('fingerprints', () => {
     expect(next.items.map(item => item.id)).toEqual(['fp-2']);
     expect(applyFingerprintOp(next, { kind: 'remove_fingerprint', id: 'fp-1', at: at(4) })).toBe(next);
     expect(applyFingerprintOp(next, { kind: 'fingerprint', item: makeFingerprint('fp-2'), at: at(5) })).toBe(next);
+  });
+});
+
+const BSSID_A = '02:00:5e:10:00:0a';
+const BSSID_B = '02:00:5e:10:00:0b';
+const SOURCE: WifiSource = {
+  name: 'Test phone',
+  notify: 'notify.mobile_app_test_phone',
+  signal: 'sensor.test_phone_wi_fi_signal_strength',
+  bssid: 'sensor.test_phone_wi_fi_bssid',
+  frequency: 'sensor.test_phone_wi_fi_frequency',
+};
+
+describe('BSSIDs', () => {
+  it('are lower case with colons whatever they came as, and anything else is null', () => {
+    expect(normalizeBssid('02:00:5E:10:00:0A')).toBe(BSSID_A);
+    expect(normalizeBssid(' 02-00-5e-10-00-0a ')).toBe(BSSID_A);
+    for (const bad of ['', '02:00:5e:10:00', '02:00:5e:10:00:0g', 'not a bssid', '<not connected>', null, 5, undefined]) {
+      expect(normalizeBssid(bad)).toBeNull();
+    }
+  });
+
+  it('are never the placeholders Android reports when it may not tell or has no connection', () => {
+    expect(normalizeBssid('02:00:00:00:00:00')).toBeNull();
+    expect(normalizeBssid('00:00:00:00:00:00')).toBeNull();
+  });
+});
+
+describe('the Wi-Fi configuration of the map', () => {
+  it('is empty in a new document and filled in for a stored document that has none', () => {
+    expect(emptyMapDoc(T0).wifi).toEqual({ source: null, aps: {} });
+    const raw = JSON.parse(JSON.stringify(makeDoc())) as Record<string, unknown>;
+    delete raw.wifi;
+    expect(parseMapDoc(raw).wifi).toEqual({ source: null, aps: {} });
+  });
+
+  it('is kept as stored, and checked', () => {
+    const doc = { ...makeDoc(), wifi: { source: SOURCE, aps: { [BSSID_A]: 'ap_one' } } };
+    expect(validateMapDoc(doc)).toEqual([]);
+    expect(parseMapDoc(JSON.parse(JSON.stringify(doc))).wifi).toEqual(doc.wifi);
+    const bad = (wifi: unknown) => validateMapDoc({ ...makeDoc(), wifi });
+    expect(bad('x')).toContain('wifi is not an object');
+    expect(bad({ source: { name: 'x' }, aps: {} }).some(p => p.startsWith('wifi.source'))).toBe(true);
+    expect(bad({ source: { ...SOURCE, notify: 'mobile_app_x' }, aps: {} })).toContain('wifi.source.notify is not a domain.service');
+    expect(bad({ source: null, aps: { nope: 'ap_one' } }).some(p => p.includes('is not a BSSID'))).toBe(true);
+    expect(bad({ source: null, aps: { [BSSID_A]: 5 } }).some(p => p.includes('is not a device key'))).toBe(true);
+    expect(bad({ source: null }).some(p => p.startsWith('wifi.aps'))).toBe(true);
+  });
+});
+
+describe('a suggested Wi-Fi setup', () => {
+  const item = (extra: Record<string, unknown>) => ({ id: 's-wifi', kind: 'wifi' as const, reason: 'from the controller', ...extra });
+  const suggestWith = (extra: Record<string, unknown>) => ({ ...makeSuggestDoc(), items: [item(extra)] });
+
+  it('may carry a source, the BSSID table, or both, and must carry one', () => {
+    expect(validateSuggestDoc(suggestWith({ source: SOURCE }))).toEqual([]);
+    expect(validateSuggestDoc(suggestWith({ aps: { [BSSID_A]: 'ap_one' } }))).toEqual([]);
+    expect(validateSuggestDoc(suggestWith({ source: SOURCE, aps: { [BSSID_A]: 'ap_one' } }))).toEqual([]);
+    expect(validateSuggestDoc(suggestWith({})).some(p => p.includes('neither a source nor aps'))).toBe(true);
+    expect(validateSuggestDoc(suggestWith({ aps: { 'no-bssid': 'ap_one' } })).some(p => p.includes('is not a BSSID'))).toBe(true);
+    expect(validateSuggestDoc(suggestWith({ source: { ...SOURCE, notify: 'nope' } })).some(p => p.includes('domain.service'))).toBe(true);
+  });
+
+  it('is accepted into the map as an ordinary edit, normalizing the BSSIDs, and logged', () => {
+    const accepted = applyMapOp(makeDoc(), {
+      kind: 'accept',
+      item: item({ source: SOURCE, aps: { '02:00:5E:10:00:0A': 'ap_one', [BSSID_B]: 'ap_two' } }),
+      at: at(1),
+    });
+    expect(accepted.wifi).toEqual({ source: SOURCE, aps: { [BSSID_A]: 'ap_one', [BSSID_B]: 'ap_two' } });
+    expect(accepted.suggest_log).toEqual([{ id: 's-wifi', accepted_at: at(1) }]);
+    expect(accepted.updated_at).toBe(at(1));
+  });
+
+  it('adds to the table and keeps the source when the suggestion has none, and replaces a BSSID it lists again', () => {
+    let doc = applyMapOp(makeDoc(), { kind: 'accept', item: item({ source: SOURCE, aps: { [BSSID_A]: 'ap_one' } }), at: at(1) });
+    doc = applyMapOp(doc, {
+      kind: 'accept',
+      item: { ...item({ aps: { [BSSID_A]: 'ap_moved', [BSSID_B]: 'ap_two' } }), id: 's-wifi-2' },
+      at: at(2),
+    });
+    expect(doc.wifi).toEqual({ source: SOURCE, aps: { [BSSID_A]: 'ap_moved', [BSSID_B]: 'ap_two' } });
+  });
+
+  it('is accepted once, and a rejection only logs', () => {
+    const wifi = item({ aps: { [BSSID_A]: 'ap_one' } });
+    const once = applyMapOp(makeDoc(), { kind: 'accept', item: wifi, at: at(1) });
+    expect(applyMapOp(once, { kind: 'accept', item: wifi, at: at(2) })).toBe(once);
+    const rejected = applyMapOp(makeDoc(), { kind: 'reject', id: 's-wifi', at: at(1) });
+    expect(rejected.wifi).toEqual({ source: null, aps: {} });
+    expect(rejected.suggest_log).toEqual([{ id: 's-wifi', rejected_at: at(1) }]);
+  });
+});
+
+describe('fingerprints of the first schema version', () => {
+  const v1 = () => {
+    const { wifi: _wifi, survey_id: _survey, ...rest } = makeFingerprint('fp-old', { note: 'kept' });
+    void _wifi;
+    void _survey;
+    return { schema_version: 1, updated_at: T0, limit_bytes: 600_000, write_id: 'w-1', writer: 'page', items: [rest] };
+  };
+
+  it('are migrated: every capture says its Wi-Fi was not captured and belongs to no survey point', () => {
+    const migrated = migrateFingerprintDoc(v1()) as { schema_version: number; items: Record<string, unknown>[] };
+    expect(migrated.schema_version).toBe(FINGERPRINT_SCHEMA_VERSION);
+    expect(migrated.items[0]).toMatchObject({ id: 'fp-old', note: 'kept', survey_id: null, wifi: noWifi('not_captured') });
+    expect(migrated.items[0].wifi).not.toBe((migrateFingerprintDoc(v1()) as { items: { wifi: unknown }[] }).items[0].wifi);
+  });
+
+  it('are read as the current version with everything else kept, the write stamp included', () => {
+    const parsed = parseFingerprintDoc(v1());
+    expect(parsed).toMatchObject({ schema_version: 2, write_id: 'w-1', writer: 'page', limit_bytes: 600_000 });
+    expect(parsed.items[0].wifi.miss).toEqual({ dbm: 'not_captured', bssid: 'not_captured', freq: 'not_captured' });
+    expect(validateFingerprintDoc(parsed)).toEqual([]);
+  });
+
+  it('are not valid as they are, so a page of the current version does not take one for its own', () => {
+    expect(validateFingerprintDoc(v1())).toContain('schema_version is 1, expected 2');
+  });
+
+  it('are left alone by the migration when there is nothing to migrate', () => {
+    const current = makeFingerprintDoc();
+    expect(migrateFingerprintDoc(current)).toBe(current);
+    expect(migrateFingerprintDoc(null)).toBeNull();
+    expect(migrateFingerprintDoc({ schema_version: 3, items: [] })).toEqual({ schema_version: 3, items: [] });
+    expect(() => parseFingerprintDoc({ ...makeFingerprintDoc(), schema_version: 3 })).toThrow(DocError);
+  });
+
+  it('keep going through the byte bound after a migration, with the new fields counted', () => {
+    const parsed = parseFingerprintDoc(v1());
+    const next = appendFingerprint(parsed, makeFingerprint('fp-new'), at(1)).doc;
+    expect(next.items.map(item => item.id)).toEqual(['fp-old', 'fp-new']);
+  });
+});
+
+describe('fingerprints of the current schema version', () => {
+  const docWith = (patch: Record<string, unknown>) => ({ ...makeFingerprintDoc(), items: [{ ...makeFingerprint('fp-1'), ...patch }] });
+
+  it('hold a Wi-Fi record and a survey point, and are checked for both', () => {
+    expect(emptyFingerprintDoc(T0).schema_version).toBe(2);
+    expect(validateFingerprintDoc(docWith({}))).toEqual([]);
+    expect(validateFingerprintDoc(docWith({ survey_id: 'alpha-1' }))).toEqual([]);
+    expect(validateFingerprintDoc(docWith({ survey_id: 5 }))).toContain('items[0].survey_id is not a string or null');
+    expect(validateFingerprintDoc(docWith({ wifi: undefined }))).toContain('items[0].wifi is not an object');
+    expect(validateFingerprintDoc(docWith({ wifi: { ...noWifi('stale'), dbm: 'loud' } }))).toContain(
+      'items[0].wifi.dbm is not a number or null'
+    );
+    expect(validateFingerprintDoc(docWith({ wifi: { ...noWifi('stale'), band: '4' } }))).toContain(
+      'items[0].wifi.band is not 2.4, 5, 6 or null'
+    );
+    expect(validateFingerprintDoc(docWith({ wifi: { ...noWifi('stale'), miss: { dbm: 'because' } } }))).toContain(
+      'items[0].wifi.miss is not a map of field to reason'
+    );
+    expect(validateFingerprintDoc(docWith({ wifi: { ...noWifi('stale'), readings: [{ dbm: -60 }] } }))).toContain(
+      'items[0].wifi.readings is not a list of {dbm, at}'
+    );
+  });
+
+  it('accept every reason a field can be missing for, and every band', () => {
+    for (const reason of ['not_captured', 'no_entity', 'unavailable', 'invalid', 'roamed', 'command_failed', 'stale'] as const) {
+      expect(validateFingerprintDoc(docWith({ wifi: noWifi(reason) }))).toEqual([]);
+    }
+    for (const band of ['2.4', '5', '6']) expect(validateFingerprintDoc(docWith({ wifi: { ...noWifi('stale'), band } }))).toEqual([]);
+  });
+});
+
+describe('a suggested rename', () => {
+  const rename = (extra: Record<string, unknown> = {}) => ({
+    id: 's-rename',
+    kind: 'rename' as const,
+    device_key: 'door_1',
+    name: 'Front door contact',
+    reason: 'It is the front door',
+    ...extra,
+  });
+
+  it('is a valid suggestion when it names a device and a name, and not otherwise', () => {
+    expect(validateSuggestDoc({ ...makeSuggestDoc(), items: [rename()] })).toEqual([]);
+    expect(
+      validateSuggestDoc({ ...makeSuggestDoc(), items: [rename({ name: '  ' })] }).some(p => p.includes('device_key and a name'))
+    ).toBe(true);
+    expect(
+      validateSuggestDoc({ ...makeSuggestDoc(), items: [rename({ device_key: undefined })] }).some(p => p.includes('device_key and a name'))
+    ).toBe(true);
+  });
+
+  it('sets the name of the device when accepted, trimmed, changes nothing else and logs the acceptance', () => {
+    const before = makeDoc();
+    const doc = applyMapOp(before, { kind: 'accept', item: rename({ name: '  Front door contact  ' }), at: at(1) });
+    expect(doc.devices.door_1.name).toBe('Front door contact');
+    expect(doc.devices.door_1).toEqual({ ...before.devices.door_1, name: 'Front door contact' });
+    expect(doc.devices.radar_a).toBe(before.devices.radar_a);
+    expect(doc.layout_version).toBe(before.layout_version);
+    expect(doc.updated_at).toBe(at(1));
+    expect(doc.suggest_log).toEqual([{ id: 's-rename', accepted_at: at(1) }]);
+  });
+
+  it('is accepted once, and a rejection leaves the name alone and only logs', () => {
+    const once = applyMapOp(makeDoc(), { kind: 'accept', item: rename(), at: at(1) });
+    expect(applyMapOp(once, { kind: 'accept', item: rename({ name: 'Other' }), at: at(2) })).toBe(once);
+    const rejected = applyMapOp(makeDoc(), { kind: 'reject', id: 's-rename', at: at(1) });
+    expect(rejected.devices.door_1.name).toBe('Test door contact');
+    expect(rejected.suggest_log).toEqual([{ id: 's-rename', rejected_at: at(1) }]);
+  });
+
+  it('does not rename a device the map does not have, and does not log it', () => {
+    const doc = makeDoc();
+    expect(applyMapOp(doc, { kind: 'accept', item: rename({ device_key: 'nope' }), at: at(1) })).toBe(doc);
+  });
+});
+
+describe('a suggestion dropped at a spot', () => {
+  const proposed = placement({
+    pos: { x: 5, y: 5, h: 2.2 },
+    facing: { state: 'known', deg: 90 },
+    fov_deg: 100,
+    cert: 'confirmed',
+    confirmed_at: T0,
+  });
+  const drop = (key: string, item = { id: 's-drop', kind: 'placement' as const, device_key: key, placement: proposed, reason: 'x' }) =>
+    applyMapOp(makeDoc(), { kind: 'accept', item, at: at(1), place: [2.341, 3.1] });
+
+  it('puts the device at the spot at room certainty, keeping the rest of what the suggestion proposes', () => {
+    const doc = drop('radar_a');
+    expect(doc.devices.radar_a.placement).toEqual({
+      pos: { x: 2.34, y: 3.1, h: 2.2 },
+      facing: { state: 'known', deg: 90 },
+      fov_deg: 100,
+      cert: 'room',
+      confirmed_at: null,
+    });
+    expect(doc.suggest_log).toEqual([{ id: 's-drop', accepted_at: at(1) }]);
+  });
+
+  it('keeps the height of the device when the suggestion gives none', () => {
+    const doc = drop('radar_a', {
+      id: 's-drop',
+      kind: 'placement',
+      device_key: 'radar_a',
+      placement: placement({ pos: { x: 5, y: 5, h: null } }),
+      reason: 'x',
+    });
+    expect(doc.devices.radar_a.placement.pos).toEqual({ x: 2.34, y: 3.1, h: 2.5 });
+  });
+
+  it('is one edit that Undo takes back, the placement before it returning together with its certainty', () => {
+    const before = makeDoc();
+    const dropped = drop('radar_a');
+    expect(dropped.devices.radar_a.history).toHaveLength(before.devices.radar_a.history.length + 1);
+    const undone = applyMapOp(dropped, { kind: 'undo', key: 'radar_a', at: at(2) });
+    expect(undone.devices.radar_a.placement).toEqual(before.devices.radar_a.placement);
+    expect(undone.devices.radar_a.history).toEqual(before.devices.radar_a.history);
+  });
+
+  it('bumps the layout version for a scanner, and Undo bumps it back', () => {
+    const dropped = drop('scan_a');
+    expect(dropped.layout_version).toBe(4);
+    expect(applyMapOp(dropped, { kind: 'undo', key: 'scan_a', at: at(2) }).layout_version).toBe(5);
+  });
+
+  it('adds a new device at the spot at room certainty, and Undo puts it back in the tray', () => {
+    const { history: _history, ...rest } = device('New thing', {
+      ha: { device_ids: ['dev-new'], bindings: {}, scanner_source: null },
+      placement: placement({ pos: { x: 9, y: 9, h: 1.2 }, cert: 'guess' }),
+    });
+    void _history;
+    const item = { id: 's-new', kind: 'new_device' as const, device: rest, reason: 'new in the registry' };
+    const doc = applyMapOp(makeDoc(), { kind: 'accept', item, at: at(1), place: [3.1, 2.2] });
+    expect(doc.devices['dev-new'].placement).toMatchObject({ pos: { x: 3.1, y: 2.2, h: 1.2 }, cert: 'room', confirmed_at: null });
+    expect(doc.devices['dev-new'].history).toHaveLength(1);
+    expect(doc.suggest_log).toEqual([{ id: 's-new', accepted_at: at(1) }]);
+    const undone = applyMapOp(doc, { kind: 'undo', key: 'dev-new', at: at(2) });
+    expect(undone.devices['dev-new'].placement.pos).toBeNull();
+    expect(undone.devices['dev-new'].history).toEqual([]);
+  });
+
+  it('bumps the layout version for a new scanner placed by a drop', () => {
+    const { history: _history, ...rest } = device('New scanner', {
+      type: 'ble',
+      ha: { device_ids: ['dev-new-scan'], bindings: {}, scanner_source: SCANNER_A.replace(':01', ':09') },
+      placement: placement({ pos: { x: 9, y: 9, h: 1 } }),
+    });
+    void _history;
+    const item = { id: 's-scan', kind: 'new_device' as const, device: rest, reason: 'new scanner' };
+    expect(applyMapOp(makeDoc(), { kind: 'accept', item, at: at(1), place: [3, 2] }).layout_version).toBe(4);
+    expect(applyMapOp(makeDoc(), { kind: 'accept', item, at: at(1) }).layout_version).toBe(3);
+  });
+
+  it('is accepted once, and the position only matters to a placement or a new device', () => {
+    const doc = drop('radar_a');
+    expect(
+      applyMapOp(doc, {
+        kind: 'accept',
+        item: { id: 's-drop', kind: 'placement', device_key: 'radar_a', placement: proposed, reason: 'x' },
+        at: at(3),
+        place: [1, 1],
+      })
+    ).toBe(doc);
+    const answer = makeSuggestDoc().items[1];
+    const plain = applyMapOp(makeDoc(), { kind: 'accept', item: answer, at: at(1) });
+    expect(applyMapOp(makeDoc(), { kind: 'accept', item: answer, at: at(1), place: [1, 1] })).toEqual(plain);
+  });
+
+  it('still takes a plain accept as it was, at the suggested spot and certainty', () => {
+    const doc = applyMapOp(makeDoc(), {
+      kind: 'accept',
+      item: { id: 's-plain', kind: 'placement', device_key: 'radar_a', placement: proposed, reason: 'x' },
+      at: at(1),
+    });
+    expect(doc.devices.radar_a.placement).toEqual(proposed);
   });
 });

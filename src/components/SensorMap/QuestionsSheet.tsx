@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { MapDoc, Measurement, Question, SuggestItem } from '../../sensorMap/mapDoc';
+import { DiscardSuggestion } from './DiscardSuggestion';
 import { TextField } from './fields';
 import { Sheet } from './Sheet';
 
@@ -65,13 +66,11 @@ function Row({
       {proposal && (
         <div className='sm-suggest'>
           <span>Proposed: {proposal.answer}</span>
-          <span className='sm-row'>
+          <span className='sm-row wrap'>
             <button type='button' className='sm-chip small on' onClick={() => onAccept(proposal)}>
               Accept
             </button>
-            <button type='button' className='sm-chip small' onClick={() => onReject(proposal.id)}>
-              Reject
-            </button>
+            <DiscardSuggestion small onDiscard={() => onReject(proposal.id)} />
           </span>
         </div>
       )}

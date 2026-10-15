@@ -3,16 +3,28 @@ import { Icon } from '@iconify/react';
 import { useHass } from '@hakit/core';
 import type { Connection } from 'home-assistant-js-websocket';
 import { dumpOf, fetchDump } from '../../sensorMap/bermuda';
-import { CAPTURE_WINDOW_S, CaptureCancelled, abortableWait, finishCapture, runCapture } from '../../sensorMap/fingerprint';
+import { ALL_APS, apChoices, coveragePoints, matchesAp, roomCoverage, type CoveragePoint } from '../../sensorMap/coverage';
+import {
+  CAPTURE_WINDOW_S,
+  CaptureCancelled,
+  abortableWait,
+  finishCapture,
+  runCapture,
+  startCapture as beginCapture,
+  type CaptureConfig,
+} from '../../sensorMap/fingerprint';
 import { markerNear, scaleBarLength, snapToWall, wallSnapRadius } from '../../sensorMap/geometry';
 import type { GestureEvent, Hit } from '../../sensorMap/gestures';
 import {
   FACING_STEP_DEG,
   fingerprintBytes,
   isRadar,
+  newDeviceKey,
+  noWifi,
   normalizeDeg,
   round2,
   type Facing,
+  type Fingerprint,
   type MapDevice,
   type MapOp,
   type NewDevice,
@@ -22,9 +34,12 @@ import {
 import { HANDLE_MIN_PX_PER_M, bearingTo, handlePoint } from '../../sensorMap/radarRange';
 import { deviceFromCandidate, trayItems } from '../../sensorMap/registry';
 import type { SaveQueue } from '../../sensorMap/saveQueue';
+import { nextPoint, surveyPoints, surveyProgress, type SurveyPoint } from '../../sensorMap/survey';
+import { readWifi, runWifi, sendUpdateCommand } from '../../sensorMap/wifi';
 import { useViewer } from '../../hooks/useViewer';
 import { hapticTick } from '../../utils/haptics';
-import { CaptureSheet } from './CaptureSheet';
+import { CaptureSheet, type SurveyTarget } from './CaptureSheet';
+import { CoverageBar } from './CoverageBar';
 import { HIT_RADIUS_PX } from './DeviceMarker';
 import { DeviceSheet } from './DeviceSheet';
 import { FingerprintSheet } from './FingerprintSheet';
@@ -32,10 +47,12 @@ import { GhostSheet } from './GhostSheet';
 import type { Ghost } from './MarkLayers';
 import { PhoneLayer } from './PhoneLayer';
 import { PhoneSheet } from './PhoneSheet';
-import { PlanCanvas } from './PlanCanvas';
+import { PlanCanvas, type CoverageView, type SurveyView } from './PlanCanvas';
 import { QuestionsSheet } from './QuestionsSheet';
+import { SurveyBar } from './SurveyBar';
 import { TraySheet } from './TraySheet';
 import { UnplacedTray } from './UnplacedTray';
+import { WifiSetupSheet } from './WifiSetupSheet';
 import { ZoneSheet } from './ZoneSheet';
 import { typeVisible, type Capture, type DeviceActions, type DragPreview, type Layers, type Selection } from './types';
 import { loadUi, saveUi } from './uiStorage';
@@ -45,6 +62,9 @@ import { useMapData, type SuggestState } from './useMapData';
 import { phoneAreas, usePhones } from './usePhones';
 import { usePlanViewport } from './usePlanViewport';
 import { useScanners } from './useScanners';
+import { useWifiStatus } from './useWifi';
+import { keepScreenOn } from './keepScreenOn';
+import { resultText } from './wifiText';
 import './SensorMap.css';
 
 interface SensorMapPageProps {
@@ -59,13 +79,15 @@ const SAVE_TEXT = { saved: 'saved', pending: 'pending', saving: 'saving', failed
 const HANDLE_KEY = '#handle';
 const stamp = () => new Date().toISOString();
 
-const TOGGLES = ['names', 'grid', 'footprints', 'phones', 'fingerprints', 'suggestions', 'light'] as const;
+const TOGGLES = ['names', 'grid', 'footprints', 'phones', 'fingerprints', 'survey', 'coverage', 'suggestions', 'light'] as const;
 const TOGGLE_LABEL: Record<(typeof TOGGLES)[number], string> = {
   names: 'Names',
   grid: 'Grid',
   footprints: 'Footprints',
   phones: 'Phones',
   fingerprints: 'Fingerprints',
+  survey: 'Survey',
+  coverage: 'Coverage',
   suggestions: 'Suggestions',
   light: 'Light',
 };
@@ -77,7 +99,13 @@ function defaultSnap(device: Pick<MapDevice, 'type'>): boolean {
 
 const isTyping = (target: EventTarget | null) => target instanceof Element && target.closest('input, select, textarea') !== null;
 
-type DragOrigin = { key: string; x: number; y: number; kind: 'move' | 'facing'; last: DragPreview | null };
+type DragOrigin = { key: string; x: number; y: number; kind: 'move' | 'facing' | 'ghost'; last: DragPreview | null };
+
+const NO_POINTS: readonly SurveyPoint[] = [];
+/** The reach of a survey target, as drawn: a press nearer to another target than to the one drawn on top means the nearer. */
+const SURVEY_HIT_PX = 22;
+const NO_COVERAGE: readonly CoveragePoint[] = [];
+const CAPTURE_HIDDEN = 'the screen turned off or the page was hidden, so nothing was kept. Keep the screen on for 10 s.';
 
 /** The `#map` page. It waits for the viewer lookup, closes itself for anyone but an administrator, and loads the
  * documents only for an administrator. */
@@ -154,16 +182,24 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [snapOverride, setSnapOverride] = useState<{ key: string; on: boolean } | null>(null);
-  const [sheet, setSheet] = useState<{ kind: 'questions'; focus: string | null } | { kind: 'phone'; address: string } | null>(null);
+  const [sheet, setSheet] = useState<
+    { kind: 'questions'; focus: string | null } | { kind: 'phone'; address: string } | { kind: 'wifi' } | null
+  >(null);
   const [drag, setDrag] = useState<DragPreview | null>(null);
   const [capture, setCapture] = useState<Capture>({ phase: 'idle' });
   const [captureError, setCaptureError] = useState<string | null>(null);
   const [weakOnly, setWeakOnly] = useState(false);
+  const [skipped, setSkipped] = useState<ReadonlySet<string>>(() => new Set(saved.skipped));
+  const [apFilter, setApFilter] = useState(ALL_APS);
+  const [captureResult, setCaptureResult] = useState<{ text: string; ok: boolean } | null>(null);
 
   const docRef = useRef(doc);
   const scaleRef = useRef(0);
   const dragOrigin = useRef<DragOrigin | null>(null);
   const captureAbort = useRef<AbortController | null>(null);
+  const hiddenAbort = useRef(false);
+  const lastPoint = useRef<string | null>(null);
+  const heightCm = useRef(100);
 
   useLayoutEffect(() => {
     docRef.current = doc;
@@ -204,6 +240,44 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
     return out;
   }, [pendingItems, suggest.doc, doc.devices, doc.layout_version]);
 
+  const wifiProposals = pendingItems.filter((item): item is Extract<SuggestItem, { kind: 'wifi' }> => item.kind === 'wifi');
+  const wifiReady = useWifiStatus(doc.wifi.source);
+  const canCapture = doc.phones.length > 0 || doc.wifi.source !== null;
+
+  const surveyPts = useMemo(() => (layers.survey ? surveyPoints(doc.plan) : NO_POINTS), [layers.survey, doc.plan]);
+  const progress = useMemo(() => surveyProgress(surveyPts, prints.items, skipped), [surveyPts, prints.items, skipped]);
+  const surveyRef = useRef({ points: surveyPts, progress });
+  useLayoutEffect(() => {
+    surveyRef.current = { points: surveyPts, progress };
+  });
+  const surveyTargets = useMemo(
+    () =>
+      surveyPts.map(point => {
+        const capture = progress.latest[point.id];
+        return { key: point.id, x: capture ? capture.pos.x : point.at[0], y: capture ? capture.pos.y : point.at[1] };
+      }),
+    [surveyPts, progress]
+  );
+  const activeSurveyId = capture.phase === 'confirm' || capture.phase === 'running' ? (capture.surveyId ?? null) : null;
+  const surveyView = useMemo<SurveyView | null>(
+    () => (layers.survey ? { points: surveyPts, progress, activeId: activeSurveyId } : null),
+    [layers.survey, surveyPts, progress, activeSurveyId]
+  );
+
+  const allCoverage = useMemo(
+    () => (layers.coverage ? coveragePoints(prints.items, doc.wifi.aps) : NO_COVERAGE),
+    [layers.coverage, prints.items, doc.wifi.aps]
+  );
+  const apName = useCallback((key: string) => doc.devices[key]?.name, [doc.devices]);
+  const apOptions = useMemo(() => apChoices(allCoverage, apName), [allCoverage, apName]);
+  const apSelected = apOptions.some(option => option.id === apFilter) ? apFilter : ALL_APS;
+  const shownCoverage = useMemo(() => allCoverage.filter(point => matchesAp(point, apSelected)), [allCoverage, apSelected]);
+  const roomFills = useMemo(() => roomCoverage(shownCoverage, doc.plan.zones), [shownCoverage, doc.plan.zones]);
+  const coverageView = useMemo<CoverageView | null>(
+    () => (layers.coverage ? { rooms: roomFills, points: shownCoverage, nameOf: apName } : null),
+    [layers.coverage, roomFills, shownCoverage, apName]
+  );
+
   const setEdit = useCallback(
     (on: boolean) => {
       setEditState(on);
@@ -218,6 +292,29 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
     captureAbort.current?.abort();
     captureAbort.current = null;
     setCapture({ phase: 'idle' });
+  }, []);
+
+  const setSkip = useCallback((id: string, on: boolean) => {
+    lastPoint.current = id;
+    setSkipped(current => {
+      const next = new Set(current);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const retake = useCallback((item: Fingerprint) => {
+    setSelection(null);
+    if (item.survey_id) lastPoint.current = item.survey_id;
+    setCapture({
+      phase: 'confirm',
+      at: [item.pos.x, item.pos.y],
+      hCm: Math.round(item.pos.h * 100),
+      note: '',
+      address: docRef.current.phones[0]?.bermuda_address ?? '',
+      surveyId: item.survey_id ?? undefined,
+    });
   }, []);
 
   const place = useCallback(
@@ -239,9 +336,13 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
     if (event.type === 'tap') {
       const world: Point = [round2(event.world[0]), round2(event.world[1])];
       if (capture.phase === 'running') return cancelCapture();
+      if (event.hit.kind === 'survey' && event.hit.id) return openSurveyPoint(event.hit.id);
       if (capture.phase === 'aim' || capture.phase === 'confirm') {
-        const base = capture.phase === 'confirm' ? capture : { hCm: 100, note: '', address: doc.phones[0]?.bermuda_address ?? '' };
-        setCapture({ phase: 'confirm', at: world, hCm: base.hCm, note: base.note, address: base.address });
+        const base =
+          capture.phase === 'confirm'
+            ? capture
+            : { hCm: heightCm.current, note: '', address: doc.phones[0]?.bermuda_address ?? '', surveyId: undefined };
+        setCapture({ phase: 'confirm', at: world, hCm: base.hCm, note: base.note, address: base.address, surveyId: base.surveyId });
         return;
       }
       const armed = edit && selection?.kind === 'tray' ? tray.find(item => item.id === selection.id) : undefined;
@@ -265,6 +366,13 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
     }
     if (event.type === 'drag-start') {
       const key = event.hit.id;
+      if (event.hit.kind === 'ghost') {
+        const ghost = ghosts.find(candidate => candidate.id === key);
+        if (!ghost) return;
+        dragOrigin.current = { key: ghost.id, x: ghost.at[0], y: ghost.at[1], kind: 'ghost', last: null };
+        setSelection(null);
+        return;
+      }
       const pos = key ? doc.devices[key]?.placement.pos : null;
       if (!key || !pos) return;
       dragOrigin.current = { key, x: pos.x, y: pos.y, kind: event.hit.kind === 'handle' ? 'facing' : 'move', last: null };
@@ -273,6 +381,16 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
     }
     if (event.type === 'drag-move') {
       const origin = dragOrigin.current;
+      if (origin?.kind === 'ghost') {
+        const ghost = ghosts.find(candidate => candidate.id === origin.key);
+        let x = origin.x + (event.world[0] - event.startWorld[0]);
+        let y = origin.y + (event.world[1] - event.startWorld[1]);
+        const snapped = ghost && defaultSnap(ghost.device) ? snapToWall(doc.plan.walls, x, y, wallSnapRadius(scaleRef.current)) : null;
+        if (snapped) [x, y] = [snapped.x, snapped.y];
+        origin.last = { kind: 'ghost', id: origin.key, x, y };
+        setDrag(origin.last);
+        return;
+      }
       const device = origin ? doc.devices[origin.key] : undefined;
       if (!origin || !device) return;
       if (origin.kind === 'move') {
@@ -296,6 +414,13 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
       dragOrigin.current = null;
       setDrag(null);
       setCollapsed(false);
+      if (last?.kind === 'ghost') {
+        const item = pendingItems.find(candidate => candidate.id === last.id);
+        if (!edit || (item?.kind !== 'placement' && item?.kind !== 'new_device')) return;
+        apply(at => ({ kind: 'accept', item, at, place: [last.x, last.y] }));
+        setSelection({ kind: 'device', key: item.kind === 'placement' ? item.device_key : newDeviceKey(item.device, item.id) });
+        return;
+      }
       if (!origin || !last || !edit || selectedKey !== origin.key) return;
       if (last.kind === 'move') {
         if (round2(last.x) !== origin.x || round2(last.y) !== origin.y)
@@ -334,8 +459,16 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   const viewport = usePlanViewport({
     plan: doc.plan,
     initialView: saved.view,
-    draggable: (hit: Hit) => edit && selectedKey !== null && hit.id === selectedKey && (hit.kind === 'marker' || hit.kind === 'handle'),
+    draggable: (hit: Hit) =>
+      edit &&
+      (hit.kind === 'ghost'
+        ? layers.suggestions
+        : selectedKey !== null && hit.id === selectedKey && (hit.kind === 'marker' || hit.kind === 'handle')),
     refineHit: (hit, px, shown, size) => {
+      if (hit.kind === 'survey') {
+        const id = markerNear(surveyTargets, shown, size, px, SURVEY_HIT_PX);
+        return id ? { kind: 'survey', id } : hit;
+      }
       if (hit.kind === 'ghost' || hit.kind === 'fingerprint') return hit;
       const handle = shown.s >= HANDLE_MIN_PX_PER_M ? handleAt : null;
       const targets = handle ? [...markerPoints, { key: HANDLE_KEY, x: handle[0], y: handle[1] }] : markerPoints;
@@ -347,6 +480,38 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   const { centreOn, zoomBy, fit, panByMetres, reveal, cancelGestures } = viewport;
 
   useEffect(() => cancelGestures(), [selectedKey, edit, cancelGestures]);
+
+  /** A to-do or skipped point opens the capture sheet at its place; a point that was captured opens its fingerprint. */
+  const openSurveyPoint = useCallback(
+    (id: string) => {
+      const { points, progress: current } = surveyRef.current;
+      const point = points.find(candidate => candidate.id === id);
+      if (!point) return;
+      lastPoint.current = id;
+      setSheet(null);
+      const done = current.latest[id];
+      const [x, y] = done ? [done.pos.x, done.pos.y] : point.at;
+      reveal(x, y, window.innerWidth < SIDE_PANEL_MIN_PX ? SHEET_COVER : 0);
+      if (done) {
+        setCapture({ phase: 'idle' });
+        setSelection({ kind: 'fingerprint', id: done.id });
+        return;
+      }
+      setSelection(null);
+      setCapture(previous => {
+        const carry = previous.phase === 'confirm' ? previous : null;
+        return {
+          phase: 'confirm',
+          at: point.at,
+          hCm: carry?.hCm ?? heightCm.current,
+          note: '',
+          address: carry?.address ?? docRef.current.phones[0]?.bermuda_address ?? '',
+          surveyId: id,
+        };
+      });
+    },
+    [reveal]
+  );
 
   const actions = useMemo<DeviceActions>(
     () => ({
@@ -393,25 +558,49 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
 
   const startCapture = useCallback(
     async (details: Extract<Capture, { phase: 'confirm' }>) => {
-      const phone = docRef.current.phones.find(candidate => candidate.bermuda_address === details.address);
-      if (!phone || !connection) return;
+      const current = docRef.current;
+      const phone = current.phones.find(candidate => candidate.bermuda_address === details.address) ?? null;
+      const source = current.wifi.source;
+      if (!connection || (!phone && !source)) return;
       const controller = new AbortController();
       captureAbort.current = controller;
+      hiddenAbort.current = false;
+      heightCm.current = details.hCm;
+      if (details.surveyId) lastPoint.current = details.surveyId;
       setCaptureError(null);
-      setCapture({ phase: 'running', at: details.at, elapsedS: 0 });
+      setCaptureResult(null);
+      setCapture({ phase: 'running', at: details.at, elapsedS: 0, surveyId: details.surveyId });
+      const releaseScreen = keepScreenOn();
+      const onProgress = (elapsedS: number) =>
+        setCapture(previous => (previous.phase === 'running' && elapsedS > previous.elapsedS ? { ...previous, elapsedS } : previous));
       try {
-        const state = await runCapture({
-          config: {
-            phone: { name: phone.name, bermuda_address: phone.bermuda_address },
-            pos: { x: details.at[0], y: details.at[1], h: round2(details.hCm / 100) },
-            layoutVersion: docRef.current.layout_version,
-            windowS: CAPTURE_WINDOW_S,
-          },
-          poll: async () => dumpOf(await fetchDump(connection, [phone.bermuda_address]), phone.bermuda_address),
-          wait: abortableWait,
-          signal: controller.signal,
-          onProgress: elapsedS => setCapture(previous => (previous.phase === 'running' ? { ...previous, elapsedS } : previous)),
-        });
+        const config: CaptureConfig = {
+          phone: phone ? { name: phone.name, bermuda_address: phone.bermuda_address } : { name: source?.name ?? '', bermuda_address: '' },
+          pos: { x: details.at[0], y: details.at[1], h: round2(details.hCm / 100) },
+          layoutVersion: current.layout_version,
+          windowS: CAPTURE_WINDOW_S,
+        };
+        const bluetooth = phone
+          ? runCapture({
+              config,
+              poll: async () => dumpOf(await fetchDump(connection, [phone.bermuda_address]), phone.bermuda_address),
+              wait: abortableWait,
+              signal: controller.signal,
+              onProgress,
+            })
+          : Promise.resolve(beginCapture(config, null));
+        const wifiRun = source
+          ? runWifi({
+              windowS: CAPTURE_WINDOW_S,
+              send: () => sendUpdateCommand(connection, source.notify),
+              read: () => readWifi(useHass.getState().entities, source),
+              wait: abortableWait,
+              now: Date.now,
+              signal: controller.signal,
+              onProgress,
+            })
+          : Promise.resolve({ wifi: noWifi('not_captured'), error: null });
+        const [state, { wifi, error }] = await Promise.all([bluetooth, wifiRun]);
         const entities = useHass.getState().entities;
         const zones = docRef.current.plan.zones;
         const roomActive = Object.fromEntries(
@@ -423,14 +612,24 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
           zones,
           devices: docRef.current.devices,
           roomActive,
+          wifi,
+          surveyId: details.surveyId ?? null,
         });
         queue.apply({ target: 'fingerprints', op: { kind: 'fingerprint', item, at: item.at } });
         setCapture({ phase: 'idle' });
-        setSelection({ kind: 'fingerprint', id: item.id });
-      } catch (error) {
-        if (!(error instanceof CaptureCancelled)) setCaptureError(error instanceof Error ? error.message : String(error));
+        if (details.surveyId) {
+          const point = surveyRef.current.points.find(candidate => candidate.id === details.surveyId);
+          const apKey = wifi.bssid ? docRef.current.wifi.aps[wifi.bssid] : undefined;
+          const ap = (apKey ? docRef.current.devices[apKey]?.name : undefined) ?? null;
+          setCaptureResult(resultText(point ? `Point ${point.n}` : 'Capture', wifi, ap, error));
+        } else setSelection({ kind: 'fingerprint', id: item.id });
+      } catch (failure) {
+        controller.abort();
+        if (!(failure instanceof CaptureCancelled)) setCaptureError(failure instanceof Error ? failure.message : String(failure));
+        else if (hiddenAbort.current) setCaptureError(CAPTURE_HIDDEN);
         setCapture({ phase: 'idle' });
       } finally {
+        releaseScreen();
         if (captureAbort.current === controller) captureAbort.current = null;
       }
     },
@@ -443,15 +642,18 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   });
 
   useEffect(() => {
-    const timer = setTimeout(() => saveUi({ layers, view }), 400);
+    const timer = setTimeout(() => saveUi({ layers, view, skipped: [...skipped] }), 400);
     return () => clearTimeout(timer);
-  }, [layers, view]);
+  }, [layers, view, skipped]);
 
   useEffect(() => {
     const onHide = () => {
       queue.saveDrafts();
       void queue.flush();
-      captureAbort.current?.abort();
+      if (captureAbort.current) {
+        hiddenAbort.current = true;
+        captureAbort.current.abort();
+      }
     };
     const onVisibility = () => {
       if (document.hidden) onHide();
@@ -525,8 +727,9 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   };
 
   const printBytes = useMemo(() => fingerprintBytes(prints), [prints]);
-  const weakCount = prints.items.filter(item => item.weak).length;
-  const shownPrints = useMemo(() => (weakOnly ? prints.items.filter(item => item.weak) : prints.items), [weakOnly, prints.items]);
+  const blePrints = useMemo(() => prints.items.filter(item => item.bermuda_address !== ''), [prints.items]);
+  const weakCount = blePrints.filter(item => item.weak).length;
+  const shownPrints = useMemo(() => (weakOnly ? blePrints.filter(item => item.weak) : blePrints), [weakOnly, blePrints]);
   const unanswered = doc.questions.filter(question => !question.answer).length;
   const typeCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -556,6 +759,25 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
         : selection?.kind === 'zone'
           ? (selection.at ?? null)
           : null;
+  const surveyPoint = capture.phase === 'confirm' && capture.surveyId ? surveyPts.find(point => point.id === capture.surveyId) : undefined;
+  const surveyTarget: SurveyTarget | null = surveyPoint
+    ? {
+        n: surveyPoint.n,
+        label: surveyPoint.label,
+        skipped: skipped.has(surveyPoint.id),
+        onSkip: () => {
+          setSkip(surveyPoint.id, true);
+          setCapture({ phase: 'idle' });
+        },
+        onRestore: () => setSkip(surveyPoint.id, false),
+      }
+    : null;
+  const goNext = () => {
+    const point = nextPoint(surveyPts, progress, lastPoint.current);
+    if (!point) return;
+    centreOn(point.at[0], point.at[1], 60, window.innerWidth < SIDE_PANEL_MIN_PX ? window.innerHeight * 0.18 : 0);
+    openSurveyPoint(point.id);
+  };
   const bar = view ? scaleBarLength(view.s) : 1;
   const idle = capture.phase !== 'confirm' && !sheet;
 
@@ -632,6 +854,18 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
               Questions {unanswered > 0 && <span className='sm-count'>{unanswered}</span>}
             </button>
           </div>
+          {layers.survey && (
+            <SurveyBar
+              progress={progress}
+              wifi={wifiReady}
+              setupPending={wifiProposals.length > 0}
+              result={captureResult}
+              busy={capture.phase === 'running'}
+              onNext={goNext}
+              onSetup={() => setSheet({ kind: 'wifi' })}
+            />
+          )}
+          {layers.coverage && <CoverageBar choices={apOptions} selected={apSelected} shown={shownCoverage.length} onSelect={setApFilter} />}
         </header>
 
         <div
@@ -658,9 +892,12 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
             fingerprints={shownPrints}
             phoneAreas={areas}
             crosshair={crosshair}
+            survey={surveyView}
+            coverage={coverageView}
             onActivate={activate}
             onActivateGhost={activateGhost}
             onActivatePrint={activatePrint}
+            onActivateSurvey={openSurveyPoint}
           />
           <div className='sm-zoom'>
             <button type='button' className='sm-icon-btn' onClick={() => zoomBy(1.6)} aria-label='Zoom in'>
@@ -690,12 +927,15 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
             </div>
           )}
           {suggest.problem && <div className='sm-point warn'>Suggestions unreadable: {suggest.problem}</div>}
-          {layers.phones && (
+          {(layers.phones || layers.survey || capture.phase !== 'idle') && (
             <PhoneLayer
               statuses={phones.statuses}
               error={phones.error}
               zones={doc.plan.zones}
               phonesConfigured={doc.phones.length > 0}
+              chips={layers.phones}
+              fab={layers.phones || layers.survey}
+              canCapture={canCapture}
               capture={capture}
               onAim={() => setCapture({ phase: 'aim' })}
               onCancelCapture={cancelCapture}
@@ -716,6 +956,9 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
           note={capture.note}
           address={capture.address}
           phones={doc.phones}
+          canStart={canCapture}
+          wifi={wifiReady}
+          survey={surveyTarget}
           onChange={patch => setCapture(current => (current.phase === 'confirm' ? { ...current, ...patch } : current))}
           onSave={() => void startCapture(capture)}
           onCancel={cancelCapture}
@@ -736,6 +979,15 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
       {capture.phase !== 'confirm' && sheet?.kind === 'phone' && phoneSheet && (
         <PhoneSheet status={phoneSheet} doc={doc} onClose={() => setSheet(null)} />
       )}
+      {capture.phase !== 'confirm' && sheet?.kind === 'wifi' && (
+        <WifiSetupSheet
+          items={wifiProposals}
+          doc={doc}
+          onAccept={actions.accept}
+          onReject={actions.reject}
+          onClose={() => setSheet(null)}
+        />
+      )}
       {idle && selectedDevice && selectedKey && (
         <DeviceSheet
           key={selectedKey}
@@ -746,7 +998,8 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
           collapsed={collapsed}
           snap={snapFor(selectedKey, selectedDevice)}
           pending={pendingItems.filter(
-            (item): item is Extract<SuggestItem, { kind: 'placement' }> => item.kind === 'placement' && item.device_key === selectedKey
+            (item): item is Extract<SuggestItem, { kind: 'placement' | 'rename' }> =>
+              (item.kind === 'placement' || item.kind === 'rename') && item.device_key === selectedKey
           )}
           onToggle={() => setCollapsed(value => !value)}
           onSnap={on => setSnapOverride({ key: selectedKey, on })}
@@ -771,6 +1024,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
         <GhostSheet
           ghost={ghostSelected}
           item={ghostItem}
+          edit={edit}
           onAccept={actions.accept}
           onReject={actions.reject}
           onClose={() => setSelection(null)}
@@ -785,6 +1039,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
             queue.apply({ target: 'fingerprints', op: { kind: 'remove_fingerprint', id, at: stamp() } });
             setSelection(null);
           }}
+          onRetake={printSelected.survey_id ? retake : undefined}
           onClose={() => setSelection(null)}
         />
       )}

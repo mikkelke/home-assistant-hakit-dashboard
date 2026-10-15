@@ -1,15 +1,32 @@
 import { memo, useMemo, type CSSProperties, type RefObject } from 'react';
+import type { CoveragePoint, RoomCoverage } from '../../sensorMap/coverage';
 import { fitView, markerRadiusPx, viewBoxOf, type Size, type View } from '../../sensorMap/geometry';
 import { HANDLE_MIN_PX_PER_M } from '../../sensorMap/radarRange';
 import { isRadar, type Facing, type Fingerprint, type MapDoc, type MapDevice, type Point } from '../../sensorMap/mapDoc';
 import { normalizeMac } from '../../sensorMap/registry';
+import type { SurveyPoint, SurveyProgress } from '../../sensorMap/survey';
+import { CoverageDots, CoverageFills } from './CoverageLayer';
 import { DeviceMarker } from './DeviceMarker';
 import { Crosshair, FacingHandle, FingerprintMarks, GhostMarker, type Ghost } from './MarkLayers';
 import { PlanDefs, PlanGrid, PlanLabels, PlanWalls } from './PlanLayers';
 import { RadarFootprint } from './RadarFootprint';
+import { SurveyLayer } from './SurveyLayer';
 import { ZoneFills } from './ZoneFills';
 import { typeVisible, type DragPreview, type Layers, type Selection } from './types';
 import type { PlanViewport } from './usePlanViewport';
+
+export interface SurveyView {
+  points: readonly SurveyPoint[];
+  progress: SurveyProgress;
+  /** The point being captured. */
+  activeId: string | null;
+}
+
+export interface CoverageView {
+  rooms: readonly RoomCoverage[];
+  points: readonly CoveragePoint[];
+  nameOf: (key: string) => string | undefined;
+}
 
 interface PlanCanvasProps {
   doc: MapDoc;
@@ -26,9 +43,12 @@ interface PlanCanvasProps {
   fingerprints: readonly Fingerprint[];
   phoneAreas: ReadonlySet<string>;
   crosshair: Point | null;
+  survey: SurveyView | null;
+  coverage: CoverageView | null;
   onActivate: (id: string) => void;
   onActivateGhost: (id: string) => void;
   onActivatePrint: (id: string) => void;
+  onActivateSurvey: (id: string) => void;
 }
 
 interface Placed {
@@ -66,9 +86,12 @@ export const PlanCanvas = memo(function PlanCanvas(props: PlanCanvasProps) {
     fingerprints,
     phoneAreas,
     crosshair,
+    survey,
+    coverage,
     onActivate,
     onActivateGhost,
     onActivatePrint,
+    onActivateSurvey,
   } = props;
   const { plan } = doc;
   const yTop = plan.bounds.y1;
@@ -110,6 +133,7 @@ export const PlanCanvas = memo(function PlanCanvas(props: PlanCanvasProps) {
       <PlanDefs plan={plan} />
       {layers.grid && <PlanGrid plan={plan} />}
       <ZoneFills zones={plan.zones} yTop={yTop} selectedId={selection?.kind === 'zone' ? selection.id : null} phoneAreas={phoneAreas} />
+      {coverage && <CoverageFills rooms={coverage.rooms} zones={plan.zones} yTop={yTop} />}
       <PlanLabels plan={plan} />
       {layers.footprints && (
         <g className='sm-footprints'>
@@ -160,11 +184,30 @@ export const PlanCanvas = memo(function PlanCanvas(props: PlanCanvasProps) {
           );
         })}
       </g>
+      {coverage && (
+        <CoverageDots
+          rooms={coverage.rooms}
+          zones={plan.zones}
+          points={coverage.points}
+          yTop={yTop}
+          nameOf={coverage.nameOf}
+          onActivate={onActivatePrint}
+        />
+      )}
+      {survey && (
+        <SurveyLayer
+          points={survey.points}
+          progress={survey.progress}
+          yTop={yTop}
+          activeId={survey.activeId}
+          onActivate={onActivateSurvey}
+        />
+      )}
       {layers.suggestions &&
         ghosts.map(ghost => (
           <GhostMarker
             key={ghost.id}
-            ghost={ghost}
+            ghost={drag?.kind === 'ghost' && drag.id === ghost.id ? { ...ghost, at: [drag.x, drag.y] } : ghost}
             yTop={yTop}
             selected={selection?.kind === 'ghost' && selection.id === ghost.id}
             onActivate={onActivateGhost}

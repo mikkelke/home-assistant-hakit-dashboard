@@ -1,5 +1,5 @@
 import type { Fingerprint, FingerprintDoc, MapDevice, MapDoc, Placement, SuggestDoc } from '../mapDoc';
-import { emptyFingerprintDoc, emptyMapDoc, emptySuggestDoc } from '../mapDoc';
+import { emptyFingerprintDoc, emptyMapDoc, emptySuggestDoc, noWifi } from '../mapDoc';
 
 export const T0 = '2030-01-01T10:00:00.000Z';
 
@@ -199,6 +199,8 @@ export function makeFingerprint(id: string, partial: Partial<Fingerprint> = {}):
     scanners: { [SCANNER_A]: { device_key: 'scan_a', samples: 3, rssi: [-61, -63, -62], dist: [2.1, 2.4, 2.2] } },
     weak: false,
     note: '',
+    wifi: noWifi('not_captured'),
+    survey_id: null,
     ...partial,
   };
 }
@@ -207,4 +209,17 @@ export function makeFingerprintDoc(limit?: number): FingerprintDoc {
   const doc = emptyFingerprintDoc(T0);
   if (limit !== undefined) doc.limit_bytes = limit;
   return doc;
+}
+
+const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+
+/** A ULID made at `ms`, as Home Assistant ids a context. */
+export function ulidAt(ms: number): string {
+  let time = '';
+  let rest = ms;
+  for (let i = 0; i < 10; i += 1) {
+    time = CROCKFORD[rest % 32] + time;
+    rest = Math.floor(rest / 32);
+  }
+  return `${time}ABCDEFGHJKMNPQRS`;
 }

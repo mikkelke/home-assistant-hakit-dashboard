@@ -1,7 +1,8 @@
-import { memo, type KeyboardEvent } from 'react';
+import { memo } from 'react';
 import type { Fingerprint, MapDevice, Point } from '../../sensorMap/mapDoc';
 import { handlePoint } from '../../sensorMap/radarRange';
 import { glyphOf, typeClass } from './glyphs';
+import { activateOnKey } from './activateOnKey';
 
 /** Smaller than a marker's touch target: a ghost sits on top of the markers, and the device beside it must stay reachable. */
 const GHOST_HIT_PX = 14;
@@ -13,17 +14,6 @@ export interface Ghost {
   at: Point;
   device: Pick<MapDevice, 'name' | 'type'>;
   stale: boolean;
-}
-
-/** Enter or Space on a focused mark, for a keyboard user. */
-function activateOnKey(activate: () => void) {
-  return (event: KeyboardEvent<SVGGElement>) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      event.stopPropagation();
-      activate();
-    }
-  };
 }
 
 interface GhostMarkerProps {

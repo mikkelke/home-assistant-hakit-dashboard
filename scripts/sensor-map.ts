@@ -13,6 +13,20 @@
  * `--force`; the key can be a scratch copy, for a trial run. Every document written carries a fresh `write_id`
  * and `writer`, so a page that has the map open notices the change instead of writing over it.
  *
+ * `set-suggest` takes `{ "items": [...] }`, each item one of
+ *
+ *   { id, kind: 'placement', device_key, placement, reason }
+ *   { id, kind: 'answer', target, answer, reason }
+ *   { id, kind: 'new_device', device, reason }
+ *   { id, kind: 'rename', device_key, name, reason }
+ *   { id, kind: 'wifi', source?, aps?, reason }
+ *
+ * and replaces the whole document, so a file holds every item that should stay. The page writes an accepted item
+ * into `sensor_map`; no command does. A `wifi` item names the phone a survey capture reads, as `source`
+ * ({ name, notify: 'notify.mobile_app_<device>', signal, bssid, frequency }, the last three being entity ids), and
+ * the BSSID table, as `aps`: the BSSID of each virtual access point, from the controller's `stat/device`
+ * `vap_table`, to the map device key of the access point that owns it.
+ *
  * VITE_HA_URL and VITE_HA_TOKEN come from the environment, then `.env.development.local`, then `.env`. The
  * token must belong to an administrator: only administrators may write the system store.
  */
@@ -195,6 +209,7 @@ function summary(key: string, doc: unknown): string {
     `  ${devices.length} devices (${devices.filter(d => d.placement.pos).length} placed), ${map.ignored_device_ids.length} ignored`,
     `  ${map.questions.length} questions (${answered(map.questions)} answered), ${map.measurements.length} measurements (${answered(map.measurements)} answered)`,
     `  ${map.suggest_log.length} suggestions decided`,
+    `  wifi: ${map.wifi.source ? 'a source is set' : 'no source'}, ${Object.keys(map.wifi.aps).length} BSSIDs in the table`,
   ].join('\n');
 }
 

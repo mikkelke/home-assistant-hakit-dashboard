@@ -13,6 +13,7 @@ import {
   type CaptureConfig,
   type CaptureContext,
 } from '../fingerprint';
+import { noWifi, type FingerprintWifi } from '../mapDoc';
 import { SCANNER_A, SCANNER_B, SCANNER_C, SCANNER_D, T0, makeDoc } from './docFixtures';
 
 const config = (x = 2, y = 2): CaptureConfig => ({
@@ -35,6 +36,8 @@ const context = (): CaptureContext => ({
   zones: doc.plan.zones,
   devices: doc.devices,
   roomActive: { alpha: 'on', beta: 'off' },
+  wifi: noWifi('not_captured'),
+  surveyId: null,
 });
 
 describe('what a capture keeps', () => {
@@ -138,6 +141,31 @@ describe('the saved fingerprint', () => {
     expect(finishCapture(captureWith([SCANNER_A], -2, -2), context()).zone_id).toBeNull();
     expect(finishCapture(captureWith([SCANNER_A], 11, 5), context()).zone_id).toBe('gamma');
     expect(finishCapture(captureWith([SCANNER_A], 6, 2), context()).zone_id).toBe('beta');
+  });
+
+  it('carries the Wi-Fi record and the survey point it was made for', () => {
+    const wifi: FingerprintWifi = {
+      dbm: -62,
+      readings: [{ dbm: -62, at: '2030-01-01T10:42:30.000Z' }],
+      bssid: '02:00:5e:10:00:0a',
+      freq_mhz: 5180,
+      band: '5',
+      at: '2030-01-01T10:42:30.000Z',
+      miss: {},
+    };
+    const item = finishCapture(captureWith([SCANNER_A, SCANNER_B, SCANNER_C]), { ...context(), wifi, surveyId: 'alpha-2' });
+    expect(item.wifi).toEqual(wifi);
+    expect(item.survey_id).toBe('alpha-2');
+    expect(finishCapture(captureWith([SCANNER_A]), context())).toMatchObject({
+      survey_id: null,
+      wifi: { dbm: null, miss: { dbm: 'not_captured' } },
+    });
+  });
+
+  it('holds Wi-Fi only for a phone that Bluetooth does not track', () => {
+    const state = startCapture({ ...config(), phone: { name: 'Wi-Fi phone', bermuda_address: '' } }, null);
+    const item = finishCapture(state, context());
+    expect(item).toMatchObject({ phone: 'Wi-Fi phone', bermuda_address: '', scanners: {}, polls: 0, bermuda_area: null });
   });
 
   it('builds the id from the time', () => {

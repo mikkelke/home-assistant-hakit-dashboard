@@ -33,6 +33,10 @@
   --t-wifi: #a3e635;
   --t-other: #a3b1c2;
   --tc: var(--t-other);
+  --cov-strong: #34d399;
+  --cov-good: #a3e635;
+  --cov-fair: #fb923c;
+  --cov-weak: #f87171;
 
   position: fixed;
   inset: 0;
@@ -79,6 +83,10 @@
   --t-speaker: #15803d;
   --t-wifi: #4d7c0f;
   --t-other: #475569;
+  --cov-strong: #059669;
+  --cov-good: #65a30d;
+  --cov-fair: #ea580c;
+  --cov-weak: #dc2626;
   color-scheme: light;
 }
 
@@ -321,6 +329,49 @@
 }
 .t-other {
   --tc: var(--t-other);
+}
+
+/* Survey and coverage bars ------------------------------------------------------------------------------------ */
+
+.sm-subbar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 6px;
+}
+
+.sm-subbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.sm-subbar-note {
+  margin: 0;
+  color: var(--sm-muted);
+  font-size: 0.8rem;
+}
+
+.sm-subbar-note.warn {
+  color: var(--sm-warn);
+}
+
+.b-strong {
+  --cc: var(--cov-strong);
+}
+.b-good {
+  --cc: var(--cov-good);
+}
+.b-fair {
+  --cc: var(--cov-fair);
+}
+.b-weak {
+  --cc: var(--cov-weak);
+}
+
+.sm-dot.cov {
+  background: var(--cc);
 }
 
 /* Map ------------------------------------------------------------------------------------------------------ */
@@ -717,7 +768,8 @@
   font-size: 9px;
 }
 
-.sm-main[data-edit='true'] .sm-mk.sel {
+.sm-main[data-edit='true'] .sm-mk.sel,
+.sm-main[data-edit='true'] .sm-ghost {
   cursor: move;
 }
 
@@ -810,6 +862,101 @@
   stroke-width: 1.8;
 }
 
+/* Survey points and coverage ------------------------------------------------------------------------------------ */
+
+.sm-sv {
+  cursor: pointer;
+  outline: none;
+}
+
+.sm-sv-ring {
+  fill: color-mix(in srgb, var(--sm-plan-bg) 70%, transparent);
+  stroke: var(--sm-accent);
+  stroke-width: 2.4;
+}
+
+.sm-sv-n {
+  fill: var(--sm-fg);
+  font-size: 11px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+.sm-sv-halo {
+  display: none;
+  fill: none;
+  stroke: var(--sm-sel);
+  stroke-width: 2.4;
+}
+
+.sm-sv.sel .sm-sv-halo,
+.sm-sv:focus-visible .sm-sv-halo {
+  display: inline;
+}
+
+.sm-sv.done .sm-sv-ring {
+  fill: var(--sm-occupied);
+  stroke: var(--sm-occupied);
+}
+
+.sm-sv.done .sm-sv-n {
+  fill: var(--sm-plan-bg);
+}
+
+.sm-sv.done.nowifi .sm-sv-ring {
+  fill: var(--sm-warn);
+  stroke: var(--sm-warn);
+}
+
+.sm-sv.skipped .sm-sv-ring {
+  fill: transparent;
+  stroke: var(--sm-muted);
+  stroke-dasharray: 3.3 2.2;
+}
+
+.sm-sv.skipped .sm-sv-n {
+  fill: var(--sm-muted);
+}
+
+.sm-cov-rooms {
+  pointer-events: none;
+}
+
+.sm-cov-fill {
+  fill: var(--cc);
+  fill-opacity: 0.3;
+}
+
+.sm-cov-count {
+  fill: var(--sm-fg);
+  font-size: 10px;
+  font-weight: 700;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--sm-plan-bg);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.sm-cov-dot {
+  cursor: pointer;
+  outline: none;
+}
+
+.sm-cov-dot .sm-mk-body circle {
+  fill: var(--cc);
+  stroke: var(--sm-plan-bg);
+  stroke-width: 1.6;
+}
+
+.sm-cov-dot:focus-visible .sm-mk-body circle {
+  stroke: var(--sm-accent);
+  stroke-width: 2.4;
+}
+
 /* Overlays on the map ----------------------------------------------------------------------------------------- */
 
 .sm-zoom {
@@ -887,6 +1034,7 @@
   right: max(10px, env(safe-area-inset-right));
   bottom: 12px;
   display: flex;
+  max-width: calc(100% - 20px);
   align-items: center;
   gap: 10px;
 }
@@ -914,12 +1062,13 @@
 }
 
 .sm-hint {
+  min-width: 0;
   padding: 6px 12px;
-  white-space: nowrap;
   border: 1px solid var(--sm-border);
-  border-radius: 999px;
+  border-radius: 16px;
   background: var(--sm-panel);
   font-size: 0.85rem;
+  line-height: 1.25;
 }
 
 .sm-ring {
@@ -975,6 +1124,24 @@
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* The text of a sheet can be selected and copied. Only the buttons and the map itself keep from it. */
+.sm-sheet {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.sensor-map button {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.sm-discard {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
 .sm-sheet-head {
   display: flex;
   flex-shrink: 0;
@@ -990,16 +1157,13 @@
   flex-direction: column;
   align-items: flex-start;
   padding: 2px 0;
-  border: 0;
-  background: none;
   color: inherit;
   font: inherit;
   text-align: left;
-  cursor: pointer;
 }
 
-.sm-sheet-handle:disabled {
-  cursor: default;
+.sm-sheet-handle.toggles {
+  cursor: pointer;
 }
 
 .sm-sheet-title {

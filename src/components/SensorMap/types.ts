@@ -8,6 +8,8 @@ export interface Layers {
   footprints: boolean;
   phones: boolean;
   fingerprints: boolean;
+  survey: boolean;
+  coverage: boolean;
   suggestions: boolean;
   light: boolean;
 }
@@ -19,6 +21,8 @@ export const DEFAULT_LAYERS: Layers = {
   footprints: true,
   phones: false,
   fingerprints: true,
+  survey: false,
+  coverage: false,
   suggestions: true,
   light: false,
 };
@@ -31,8 +35,11 @@ export type Selection =
   | { kind: 'tray'; id: string }
   | { kind: 'point'; at: Point };
 
-/** What the pointer shows while a marker or a handle is being dragged, before anything is committed. */
-export type DragPreview = { kind: 'move'; key: string; x: number; y: number } | { kind: 'facing'; key: string; deg: number };
+/** What the pointer shows while a marker, a handle or a suggested marker is being dragged, before anything is committed. */
+export type DragPreview =
+  | { kind: 'move'; key: string; x: number; y: number }
+  | { kind: 'facing'; key: string; deg: number }
+  | { kind: 'ghost'; id: string; x: number; y: number };
 
 export function typeVisible(layers: Layers, type: string, roles: readonly string[]): boolean {
   const hidden = layers.hiddenTypes;
@@ -59,5 +66,6 @@ export interface DeviceActions {
 export type Capture =
   | { phase: 'idle' }
   | { phase: 'aim' }
-  | { phase: 'confirm'; at: Point; hCm: number; note: string; address: string }
-  | { phase: 'running'; at: Point; elapsedS: number };
+  /** `address` is empty when no phone is tracked; `surveyId` names the survey point being captured. */
+  | { phase: 'confirm'; at: Point; hCm: number; note: string; address: string; surveyId?: string }
+  | { phase: 'running'; at: Point; elapsedS: number; surveyId?: string };

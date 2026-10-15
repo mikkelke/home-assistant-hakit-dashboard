@@ -3,8 +3,18 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { fitView, planToScreen } from '../../../sensorMap/geometry';
-import { device, makeDoc, makeFingerprint, makeFingerprintDoc, makeSuggestDoc, placement } from '../../../sensorMap/__tests__/docFixtures';
-import type { MapDoc } from '../../../sensorMap/mapDoc';
+import {
+  device,
+  makeDoc,
+  makeFingerprint,
+  makeFingerprintDoc,
+  makeSuggestDoc,
+  placement,
+  ulidAt,
+} from '../../../sensorMap/__tests__/docFixtures';
+import type { FingerprintDoc, FingerprintWifi, MapDoc, WifiSource } from '../../../sensorMap/mapDoc';
+import { noWifi } from '../../../sensorMap/mapDoc';
+import { surveyPoints } from '../../../sensorMap/survey';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -43,15 +53,25 @@ const { SensorMapPage } = await import('../SensorMapPage');
 interface Fake {
   connection: object;
   data: Record<string, unknown>;
-  sent: { type: string; key?: string; value?: unknown }[];
+  sent: { type: string; key?: string; value?: unknown; domain?: string }[];
+  /** The service calls other than Bermuda's. */
+  commands: { domain: string; service: string; data: unknown }[];
   failWrites: boolean;
+  failCommands: boolean;
 }
 
 function fakeConnection(data: Record<string, unknown>): Fake {
-  const fake: Fake = { connection: {}, data: { ...data }, sent: [], failWrites: false };
+  const fake: Fake = { connection: {}, data: { ...data }, sent: [], commands: [], failWrites: false, failCommands: false };
   Object.assign(fake.connection, {
-    sendMessagePromise: vi.fn(async (message: { type: string; key?: string; value?: unknown }) => {
+    sendMessagePromise: vi.fn(async (message: { type: string; key?: string; value?: unknown; domain?: string }) => {
       fake.sent.push(message);
+      if (message.type === 'call_service') {
+        const call = message as unknown as { domain: string; service: string; service_data?: unknown };
+        if (call.domain === 'bermuda') return { response: {} };
+        fake.commands.push({ domain: call.domain, service: call.service, data: call.service_data });
+        if (fake.failCommands) throw new Error('no such service');
+        return { context: { id: ulidAt(Date.now()) } };
+      }
       if (message.type === 'frontend/get_system_data') return { value: fake.data[message.key ?? ''] ?? null };
       if (message.type === 'frontend/set_system_data') {
         if (fake.failWrites) throw new Error('connection lost');
@@ -619,5 +639,759 @@ describe('a map changed elsewhere', () => {
       'Test door contact',
       false,
     ]);
+  });
+});
+
+const BSSID_A = '02:00:5e:10:00:0a';
+const BSSID_B = '02:00:5e:10:00:0b';
+const WIFI_SOURCE: WifiSource = {
+  name: 'Test phone',
+  notify: 'notify.mobile_app_test_phone',
+  signal: 'sensor.test_phone_wi_fi_signal_strength',
+  bssid: 'sensor.test_phone_wi_fi_bssid',
+  frequency: 'sensor.test_phone_wi_fi_frequency',
+};
+
+/** The map with a Wi-Fi source, one access point on the plan and a BSSID table that lists it. */
+function wifiMap(): MapDoc {
+  const map = makeDoc();
+  map.devices.ap_1 = device('Test access point', { type: 'wifi', placement: placement({ pos: { x: 6, y: 2, h: null } }) });
+  map.wifi = { source: WIFI_SOURCE, aps: { [BSSID_A]: 'ap_1' } };
+  return map;
+}
+
+const entity = (state: string, at: number) => ({ state, last_updated: new Date(at).toISOString(), attributes: {} });
+/** The phone's three Wi-Fi sensors as the Companion app left them some time ago. */
+const seedWifi = (signal = '-70') =>
+  act(() =>
+    store.setState({
+      entities: {
+        [WIFI_SOURCE.signal]: entity(signal, Date.now() - 600_000),
+        [WIFI_SOURCE.bssid]: entity(BSSID_A, Date.now() - 3_600_000),
+        [WIFI_SOURCE.frequency]: entity('5180', Date.now() - 3_600_000),
+      },
+    })
+  );
+const reportSignal = (value: string) =>
+  act(() => store.setState({ entities: { ...store.getState().entities, [WIFI_SOURCE.signal]: entity(value, Date.now()) } }));
+
+const advance = (ms: number) =>
+  act(async () => {
+    await vi.advanceTimersByTimeAsync(ms);
+  });
+const chip = (text: string) => queryAll('.sm-chip').find(node => node.textContent === text) as HTMLElement;
+/** Throws a suggestion away: the control asks first, and its confirming tap wakes up a moment later. */
+const discard = async () => {
+  act(() => chip('Discard suggestion').click());
+  await advance(700);
+  act(() => chip('Yes, discard').click());
+};
+const point = (n = 0) => surveyPoints(makeDoc().plan)[n];
+const target = (id: string) => query(`.sm-sv[data-id="${id}"]`) as Element;
+const savedPrints = (fake: Fake) =>
+  writes(fake)
+    .filter(message => message.key === 'sensor_map_fingerprints')
+    .at(-1)?.value as FingerprintDoc;
+const startFrom = (id: string) => {
+  press(target(id), 'Enter');
+  act(() => chip('Save and start').click());
+};
+
+describe('the survey', () => {
+  it('is off until asked for, as is the coverage layer', async () => {
+    await open(fakeConnection(docs()));
+    const pressed = (name: string) =>
+      queryAll('.sm-layers .sm-chip.toggle')
+        .find(node => node.textContent === name)
+        ?.getAttribute('aria-pressed');
+    expect([pressed('Survey'), pressed('Coverage')]).toEqual(['false', 'false']);
+    expect(queryAll('.sm-sv')).toHaveLength(0);
+    expect(queryAll('.sm-cov-dot')).toHaveLength(0);
+    expect(query('.sm-subbar')).toBeNull();
+  });
+
+  it('draws the points as numbered hollow targets and counts how many are done', async () => {
+    await open(fakeConnection(docs()));
+    choose('Survey');
+    const points = surveyPoints(makeDoc().plan);
+    expect(queryAll('.sm-sv')).toHaveLength(points.length);
+    expect(queryAll('.sm-sv .sm-sv-n').map(node => node.textContent)).toEqual(points.map(p => String(p.n)));
+    expect(queryAll('.sm-sv.todo')).toHaveLength(points.length);
+    expect(query('.sm-subbar [role="status"]')?.textContent).toBe(`0 of ${points.length}`);
+    expect(query('.sm-subbar-note')?.textContent).toContain('Keep the screen on for 10 s');
+  });
+
+  it('opens the capture sheet at a point when it is tapped, and Next point goes to the next one to do', async () => {
+    await open(fakeConnection(docs()));
+    choose('Survey');
+    const first = point(0);
+    press(target(first.id), 'Enter');
+    const sheet = query('.sm-sheet') as Element;
+    expect(sheet.textContent).toContain(`Point ${first.n}: ${first.label}`);
+    expect(sheet.textContent).toContain('Keep the screen on for 10 s');
+    expect([field('x').value, field('y').value]).toEqual([String(first.at[0]), String(first.at[1])]);
+    expect(target(first.id).classList.contains('sel')).toBe(true);
+    act(() => byLabel('Close').click());
+    expect(query('.sm-sheet')).toBeNull();
+    act(() => chip('Next point').click());
+    expect(query('.sm-sheet')?.textContent).toContain(`Point ${point(1).n}: ${point(1).label}`);
+  });
+
+  it('skips a point, remembers that in this browser only, and restores it', async () => {
+    const fake = fakeConnection(docs());
+    await open(fake);
+    choose('Survey');
+    const first = point(0);
+    press(target(first.id), 'Enter');
+    act(() => chip('Skip this point').click());
+    expect(query('.sm-sheet')).toBeNull();
+    expect(target(first.id).classList.contains('skipped')).toBe(true);
+    expect(queryAll('.sm-subbar .sm-count').map(node => node.textContent)).toContain('1 skipped');
+    await settle(500);
+    expect(JSON.parse(window.localStorage.getItem('sensormap-ui-v1') ?? 'null').skipped).toEqual([first.id]);
+    expect(writes(fake)).toHaveLength(0);
+    press(target(first.id), 'Enter');
+    act(() => chip('Restore this point').click());
+    expect(target(first.id).classList.contains('todo')).toBe(true);
+    expect(query('.sm-sheet')?.textContent).toContain('Skip this point');
+  });
+
+  it('keeps a point as that point when the spot is moved before the capture', async () => {
+    const fake = fakeConnection({ ...docs(), sensor_map: wifiMap() });
+    await open(fake);
+    seedWifi();
+    choose('Survey');
+    const first = point(0);
+    press(target(first.id), 'Enter');
+    typeInto(field('x'), '9.5');
+    expect(field('x').value).toBe('9.5');
+    act(() => chip('Save and start').click());
+    await advance(1000);
+    reportSignal('-61');
+    await advance(13_000);
+    await advance(1100);
+    expect(savedPrints(fake).items[0]).toMatchObject({ survey_id: first.id, pos: { x: 9.5, y: first.at[1] } });
+    expect(target(first.id).getAttribute('transform')).toContain('9.5');
+    expect(target(first.id).classList.contains('done')).toBe(true);
+  });
+
+  it('captures a point: sends the update command, keeps the reading that follows and turns the target solid', async () => {
+    const fake = fakeConnection({ ...docs(), sensor_map: wifiMap() });
+    await open(fake);
+    seedWifi();
+    choose('Survey');
+    const first = point(0);
+    startFrom(first.id);
+    await advance(0);
+    expect(fake.commands).toEqual([{ domain: 'notify', service: 'mobile_app_test_phone', data: { message: 'command_update_sensors' } }]);
+    expect(query('.sm-fab-wrap')?.textContent).toContain('keep the screen on');
+    expect(query('.sm-sheet')).toBeNull();
+    await advance(1200);
+    reportSignal('-61');
+    await advance(13_000);
+    await advance(1100);
+    const [item] = savedPrints(fake).items;
+    expect(item).toMatchObject({
+      survey_id: first.id,
+      pos: { x: first.at[0], y: first.at[1], h: 1 },
+      bermuda_address: 'test-beacon-address',
+      wifi: { dbm: -61, bssid: BSSID_A, freq_mhz: 5180, band: '5', miss: {} },
+    });
+    expect(fake.commands).toHaveLength(1);
+    expect(target(first.id).classList.contains('done')).toBe(true);
+    expect(target(first.id).classList.contains('nowifi')).toBe(false);
+    expect(query('.sm-subbar [role="status"]')?.textContent).toBe(`1 of ${surveyPoints(makeDoc().plan).length}`);
+    expect(query('.sm-subbar-note')?.textContent).toBe(`Point ${first.n} saved: -61 dBm, 5 GHz, Test access point.`);
+    expect(query('.sm-fab-wrap')?.textContent).toContain('I am here');
+    expect(query('.sm-sheet')).toBeNull();
+  });
+
+  it('captures Wi-Fi alone when no phone is tracked by Bluetooth, and draws no Bluetooth cross for it', async () => {
+    const map = wifiMap();
+    map.phones = [];
+    const fake = fakeConnection({ ...docs(), sensor_map: map });
+    await open(fake);
+    seedWifi();
+    choose('Survey');
+    const first = point(0);
+    startFrom(first.id);
+    await advance(1200);
+    reportSignal('-58');
+    await advance(14_000);
+    const [item] = savedPrints(fake).items;
+    expect(item).toMatchObject({ phone: 'Test phone', bermuda_address: '', scanners: {}, polls: 0, wifi: { dbm: -58 } });
+    expect(fake.sent.some(message => message.domain === 'bermuda')).toBe(false);
+    expect(queryAll('.sm-print')).toHaveLength(0);
+    expect(target(first.id).classList.contains('done')).toBe(true);
+  });
+
+  it('saves a capture without Wi-Fi when the sensors are off, says why, and marks the point to take again', async () => {
+    const fake = fakeConnection({ ...docs(), sensor_map: wifiMap() });
+    await open(fake);
+    choose('Survey');
+    expect(query('.sm-subbar')?.textContent).toContain('Wi-Fi sensors are off in the app');
+    const first = point(0);
+    startFrom(first.id);
+    await advance(14_000);
+    const [item] = savedPrints(fake).items;
+    expect(item.wifi).toMatchObject({ dbm: null, miss: { dbm: 'no_entity' } });
+    expect(fake.commands).toHaveLength(1);
+    expect(target(first.id).classList.contains('done')).toBe(true);
+    expect(target(first.id).classList.contains('nowifi')).toBe(true);
+    expect(query('.sm-subbar-note')?.textContent).toContain(
+      `Point ${first.n} saved without Wi-Fi: the Wi-Fi sensors are not enabled in the Companion app`
+    );
+    expect(queryAll('.sm-subbar .sm-chip').map(node => node.textContent)).toContain('1 without Wi-Fi');
+    press(target(first.id), 'Enter');
+    expect(query('.sm-sheet')?.textContent).toContain('no Wi-Fi');
+    act(() => chip('Capture this point again').click());
+    expect(query('.sm-sheet')?.textContent).toContain(`Point ${first.n}: ${first.label}`);
+  });
+
+  it('says so when the update command fails, and still saves the capture', async () => {
+    const fake = fakeConnection({ ...docs(), sensor_map: wifiMap() });
+    fake.failCommands = true;
+    await open(fake);
+    seedWifi();
+    choose('Survey');
+    startFrom(point(0).id);
+    await advance(14_000);
+    expect(savedPrints(fake).items[0].wifi.miss.dbm).toBe('command_failed');
+    expect(query('.sm-subbar-note')?.textContent).toContain('the update command failed and no reading came (no such service)');
+  });
+
+  it('is cancelled when the page is hidden, and tells the person to keep the screen on', async () => {
+    const fake = fakeConnection({ ...docs(), sensor_map: wifiMap() });
+    await open(fake);
+    seedWifi();
+    choose('Survey');
+    const first = point(0);
+    startFrom(first.id);
+    await advance(3000);
+    act(() => void window.dispatchEvent(new Event('pagehide')));
+    await advance(14_000);
+    expect(query('.sm-point.warn')?.textContent).toContain('Keep the screen on for 10 s');
+    expect(savedPrints(fake)).toBeUndefined();
+    expect(target(first.id).classList.contains('todo')).toBe(true);
+    expect(query('.sm-fab-wrap')?.textContent).toContain('I am here');
+  });
+
+  it('is cancelled with the Cancel button, which keeps nothing', async () => {
+    const fake = fakeConnection({ ...docs(), sensor_map: wifiMap() });
+    await open(fake);
+    seedWifi();
+    choose('Survey');
+    startFrom(point(0).id);
+    await advance(2000);
+    act(() => (chip('Cancel') ?? (queryAll('.sm-fab').find(node => node.textContent === 'Cancel') as HTMLElement)).click());
+    await advance(14_000);
+    expect(savedPrints(fake)).toBeUndefined();
+  });
+
+  it('cannot start with neither a tracked phone nor a Wi-Fi source', async () => {
+    const map = makeDoc();
+    map.phones = [];
+    await open(fakeConnection({ ...docs(), sensor_map: map }));
+    choose('Survey');
+    press(target(point(0).id), 'Enter');
+    expect(query('.sm-sheet')?.textContent).toContain('nothing to capture');
+    expect((chip('Save and start') as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      (queryAll('.sm-fab').find(node => node.textContent?.includes('I am here')) as HTMLButtonElement | undefined)?.disabled ?? true
+    ).toBe(true);
+  });
+
+  it('shows a point that was captured before as solid, and opens its fingerprint instead of the capture sheet', async () => {
+    const first = point(0);
+    const prints = makeFingerprintDoc();
+    prints.items = [makeFingerprint('fp-1', { survey_id: first.id, pos: { x: first.at[0], y: first.at[1], h: 1 }, wifi: noWifi('stale') })];
+    await open(fakeConnection({ ...docs(), sensor_map_fingerprints: prints }));
+    choose('Survey');
+    expect(target(first.id).classList.contains('done')).toBe(true);
+    press(target(first.id), 'Enter');
+    expect(query('.sm-sheet')?.textContent).toContain('Fingerprint');
+    expect(query('.sm-sheet')?.textContent).toContain(`Survey point ${first.id}`);
+  });
+});
+
+describe('a suggested Wi-Fi setup', () => {
+  async function openWithSetup() {
+    const suggest = makeSuggestDoc();
+    suggest.items.push({
+      id: 's-wifi',
+      kind: 'wifi',
+      source: WIFI_SOURCE,
+      aps: { [BSSID_A.toUpperCase()]: 'door_1', [BSSID_B]: 'nobody' },
+      reason: 'Derived from the controller',
+    });
+    const fake = fakeConnection({ ...docs(), sensor_map_suggest: suggest });
+    await open(fake);
+    choose('Survey');
+    return fake;
+  }
+
+  it('is offered in the survey bar, listing each BSSID with its access point, and writes nothing until accepted', async () => {
+    const fake = await openWithSetup();
+    act(() => chip('Wi-Fi setup suggested').click());
+    const sheet = query('.sm-sheet') as Element;
+    expect(sheet.textContent).toContain('Derived from the controller');
+    expect(sheet.textContent).toContain('notify.mobile_app_test_phone');
+    expect(queryAll('.sm-sheet tbody tr').map(row => row.textContent)).toEqual([
+      `${BSSID_A}Test door contact`,
+      `${BSSID_B}not on the map yet`,
+    ]);
+    await settle(1500);
+    expect(writes(fake)).toHaveLength(0);
+  });
+
+  it('becomes part of the map when accepted, with the BSSIDs in lower case, and is logged', async () => {
+    const fake = await openWithSetup();
+    act(() => chip('Wi-Fi setup suggested').click());
+    act(() => chip('Accept').click());
+    await settle(1100);
+    const written = writes(fake).at(-1)?.value as MapDoc;
+    expect(writes(fake).at(-1)?.key).toBe('sensor_map');
+    expect(written.wifi).toEqual({ source: WIFI_SOURCE, aps: { [BSSID_A]: 'door_1', [BSSID_B]: 'nobody' } });
+    expect(written.suggest_log.map(entry => entry.id)).toContain('s-wifi');
+    expect(queryAll('.sm-subbar .sm-chip').map(node => node.textContent)).not.toContain('Wi-Fi setup suggested');
+    expect(query('.sm-subbar')?.textContent).toContain('Wi-Fi sensors are off in the app');
+  });
+
+  it('is only logged when discarded', async () => {
+    const fake = await openWithSetup();
+    act(() => chip('Wi-Fi setup suggested').click());
+    await discard();
+    await settle(1100);
+    const written = writes(fake).at(-1)?.value as MapDoc;
+    expect(written.wifi).toEqual({ source: null, aps: {} });
+    expect(written.suggest_log).toEqual([expect.objectContaining({ id: 's-wifi', rejected_at: expect.any(String) })]);
+  });
+});
+
+describe('the coverage layer', () => {
+  const wifi = (dbm: number, bssid: string | null, band: '2.4' | '5' = '5'): FingerprintWifi => ({
+    dbm,
+    readings: [{ dbm, at: '2030-01-01T10:00:00.000Z' }],
+    bssid,
+    freq_mhz: band === '5' ? 5180 : 2437,
+    band,
+    at: '2030-01-01T10:00:00.000Z',
+    miss: {},
+  });
+  const print = (id: string, x: number, y: number, found: FingerprintWifi) => makeFingerprint(id, { pos: { x, y, h: 1 }, wifi: found });
+  const prints = () => {
+    const doc = makeFingerprintDoc();
+    doc.items = [
+      print('c1', 1, 1, wifi(-50, BSSID_A)),
+      print('c2', 2, 2, wifi(-60, BSSID_A)),
+      print('c3', 3, 3, wifi(-80, BSSID_B, '2.4')),
+      print('c4', 6, 2, wifi(-70, BSSID_A)),
+      print('c5', 7, 2, noWifi('stale')),
+    ];
+    return doc;
+  };
+  const counts = () => queryAll('.sm-cov-count').map(node => [...node.querySelectorAll('tspan')].map(line => line.textContent).join(' · '));
+  const choice = (label: string) =>
+    queryAll('.sm-subbar [aria-label="Access point"] .sm-chip').find(node => node.textContent?.startsWith(label)) as HTMLElement;
+
+  async function openCoverage() {
+    await open(fakeConnection({ ...docs(), sensor_map: wifiMap(), sensor_map_fingerprints: prints() }));
+    choose('Coverage');
+  }
+
+  it('draws a dot for each capture that has a reading, coloured by its dBm', async () => {
+    await open(fakeConnection({ ...docs(), sensor_map: wifiMap(), sensor_map_fingerprints: prints() }));
+    expect(queryAll('.sm-cov-dot')).toHaveLength(0);
+    choose('Coverage');
+    expect(queryAll('.sm-cov-dot')).toHaveLength(4);
+    expect(['strong', 'good', 'fair', 'weak'].map(bucket => queryAll(`.sm-cov-dot.b-${bucket}`).length)).toEqual([1, 1, 1, 1]);
+    expect(queryAll('.sm-subbar .sm-chip.static').map(node => node.textContent)).toEqual(['≥ -55', '≥ -65', '≥ -72', '< -72']);
+    expect(query('.sm-cov-dot title')?.textContent).toBe('-50 dBm, 5 GHz, Test access point');
+  });
+
+  it('fills each room with the median of its own points and shows how many that is', async () => {
+    await openCoverage();
+    expect(counts()).toEqual(['-60 dBm · 3 points', '-70 dBm · 1 point']);
+    expect(queryAll('.sm-cov-fill').map(node => node.getAttribute('class'))).toEqual(['sm-cov-fill b-good', 'sm-cov-fill b-fair']);
+  });
+
+  it('filters by access point, for the dots and for the medians, and falls back to all when nothing is left to filter', async () => {
+    await openCoverage();
+    expect(queryAll('.sm-subbar [aria-label="Access point"] .sm-chip').map(node => node.textContent)).toEqual([
+      'All APs 4',
+      'Test access point 3',
+      'Unlisted 10:00:0b 1',
+    ]);
+    act(() => choice('Test access point').click());
+    expect(queryAll('.sm-cov-dot')).toHaveLength(3);
+    expect(counts()).toEqual(['-55 dBm · 2 points', '-70 dBm · 1 point']);
+    expect(choice('Test access point').getAttribute('aria-pressed')).toBe('true');
+    act(() => choice('Unlisted').click());
+    expect(queryAll('.sm-cov-dot')).toHaveLength(1);
+    expect(counts()).toEqual(['-80 dBm · 1 point']);
+    act(() => choice('All APs').click());
+    expect(queryAll('.sm-cov-dot')).toHaveLength(4);
+  });
+
+  it('opens the fingerprint of a dot, and leaves the Bluetooth layer as it was', async () => {
+    await openCoverage();
+    expect(queryAll('.sm-print')).toHaveLength(5);
+    press(query('.sm-cov-dot') as Element, 'Enter');
+    expect(query('.sm-sheet')?.textContent).toContain('-50 dBm, 5 GHz, Test access point');
+    expect(query('.sm-sheet')?.textContent).toContain(`BSSID ${BSSID_A}`);
+  });
+
+  it('says when no capture has a reading yet', async () => {
+    await open(fakeConnection(docs()));
+    choose('Coverage');
+    expect(query('.sm-subbar')?.textContent).toContain('No capture holds a Wi-Fi reading yet');
+    expect(queryAll('.sm-cov-fill')).toHaveLength(0);
+  });
+});
+
+describe('fingerprints of the first schema version', () => {
+  it('are read, drawn as before, and say their Wi-Fi was not captured', async () => {
+    const { wifi: _wifi, survey_id: _survey, ...old } = makeFingerprint('fp-old');
+    void _wifi;
+    void _survey;
+    const stored = { ...makeFingerprintDoc(), schema_version: 1, items: [old] };
+    const fake = fakeConnection({ ...docs(), sensor_map_fingerprints: stored });
+    await open(fake);
+    expect(queryAll('.sm-print')).toHaveLength(1);
+    press(query('.sm-print') as Element, 'Enter');
+    expect(query('.sm-sheet')?.textContent).toContain('no Wi-Fi, Wi-Fi was not captured for this fingerprint');
+    await settle(1500);
+    expect(writes(fake)).toHaveLength(0);
+  });
+});
+
+describe('a suggested rename', () => {
+  async function openWithRename() {
+    const suggest = makeSuggestDoc();
+    suggest.items = [{ id: 's-rename', kind: 'rename', device_key: 'door_1', name: 'Front door contact', reason: 'It is the front door' }];
+    const fake = fakeConnection({ ...docs(), sensor_map_suggest: suggest });
+    await open(fake);
+    press(marker('Test door contact'), 'Enter');
+    return fake;
+  }
+
+  it('shows on the device with the name it proposes, and renames it, with a log entry, only when accepted', async () => {
+    const fake = await openWithRename();
+    expect(query('.sm-sheet')?.textContent).toContain('Suggested name "Front door contact": It is the front door');
+    await settle(1500);
+    expect(writes(fake)).toHaveLength(0);
+    act(() => chip('Accept').click());
+    await settle(1100);
+    const written = writes(fake).at(-1)?.value as MapDoc;
+    expect(written.devices.door_1.name).toBe('Front door contact');
+    expect(written.suggest_log).toEqual([expect.objectContaining({ id: 's-rename', accepted_at: expect.any(String) })]);
+    expect(marker('Front door contact')).toBeDefined();
+    expect(query('.sm-sheet')?.textContent).not.toContain('Suggested name');
+  });
+
+  it('leaves the name when discarded, and logs it', async () => {
+    const fake = await openWithRename();
+    await discard();
+    await settle(1100);
+    const written = writes(fake).at(-1)?.value as MapDoc;
+    expect(written.devices.door_1.name).toBe('Test door contact');
+    expect(written.suggest_log).toEqual([expect.objectContaining({ id: 's-rename', rejected_at: expect.any(String) })]);
+  });
+});
+
+describe('tapping the plan during a survey', () => {
+  const screenOf = (x: number, y: number) => planToScreen(fitView(canvas, makeDoc().plan.fit), canvas, x, y);
+  const fire = (target: Element, name: string, at: { x: number; y: number }) =>
+    act(
+      () =>
+        void target.dispatchEvent(
+          new PointerEvent(name, { bubbles: true, pointerId: 1, pointerType: 'mouse', button: 0, clientX: at.x, clientY: at.y })
+        )
+    );
+  const tap = (on: Element, at: { x: number; y: number }) => {
+    fire(on, 'pointerdown', at);
+    fire(query('.sm-svg') as Element, 'pointerup', at);
+  };
+
+  it('opens the point that was touched, whatever is drawn beneath it', async () => {
+    await open(fakeConnection(docs()));
+    choose('Survey');
+    const first = point(0);
+    tap(query(`.sm-sv[data-id="${first.id}"] .sm-mk-hit circle`) as Element, screenOf(first.at[0], first.at[1]));
+    expect(query('.sm-sheet')?.textContent).toContain(`Point ${first.n}: ${first.label}`);
+  });
+
+  it('opens the nearer of two points whose touch areas overlap, not the one drawn on top', async () => {
+    const points = surveyPoints(makeDoc().plan);
+    let pair: [(typeof points)[number], (typeof points)[number]] = [points[0], points[1]];
+    for (const a of points) {
+      for (const b of points) {
+        const near = (p: [typeof a, typeof b]) => Math.hypot(p[0].at[0] - p[1].at[0], p[0].at[1] - p[1].at[1]);
+        if (a !== b && near([a, b]) < near(pair)) pair = [a, b];
+      }
+    }
+    const [under, over] = pair;
+    const metres = Math.hypot(under.at[0] - over.at[0], under.at[1] - over.at[1]);
+    // Scale the plan so that the two centres are 12 px apart: well inside the 22 px reach of both.
+    Object.assign(canvas, { w: (12 / metres) * 13, h: 600 });
+    await open(fakeConnection(docs()));
+    choose('Survey');
+    const drawnLater = points.indexOf(over) > points.indexOf(under) ? over : under;
+    const drawnEarlier = drawnLater === over ? under : over;
+    tap(query(`.sm-sv[data-id="${drawnLater.id}"] .sm-mk-hit circle`) as Element, screenOf(drawnEarlier.at[0], drawnEarlier.at[1]));
+    expect(query('.sm-sheet')?.textContent).toContain(`Point ${drawnEarlier.n}: ${drawnEarlier.label}`);
+  });
+
+  it('switches to another point when one is touched while a sheet is open', async () => {
+    await open(fakeConnection(docs()));
+    choose('Survey');
+    const [first, second] = [point(0), point(1)];
+    press(target(first.id), 'Enter');
+    tap(query(`.sm-sv[data-id="${second.id}"] .sm-mk-hit circle`) as Element, screenOf(second.at[0], second.at[1]));
+    expect(query('.sm-sheet')?.textContent).toContain(`Point ${second.n}: ${second.label}`);
+    expect(target(first.id).classList.contains('sel')).toBe(false);
+    expect(target(second.id).classList.contains('sel')).toBe(true);
+  });
+
+  it('moves the spot of the open point to where the plan is tapped, and the capture is still for that point', async () => {
+    const fake = fakeConnection({ ...docs(), sensor_map: wifiMap() });
+    await open(fake);
+    seedWifi();
+    choose('Survey');
+    const first = point(0);
+    press(target(first.id), 'Enter');
+    const spot = screenOf(7.5, 6);
+    tap(query('.sm-svg') as Element, spot);
+    expect(Number(field('x').value)).toBeCloseTo(7.5, 1);
+    expect(Number(field('y').value)).toBeCloseTo(6, 1);
+    expect(query('.sm-sheet')?.textContent).toContain(`Point ${first.n}`);
+    act(() => chip('Save and start').click());
+    await advance(1000);
+    reportSignal('-63');
+    await advance(14_000);
+    const [item] = savedPrints(fake).items;
+    expect(item.survey_id).toBe(first.id);
+    expect(item.pos.x).toBeCloseTo(7.5, 1);
+    expect(target(first.id).classList.contains('done')).toBe(true);
+  });
+});
+
+describe('throwing a suggestion away', () => {
+  const ghostSheet = async () => {
+    const fake = fakeConnection(docs());
+    await open(fake);
+    press(query('.sm-ghost [data-hit="ghost"]') as Element, 'Enter');
+    return fake;
+  };
+
+  it('is a button named Discard suggestion beside Accept, and nothing says Reject any more', async () => {
+    await ghostSheet();
+    expect(queryAll('.sm-sheet .sm-chip').map(node => node.textContent)).toEqual(['Accept', 'Discard suggestion']);
+    expect(query('.sm-sheet')?.textContent).not.toContain('Reject');
+  });
+
+  it('asks first, and the confirming tap does nothing until a moment after it appears', async () => {
+    const fake = await ghostSheet();
+    act(() => chip('Discard suggestion').click());
+    expect(query('.sm-sheet')?.textContent).toContain('Discard this suggestion?');
+    const yes = chip('Yes, discard') as HTMLButtonElement;
+    expect(yes.disabled).toBe(true);
+    act(() => yes.click());
+    await settle(300);
+    expect((chip('Yes, discard') as HTMLButtonElement).disabled).toBe(true);
+    await settle(1500);
+    expect(writes(fake)).toHaveLength(0);
+    expect((chip('Yes, discard') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('is called off by Keep it, which writes nothing and brings the first button back', async () => {
+    const fake = await ghostSheet();
+    act(() => chip('Discard suggestion').click());
+    await advance(700);
+    act(() => chip('Keep it').click());
+    expect(chip('Discard suggestion')).toBeDefined();
+    expect(chip('Yes, discard')).toBeUndefined();
+    await settle(1500);
+    expect(writes(fake)).toHaveLength(0);
+    expect(queryAll('.sm-ghost')).toHaveLength(1);
+  });
+
+  it('logs the suggestion as rejected once confirmed, and the marker goes', async () => {
+    const fake = await ghostSheet();
+    await discard();
+    await settle(1100);
+    const written = writes(fake).at(-1)?.value as MapDoc;
+    expect(written.suggest_log).toEqual([expect.objectContaining({ id: 's-1', rejected_at: expect.any(String) })]);
+    expect(queryAll('.sm-ghost')).toHaveLength(0);
+    expect(written.devices.door_1.placement.pos).toEqual({ x: 4, y: 3, h: 1 });
+  });
+
+  it('is the same on a device sheet and on a proposed answer', async () => {
+    const fake = fakeConnection(docs());
+    await open(fake);
+    press(marker('Test door contact'), 'Enter');
+    expect(queryAll('.sm-sheet .sm-suggest .sm-chip').map(node => node.textContent)).toEqual(['Accept', 'Discard suggestion']);
+    act(() => byLabel('Close').click());
+    choose('Questions 1');
+    expect(queryAll('.sm-qa .sm-suggest .sm-chip').map(node => node.textContent)).toEqual(['Accept', 'Discard suggestion']);
+    await discard();
+    await settle(1100);
+    expect((writes(fake).at(-1)?.value as MapDoc).suggest_log).toEqual([
+      expect.objectContaining({ id: 's-2', rejected_at: expect.any(String) }),
+    ]);
+  });
+});
+
+describe('dragging a suggested marker', () => {
+  const screenOf = (x: number, y: number) => planToScreen(fitView(canvas, makeDoc().plan.fit), canvas, x, y);
+  const fire = (target: Element, name: string, at: { x: number; y: number }) =>
+    act(
+      () =>
+        void target.dispatchEvent(
+          new PointerEvent(name, { bubbles: true, pointerId: 1, pointerType: 'mouse', button: 0, clientX: at.x, clientY: at.y })
+        )
+    );
+  /** Presses on the suggested marker, moves it `dx` px to the right in two steps, and lifts. */
+  const dragGhost = (dx: number, from = screenOf(4, 2.5), release = true) => {
+    fire(query('.sm-ghost .sm-mk-hit circle') as Element, 'pointerdown', from);
+    fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + dx / 2, y: from.y });
+    fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + dx, y: from.y });
+    if (release) fire(query('.sm-svg') as Element, 'pointerup', { x: from.x + dx, y: from.y });
+  };
+  const viewBox = () => query('.sm-svg')?.getAttribute('viewBox');
+  const undo = () => act(() => (queryAll('.sm-sheet .sm-chip').find(node => node.textContent?.includes('Undo')) as HTMLElement).click());
+
+  it('accepts a suggested placement where it is dropped in Edit, at room certainty, as one write', async () => {
+    const fake = fakeConnection(docs());
+    await open(fake);
+    act(() => byLabel('Edit').click());
+    dragGhost(40);
+    await settle();
+    expect(writes(fake)).toHaveLength(1);
+    const written = writes(fake)[0].value as MapDoc;
+    expect(written.devices.door_1.placement).toMatchObject({ cert: 'room', confirmed_at: null });
+    expect(written.devices.door_1.placement.pos?.x).toBeCloseTo(4 + 40 / (canvas.w / 13), 1);
+    expect(written.devices.door_1.placement.pos).toMatchObject({ y: 2.5, h: 1.9 });
+    expect(written.suggest_log).toEqual([expect.objectContaining({ id: 's-1', accepted_at: expect.any(String) })]);
+    expect(queryAll('.sm-ghost')).toHaveLength(0);
+  });
+
+  it('shows the marker following the pointer while it is dragged, and writes nothing before the drop', async () => {
+    const fake = fakeConnection(docs());
+    await open(fake);
+    act(() => byLabel('Edit').click());
+    const before = query('.sm-ghost [data-hit="ghost"]')?.getAttribute('transform');
+    dragGhost(40, screenOf(4, 2.5), false);
+    expect(query('.sm-ghost [data-hit="ghost"]')?.getAttribute('transform')).not.toBe(before);
+    await settle(1500);
+    expect(writes(fake)).toHaveLength(0);
+    fire(query('.sm-svg') as Element, 'pointerup', { x: screenOf(4, 2.5).x + 40, y: screenOf(4, 2.5).y });
+    await settle();
+    expect(writes(fake)).toHaveLength(1);
+  });
+
+  it('selects the device it became, so Undo is there at once, and Undo puts it back as it was', async () => {
+    const fake = fakeConnection(docs());
+    await open(fake);
+    act(() => byLabel('Edit').click());
+    dragGhost(40);
+    await settle();
+    expect(query('.sm-sheet')?.textContent).toContain('Test door contact');
+    undo();
+    await settle();
+    const written = writes(fake).at(-1)?.value as MapDoc;
+    expect(written.devices.door_1.placement).toEqual(makeDoc().devices.door_1.placement);
+    expect(written.devices.door_1.history).toEqual([]);
+  });
+
+  it('adds a suggested new device where it is dropped, and Undo returns it to the tray', async () => {
+    const suggest = makeSuggestDoc();
+    const { history: _history, ...rest } = device('New thing', {
+      type: 'contact',
+      ha: { device_ids: ['dev-new'], bindings: {}, scanner_source: null },
+      placement: placement({ pos: { x: 4, y: 2.5, h: 1.2 }, cert: 'guess' }),
+    });
+    void _history;
+    suggest.items = [{ id: 's-new', kind: 'new_device', device: rest, reason: 'new in the registry' }];
+    const fake = fakeConnection({ ...docs(), sensor_map_suggest: suggest });
+    await open(fake);
+    act(() => byLabel('Edit').click());
+    dragGhost(40);
+    await settle();
+    const written = writes(fake)[0].value as MapDoc;
+    expect(written.devices['dev-new'].placement).toMatchObject({ cert: 'room', confirmed_at: null, pos: { y: 2.5, h: 1.2 } });
+    expect(written.devices['dev-new'].placement.pos?.x).toBeCloseTo(4 + 40 / (canvas.w / 13), 1);
+    expect(query('.sm-sheet')?.textContent).toContain('New thing');
+    undo();
+    await settle();
+    expect((writes(fake).at(-1)?.value as MapDoc).devices['dev-new'].placement.pos).toBeNull();
+  });
+
+  it('is only possible in Edit: without it the drag pans the plan and accepts nothing', async () => {
+    const fake = fakeConnection(docs());
+    await open(fake);
+    const before = viewBox();
+    dragGhost(40);
+    await settle();
+    expect(viewBox()).not.toBe(before);
+    expect(writes(fake)).toHaveLength(0);
+    expect(queryAll('.sm-ghost')).toHaveLength(1);
+  });
+
+  it('still opens the suggestion when tapped in Edit, and a press that does not move accepts nothing', async () => {
+    const fake = fakeConnection(docs());
+    await open(fake);
+    act(() => byLabel('Edit').click());
+    const at = screenOf(4, 2.5);
+    fire(query('.sm-ghost .sm-mk-hit circle') as Element, 'pointerdown', at);
+    fire(query('.sm-svg') as Element, 'pointerup', at);
+    expect(query('.sm-sheet')?.textContent).toContain('suggested placement');
+    expect(query('.sm-sheet')?.textContent).toContain('Drag the marker to where it belongs');
+    await settle(1500);
+    expect(writes(fake)).toHaveLength(0);
+  });
+
+  it('can be reached from a sheet that is open, which gets out of the way for the drag', async () => {
+    const fake = fakeConnection(docs());
+    await open(fake);
+    act(() => byLabel('Edit').click());
+    press(query('.sm-ghost [data-hit="ghost"]') as Element, 'Enter');
+    expect(query('.sm-sheet')?.textContent).toContain('suggested placement');
+    dragGhost(40);
+    await settle();
+    expect(writes(fake)).toHaveLength(1);
+    expect(query('.sm-sheet')?.textContent).not.toContain('suggested placement');
+  });
+});
+
+describe('the text of a sheet', () => {
+  it('is not inside a button, so it can be selected, and a tap on the title still folds the sheet', async () => {
+    await open(fakeConnection(docs()));
+    press(marker('Test door contact'), 'Enter');
+    const title = query('.sm-sheet-title') as Element;
+    expect(title.textContent).toContain('Test door contact');
+    expect(title.closest('button')).toBeNull();
+    expect(query('.sm-sheet.collapsed')).toBeNull();
+    act(() => (query('.sm-sheet-handle') as HTMLElement).click());
+    expect(query('.sm-sheet.collapsed')).not.toBeNull();
+    act(() => (query('.sm-sheet-handle') as HTMLElement).click());
+    expect(query('.sm-sheet.collapsed')).toBeNull();
+  });
+
+  it('is not folded away by the click that ends a selection of it', async () => {
+    await open(fakeConnection(docs()));
+    press(marker('Test door contact'), 'Enter');
+    const selecting = vi.spyOn(window, 'getSelection').mockReturnValue({ toString: () => 'Test door' } as unknown as Selection);
+    act(() => (query('.sm-sheet-handle') as HTMLElement).click());
+    expect(query('.sm-sheet.collapsed')).toBeNull();
+    selecting.mockRestore();
+  });
+
+  it('is folded and unfolded by the chevron too, which says which state it is in', async () => {
+    await open(fakeConnection(docs()));
+    press(marker('Test door contact'), 'Enter');
+    expect(byLabel('Collapse').getAttribute('aria-expanded')).toBe('true');
+    act(() => byLabel('Collapse').click());
+    expect(byLabel('Expand').getAttribute('aria-expanded')).toBe('false');
   });
 });

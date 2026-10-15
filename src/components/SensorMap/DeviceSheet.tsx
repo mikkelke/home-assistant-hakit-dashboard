@@ -3,6 +3,7 @@ import { Icon } from '@iconify/react';
 import { liveOf } from '../../sensorMap/live';
 import { FACING_STEP_DEG, isRadar, normalizeDeg, type Facing, type MapDevice, type MapDoc, type SuggestItem } from '../../sensorMap/mapDoc';
 import { decodeRange } from '../../sensorMap/radarRange';
+import { DiscardSuggestion } from './DiscardSuggestion';
 import { NumberField } from './fields';
 import { glyphOf, typeClass } from './glyphs';
 import { Sheet } from './Sheet';
@@ -245,14 +246,15 @@ export function DeviceSheet({ id, device, doc, edit, collapsed, snap, pending, o
         <div className='sm-block'>
           {pending.map(item => (
             <div key={item.id} className='sm-suggest'>
-              <span>Suggested: {item.reason}</span>
-              <span className='sm-row'>
+              <span>
+                {item.kind === 'rename' ? `Suggested name "${item.name}": ` : 'Suggested: '}
+                {item.reason}
+              </span>
+              <span className='sm-row wrap'>
                 <button type='button' className='sm-chip small on' onClick={() => actions.accept(item)}>
                   Accept
                 </button>
-                <button type='button' className='sm-chip small' onClick={() => actions.reject(item.id)}>
-                  Reject
-                </button>
+                <DiscardSuggestion small onDiscard={() => actions.reject(item.id)} />
               </span>
             </div>
           ))}

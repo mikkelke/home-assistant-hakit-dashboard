@@ -10,6 +10,8 @@
  */
 
 export const SCHEMA_VERSION = 1;
+/** The fingerprint document moved on to version 2 when a capture began to carry Wi-Fi; version 1 is read and migrated. */
+export const FINGERPRINT_SCHEMA_VERSION = 2;
 
 export const MAP_KEY = 'sensor_map';
 export const SUGGEST_KEY = 'sensor_map_suggest';
@@ -168,6 +170,23 @@ export interface SuggestLogEntry {
   rejected_at?: string;
 }
 
+/** The phone whose Wi-Fi a capture records: the service that tells its Companion app to update its sensors, and the
+ * entities that app fills. */
+export interface WifiSource {
+  name: string;
+  /** `domain.service`, for example `notify.mobile_app_<device>`. */
+  notify: string;
+  signal: string;
+  bssid: string;
+  frequency: string;
+}
+
+export interface WifiConfig {
+  source: WifiSource | null;
+  /** BSSID, lower case with colons, to the key of the access point device that owns it. */
+  aps: Record<string, string>;
+}
+
 /** What a writer adds to a document when it writes it. */
 export interface WriteStamp {
   write_id?: string;
@@ -189,6 +208,7 @@ export interface MapDoc extends WriteStamp {
   not_drawn: string[];
   layer_notes: string[];
   suggest_log: SuggestLogEntry[];
+  wifi: WifiConfig;
 }
 
 export type NewDevice = Omit<MapDevice, 'history'>;
@@ -196,7 +216,9 @@ export type NewDevice = Omit<MapDevice, 'history'>;
 export type SuggestItem =
   | { id: string; kind: 'placement'; device_key: string; placement: Placement; reason: string }
   | { id: string; kind: 'answer'; target: string; answer: string; reason: string }
-  | { id: string; kind: 'new_device'; device: NewDevice; reason: string };
+  | { id: string; kind: 'new_device'; device: NewDevice; reason: string }
+  | { id: string; kind: 'wifi'; source?: WifiSource; aps?: Record<string, string>; reason: string }
+  | { id: string; kind: 'rename'; device_key: string; name: string; reason: string };
 
 export interface SuggestDoc {
   schema_version: number;
@@ -212,10 +234,45 @@ export interface FingerprintScanner {
   dist: (number | null)[];
 }
 
+export type WifiBand = '2.4' | '5' | '6';
+export const WIFI_BANDS: readonly WifiBand[] = ['2.4', '5', '6'];
+
+/** Why a Wi-Fi field is null. */
+export type WifiMiss = 'not_captured' | 'no_entity' | 'unavailable' | 'invalid' | 'roamed' | 'command_failed' | 'stale';
+export const WIFI_MISSES: readonly WifiMiss[] = [
+  'not_captured',
+  'no_entity',
+  'unavailable',
+  'invalid',
+  'roamed',
+  'command_failed',
+  'stale',
+];
+
+export interface WifiReading {
+  dbm: number;
+  /** When Home Assistant stored the reading, on its own clock. */
+  at: string;
+}
+
+export interface FingerprintWifi {
+  /** The median of `readings`; null, with a reason in `miss`, when none arrived inside the window. */
+  dbm: number | null;
+  readings: WifiReading[];
+  /** Lower case with colons. */
+  bssid: string | null;
+  freq_mhz: number | null;
+  band: WifiBand | null;
+  /** When the newest reading was stored; null without one. */
+  at: string | null;
+  miss: Partial<Record<'dbm' | 'bssid' | 'freq', WifiMiss>>;
+}
+
 export interface Fingerprint {
   id: string;
   at: string;
   phone: string;
+  /** Empty for a capture made with no tracked phone, which holds Wi-Fi only. */
   bermuda_address: string;
   pos: { x: number; y: number; h: number };
   zone_id: string | null;
@@ -227,6 +284,9 @@ export interface Fingerprint {
   scanners: Record<string, FingerprintScanner>;
   weak: boolean;
   note: string;
+  wifi: FingerprintWifi;
+  /** The survey point the capture was made for. */
+  survey_id: string | null;
 }
 
 export interface FingerprintDoc extends WriteStamp {
@@ -267,6 +327,25 @@ export function utf8Length(text: string): number {
   return new TextEncoder().encode(text).length;
 }
 
+const BSSID_PATTERN = /^[0-9a-f]{2}(:[0-9a-f]{2}){5}$/;
+/** What Android reports instead of a BSSID when it may not tell, and what it reports for no connection. */
+const BSSID_PLACEHOLDERS: ReadonlySet<string> = new Set(['00:00:00:00:00:00', '02:00:00:00:00:00']);
+
+/** A BSSID as lower case hex pairs with colons, or null for anything else, including the all-zero and the
+ * 02:00:00:00:00:00 placeholders. */
+export function normalizeBssid(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const text = raw.trim().toLowerCase().replace(/-/g, ':');
+  return BSSID_PATTERN.test(text) && !BSSID_PLACEHOLDERS.has(text) ? text : null;
+}
+
+/** The Wi-Fi record of a capture that holds none: every field null and the reason given. */
+export function noWifi(reason: WifiMiss): FingerprintWifi {
+  return { dbm: null, readings: [], bssid: null, freq_mhz: null, band: null, at: null, miss: { dbm: reason, bssid: reason, freq: reason } };
+}
+
+export const emptyWifiConfig = (): WifiConfig => ({ source: null, aps: {} });
+
 export function emptyMapDoc(now: string): MapDoc {
   return {
     schema_version: SCHEMA_VERSION,
@@ -297,6 +376,7 @@ export function emptyMapDoc(now: string): MapDoc {
     not_drawn: [],
     layer_notes: [],
     suggest_log: [],
+    wifi: emptyWifiConfig(),
   };
 }
 
@@ -305,7 +385,7 @@ export function emptySuggestDoc(now: string, layoutVersion = 1): SuggestDoc {
 }
 
 export function emptyFingerprintDoc(now: string): FingerprintDoc {
-  return { schema_version: SCHEMA_VERSION, updated_at: now, limit_bytes: FINGERPRINT_LIMIT_BYTES, items: [] };
+  return { schema_version: FINGERPRINT_SCHEMA_VERSION, updated_at: now, limit_bytes: FINGERPRINT_LIMIT_BYTES, items: [] };
 }
 
 function checkFacing(value: unknown, path: string, problems: string[]) {
@@ -416,6 +496,24 @@ function checkQuestions(value: unknown, name: string, problems: string[], measur
   });
 }
 
+const WIFI_SOURCE_FIELDS = ['name', 'notify', 'signal', 'bssid', 'frequency'] as const;
+const SERVICE_PATTERN = /^[a-z0-9_]+\.[a-z0-9_]+$/;
+
+function checkWifiSource(value: unknown, path: string, problems: string[]) {
+  if (!isObject(value) || !WIFI_SOURCE_FIELDS.every(field => isString(value[field]))) {
+    return problems.push(`${path} is not {name, notify, signal, bssid, frequency}`);
+  }
+  if (!SERVICE_PATTERN.test(value.notify as string)) problems.push(`${path}.notify is not a domain.service`);
+}
+
+function checkWifiAps(value: unknown, path: string, problems: string[]) {
+  if (!isObject(value)) return problems.push(`${path} is not an object`);
+  for (const [bssid, key] of Object.entries(value)) {
+    if (normalizeBssid(bssid) === null) problems.push(`${path} holds ${bssid}, which is not a BSSID`);
+    else if (!isString(key) || key === '') problems.push(`${path}.${bssid} is not a device key`);
+  }
+}
+
 /** What is wrong with a candidate `sensor_map` document; an empty list means it can be used as it is. */
 export function validateMapDoc(raw: unknown): string[] {
   const problems: string[] = [];
@@ -445,6 +543,13 @@ export function validateMapDoc(raw: unknown): string[] {
   if (raw.suggest_log !== undefined) {
     const log = raw.suggest_log;
     if (!Array.isArray(log) || !log.every(e => isObject(e) && isString(e.id))) problems.push('suggest_log is not a list of {id, ...}');
+  }
+  if (raw.wifi !== undefined) {
+    if (!isObject(raw.wifi)) problems.push('wifi is not an object');
+    else {
+      if (raw.wifi.source !== null) checkWifiSource(raw.wifi.source, 'wifi.source', problems);
+      checkWifiAps(raw.wifi.aps, 'wifi.aps', problems);
+    }
   }
   return problems;
 }
@@ -487,6 +592,7 @@ export function parseMapDoc(raw: unknown): MapDoc {
     not_drawn: doc.not_drawn ?? [],
     layer_notes: doc.layer_notes ?? [],
     suggest_log: doc.suggest_log ?? [],
+    wifi: doc.wifi ?? emptyWifiConfig(),
   };
 }
 
@@ -510,8 +616,15 @@ export function validateSuggestDoc(raw: unknown): string[] {
       if (!isString(item.target) || !isString(item.answer)) problems.push(`${path} needs a string target and answer`);
     } else if (item.kind === 'new_device') {
       checkDevice(item.device, `${path}.device`, problems, false);
+    } else if (item.kind === 'wifi') {
+      if (item.source === undefined && item.aps === undefined) problems.push(`${path} has neither a source nor aps`);
+      if (item.source !== undefined) checkWifiSource(item.source, `${path}.source`, problems);
+      if (item.aps !== undefined) checkWifiAps(item.aps, `${path}.aps`, problems);
+    } else if (item.kind === 'rename') {
+      if (!isString(item.device_key) || !isString(item.name) || item.name.trim() === '')
+        problems.push(`${path} needs a device_key and a name`);
     } else {
-      problems.push(`${path}.kind is not placement, answer or new_device`);
+      problems.push(`${path}.kind is not placement, answer, new_device, wifi or rename`);
     }
   });
   return problems;
@@ -523,10 +636,24 @@ export function parseSuggestDoc(raw: unknown): SuggestDoc {
   return raw as SuggestDoc;
 }
 
+function checkWifi(value: unknown, path: string, problems: string[]) {
+  if (!isObject(value)) return problems.push(`${path} is not an object`);
+  if (!isNullable(isNumber)(value.dbm)) problems.push(`${path}.dbm is not a number or null`);
+  if (!Array.isArray(value.readings) || !value.readings.every(entry => isObject(entry) && isNumber(entry.dbm) && isString(entry.at)))
+    problems.push(`${path}.readings is not a list of {dbm, at}`);
+  if (!isNullable(isString)(value.bssid) || !isNullable(isNumber)(value.freq_mhz) || !isNullable(isString)(value.at))
+    problems.push(`${path} has a bad bssid, freq_mhz or at`);
+  if (value.band !== null && !WIFI_BANDS.includes(value.band as WifiBand)) problems.push(`${path}.band is not 2.4, 5, 6 or null`);
+  if (!isObject(value.miss) || !Object.values(value.miss).every(reason => WIFI_MISSES.includes(reason as WifiMiss)))
+    problems.push(`${path}.miss is not a map of field to reason`);
+}
+
+/** What is wrong with a candidate `sensor_map_fingerprints` document of the current version. */
 export function validateFingerprintDoc(raw: unknown): string[] {
   const problems: string[] = [];
   if (!isObject(raw)) return ['the document is not an object'];
-  if (raw.schema_version !== SCHEMA_VERSION) problems.push(`schema_version is ${String(raw.schema_version)}, expected ${SCHEMA_VERSION}`);
+  if (raw.schema_version !== FINGERPRINT_SCHEMA_VERSION)
+    problems.push(`schema_version is ${String(raw.schema_version)}, expected ${FINGERPRINT_SCHEMA_VERSION}`);
   if (!isString(raw.updated_at)) problems.push('updated_at is not a string');
   if (!isNumber(raw.limit_bytes) || raw.limit_bytes <= 0) problems.push('limit_bytes is not a positive number');
   if (!Array.isArray(raw.items)) return [...problems, 'items is not an array'];
@@ -543,14 +670,25 @@ export function validateFingerprintDoc(raw: unknown): string[] {
       return problems.push(`${path} has no id, at or pos`);
     }
     if (!isObject(item.scanners) || typeof item.weak !== 'boolean') problems.push(`${path} has no scanners or weak flag`);
+    checkWifi(item.wifi, `${path}.wifi`, problems);
+    if (!isNullable(isString)(item.survey_id)) problems.push(`${path}.survey_id is not a string or null`);
   });
   return problems;
 }
 
+/** A version 1 fingerprint document as version 2: every capture gets a Wi-Fi record that says it was not captured, and
+ * no survey point. Anything else is returned as it is. */
+export function migrateFingerprintDoc(raw: unknown): unknown {
+  if (!isObject(raw) || raw.schema_version !== 1 || !Array.isArray(raw.items)) return raw;
+  const items = raw.items.map(item => (isObject(item) ? { wifi: noWifi('not_captured'), survey_id: null, ...item } : item));
+  return { ...raw, schema_version: FINGERPRINT_SCHEMA_VERSION, items };
+}
+
 export function parseFingerprintDoc(raw: unknown): FingerprintDoc {
-  const problems = validateFingerprintDoc(raw);
+  const migrated = migrateFingerprintDoc(raw);
+  const problems = validateFingerprintDoc(migrated);
   if (problems.length > 0) throw new DocError('sensor_map_fingerprints', problems);
-  return raw as FingerprintDoc;
+  return migrated as FingerprintDoc;
 }
 
 /** The commands that may write a key: only the suggestion document is open to `set`; `seed` writes the map
@@ -591,7 +729,8 @@ export type MapOp =
   | { kind: 'type'; key: string; at: string; type: string }
   | { kind: 'ignore'; device_id: string; at: string }
   | { kind: 'answer'; id: string; at: string; answer: string | null }
-  | { kind: 'accept'; item: SuggestItem; at: string }
+  /** `place` accepts a placement or a new device at that spot instead of the one the suggestion proposes. */
+  | { kind: 'accept'; item: SuggestItem; at: string; place?: Point }
   | { kind: 'reject'; id: string; at: string };
 
 export type FingerprintOp = { kind: 'fingerprint'; item: Fingerprint; at: string } | { kind: 'remove_fingerprint'; id: string; at: string };
@@ -630,20 +769,57 @@ function withDefaultFov(placement: Placement, facing: Facing): number | null {
   return facing.state === 'known' ? (placement.fov_deg ?? DEFAULT_FOV_DEG) : placement.fov_deg;
 }
 
-function acceptItem(doc: MapDoc, item: SuggestItem, at: string): MapDoc {
+/** `placement` put at `place`, which is a person's choice and so only known to the room; a height it carries stays. */
+function droppedAt(placement: Placement, place: Point, height: number | null): Placement {
+  return {
+    ...placement,
+    pos: { x: round2(place[0]), y: round2(place[1]), h: placement.pos?.h ?? height },
+    cert: 'room',
+    confirmed_at: null,
+  };
+}
+
+function acceptItem(doc: MapDoc, item: SuggestItem, at: string, place?: Point): MapDoc {
   if (doc.suggest_log.some(entry => entry.id === item.id)) return doc;
   let next = doc;
   if (item.kind === 'placement') {
     const device = doc.devices[item.device_key];
     if (!device) return doc;
-    const placement =
-      item.placement.cert === 'confirmed' && !item.placement.confirmed_at ? { ...item.placement, confirmed_at: at } : item.placement;
+    const placement = place
+      ? droppedAt(item.placement, place, device.placement.pos?.h ?? null)
+      : item.placement.cert === 'confirmed' && !item.placement.confirmed_at
+        ? { ...item.placement, confirmed_at: at }
+        : item.placement;
     next = withPlacement(doc, item.device_key, device, placement, at, pushHistory(device.history, at, device.placement));
   } else if (item.kind === 'answer') {
     next = applyMapOp(doc, { kind: 'answer', id: item.target, at, answer: item.answer });
+  } else if (item.kind === 'wifi') {
+    const aps = { ...doc.wifi.aps };
+    for (const [bssid, key] of Object.entries(item.aps ?? {})) {
+      const normalized = normalizeBssid(bssid);
+      if (normalized) aps[normalized] = key;
+    }
+    next = { ...doc, updated_at: at, wifi: { source: item.source ?? doc.wifi.source, aps } };
+  } else if (item.kind === 'rename') {
+    const device = doc.devices[item.device_key];
+    if (!device) return doc;
+    next = { ...doc, updated_at: at, devices: { ...doc.devices, [item.device_key]: { ...device, name: item.name.trim() } } };
   } else {
     const key = newDeviceKey(item.device, item.id);
-    if (!doc.devices[key]) next = { ...doc, updated_at: at, devices: { ...doc.devices, [key]: { ...item.device, history: [] } } };
+    if (!doc.devices[key] && place) {
+      const before: Placement = { ...item.device.placement, pos: null, cert: 'guess', confirmed_at: null };
+      const dropped = droppedAt(item.device.placement, place, null);
+      const added: MapDevice = { ...item.device, placement: dropped, history: [{ at, placement: before }] };
+      const layoutChanged = isScanner(added) && !samePlacementGeometry(before, dropped);
+      next = {
+        ...doc,
+        updated_at: at,
+        layout_version: layoutChanged ? doc.layout_version + 1 : doc.layout_version,
+        devices: { ...doc.devices, [key]: added },
+      };
+    } else if (!doc.devices[key]) {
+      next = { ...doc, updated_at: at, devices: { ...doc.devices, [key]: { ...item.device, history: [] } } };
+    }
   }
   const log = [...next.suggest_log, { id: item.id, accepted_at: at }].slice(-SUGGEST_LOG_LIMIT);
   return { ...next, updated_at: at, suggest_log: log };
@@ -722,7 +898,7 @@ export function applyMapOp(doc: MapDoc, op: MapOp): MapDoc {
       return measurements ? { ...doc, updated_at: op.at, measurements } : doc;
     }
     case 'accept':
-      return acceptItem(doc, op.item, op.at);
+      return acceptItem(doc, op.item, op.at, op.place);
     case 'reject':
       return doc.suggest_log.some(entry => entry.id === op.id)
         ? doc

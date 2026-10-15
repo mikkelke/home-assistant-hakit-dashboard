@@ -1,7 +1,17 @@
-import type { Point } from '../../sensorMap/mapDoc';
-import type { Phone } from '../../sensorMap/mapDoc';
+import { CAPTURE_WINDOW_S } from '../../sensorMap/fingerprint';
+import type { Phone, Point } from '../../sensorMap/mapDoc';
+import type { WifiReady } from '../../sensorMap/wifi';
 import { NumberField, TextField } from './fields';
 import { Sheet } from './Sheet';
+
+/** The survey point a capture is for. */
+export interface SurveyTarget {
+  n: number;
+  label: string;
+  skipped: boolean;
+  onSkip: () => void;
+  onRestore: () => void;
+}
 
 interface CaptureSheetProps {
   at: Point;
@@ -9,6 +19,10 @@ interface CaptureSheetProps {
   note: string;
   address: string;
   phones: readonly Phone[];
+  /** A tracked phone or a Wi-Fi source exists, so there is something to capture. */
+  canStart: boolean;
+  wifi: WifiReady;
+  survey: SurveyTarget | null;
   onChange: (patch: { at?: Point; hCm?: number; note?: string; address?: string }) => void;
   onSave: () => void;
   onCancel: () => void;
@@ -16,10 +30,21 @@ interface CaptureSheetProps {
 
 const H_CHIPS = [30, 100, 150];
 
+const WIFI_NOTE: Record<WifiReady, string> = {
+  ready: "Wi-Fi is read from the phone's Companion app during the window.",
+  none: 'No Wi-Fi source is set up, so this capture holds Bluetooth only.',
+  missing: 'The Wi-Fi sensors are not enabled in the Companion app, so this capture will have no Wi-Fi.',
+  offline: 'The Wi-Fi sensors report no value right now, so this capture may have no Wi-Fi.',
+};
+
 /** Where the phone is being held, before the stationary window starts. */
-export function CaptureSheet({ at, hCm, note, address, phones, onChange, onSave, onCancel }: CaptureSheetProps) {
+export function CaptureSheet({ at, hCm, note, address, phones, canStart, wifi, survey, onChange, onSave, onCancel }: CaptureSheetProps) {
   return (
-    <Sheet title='Capture a fingerprint' subtitle='a 10 second window with the phone held still' onClose={onCancel}>
+    <Sheet
+      title={survey ? `Point ${survey.n}: ${survey.label}` : 'Capture a fingerprint'}
+      subtitle={`a ${CAPTURE_WINDOW_S} second window with the phone held still`}
+      onClose={onCancel}
+    >
       <div className='sm-row'>
         <NumberField label='x' unit='m' value={at[0]} onCommit={value => value !== null && onChange({ at: [value, at[1]] })} />
         <NumberField label='y' unit='m' value={at[1]} onCommit={value => value !== null && onChange({ at: [at[0], value] })} />
@@ -45,17 +70,34 @@ export function CaptureSheet({ at, hCm, note, address, phones, onChange, onSave,
         )}
       </div>
       <TextField label='Note' value={note} placeholder='Note (optional)' onChange={value => onChange({ note: value ?? '' })} />
-      <div className='sm-row'>
-        <button type='button' className='sm-chip on' onClick={onSave}>
+      <div className='sm-row wrap'>
+        <button type='button' className='sm-chip on' disabled={!canStart} onClick={onSave}>
           Save and start
         </button>
         <button type='button' className='sm-chip' onClick={onCancel}>
           Cancel
         </button>
+        {survey &&
+          (survey.skipped ? (
+            <button type='button' className='sm-chip' onClick={survey.onRestore}>
+              Restore this point
+            </button>
+          ) : (
+            <button type='button' className='sm-chip' onClick={survey.onSkip}>
+              Skip this point
+            </button>
+          ))}
       </div>
       <p className='sm-muted'>
-        Moving, panning or tapping the map during the window cancels it. Only samples that arrive inside the window are kept.
+        Keep the screen on for {CAPTURE_WINDOW_S} s and hold the phone still.
+        {survey ? ' Tap the plan to move the spot.' : ''} Moving, panning or tapping the map during the window cancels it. Only samples that
+        arrive inside the window are kept.
       </p>
+      {canStart ? (
+        <p className={wifi === 'ready' ? 'sm-muted' : 'sm-warn'}>{WIFI_NOTE[wifi]}</p>
+      ) : (
+        <p className='sm-warn'>No tracked phone and no Wi-Fi source are set up, so there is nothing to capture.</p>
+      )}
     </Sheet>
   );
 }

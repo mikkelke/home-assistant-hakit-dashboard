@@ -47,3 +47,34 @@ it('gives every document it writes a fresh write_id and a writer, replacing any 
     ['string', false, 'cli'],
   ]);
 });
+
+it('writes a suggestion document that holds a Wi-Fi setup and a rename, and reads back what it wrote', async () => {
+  const items = [
+    ...makeSuggestDoc().items,
+    {
+      id: 's-wifi',
+      kind: 'wifi',
+      source: {
+        name: 'Test phone',
+        notify: 'notify.mobile_app_test_phone',
+        signal: 'sensor.test_phone_wi_fi_signal_strength',
+        bssid: 'sensor.test_phone_wi_fi_bssid',
+        frequency: 'sensor.test_phone_wi_fi_frequency',
+      },
+      aps: { '02:00:5e:10:00:0a': 'ap_one' },
+      reason: 'from the controller',
+    },
+    { id: 's-rename', kind: 'rename', device_key: 'door_1', name: 'Front door contact', reason: 'it is the front door' },
+  ];
+  await run('set-suggest', [file({ items })], client);
+  expect((data.get(SUGGEST_KEY) as { items: { id: string }[] }).items.map(item => item.id)).toEqual(['s-1', 's-2', 's-wifi', 's-rename']);
+  await expect(run('set-suggest', [file({ items: [{ id: 's-bad', kind: 'wifi', reason: 'nothing in it' }] })], client)).rejects.toThrow();
+});
+
+it('summarizes the Wi-Fi of the map', async () => {
+  const lines: string[] = [];
+  vi.spyOn(console, 'log').mockImplementation((line: string) => void lines.push(line));
+  data.set(MAP_KEY, { ...makeDoc(), wifi: { source: null, aps: { '02:00:5e:10:00:0a': 'ap_one' } } });
+  await run('get', [MAP_KEY, '--summary'], client);
+  expect(lines.join('\n')).toContain('wifi: no source, 1 BSSIDs in the table');
+});

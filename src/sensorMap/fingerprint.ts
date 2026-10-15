@@ -1,6 +1,6 @@
 import type { Advert, DeviceDump } from './bermuda';
 import { zoneAt } from './geometry';
-import type { Fingerprint, FingerprintScanner, MapDevice, Zone } from './mapDoc';
+import type { Fingerprint, FingerprintScanner, FingerprintWifi, MapDevice, Zone } from './mapDoc';
 import { normalizeMac } from './registry';
 
 export const CAPTURE_WINDOW_S = 10;
@@ -8,6 +8,7 @@ export const CAPTURE_POLL_S = 2;
 export const WEAK_BELOW_SCANNERS = 3;
 
 export interface CaptureConfig {
+  /** An empty `bermuda_address` means no Bluetooth is captured. */
   phone: { name: string; bermuda_address: string };
   pos: { x: number; y: number; h: number };
   layoutVersion: number;
@@ -56,6 +57,8 @@ export interface CaptureContext {
   /** Device key by scanner address, for the scanners the map lists. */
   devices: Readonly<Record<string, MapDevice>>;
   roomActive: Record<string, string>;
+  wifi: FingerprintWifi;
+  surveyId: string | null;
 }
 
 export function fingerprintId(at: string): string {
@@ -92,6 +95,8 @@ export function finishCapture(state: CaptureState, context: CaptureContext): Fin
     scanners,
     weak: Object.keys(scanners).length < WEAK_BELOW_SCANNERS,
     note: context.note,
+    wifi: context.wifi,
+    survey_id: context.surveyId,
   };
 }
 
