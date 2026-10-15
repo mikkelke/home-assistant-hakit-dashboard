@@ -3,6 +3,9 @@ import type { Fingerprint, MapDevice, Point } from '../../sensorMap/mapDoc';
 import { handlePoint } from '../../sensorMap/radarRange';
 import { glyphOf, typeClass } from './glyphs';
 
+/** Smaller than a marker's touch target: a ghost sits on top of the markers, and the device beside it must stay reachable. */
+const GHOST_HIT_PX = 14;
+
 export interface Ghost {
   id: string;
   /** The suggestion proposes this placement for a device already on the plan, which gives the arrow its start. */
@@ -36,7 +39,7 @@ export const GhostMarker = memo(function GhostMarker({ ghost, yTop, selected }: 
       >
         <title>{`Suggested: ${ghost.device.name}`}</title>
         <g className='sm-mk-hit'>
-          <circle r={22} />
+          <circle r={GHOST_HIT_PX} />
         </g>
         <g className='sm-mk-body'>
           <circle r={10} className='sm-mk-bg' />

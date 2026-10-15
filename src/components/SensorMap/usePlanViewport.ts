@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
-import { clampCentre, centreOn, fitView, screenToPlan, zoomAt, type Size, type View } from '../../sensorMap/geometry';
+import {
+  clampCentre,
+  centreOn,
+  fitView,
+  panBy,
+  planToScreen,
+  screenToPlan,
+  zoomAt,
+  type Px,
+  type Size,
+  type View,
+} from '../../sensorMap/geometry';
 import {
   idleMachine,
   step,
@@ -20,6 +31,8 @@ export interface PlanViewportOptions {
   plan: Pick<Plan, 'fit' | 'bounds'>;
   /** Whether a press that starts on this hit drags it instead of panning the plan. */
   draggable: (hit: Hit) => boolean;
+  /** Adjusts what a press landed on, for example to the marker nearest the finger. */
+  refineHit?: (hit: Hit, px: Px, view: View, size: Size) => Hit;
   /** Every gesture event except the view changes the hook applies itself. */
   onEvent: (event: GestureEvent) => void;
   /** A view saved by an earlier visit; the plan is fitted instead when there is none. */
@@ -42,6 +55,8 @@ export interface PlanViewport {
   fit: () => void;
   centreOn: (x: number, y: number, minScale?: number, lift?: number) => void;
   panByMetres: (dx: number, dy: number) => void;
+  /** Pans, if need be, so a plan point shows above a sheet that covers the bottom `coveredFraction` of the canvas. */
+  reveal: (x: number, y: number, coveredFraction: number) => void;
   toPlan: (clientX: number, clientY: number) => Point | null;
   /** Ends any gesture in progress, as a page hide does; a drag in progress is cancelled. */
   cancelGestures: () => void;
@@ -152,7 +167,11 @@ export function usePlanViewport(options: PlanViewportOptions): PlanViewport {
       } catch {
         // A pointer that is already gone cannot be captured.
       }
-      dispatch({ type: 'down', id: event.pointerId, px: local(event), hit: hitOf(event.target), time: event.timeStamp });
+      const px = local(event);
+      const hit = hitOf(event.target);
+      const current = viewRef.current;
+      const refined = current ? (optionsRef.current.refineHit?.(hit, px, current, sizeRef.current) ?? hit) : hit;
+      dispatch({ type: 'down', id: event.pointerId, px, hit: refined, time: event.timeStamp });
     },
     onPointerMove: event => dispatch({ type: 'move', id: event.pointerId, px: local(event) }),
     onPointerUp: event => dispatch({ type: 'up', id: event.pointerId, px: local(event), time: event.timeStamp }),
@@ -231,6 +250,20 @@ export function usePlanViewport(options: PlanViewportOptions): PlanViewport {
     [commit]
   );
 
+  const reveal = useCallback(
+    (x: number, y: number, coveredFraction: number) => {
+      const current = viewRef.current;
+      if (!current || coveredFraction <= 0) return;
+      const { h } = sizeRef.current;
+      const visible = h * (1 - coveredFraction);
+      const at = planToScreen(current, sizeRef.current, x, y);
+      if (at.y >= 40 && at.y <= visible - 40) return;
+      touchedRef.current = true;
+      commit(panBy(current, 0, visible / 2 - at.y, optionsRef.current.plan.bounds));
+    },
+    [commit]
+  );
+
   const toPlan = useCallback((clientX: number, clientY: number): Point | null => {
     const svg = svgRef.current;
     const current = viewRef.current;
@@ -239,5 +272,5 @@ export function usePlanViewport(options: PlanViewportOptions): PlanViewport {
     return screenToPlan(current, sizeRef.current, clientX - box.left, clientY - box.top);
   }, []);
 
-  return { view, size, containerRef, svgRef, pointerHandlers, zoomBy, fit, centreOn: centre, panByMetres, toPlan, cancelGestures };
+  return { view, size, containerRef, svgRef, pointerHandlers, zoomBy, fit, centreOn: centre, panByMetres, reveal, toPlan, cancelGestures };
 }

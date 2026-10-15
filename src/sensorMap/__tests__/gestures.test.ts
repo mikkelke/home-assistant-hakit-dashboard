@@ -18,6 +18,7 @@ const size = { w: 800, h: 600 };
 const START: View = { cx: 6, cy: 4, s: 40 };
 
 const plan: Hit = { kind: 'plan', id: null };
+const zone: Hit = { kind: 'zone', id: 'alpha' };
 const selected: Hit = { kind: 'marker', id: 'sel' };
 const other: Hit = { kind: 'marker', id: 'other' };
 const handle: Hit = { kind: 'handle', id: 'sel' };
@@ -77,6 +78,11 @@ describe('taps', () => {
     expect(types(far.events)).toEqual(['tap', 'tap']);
     const markers = drive([down(1, 300, 200, other, 0), up(1, 300, 200, 50), down(1, 300, 200, other, 100), up(1, 300, 200, 150)]);
     expect(types(markers.events)).toEqual(['tap', 'tap']);
+  });
+
+  it('takes two quick taps on a zone, which covers most of the plan, for a double tap too', () => {
+    const { events } = drive([down(1, 300, 200, zone, 0), up(1, 300, 200, 50), down(1, 305, 202, zone, 200), up(1, 305, 202, 250)]);
+    expect(types(events)).toEqual(['tap', 'double-tap']);
   });
 
   it('needs a fresh pair of taps after a double tap', () => {

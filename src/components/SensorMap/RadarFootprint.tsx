@@ -40,8 +40,8 @@ export const RadarFootprint = memo(function RadarFootprint({ id, device, x, y, h
         <path d={d} className='sm-fp-line' fillRule='evenodd' />
         {arc && <path d={arc} className='sm-fp-arc' />}
       </g>
-      {kind === 'unknown' && (
-        <text x={x} y={yTop - y - range.r1 - 0.12} className='sm-fp-label' textAnchor='middle'>
+      {kind === 'unknown' && selected && (
+        <text x={x} y={yTop - y - 0.4} className='sm-fp-label' textAnchor='middle'>
           facing unknown
         </text>
       )}

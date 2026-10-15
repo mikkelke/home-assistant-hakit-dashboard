@@ -67,8 +67,12 @@ export const PlanCanvas = memo(function PlanCanvas(props: PlanCanvasProps) {
   } = props;
   const { plan } = doc;
   const yTop = plan.bounds.y1;
-  const shown = view ?? fitView(size, plan.fit);
-  const box = viewBoxOf(shown, size, yTop);
+  // Until the canvas has been measured there is no scale; the plan's own frame stands in for one frame.
+  const measured = view !== null && size.w > 0 && size.h > 0;
+  const shown = view ?? fitView({ w: Math.max(size.w, 1), h: Math.max(size.h, 1) }, plan.fit);
+  const box = measured
+    ? viewBoxOf(shown, size, yTop)
+    : { x: plan.fit.x0, y: yTop - plan.fit.y1, w: plan.fit.x1 - plan.fit.x0, h: plan.fit.y1 - plan.fit.y0 };
   const radius = markerRadiusPx(shown.s);
   const style = { '--ks': 1 / shown.s, '--k': radius / 10 / shown.s } as CSSProperties;
   const placed = useMemo(() => placedDevices(doc.devices), [doc.devices]);
@@ -126,10 +130,6 @@ export const PlanCanvas = memo(function PlanCanvas(props: PlanCanvasProps) {
       {layers.fingerprints && (
         <FingerprintMarks items={fingerprints} yTop={yTop} selectedId={selection?.kind === 'fingerprint' ? selection.id : null} />
       )}
-      {layers.suggestions &&
-        ghosts.map(ghost => (
-          <GhostMarker key={ghost.id} ghost={ghost} yTop={yTop} selected={selection?.kind === 'ghost' && selection.id === ghost.id} />
-        ))}
       <g className='sm-markers'>
         {ordered.map(item => {
           const place = at(item);
@@ -150,6 +150,10 @@ export const PlanCanvas = memo(function PlanCanvas(props: PlanCanvasProps) {
           );
         })}
       </g>
+      {layers.suggestions &&
+        ghosts.map(ghost => (
+          <GhostMarker key={ghost.id} ghost={ghost} yTop={yTop} selected={selection?.kind === 'ghost' && selection.id === ghost.id} />
+        ))}
       {edit && selected && selectedPos && isRadar(selected.device) && (
         <FacingHandle radar={selectedPos} facing={facingOf(selected)} deviceId={selected.key} yTop={yTop} />
       )}

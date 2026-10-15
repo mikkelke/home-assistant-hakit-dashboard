@@ -59,6 +59,8 @@ export interface Step {
 export const idleMachine = (): GestureMachine => ({ state: { mode: 'idle' }, pointers: {}, lastTap: null });
 
 const distance = (a: Px, b: Px) => Math.hypot(a.x - b.x, a.y - b.y);
+/** A room's fill covers most of the plan, so a tap on a zone is a tap on the background. */
+const isBackground = (hit: Hit) => hit.kind === 'plan' || hit.kind === 'zone';
 const worldOf = (ctx: GestureContext, px: Px): Point => screenToPlan(ctx.view, ctx.size, px.x, px.y);
 
 function withoutPointer(pointers: Record<number, Px>, id: number): Record<number, Px> {
@@ -79,7 +81,7 @@ function continueAsPan(machine: GestureMachine, ctx: GestureContext, gone: numbe
  * The pointer state machine of the map, as a pure function.
  *
  *   idle  - down ->  press       one pointer down; nothing happens until it moves or lifts
- *   press - up    -> tap         lifted within the slop; a quick second tap on the plan is a double tap
+ *   press - up    -> tap         lifted within the slop; a quick second tap on the plan or a zone is a double tap
  *   press - moved past the slop -> drag on the selected marker or its handle, otherwise pan
  *   any   - a second pointer down -> pinch   (a drag in progress is cancelled)
  *   pinch - one lifts -> pan     the remaining pointer carries on from where it is, so the view does not jump
@@ -167,7 +169,7 @@ export function step(machine: GestureMachine, input: PointerInput, ctx: GestureC
     const previous = machine.lastTap;
     const second =
       previous !== null &&
-      state.hit.kind === 'plan' &&
+      isBackground(state.hit) &&
       input.time - previous.time <= DOUBLE_TAP_MS &&
       distance(previous.px, input.px) <= DOUBLE_TAP_PX;
     if (second) {
@@ -175,7 +177,7 @@ export function step(machine: GestureMachine, input: PointerInput, ctx: GestureC
       return { machine: { ...idle, lastTap: null }, events };
     }
     events.push({ type: 'tap', hit: state.hit, px: input.px, world });
-    return { machine: { ...idle, lastTap: state.hit.kind === 'plan' ? { time: input.time, px: input.px } : null }, events };
+    return { machine: { ...idle, lastTap: isBackground(state.hit) ? { time: input.time, px: input.px } : null }, events };
   }
   return { machine: idle, events };
 }

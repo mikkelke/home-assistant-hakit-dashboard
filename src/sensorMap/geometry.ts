@@ -181,3 +181,37 @@ export function scaleBarLength(s: number, maxPx = 150): number {
   for (const length of NICE_LENGTHS_M) if (length * s <= maxPx) best = length;
   return best;
 }
+
+export interface MarkerPoint {
+  key: string;
+  x: number;
+  y: number;
+}
+
+/**
+ * The marker for a press at screen point `px`: the one whose centre is nearest, within `radiusPx`. Touch targets
+ * overlap in a crowded plan, and the one drawn last would win a plain hit test; the nearest centre is what the
+ * finger meant. `prefer`, the selected marker, wins whenever the press is inside its own target, so it can be
+ * dragged from where it sits.
+ */
+export function markerNear(
+  markers: readonly MarkerPoint[],
+  view: View,
+  size: Size,
+  px: Px,
+  radiusPx: number,
+  prefer: string | null = null
+): string | null {
+  let best: string | null = null;
+  let bestDistance = radiusPx;
+  for (const marker of markers) {
+    const at = planToScreen(view, size, marker.x, marker.y);
+    const distance = Math.hypot(at.x - px.x, at.y - px.y);
+    if (marker.key === prefer && distance <= radiusPx) return marker.key;
+    if (distance <= bestDistance) {
+      best = marker.key;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}

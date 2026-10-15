@@ -4,7 +4,7 @@ import { useHass } from '@hakit/core';
 import type { Connection } from 'home-assistant-js-websocket';
 import { dumpOf, fetchDump } from '../../sensorMap/bermuda';
 import { CAPTURE_WINDOW_S, CaptureCancelled, abortableWait, finishCapture, runCapture } from '../../sensorMap/fingerprint';
-import { WALL_SNAP_M, scaleBarLength, snapToWall } from '../../sensorMap/geometry';
+import { WALL_SNAP_M, markerNear, scaleBarLength, snapToWall } from '../../sensorMap/geometry';
 import type { GestureEvent, Hit } from '../../sensorMap/gestures';
 import {
   FACING_STEP_DEG,
@@ -28,6 +28,7 @@ import type { SaveQueue } from '../../sensorMap/saveQueue';
 import { useViewer } from '../../hooks/useViewer';
 import { hapticTick } from '../../utils/haptics';
 import { CaptureSheet } from './CaptureSheet';
+import { HIT_RADIUS_PX } from './DeviceMarker';
 import { DeviceSheet } from './DeviceSheet';
 import { FingerprintSheet } from './FingerprintSheet';
 import { GhostSheet } from './GhostSheet';
@@ -39,7 +40,7 @@ import { QuestionsSheet } from './QuestionsSheet';
 import { TraySheet } from './TraySheet';
 import { UnplacedTray } from './UnplacedTray';
 import { ZoneSheet } from './ZoneSheet';
-import type { Capture, DeviceActions, DragPreview, Layers, Selection } from './types';
+import { typeVisible, type Capture, type DeviceActions, type DragPreview, type Layers, type Selection } from './types';
 import { loadUi, saveUi } from './uiStorage';
 import { useCandidates } from './useCandidates';
 import { useMapData, type SuggestState } from './useMapData';
@@ -51,6 +52,10 @@ import './SensorMap.css';
 interface SensorMapPageProps {
   onClose: () => void;
 }
+
+/** Below this width a sheet is a bottom sheet over the map; from it, a side panel beside the map. */
+const SIDE_PANEL_MIN_PX = 900;
+const SHEET_COVER = 0.45;
 
 const SAVE_TEXT = { saved: 'saved', pending: 'pending', saving: 'saving', failed: 'failed' } as const;
 const TOGGLES = ['names', 'grid', 'footprints', 'phones', 'fingerprints', 'suggestions', 'light'] as const;
@@ -255,6 +260,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
       if (hit.kind === 'marker' && hit.id) {
         setSelection({ kind: 'device', key: hit.id });
         setCollapsed(false);
+        revealDevice(hit.id);
       } else if (hit.kind === 'ghost' && hit.id) setSelection({ kind: 'ghost', id: hit.id });
       else if (hit.kind === 'fingerprint' && hit.id) setSelection({ kind: 'fingerprint', id: hit.id });
       else if (hit.kind === 'zone' && hit.id) setSelection({ kind: 'zone', id: hit.id, at: world });
@@ -310,13 +316,33 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
     }
   }
 
+  function revealDevice(key: string) {
+    const pos = doc.devices[key]?.placement.pos;
+    if (pos) viewport.reveal(pos.x, pos.y, window.innerWidth < SIDE_PANEL_MIN_PX ? SHEET_COVER : 0);
+  }
+
+  const markerPoints = useMemo(
+    () =>
+      Object.entries(doc.devices).flatMap(([key, device]) =>
+        device.placement.pos && typeVisible(layers, device.type, device.roles)
+          ? [{ key, x: device.placement.pos.x, y: device.placement.pos.y }]
+          : []
+      ),
+    [doc.devices, layers]
+  );
+
   const viewport = usePlanViewport({
     plan: doc.plan,
     initialView: saved.view,
     draggable: (hit: Hit) => edit && selectedKey !== null && hit.id === selectedKey && (hit.kind === 'marker' || hit.kind === 'handle'),
+    refineHit: (hit, px, shown, size) => {
+      if (hit.kind === 'handle' || hit.kind === 'ghost' || hit.kind === 'fingerprint') return hit;
+      const key = markerNear(markerPoints, shown, size, px, HIT_RADIUS_PX, selectedKey);
+      return key ? { kind: 'marker', id: key } : hit;
+    },
     onEvent: handleGesture,
   });
-  const { centreOn, zoomBy, fit, panByMetres } = viewport;
+  const { centreOn, zoomBy, fit, panByMetres, reveal } = viewport;
 
   const actions = useMemo<DeviceActions>(
     () => ({
@@ -345,15 +371,20 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
       setSelection({ kind: 'device', key });
       setSheet(null);
       setCollapsed(false);
-      centreOn(pos.x, pos.y, 60, window.innerWidth < 900 ? window.innerHeight * 0.18 : 0);
+      centreOn(pos.x, pos.y, 60, window.innerWidth < SIDE_PANEL_MIN_PX ? window.innerHeight * 0.18 : 0);
     },
     [centreOn]
   );
 
-  const activate = useCallback((key: string) => {
-    setSelection({ kind: 'device', key });
-    setCollapsed(false);
-  }, []);
+  const activate = useCallback(
+    (key: string) => {
+      const pos = docRef.current.devices[key]?.placement.pos;
+      setSelection({ kind: 'device', key });
+      setCollapsed(false);
+      if (pos) reveal(pos.x, pos.y, window.innerWidth < SIDE_PANEL_MIN_PX ? SHEET_COVER : 0);
+    },
+    [reveal]
+  );
 
   const armTray = useCallback((id: string | null) => setSelection(id === null ? null : { kind: 'tray', id }), []);
 
@@ -518,7 +549,11 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   const idle = capture.phase !== 'confirm' && !sheet;
 
   return (
-    <div className='sm-workspace' data-theme={layers.light ? 'light' : 'dark'}>
+    <div
+      className='sm-workspace'
+      data-theme={layers.light ? 'light' : 'dark'}
+      data-tray={edit && (tray.length > 0 || candidateError !== null)}
+    >
       <div className='sm-col'>
         <header className='sm-header'>
           <div className='sm-header-row'>
@@ -542,7 +577,9 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
                 </button>
               )}
               {snapshot.state === 'saved' && prints.items.length > 0 && layers.fingerprints && (
-                <span className='sm-muted'> · {prints.items.length} fingerprints</span>
+                <span className='sm-muted'>
+                  · {prints.items.length} {prints.items.length === 1 ? 'fingerprint' : 'fingerprints'}
+                </span>
               )}
             </span>
             <button

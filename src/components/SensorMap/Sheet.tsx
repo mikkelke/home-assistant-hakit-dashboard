@@ -1,5 +1,9 @@
 import { Icon } from '@iconify/react';
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+
+/** A tap on the plan opens a sheet under the finger, and the browser then sends the click of that tap to whatever
+ * is there now. The sheet takes no input until that moment has passed. */
+const SETTLE_MS = 350;
 
 interface SheetProps {
   title: ReactNode;
@@ -13,8 +17,17 @@ interface SheetProps {
 
 /** A bottom sheet on a phone and a side panel on a wide screen. Collapsed, it is one line: the handle. */
 export function Sheet({ title, subtitle, collapsed = false, onToggle, onClose, className = '', children }: SheetProps) {
+  const [settled, setSettled] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setSettled(true), SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, []);
   return (
-    <section className={`sm-sheet${collapsed ? ' collapsed' : ''} ${className}`} aria-label='Details'>
+    <section
+      className={`sm-sheet${collapsed ? ' collapsed' : ''} ${className}`}
+      aria-label='Details'
+      style={settled ? undefined : { pointerEvents: 'none' }}
+    >
       <header className='sm-sheet-head'>
         <button type='button' className='sm-sheet-handle' onClick={onToggle} aria-expanded={!collapsed} disabled={!onToggle}>
           <span className='sm-sheet-title'>{title}</span>

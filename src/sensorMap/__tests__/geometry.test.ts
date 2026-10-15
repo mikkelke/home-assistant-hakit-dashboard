@@ -7,6 +7,7 @@ import {
   fitScale,
   fitView,
   locate,
+  markerNear,
   markerRadiusPx,
   panBy,
   pinchStart,
@@ -210,5 +211,33 @@ describe('marker size and scale bar', () => {
     expect(scaleBarLength(500)).toBe(0.25);
     expect(scaleBarLength(1)).toBe(10);
     expect(scaleBarLength(5000)).toBe(0.1);
+  });
+});
+
+describe('which marker a press means', () => {
+  const view: View = { cx: 6, cy: 4, s: 40 };
+  const at = (x: number, y: number) => planToScreen(view, size, x, y);
+  const markers = [
+    { key: 'a', x: 5, y: 4 },
+    { key: 'b', x: 5.3, y: 4 },
+    { key: 'far', x: 9, y: 4 },
+  ];
+
+  it('picks the marker whose centre is nearest, not the one drawn last', () => {
+    const press = at(5.05, 4);
+    expect(markerNear(markers, view, size, press, 22)).toBe('a');
+    expect(markerNear([...markers].reverse(), view, size, press, 22)).toBe('a');
+    expect(markerNear(markers, view, size, at(5.28, 4), 22)).toBe('b');
+  });
+
+  it('finds none outside every target', () => {
+    expect(markerNear(markers, view, size, at(7, 4), 22)).toBeNull();
+    expect(markerNear([], view, size, at(5, 4), 22)).toBeNull();
+  });
+
+  it('prefers the selected marker whenever the press is inside its own target, so it can be dragged from where it sits', () => {
+    expect(markerNear(markers, view, size, at(5.2, 4), 22, 'a')).toBe('a');
+    expect(markerNear(markers, view, size, at(5.2, 4), 22, 'b')).toBe('b');
+    expect(markerNear(markers, view, size, at(5.2, 4), 22, 'far')).toBe('b');
   });
 });

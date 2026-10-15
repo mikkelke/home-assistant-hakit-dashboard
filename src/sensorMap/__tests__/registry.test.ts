@@ -134,6 +134,25 @@ describe('one chip per physical thing', () => {
     expect(ids(buildCandidates(input([bridge, node])))).toEqual(['bridge', 'node']);
   });
 
+  it('folds a part named as an extension of the device it hangs off, such as the phases of a meter', () => {
+    const meter = reg('meter', 'e-shelly', { name: 'Test meter' });
+    const phaseA = reg('meter-a', 'e-shelly', { name: 'Test meter Phase A', via_device_id: 'meter' });
+    const phaseB = reg('meter-b', 'e-shelly', { name: 'Test meter Phase B', via_device_id: 'meter' });
+    const same = reg('meter-ch', 'e-shelly', { name: 'Test meter', via_device_id: 'meter' });
+    const unrelated = reg('other', 'e-shelly', { name: 'Test meters', via_device_id: 'meter' });
+    const result = buildCandidates(input([meter, phaseA, phaseB, same, unrelated]));
+    expect(result.map(c => [c.id, c.device_ids])).toEqual([
+      ['meter', ['meter', 'meter-a', 'meter-b', 'meter-ch']],
+      ['other', ['other']],
+    ]);
+  });
+
+  it('shows nothing for the parts of a meter that is already on the map', () => {
+    const meter = reg('meter', 'e-shelly', { name: 'Test meter' });
+    const phaseA = reg('meter-a', 'e-shelly', { name: 'Test meter Phase A', via_device_id: 'meter' });
+    expect(buildCandidates(input([meter, phaseA], { placedDeviceIds: new Set(['meter']) }))).toEqual([]);
+  });
+
   it('keeps a Bluetooth entry with no eligible parent as its own chip', () => {
     const lone = reg('lone-bt', 'e-bt-2', { name: 'Lone', via_device_id: 'nope', connections: [['bluetooth', '00:00:5E:00:53:0B']] });
     const [only] = buildCandidates(input([lone], { scanners: [{ source: '00:00:5E:00:53:0B', name: 'Lone' }] }));

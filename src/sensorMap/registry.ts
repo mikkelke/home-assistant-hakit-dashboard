@@ -81,8 +81,9 @@ function guessType(model: string, platform: string, scanner: boolean): string {
 }
 
 /** The registry devices that are not on the map yet, one per physical thing. A Bluetooth entry that hangs off
- * another device (a Shelly or an ESPHome node) is the same object seen through the Bluetooth integration, so
- * it joins that device rather than standing on its own. */
+ * another device (a Shelly or an ESPHome node) is the same object seen through the Bluetooth integration, and
+ * a device named as an extension of the one it hangs off ("Meter Phase A" under "Meter") is a part of it, so
+ * both join that device rather than standing on their own. A node behind a bridge is a thing of its own. */
 export function buildCandidates(input: RegistryInput): Candidate[] {
   const { devices, entryDomains, scanners, placedDeviceIds, placedScanners } = input;
   const ignored = new Set(input.ignored);
@@ -98,11 +99,20 @@ export function buildCandidates(input: RegistryInput): Candidate[] {
 
   const isBluetooth = (id: string) => eligible.get(id)?.domains.every(domain => domain === 'bluetooth') ?? false;
 
+  const foldsInto = (id: string): string | null => {
+    const parent = devices[id]?.via_device_id;
+    if (!parent || !eligible.has(parent)) return null;
+    if (isBluetooth(id)) return isBluetooth(parent) ? null : parent;
+    const parentName = displayName(devices[parent]);
+    const name = displayName(devices[id]);
+    return name === parentName || name.startsWith(`${parentName} `) ? parent : null;
+  };
+
   const rootOf = (id: string): string => {
     let current = id;
-    for (let hops = 0; hops < 5 && isBluetooth(current); hops += 1) {
-      const parent = devices[current]?.via_device_id;
-      if (!parent || !eligible.has(parent) || isBluetooth(parent)) break;
+    for (let hops = 0; hops < 5; hops += 1) {
+      const parent = foldsInto(current);
+      if (!parent) break;
       current = parent;
     }
     return current;
@@ -110,7 +120,7 @@ export function buildCandidates(input: RegistryInput): Candidate[] {
 
   const groups = new Map<string, string[]>();
   for (const id of eligible.keys()) {
-    const root = isBluetooth(id) ? rootOf(id) : id;
+    const root = rootOf(id);
     groups.set(root, [...(groups.get(root) ?? []), id]);
   }
 
