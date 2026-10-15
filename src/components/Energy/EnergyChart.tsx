@@ -16,6 +16,10 @@ interface EnergyChartProps {
   prices?: readonly BandedPricePoint[];
   selectedMs: number | null;
   onSelect: (slotStartMs: number) => void;
+  /** Unit of the bars' non-kr values. */
+  amountUnit?: string;
+  /** Text under the `nowMs` line; null leaves the line unlabelled and every axis label in place. */
+  nowLabel?: string | null;
 }
 
 const W = 352;
@@ -48,7 +52,19 @@ function value(bar: EnergyBar, unit: 'kwh' | 'kr'): number {
 
 /** Consumption bars tinted by relative price band, self-labelled: the biggest bar's value, a now
  * line, and on the day view a band tick under every priced hour. Tapping a slot selects it. */
-export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period, unit, nowMs, prices, selectedMs, onSelect }: EnergyChartProps) {
+export function EnergyChart({
+  bars,
+  rangeStartMs,
+  rangeEndMs,
+  period,
+  unit,
+  nowMs,
+  prices,
+  selectedMs,
+  onSelect,
+  amountUnit = 'kWh',
+  nowLabel = 'now',
+}: EnergyChartProps) {
   if (bars.length === 0 && !prices?.length) return <div className='energy-chart-empty'>No data for this period</div>;
 
   const slots = Math.max(1, slotsInRange(period, rangeStartMs, rangeEndMs));
@@ -88,7 +104,7 @@ export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period, unit, nowM
   };
 
   const maxLabelX = maxBar ? (slotOf(maxBar.startMs) + 0.5) * slotW : 0;
-  const decimals = unit === 'kr' ? 2 : period === 'day' ? 2 : 1;
+  const decimals = unit === 'kr' || period === 'day' || max < 1 ? 2 : 1;
 
   return (
     <svg
@@ -96,7 +112,7 @@ export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period, unit, nowM
       data-interactive='true'
       viewBox={`0 0 ${W} ${H}`}
       role='img'
-      aria-label={`${unit === 'kr' ? 'Kroner' : 'kWh'} per ${period === 'day' ? 'hour' : period === 'year' ? 'month' : 'day'}, tinted by price band. Tap a bar for details.`}
+      aria-label={`${unit === 'kr' ? 'Kroner' : amountUnit} per ${period === 'day' ? 'hour' : period === 'year' ? 'month' : 'day'}${bars.some(bar => bar.level !== 'unknown') ? ', tinted by price band' : ''}. Tap a bar for details.`}
       onClick={handleClick}
     >
       <line x1={0} y1={BASE + 0.5} x2={W} y2={BASE + 0.5} className='energy-chart-baseline' />
@@ -149,7 +165,8 @@ export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period, unit, nowM
           textAnchor={maxLabelX < 30 ? 'start' : maxLabelX > W - 30 ? 'end' : 'middle'}
           className='plan-label plan-label--bold plan-label--strong'
         >
-          {max.toLocaleString('da-DK', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })} {unit === 'kr' ? 'kr' : 'kWh'}
+          {max.toLocaleString('da-DK', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}{' '}
+          {unit === 'kr' ? 'kr' : amountUnit}
         </text>
       )}
       {nowX != null && (
@@ -159,20 +176,20 @@ export function EnergyChart({ bars, rangeStartMs, rangeEndMs, period, unit, nowM
         </>
       )}
       {labels
-        .filter(label => nowX == null || Math.abs(label.x - nowX) > 16)
+        .filter(label => nowX == null || nowLabel == null || Math.abs(label.x - nowX) > 16)
         .map(label => (
           <text key={`${label.x}`} x={label.x} y={AXIS_Y} textAnchor={label.anchor} className='plan-label'>
             {label.text}
           </text>
         ))}
-      {nowX != null && (
+      {nowX != null && nowLabel != null && (
         <text
           x={Math.min(W - 12, Math.max(12, nowX))}
           y={AXIS_Y}
           textAnchor='middle'
           className='plan-label plan-label--bold plan-label--strong'
         >
-          now
+          {nowLabel}
         </text>
       )}
     </svg>

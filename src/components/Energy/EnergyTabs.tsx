@@ -13,9 +13,10 @@ const TAB_OPTIONS: Array<{ value: EnergyTab; label: string; icon: string }> = [
   { value: 'usage', label: 'Usage', icon: 'mdi:chart-bar' },
   { value: 'rooms', label: 'Rooms', icon: 'mdi:home-outline' },
   { value: 'bill', label: 'Bill', icon: 'mdi:receipt-text-outline' },
+  { value: 'utilities', label: 'Utilities', icon: 'mdi:water-boiler' },
 ];
 
-/** Live · Plan · Usage · Rooms · Bill, icon over label. Rendered outside the page's scrollable
+/** Live · Plan · Usage · Rooms · Bill · Utilities, icon over label. Rendered outside the page's scrollable
  * content, so it stays on screen while a tab's own content scrolls underneath it. */
 export function EnergyTabs({ tab, onChange }: EnergyTabsProps) {
   return (

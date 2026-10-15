@@ -1,17 +1,22 @@
-import { memo, useEffect, useMemo, useState, type TouchEvent } from 'react';
+import { lazy, memo, useEffect, useMemo, useState, type TouchEvent } from 'react';
 import { Icon } from '@iconify/react';
 import { useEnergyConfig, type Period } from '../../energy';
 import { nextDisabled, startOfLocalDay, startOfPeriod, stepAnchor } from '../../energy/period';
 import { useSwipeToClose } from '../../hooks';
 import { buildHistoryUrlWithHash, getAccessibleHistoryWindow, replaceHistoryState } from '../../utils/navigation';
+import { LazyBoundary } from '../Lazy/LazyBoundary';
 import { BillTab } from './BillTab';
 import { EnergyTabs } from './EnergyTabs';
 import { LiveTab } from './LiveTab';
 import { energyHash, energyTabFromHash, type EnergyTab } from './energyTab';
 import { PlanTab } from './PlanTab';
 import { RoomsTab } from './RoomsTab';
+import { StatsState } from './StatsState';
 import { UsageTab } from './UsageTab';
 import './EnergyPage.css';
+
+// Water and heat load with their own tab, outside the Energy chunk.
+const UtilitiesTab = lazy(() => import('./UtilitiesTab'));
 
 interface EnergyPageProps {
   onClose: () => void;
@@ -119,6 +124,15 @@ function EnergyPageView({ onClose }: EnergyPageProps) {
           )}
 
           {tab === 'bill' && <BillTab nowMs={nowMs} todayStartMs={todayStartMs} />}
+
+          {tab === 'utilities' && (
+            <LazyBoundary
+              fallback={<div className='energy-chart-skeleton' aria-hidden='true' />}
+              error={<StatsState error='Could not load water and heat' onRetry={() => window.location.reload()} />}
+            >
+              <UtilitiesTab nowMs={nowMs} todayStartMs={todayStartMs} />
+            </LazyBoundary>
+          )}
         </div>
       </div>
 

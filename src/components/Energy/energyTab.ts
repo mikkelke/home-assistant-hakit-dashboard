@@ -1,6 +1,6 @@
 /** Energy page tabs and their `#energy=<tab>` hash form. Pure, and imported by type only outside
  * the lazily loaded Energy chunk. */
-export const ENERGY_TABS = ['live', 'plan', 'usage', 'rooms', 'bill'] as const;
+export const ENERGY_TABS = ['live', 'plan', 'usage', 'rooms', 'bill', 'utilities'] as const;
 export type EnergyTab = (typeof ENERGY_TABS)[number];
 
 /** Hashes from before the Plan/Rooms rename keep opening the tab that replaced them. */

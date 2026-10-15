@@ -1,4 +1,4 @@
-/* Live, Usage, Rooms and Bill. Builds on the Plan tab's cards, chips and hero (PlanTab.css). */
+/* Live, Usage, Rooms, Bill and Utilities. Builds on the Plan tab's cards, chips and hero (PlanTab.css). */
 .plan-tab .period-picker {
   margin-bottom: 0;
 }
@@ -489,6 +489,20 @@ button.ev-drow:not(:disabled) {
 
 .ev-hist-proj {
   stroke: #38bdf8;
+}
+
+/* Utilities: inside .ev-meter a meter's colour (.meter--*) paints its tile icon, its price and the chart's bars. */
+.ev-meter .ev-tile-top svg,
+.ev-stat.ev-meter b {
+  color: var(--band-color);
+}
+
+.ev-meter .energy-chart-bar {
+  --band-color: inherit;
+}
+
+.ev-tile--on {
+  border-color: color-mix(in srgb, var(--band-color) 45%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {

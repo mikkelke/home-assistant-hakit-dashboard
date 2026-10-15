@@ -34,6 +34,10 @@ html, body {
   --band-pricey: #f59e0b;
   --band-expensive: #fb7185;
   --band-unknown: #52525b;
+  /* Utility meters (Energy · Utilities), from the same palette: the sky accent and two warm band hues. */
+  --meter-cold-water: #38bdf8;
+  --meter-hot-water: var(--band-expensive);
+  --meter-heat: var(--band-pricey);
 }
 
 /* Sets --band-color for a price band; components paint fills, strokes and text from it. */
@@ -51,6 +55,17 @@ html, body {
 }
 .band--unknown {
   --band-color: var(--band-unknown);
+}
+
+/* Sets --band-color for a utility meter, so band-painted chips, dots and bars take the meter's colour. */
+.meter--cold_water {
+  --band-color: var(--meter-cold-water);
+}
+.meter--hot_water {
+  --band-color: var(--meter-hot-water);
+}
+.meter--heat {
+  --band-color: var(--meter-heat);
 }
 
 body {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { lazy, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { PLAN_APPLIANCES } from '../../config/plan';
 import { useEnergyConfig, useEnergyDevices, useEnergyView, type Period } from '../../energy';
@@ -7,9 +7,12 @@ import { groupRooms, type RoomUsage } from '../../energy/roomsView';
 import { useLivePower } from '../../energy/useLivePower';
 import { useRoomResolver } from '../../energy/useRoomResolver';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
+import { LazyBoundary } from '../Lazy/LazyBoundary';
 import { PeriodPicker } from './PeriodPicker';
-import { RoomSheet } from './RoomSheet';
 import { StatsState } from './StatsState';
+
+// The room sheet and its device dialog load on the first room tap, outside the Energy chunk.
+const RoomSheet = lazy(() => import('./RoomSheet').then(module => ({ default: module.RoomSheet })));
 
 interface RoomsTabProps {
   period: Period;
@@ -190,14 +193,16 @@ export function RoomsTab({ period, anchorStartMs, todayStartMs, nextStepDisabled
       )}
 
       {open && data && (
-        <RoomSheet
-          room={open}
-          period={period}
-          anchorStartMs={anchorStartMs}
-          rangeEndMs={data.endMs}
-          powerByStatId={powerByStatId}
-          onClose={() => setOpenKey(null)}
-        />
+        <LazyBoundary fallback={null} error={null}>
+          <RoomSheet
+            room={open}
+            period={period}
+            anchorStartMs={anchorStartMs}
+            rangeEndMs={data.endMs}
+            powerByStatId={powerByStatId}
+            onClose={() => setOpenKey(null)}
+          />
+        </LazyBoundary>
       )}
     </div>
   );
