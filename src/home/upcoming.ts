@@ -7,6 +7,7 @@ import { readApplianceCycle, type ApplianceCycle } from '../energy/applianceRun'
 import { nextHomeClockMs } from '../energy/homeTime';
 import { nowFocusAt, type NowFocus } from '../utils/navigation';
 import { canViewerSeeKind, type HouseEventViewer } from './houseEvents';
+import { HOUSEHOLD } from './household';
 import type { NowCandidate } from './nowResolve';
 
 export type UpcomingEntity = { state: string; attributes: Record<string, unknown> };
@@ -107,6 +108,16 @@ const textState = (entity: UpcomingEntity | undefined): string | null => {
   const text = entity?.state?.trim() ?? '';
   return text && text !== 'unknown' && text !== 'unavailable' ? text : null;
 };
+
+/** Attribution methods that name a person on evidence: the only person home, or the HA user who tapped. */
+const RELIABLE_ACTOR_METHODS: ReadonlySet<string> = new Set(['sole_occupant', 'dashboard_action']);
+
+/** The resident who started a run, from its monitor's `started_by` and `started_by_method`; null unless a
+ * resident was named by a reliable method. */
+export function applianceStarter(startedBy: unknown, method: unknown): string | null {
+  if (typeof method !== 'string' || !RELIABLE_ACTOR_METHODS.has(method)) return null;
+  return HOUSEHOLD.find(member => member.key === startedBy)?.name ?? null;
+}
 
 function readAppliances(read: UpcomingReader, nowMs: number): UpcomingAppliance[] {
   return HOME_APPLIANCES.flatMap(appliance => {

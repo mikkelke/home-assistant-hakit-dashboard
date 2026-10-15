@@ -7,6 +7,7 @@ import { nextUp } from '../nextUp';
 import { resolveNowFocus } from '../nowResolve';
 import { readQuietHours } from '../quietHours';
 import {
+  applianceStarter,
   nextTimedItem,
   nextWakeMs,
   readUpcoming,
@@ -114,6 +115,18 @@ describe('readUpcoming', () => {
     });
     expect(readUpcoming(reader({ 'vacuum.rober2': entity('docked') }), EVENING_MS, CLAUDIA)).toEqual([]);
     expect(readUpcoming(reader({ 'vacuum.rober2': entity('cleaning') }), EVENING_MS, CLAUDIA)).toMatchObject([{ id: 'rober2', rooms: [] }]);
+  });
+});
+
+describe('applianceStarter', () => {
+  it('names a resident whom a reliable method named', () => {
+    expect(applianceStarter('claudia', 'sole_occupant')).toBe('Claudia');
+    expect(applianceStarter('kristine', 'dashboard_action')).toBe('Kristine');
+  });
+
+  it('names nobody on an unknown or missing method, or anyone but a resident', () => {
+    for (const method of ['unknown', '', undefined]) expect(applianceStarter('claudia', method)).toBeNull();
+    for (const person of ['', 'guest', undefined]) expect(applianceStarter(person, 'sole_occupant')).toBeNull();
   });
 });
 

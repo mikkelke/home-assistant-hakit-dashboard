@@ -190,6 +190,43 @@ describe('sun and quiet hours on the timeline', () => {
   });
 });
 
+describe('the running appliance card', () => {
+  const washer = (attributes: Record<string, unknown> = {}): Entities => ({
+    'sensor.washer_state': {
+      entity_id: 'sensor.washer_state',
+      state: 'Running',
+      attributes: { estimated_end_time: '21:50', progress_pct: 40, cycle_start_time: '2026-10-13T18:00:00Z', ...attributes },
+    },
+  });
+  const subline = () => document.querySelector('.now-card.is-run small')?.textContent ?? null;
+
+  async function openWith(entities: Entities) {
+    vi.setSystemTime(home(2026, 10, 13, 21, 0));
+    store.setState({ entities });
+    await act(async () => {
+      root.render(createElement(NowView, { focus: null, arrival: 'cold', onBack: () => {}, onOpenRoom: () => {} }));
+    });
+  }
+
+  it('names who started it when the attribution is reliable', async () => {
+    await openWith(washer({ started_by: 'claudia', started_by_method: 'sole_occupant' }));
+    expect(subline()).toBe('since 20:00 · Claudia · 40 %');
+  });
+
+  it('names nobody without a reliable attribution, and the name follows the attributes', async () => {
+    await openWith(washer());
+    expect(subline()).toBe('since 20:00 · 40 %');
+    await act(async () => {
+      store.setState({ entities: washer({ started_by: 'claudia', started_by_method: 'unknown' }) });
+    });
+    expect(subline()).toBe('since 20:00 · 40 %');
+    await act(async () => {
+      store.setState({ entities: washer({ started_by: 'claudia', started_by_method: 'sole_occupant' }) });
+    });
+    expect(subline()).toBe('since 20:00 · Claudia · 40 %');
+  });
+});
+
 describe('rows from sensor.house_upcoming', () => {
   const NOW = home(2026, 10, 14, 7, 0);
   const iso = (ms: number) => new Date(ms).toISOString();

@@ -25,7 +25,7 @@ import { MARKERS } from '../../home/markers';
 import { MotionScopeContext, useMotionSlot } from '../../home/motionBudget';
 import { linkedRing, NOW_RESOLVE_GIVE_UP_MS, resolveNowFocus, resolveNowItem, type NowResolution } from '../../home/nowResolve';
 import { isQuietAt, quietEndClock, readQuietHours, type QuietHours } from '../../home/quietHours';
-import { readUpcoming, upcomingCandidates, type UpcomingAppliance } from '../../home/upcoming';
+import { applianceStarter, readUpcoming, upcomingCandidates, type UpcomingAppliance } from '../../home/upcoming';
 import { useNowMs } from '../../hooks/useNowMs';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { useViewer } from '../../hooks/useViewer';
@@ -232,9 +232,12 @@ function RunningCard({
 }) {
   const { cycle, appliance, announce } = row.item;
   const sheen = useMotionSlot(`sheen:${row.id}`, 'appliance', cycle.status === 'running');
+  const startedBy = useHass(s => s.entities[appliance.config.stateEntityId]?.attributes?.started_by);
+  const startedByMethod = useHass(s => s.entities[appliance.config.stateEntityId]?.attributes?.started_by_method);
   const pct = Math.round(cycle.progressPct ?? 0);
   const parts = [
     row.atMs != null ? `since ${formatHomeClock(row.atMs)}` : null,
+    applianceStarter(startedBy, startedByMethod),
     cycle.status === 'paused' ? `paused at ${pct} %` : `${pct} %`,
     cycle.status !== 'paused' && cycle.energyKwh ? formatKWh(cycle.energyKwh, 2) : null,
   ];
