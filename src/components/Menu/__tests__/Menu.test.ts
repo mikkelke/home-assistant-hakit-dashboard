@@ -84,3 +84,35 @@ describe('the battery overview entry', () => {
     expect(entries()).toContain('Batteries');
   });
 });
+
+describe('the sensor map entry', () => {
+  it('is in the menu for an admin, after the batteries', async () => {
+    await openMenu(Promise.resolve({ is_admin: true, name: 'Mikkel' }));
+    expect(entries()).toContain('Map');
+    expect(entries().indexOf('Map')).toBeGreaterThan(entries().indexOf('Batteries'));
+  });
+
+  it('is not in the menu for a housemate, or while the viewer is still loading', async () => {
+    await openMenu(Promise.resolve({ is_admin: false, name: 'Kristine' }));
+    expect(entries()).not.toContain('Map');
+    let resolve: (user: User) => void = () => {};
+    await openMenu(new Promise<User>(done => (resolve = done)));
+    expect(entries()).not.toContain('Map');
+    await act(async () => resolve({ is_admin: true, name: 'Mikkel' }));
+    expect(entries()).toContain('Map');
+  });
+
+  it('closes the menu and opens the map when tapped', async () => {
+    const onClose = vi.fn();
+    const onOpenMap = vi.fn();
+    lookup.current = Promise.resolve({ is_admin: true, name: 'Mikkel' });
+    store.setState({ connection: {} });
+    await act(async () => {
+      root.render(createElement(Menu, { isOpen: true, onClose, entities: {}, onOpenMap }));
+    });
+    const item = [...document.querySelectorAll('.menu-item')].find(node => node.textContent === 'Map') as HTMLElement;
+    act(() => item.click());
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onOpenMap).toHaveBeenCalledTimes(1);
+  });
+});

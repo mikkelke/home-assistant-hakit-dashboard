@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildNowHash,
   getViewFromHistoryHash,
+  isMapHash,
   mergeHistoryState,
   NOW_FOCUS_KINDS,
   nowFocusAt,
@@ -72,6 +73,23 @@ describe('#now link grammar', () => {
     expect(getViewFromHistoryHash(windowWithHash('#room=bedroom'))).toEqual({ kind: 'room', roomId: 'bedroom', openClimate: false });
     expect(getViewFromHistoryHash(windowWithHash('#energy=bill'))).toEqual({ kind: 'energy' });
     expect(getViewFromHistoryHash(null)).toEqual({ kind: 'none' });
+  });
+});
+
+describe('#map link grammar', () => {
+  it('opens the sensor map for #map, with or without a parameter after it', () => {
+    for (const hash of ['#map', '#map=pins', '#map&sheet=1']) expect(parseDashboardHash(hash)).toEqual({ kind: 'map' });
+  });
+
+  it('does not take anything else for the map', () => {
+    for (const hash of ['', '#', '#mapping', '#maps', '#MAP', '#room=map', '#energy', '#now=map'])
+      expect(parseDashboardHash(hash).kind).not.toBe('map');
+    expect(isMapHash('#map')).toBe(true);
+    expect(isMapHash('#mapping')).toBe(false);
+  });
+
+  it('is a view of the grid, unlike #now', () => {
+    expect(getViewFromHistoryHash(windowWithHash('#map'))).toEqual({ kind: 'map' });
   });
 });
 

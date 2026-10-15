@@ -32,19 +32,21 @@ function lookUpViewer(connection: Connection): Promise<Viewer> {
 
 /** Who is looking at the dashboard. `isAdmin` stays `null` while resolving and `false` on
  * failure: the restricted view is the safe default, so a slow user fetch briefly hides admin
- * surfaces from the admin user rather than ever flashing them at a housemate. */
+ * surfaces from the admin user rather than ever flashing them at a housemate. A viewer belongs to
+ * the connection it was looked up on: a replacement connection reads as unresolved until its own
+ * lookup answers. */
 export function useViewer(): Viewer {
   const connection = useHass(s => s.connection) as Connection | null;
-  const [viewer, setViewer] = useState<Viewer>(() => (connection && resolved.get(connection)) || UNRESOLVED);
+  const [, answered] = useState(0);
   useEffect(() => {
     if (!connection) return;
     let cancelled = false;
-    void lookUpViewer(connection).then(next => {
-      if (!cancelled) setViewer(current => (current.isAdmin === next.isAdmin && current.name === next.name ? current : next));
+    void lookUpViewer(connection).then(() => {
+      if (!cancelled) answered(count => count + 1);
     });
     return () => {
       cancelled = true;
     };
   }, [connection]);
-  return viewer;
+  return (connection && resolved.get(connection)) || UNRESOLVED;
 }

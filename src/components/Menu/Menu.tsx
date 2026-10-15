@@ -21,12 +21,13 @@ interface MenuProps {
     serviceData?: Record<string, unknown>;
   }) => Promise<unknown>;
   onOpenEnergy?: () => void;
+  onOpenMap?: () => void;
 }
 
 const KIOSK_TOGGLE_ENTITY = 'input_boolean.kiosk_mode';
 const BUILD_VERSION = __APP_BUILD_VERSION__;
 
-export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy }: MenuProps) {
+export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy, onOpenMap }: MenuProps) {
   const [isKioskActive, setIsKioskActive] = useState(false);
   const [isBatteryOverviewOpen, setIsBatteryOverviewOpen] = useState(false);
   const [isSmokeAlarmOpen, setIsSmokeAlarmOpen] = useState(false);
@@ -93,6 +94,11 @@ export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy }: M
     onOpenEnergy?.();
   };
 
+  const handleOpenMap = () => {
+    onClose();
+    onOpenMap?.();
+  };
+
   const handleOpenSmokeAlarm = () => {
     onClose();
     setIsSmokeAlarmOpen(true);
@@ -120,6 +126,10 @@ export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy }: M
               <button className='menu-item menu-item-battery' onClick={handleOpenBatteryOverview}>
                 <Icon icon='mdi:battery-outline' />
                 <span>Batteries</span>
+              </button>
+              <button className='menu-item' onClick={handleOpenMap}>
+                <Icon icon='mdi:map-marker-radius-outline' />
+                <span>Map</span>
               </button>
             </>
           )}

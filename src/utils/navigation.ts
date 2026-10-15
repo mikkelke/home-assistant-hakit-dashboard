@@ -53,7 +53,12 @@ export type OpenNow = (focus?: NowFocus | null, itemId?: string | null) => void;
 
 export type NowView = { kind: 'now'; focus: NowFocus | null };
 
-export type DashboardView = { kind: 'room'; roomId: string; openClimate?: boolean } | { kind: 'energy' } | NowView | { kind: 'none' };
+export type DashboardView =
+  | { kind: 'room'; roomId: string; openClimate?: boolean }
+  | { kind: 'energy' }
+  | { kind: 'map' }
+  | NowView
+  | { kind: 'none' };
 
 /** Build a `#room=<id>` hash, optionally with `&climate=1` to request the climate sheet open on
  * arrival (deep link for the room-card temperature/humidity tap - see RoomCard/Dashboard). */
@@ -91,8 +96,14 @@ export function nowFocusAt(kind: NowFocusKind, ms: number): NowFocus {
   return { kind, epochS: Math.floor(ms / 1000) };
 }
 
+/** `#map` opens the admin sensor map; anything after it is reserved. */
+export function isMapHash(hash: string): boolean {
+  return hash === '#map' || hash.startsWith('#map=') || hash.startsWith('#map&');
+}
+
 export function parseDashboardHash(hash: string): DashboardView {
   if (hash === '#energy' || hash.startsWith('#energy=')) return { kind: 'energy' };
+  if (isMapHash(hash)) return { kind: 'map' };
   if (isNowHash(hash)) return { kind: 'now', focus: parseNowFocus(hash) };
   if (hash.startsWith('#room=')) {
     const [roomId, ...rest] = hash.slice(6).split('&');
