@@ -47,3 +47,11 @@ export function resultText(
   const why = MISS_TEXT[wifi.miss.dbm ?? 'stale'];
   return { text: `${label} saved without Wi-Fi: ${why}${error ? ` (${error})` : ''}. Tap the point to capture it again.`, ok: false };
 }
+
+/** The text of the chip that opens the setup sheet, or null when no setup is waiting. */
+export function setupLabel(kinds: readonly ('wifi' | 'phone')[]): string | null {
+  if (kinds.length === 0) return null;
+  if (kinds.every(kind => kind === 'wifi')) return 'Wi-Fi setup suggested';
+  if (kinds.every(kind => kind === 'phone')) return 'Phone suggested';
+  return 'Setup suggested';
+}

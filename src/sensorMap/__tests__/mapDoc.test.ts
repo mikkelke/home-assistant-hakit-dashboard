@@ -20,6 +20,7 @@ import {
   parseFingerprintDoc,
   parseMapDoc,
   parseSuggestDoc,
+  samePhoneAddress,
   validateFingerprintDoc,
   validateMapDoc,
   validateSuggestDoc,
@@ -78,7 +79,7 @@ describe('validation and parsing', () => {
     expect(validateSuggestDoc(doc).some(p => p.includes('used twice'))).toBe(true);
     const raw = JSON.parse(JSON.stringify(makeSuggestDoc())) as { items: { kind: string }[] };
     raw.items[0].kind = 'teleport';
-    expect(validateSuggestDoc(raw).some(p => p.includes('placement, answer, new_device, wifi or rename'))).toBe(true);
+    expect(validateSuggestDoc(raw).some(p => p.includes('placement, answer, new_device, wifi, rename or phone'))).toBe(true);
   });
 
   it('only lets set-suggest write the suggestion key and seed write the map or a scratch copy', () => {
@@ -751,5 +752,85 @@ describe('a suggestion dropped at a spot', () => {
       at: at(1),
     });
     expect(doc.devices.radar_a.placement).toEqual(proposed);
+  });
+});
+
+describe('a suggested phone', () => {
+  const ADDRESS = 'a1b2c3d4e5f60718293a4b5c6d7e8f90_1_2';
+  const phone = (extra: Record<string, unknown> = {}) => ({
+    name: 'Test owner',
+    bermuda_address: ADDRESS,
+    person: 'person.test_owner',
+    ...extra,
+  });
+  const item = (extra: Record<string, unknown> = {}, id = 's-phone') => ({
+    id,
+    kind: 'phone' as const,
+    phone: phone(extra),
+    reason: 'Bermuda tracks it now',
+  });
+  const suggestWith = (entry: unknown) => ({ ...makeSuggestDoc(), items: [entry] });
+
+  it('is a valid suggestion with a name, an address and a person or none, and not otherwise', () => {
+    expect(validateSuggestDoc(suggestWith(item()))).toEqual([]);
+    expect(validateSuggestDoc(suggestWith(item({ person: null })))).toEqual([]);
+    for (const bad of [
+      { name: '' },
+      { name: '  ' },
+      { name: 5 },
+      { bermuda_address: '' },
+      { bermuda_address: ' ' },
+      { person: 5 },
+      { person: undefined },
+    ]) {
+      expect(validateSuggestDoc(suggestWith(item(bad))).some(p => p.includes('needs a name, a bermuda_address and a person'))).toBe(true);
+    }
+    expect(validateSuggestDoc(suggestWith({ id: 's-phone', kind: 'phone', reason: 'x' })).some(p => p.includes('items[0].phone'))).toBe(
+      true
+    );
+    expect(validateSuggestDoc(suggestWith({ ...item(), phone: 'Test owner' })).some(p => p.includes('items[0].phone'))).toBe(true);
+  });
+
+  it('is added to the tracked phones when accepted, after the ones already there, and logged', () => {
+    const before = makeDoc();
+    const doc = applyMapOp(before, { kind: 'accept', item: item(), at: at(1) });
+    expect(doc.phones).toEqual([...before.phones, { name: 'Test owner', bermuda_address: ADDRESS, person: 'person.test_owner' }]);
+    expect(doc.suggest_log).toEqual([{ id: 's-phone', accepted_at: at(1) }]);
+    expect(doc.updated_at).toBe(at(1));
+    expect(doc.devices).toBe(before.devices);
+    expect(doc.wifi).toBe(before.wifi);
+  });
+
+  it('fills an empty list, with the name and address trimmed', () => {
+    const empty = { ...makeDoc(), phones: [] };
+    const doc = applyMapOp(empty, { kind: 'accept', item: item({ name: '  Test owner ', bermuda_address: ` ${ADDRESS} ` }), at: at(1) });
+    expect(doc.phones).toEqual([{ name: 'Test owner', bermuda_address: ADDRESS, person: 'person.test_owner' }]);
+  });
+
+  it('replaces the phone that has the same address, in its place and whatever the case of the address', () => {
+    const two = { ...makeDoc(), phones: [{ name: 'Old', bermuda_address: ADDRESS.toUpperCase(), person: null }, ...makeDoc().phones] };
+    const doc = applyMapOp(two, { kind: 'accept', item: item({ name: 'New name' }), at: at(1) });
+    expect(doc.phones).toEqual([{ name: 'New name', bermuda_address: ADDRESS, person: 'person.test_owner' }, ...makeDoc().phones]);
+    expect(doc.phones).toHaveLength(2);
+  });
+
+  it('is accepted once, and a rejection leaves the phones alone and only logs', () => {
+    const once = applyMapOp(makeDoc(), { kind: 'accept', item: item(), at: at(1) });
+    expect(applyMapOp(once, { kind: 'accept', item: item({ name: 'Other' }), at: at(2) })).toBe(once);
+    const rejected = applyMapOp(makeDoc(), { kind: 'reject', id: 's-phone', at: at(1) });
+    expect(rejected.phones).toEqual(makeDoc().phones);
+    expect(rejected.suggest_log).toEqual([{ id: 's-phone', rejected_at: at(1) }]);
+  });
+
+  it('is read back as a valid map after it was accepted, so it survives the next load', () => {
+    const doc = applyMapOp(makeDoc(), { kind: 'accept', item: item(), at: at(1) });
+    expect(validateMapDoc(JSON.parse(JSON.stringify(doc)))).toEqual([]);
+    expect(parseMapDoc(JSON.parse(JSON.stringify(doc))).phones).toHaveLength(2);
+  });
+
+  it('compares addresses without regard to case or surrounding space', () => {
+    expect(samePhoneAddress(ADDRESS, ADDRESS.toUpperCase())).toBe(true);
+    expect(samePhoneAddress(` ${ADDRESS}`, ADDRESS)).toBe(true);
+    expect(samePhoneAddress(ADDRESS, `${ADDRESS}x`)).toBe(false);
   });
 });

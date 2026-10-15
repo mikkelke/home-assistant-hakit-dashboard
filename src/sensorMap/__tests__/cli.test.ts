@@ -48,7 +48,7 @@ it('gives every document it writes a fresh write_id and a writer, replacing any 
   ]);
 });
 
-it('writes a suggestion document that holds a Wi-Fi setup and a rename, and reads back what it wrote', async () => {
+it('writes a suggestion document that holds a Wi-Fi setup, a rename and a phone, and reads back what it wrote', async () => {
   const items = [
     ...makeSuggestDoc().items,
     {
@@ -65,10 +65,29 @@ it('writes a suggestion document that holds a Wi-Fi setup and a rename, and read
       reason: 'from the controller',
     },
     { id: 's-rename', kind: 'rename', device_key: 'door_1', name: 'Front door contact', reason: 'it is the front door' },
+    {
+      id: 's-phone',
+      kind: 'phone',
+      phone: { name: 'Test owner', bermuda_address: 'test-beacon-address-2', person: 'person.test_owner' },
+      reason: 'Bermuda tracks it now',
+    },
   ];
   await run('set-suggest', [file({ items })], client);
-  expect((data.get(SUGGEST_KEY) as { items: { id: string }[] }).items.map(item => item.id)).toEqual(['s-1', 's-2', 's-wifi', 's-rename']);
+  expect((data.get(SUGGEST_KEY) as { items: { id: string }[] }).items.map(item => item.id)).toEqual([
+    's-1',
+    's-2',
+    's-wifi',
+    's-rename',
+    's-phone',
+  ]);
   await expect(run('set-suggest', [file({ items: [{ id: 's-bad', kind: 'wifi', reason: 'nothing in it' }] })], client)).rejects.toThrow();
+  await expect(
+    run(
+      'set-suggest',
+      [file({ items: [{ id: 's-bad', kind: 'phone', phone: { name: 'x', bermuda_address: '', person: null }, reason: 'no address' }] })],
+      client
+    )
+  ).rejects.toThrow();
 });
 
 it('summarizes the Wi-Fi of the map', async () => {

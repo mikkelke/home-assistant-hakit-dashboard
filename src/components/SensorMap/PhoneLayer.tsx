@@ -14,6 +14,9 @@ interface PhoneLayerProps {
   chips: boolean;
   /** The "I am here" button. */
   fab: boolean;
+  /** The text of the chip that opens a suggested setup, or null when none waits. */
+  setup: string | null;
+  onSetup: () => void;
   /** A tracked phone or a Wi-Fi source exists. */
   canCapture: boolean;
   capture: Capture;
@@ -33,6 +36,8 @@ export function PhoneLayer({
   phonesConfigured,
   chips,
   fab,
+  setup,
+  onSetup,
   canCapture,
   capture,
   onAim,
@@ -50,6 +55,11 @@ export function PhoneLayer({
       {chips && (
         <div className='sm-phones' role='status'>
           {!phonesConfigured && <span className='sm-chip small static'>No tracked phone is set up</span>}
+          {setup && (
+            <button type='button' className='sm-chip small warn' onClick={onSetup}>
+              {setup}
+            </button>
+          )}
           {statuses.map(status => (
             <button
               key={status.phone.bermuda_address}

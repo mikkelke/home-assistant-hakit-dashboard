@@ -218,7 +218,8 @@ export type SuggestItem =
   | { id: string; kind: 'answer'; target: string; answer: string; reason: string }
   | { id: string; kind: 'new_device'; device: NewDevice; reason: string }
   | { id: string; kind: 'wifi'; source?: WifiSource; aps?: Record<string, string>; reason: string }
-  | { id: string; kind: 'rename'; device_key: string; name: string; reason: string };
+  | { id: string; kind: 'rename'; device_key: string; name: string; reason: string }
+  | { id: string; kind: 'phone'; phone: Phone; reason: string };
 
 export interface SuggestDoc {
   schema_version: number;
@@ -623,8 +624,19 @@ export function validateSuggestDoc(raw: unknown): string[] {
     } else if (item.kind === 'rename') {
       if (!isString(item.device_key) || !isString(item.name) || item.name.trim() === '')
         problems.push(`${path} needs a device_key and a name`);
+    } else if (item.kind === 'phone') {
+      const phone = item.phone;
+      if (
+        !isObject(phone) ||
+        !isString(phone.name) ||
+        phone.name.trim() === '' ||
+        !isString(phone.bermuda_address) ||
+        phone.bermuda_address.trim() === '' ||
+        !isNullable(isString)(phone.person)
+      )
+        problems.push(`${path}.phone needs a name, a bermuda_address and a person that is a string or null`);
     } else {
-      problems.push(`${path}.kind is not placement, answer, new_device, wifi or rename`);
+      problems.push(`${path}.kind is not placement, answer, new_device, wifi, rename or phone`);
     }
   });
   return problems;
@@ -769,6 +781,9 @@ function withDefaultFov(placement: Placement, facing: Facing): number | null {
   return facing.state === 'known' ? (placement.fov_deg ?? DEFAULT_FOV_DEG) : placement.fov_deg;
 }
 
+/** Bermuda answers to an address in either case and names the device by the lower case form. */
+export const samePhoneAddress = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase();
+
 /** `placement` put at `place`, which is a person's choice and so only known to the room; a height it carries stays. */
 function droppedAt(placement: Placement, place: Point, height: number | null): Placement {
   return {
@@ -804,6 +819,14 @@ function acceptItem(doc: MapDoc, item: SuggestItem, at: string, place?: Point): 
     const device = doc.devices[item.device_key];
     if (!device) return doc;
     next = { ...doc, updated_at: at, devices: { ...doc.devices, [item.device_key]: { ...device, name: item.name.trim() } } };
+  } else if (item.kind === 'phone') {
+    const phone: Phone = { name: item.phone.name.trim(), bermuda_address: item.phone.bermuda_address.trim(), person: item.phone.person };
+    const same = (known: Phone) => samePhoneAddress(known.bermuda_address, phone.bermuda_address);
+    next = {
+      ...doc,
+      updated_at: at,
+      phones: doc.phones.some(same) ? doc.phones.map(known => (same(known) ? phone : known)) : [...doc.phones, phone],
+    };
   } else {
     const key = newDeviceKey(item.device, item.id);
     if (!doc.devices[key] && place) {

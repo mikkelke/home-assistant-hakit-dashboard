@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { noWifi, type FingerprintWifi } from '../../../sensorMap/mapDoc';
-import { MISS_TEXT, READY_TEXT, bandText, missText, resultText, wifiLine } from '../wifiText';
+import { MISS_TEXT, READY_TEXT, bandText, missText, resultText, setupLabel, wifiLine } from '../wifiText';
 
 const caught = (partial: Partial<FingerprintWifi> = {}): FingerprintWifi => ({
   dbm: -62,
@@ -33,6 +33,15 @@ describe('what the page says about a capture', () => {
     expect(missText('bssid', 'invalid')).toContain('location permission');
     expect(missText('dbm', 'invalid')).toBe(MISS_TEXT.invalid);
     expect(missText('freq', 'stale')).toBe(MISS_TEXT.stale);
+  });
+
+  it('words the chip that opens a suggested setup by what is waiting', () => {
+    expect(setupLabel([])).toBeNull();
+    expect(setupLabel(['wifi'])).toBe('Wi-Fi setup suggested');
+    expect(setupLabel(['phone'])).toBe('Phone suggested');
+    expect(setupLabel(['wifi', 'wifi'])).toBe('Wi-Fi setup suggested');
+    expect(setupLabel(['phone', 'phone'])).toBe('Phone suggested');
+    expect(setupLabel(['phone', 'wifi'])).toBe('Setup suggested');
   });
 
   it('tells the person a capture was saved, and what it caught', () => {

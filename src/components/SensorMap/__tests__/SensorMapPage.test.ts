@@ -968,6 +968,157 @@ describe('a suggested Wi-Fi setup', () => {
   });
 });
 
+describe('a suggested phone', () => {
+  const ADDRESS = 'a1b2c3d4e5f60718293a4b5c6d7e8f90_1_2';
+  const phoneItem = (extra: Record<string, unknown> = {}) => ({
+    id: 's-phone',
+    kind: 'phone' as const,
+    phone: { name: 'Test owner', bermuda_address: ADDRESS, person: 'person.test_owner' },
+    reason: 'Bermuda tracks the phone now',
+    ...extra,
+  });
+  const noPhones = () => {
+    const map = makeDoc();
+    map.phones = [];
+    return map;
+  };
+  async function openWithPhone(options: { phones?: boolean; wifi?: boolean } = {}) {
+    const suggest = makeSuggestDoc();
+    suggest.items.push(phoneItem());
+    if (options.wifi)
+      suggest.items.push({
+        id: 's-wifi',
+        kind: 'wifi',
+        source: WIFI_SOURCE,
+        aps: { [BSSID_A]: 'door_1' },
+        reason: 'Derived from the controller',
+      });
+    const fake = fakeConnection({ ...docs(), sensor_map: options.phones === false ? noPhones() : makeDoc(), sensor_map_suggest: suggest });
+    await open(fake);
+    return fake;
+  }
+  const phonesWritten = (fake: Fake) => (writes(fake).at(-1)?.value as MapDoc).phones;
+
+  it('is offered by a chip in the survey bar, and in the phone chips of the Phones layer', async () => {
+    await openWithPhone();
+    choose('Survey');
+    expect(queryAll('.sm-subbar .sm-chip').map(node => node.textContent)).toContain('Phone suggested');
+    act(() => chip('Survey').click());
+    expect(query('.sm-subbar')).toBeNull();
+    choose('Phones');
+    expect(queryAll('.sm-phones .sm-chip').map(node => node.textContent)).toContain('Phone suggested');
+  });
+
+  it('shows the phone with the address Bluetooth tracks it by, and writes nothing until accepted', async () => {
+    const fake = await openWithPhone({ phones: false });
+    choose('Survey');
+    act(() => chip('Phone suggested').click());
+    const sheet = query('.sm-sheet') as Element;
+    expect(sheet.textContent).toContain('Bermuda tracks the phone now');
+    expect(sheet.textContent).toContain(
+      `Phone Test owner: Bluetooth tracks it as ${ADDRESS}, person person.test_owner. It is added to the tracked phones.`
+    );
+    expect(sheet.textContent).toContain('Now: 0 tracked phones');
+    expect(queryAll('.sm-sheet .sm-chip').map(node => node.textContent)).toEqual(['Accept', 'Discard suggestion']);
+    await settle(1500);
+    expect(writes(fake)).toHaveLength(0);
+  });
+
+  it('becomes a tracked phone of the map when accepted, written by the page, and the sheet closes', async () => {
+    const fake = await openWithPhone({ phones: false });
+    choose('Survey');
+    act(() => chip('Phone suggested').click());
+    act(() => chip('Accept').click());
+    await settle(1100);
+    expect(writes(fake).at(-1)?.key).toBe('sensor_map');
+    expect(phonesWritten(fake)).toEqual([{ name: 'Test owner', bermuda_address: ADDRESS, person: 'person.test_owner' }]);
+    expect((writes(fake).at(-1)?.value as MapDoc).suggest_log.map(entry => entry.id)).toContain('s-phone');
+    expect(query('.sm-sheet')).toBeNull();
+    expect(queryAll('.sm-subbar .sm-chip').map(node => node.textContent)).not.toContain('Phone suggested');
+  });
+
+  it('replaces the tracked phone that has the same address, whatever the case, instead of listing it twice', async () => {
+    const suggest = makeSuggestDoc();
+    suggest.items.push(phoneItem({ phone: { name: 'Renamed', bermuda_address: ADDRESS, person: null } }));
+    const map = makeDoc();
+    map.phones = [{ name: 'Old', bermuda_address: ADDRESS.toUpperCase(), person: 'person.test_owner' }];
+    const fake = fakeConnection({ ...docs(), sensor_map: map, sensor_map_suggest: suggest });
+    await open(fake);
+    choose('Survey');
+    act(() => chip('Phone suggested').click());
+    expect(query('.sm-sheet')?.textContent).toContain('It replaces the phone already listed with that address.');
+    act(() => chip('Accept').click());
+    await settle(1100);
+    expect(phonesWritten(fake)).toEqual([{ name: 'Renamed', bermuda_address: ADDRESS, person: null }]);
+  });
+
+  it('is only logged when discarded', async () => {
+    const fake = await openWithPhone({ phones: false });
+    choose('Survey');
+    act(() => chip('Phone suggested').click());
+    await discard();
+    await settle(1100);
+    const written = writes(fake).at(-1)?.value as MapDoc;
+    expect(written.phones).toEqual([]);
+    expect(written.suggest_log).toEqual([expect.objectContaining({ id: 's-phone', rejected_at: expect.any(String) })]);
+    expect(query('.sm-sheet')).toBeNull();
+  });
+
+  it('shares the setup sheet with a Wi-Fi setup, and the sheet stays until the last one is decided', async () => {
+    const fake = await openWithPhone({ phones: false, wifi: true });
+    choose('Survey');
+    expect(queryAll('.sm-subbar .sm-chip').map(node => node.textContent)).toContain('Setup suggested');
+    act(() => chip('Setup suggested').click());
+    expect(queryAll('.sm-sheet .sm-suggest')).toHaveLength(2);
+    act(() => (queryAll('.sm-sheet .sm-chip.on')[0] as HTMLElement).click());
+    await settle(1100);
+    expect(queryAll('.sm-sheet .sm-suggest')).toHaveLength(1);
+    act(() => (queryAll('.sm-sheet .sm-chip.on')[0] as HTMLElement).click());
+    await settle(1100);
+    expect(query('.sm-sheet')).toBeNull();
+    const written = writes(fake).at(-1)?.value as MapDoc;
+    expect(written.phones).toHaveLength(1);
+    expect(written.wifi.source).toEqual(WIFI_SOURCE);
+    expect(written.suggest_log.map(entry => entry.id).sort()).toEqual(['s-phone', 's-wifi']);
+  });
+
+  it('is listed ahead of a Wi-Fi setup however the suggestions are ordered, since the BSSID table is long', async () => {
+    const suggest = makeSuggestDoc();
+    suggest.items.push(
+      {
+        id: 's-wifi',
+        kind: 'wifi',
+        source: WIFI_SOURCE,
+        aps: { [BSSID_A]: 'door_1', [BSSID_B]: 'nobody' },
+        reason: 'Derived from the controller',
+      },
+      phoneItem()
+    );
+    await open(fakeConnection({ ...docs(), sensor_map: noPhones(), sensor_map_suggest: suggest }));
+    choose('Survey');
+    act(() => chip('Setup suggested').click());
+    expect(queryAll('.sm-sheet .sm-suggest > p:first-child').map(node => node.textContent)).toEqual([
+      'Bermuda tracks the phone now',
+      'Derived from the controller',
+    ]);
+  });
+
+  it('makes the next capture ask Bermuda for the phone by the address that was accepted', async () => {
+    const fake = await openWithPhone({ phones: false });
+    choose('Survey');
+    act(() => chip('Phone suggested').click());
+    act(() => chip('Accept').click());
+    await settle(1100);
+    press(target(point(0).id), 'Enter');
+    expect((chip('Save and start') as HTMLButtonElement).disabled).toBe(false);
+    act(() => chip('Save and start').click());
+    await advance(3000);
+    const asked = fake.sent.filter(message => message.domain === 'bermuda') as unknown as { service_data: { addresses: string } }[];
+    expect(asked.length).toBeGreaterThan(0);
+    expect(asked.every(message => message.service_data.addresses === ADDRESS)).toBe(true);
+  });
+});
+
 describe('the coverage layer', () => {
   const wifi = (dbm: number, bssid: string | null, band: '2.4' | '5' = '5'): FingerprintWifi => ({
     dbm,

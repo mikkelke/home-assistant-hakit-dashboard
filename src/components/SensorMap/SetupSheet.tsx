@@ -1,30 +1,43 @@
-import { normalizeBssid, type MapDoc, type SuggestItem } from '../../sensorMap/mapDoc';
+import { normalizeBssid, samePhoneAddress, type MapDoc, type SuggestItem } from '../../sensorMap/mapDoc';
 import { DiscardSuggestion } from './DiscardSuggestion';
 import { Sheet } from './Sheet';
 
-type WifiItem = Extract<SuggestItem, { kind: 'wifi' }>;
+type SetupItem = Extract<SuggestItem, { kind: 'wifi' | 'phone' }>;
 
-interface WifiSetupSheetProps {
-  items: readonly WifiItem[];
+interface SetupSheetProps {
+  items: readonly SetupItem[];
   doc: MapDoc;
   onAccept: (item: SuggestItem) => void;
   onReject: (id: string) => void;
   onClose: () => void;
 }
 
-/** The suggested Wi-Fi setup: which phone's sensors a capture reads, and which access point each BSSID belongs to. */
-export function WifiSetupSheet({ items, doc, onAccept, onReject, onClose }: WifiSetupSheetProps) {
-  const known = Object.keys(doc.wifi.aps).length;
+/** What a survey needs set up: which phone Bluetooth tracks, which phone's Wi-Fi sensors a capture reads, and which
+ * access point each BSSID belongs to. The phone comes first: it is short, and the BSSID table under the Wi-Fi setup is not. */
+export function SetupSheet({ items, doc, onAccept, onReject, onClose }: SetupSheetProps) {
+  const bssids = Object.keys(doc.wifi.aps).length;
+  const phones = doc.phones.length;
+  const ordered = [...items.filter(item => item.kind === 'phone'), ...items.filter(item => item.kind === 'wifi')];
   return (
-    <Sheet title='Wi-Fi setup' subtitle={`${items.length} suggested`} onClose={onClose}>
+    <Sheet title='Survey setup' subtitle={`${items.length} suggested`} onClose={onClose}>
       <p className='sm-muted'>
-        Now: {doc.wifi.source ? `phone ${doc.wifi.source.name}` : 'no phone'}, {known} {known === 1 ? 'BSSID' : 'BSSIDs'} known.
+        Now: {phones} tracked {phones === 1 ? 'phone' : 'phones'},{' '}
+        {doc.wifi.source ? `Wi-Fi from ${doc.wifi.source.name}` : 'no Wi-Fi phone'}, {bssids} {bssids === 1 ? 'BSSID' : 'BSSIDs'} known.
       </p>
       {items.length === 0 && <p className='sm-muted'>Nothing is waiting.</p>}
-      {items.map(item => (
+      {ordered.map(item => (
         <div key={item.id} className='sm-suggest sm-wifi-item'>
           <p>{item.reason}</p>
-          {item.source && (
+          {item.kind === 'phone' && (
+            <p className='sm-muted'>
+              Phone {item.phone.name}: Bluetooth tracks it as {item.phone.bermuda_address}
+              {item.phone.person ? `, person ${item.phone.person}` : ''}.{' '}
+              {doc.phones.some(known => samePhoneAddress(known.bermuda_address, item.phone.bermuda_address))
+                ? 'It replaces the phone already listed with that address.'
+                : 'It is added to the tracked phones.'}
+            </p>
+          )}
+          {item.kind === 'wifi' && item.source && (
             <p className='sm-muted'>
               Phone {item.source.name}: tells {item.source.notify} to update its sensors, then reads {item.source.signal},{' '}
               {item.source.bssid} and {item.source.frequency}.
@@ -36,7 +49,7 @@ export function WifiSetupSheet({ items, doc, onAccept, onReject, onClose }: Wifi
             </button>
             <DiscardSuggestion onDiscard={() => onReject(item.id)} />
           </div>
-          {item.aps && (
+          {item.kind === 'wifi' && item.aps && (
             <table className='sm-table'>
               <thead>
                 <tr>

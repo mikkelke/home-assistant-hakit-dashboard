@@ -5,8 +5,8 @@ import { READY_TEXT } from './wifiText';
 interface SurveyBarProps {
   progress: SurveyProgress;
   wifi: WifiReady;
-  /** A suggested Wi-Fi setup waits to be accepted. */
-  setupPending: boolean;
+  /** The text of the chip that opens the suggested setup, or null when none waits. */
+  setup: string | null;
   /** What the last capture caught, or what went wrong with it. */
   result: { text: string; ok: boolean } | null;
   busy: boolean;
@@ -15,7 +15,7 @@ interface SurveyBarProps {
 }
 
 /** The survey's controls under the layer chips: how far along it is, the next point, and whether Wi-Fi is ready. */
-export function SurveyBar({ progress, wifi, setupPending, result, busy, onNext, onSetup }: SurveyBarProps) {
+export function SurveyBar({ progress, wifi, setup, result, busy, onNext, onSetup }: SurveyBarProps) {
   const left = progress.total - progress.done - progress.skipped;
   return (
     <div className='sm-subbar' role='group' aria-label='Survey'>
@@ -28,9 +28,9 @@ export function SurveyBar({ progress, wifi, setupPending, result, busy, onNext, 
         <button type='button' className='sm-chip small' disabled={busy || left === 0} onClick={onNext}>
           Next point
         </button>
-        {setupPending ? (
+        {setup ? (
           <button type='button' className='sm-chip small warn' onClick={onSetup}>
-            Wi-Fi setup suggested
+            {setup}
           </button>
         ) : (
           <span className={`sm-chip small static${wifi === 'ready' ? '' : ' warn'}`}>{READY_TEXT[wifi]}</span>

@@ -52,7 +52,7 @@ import { QuestionsSheet } from './QuestionsSheet';
 import { SurveyBar } from './SurveyBar';
 import { TraySheet } from './TraySheet';
 import { UnplacedTray } from './UnplacedTray';
-import { WifiSetupSheet } from './WifiSetupSheet';
+import { SetupSheet } from './SetupSheet';
 import { ZoneSheet } from './ZoneSheet';
 import { typeVisible, type Capture, type DeviceActions, type DragPreview, type Layers, type Selection } from './types';
 import { loadUi, saveUi } from './uiStorage';
@@ -64,7 +64,7 @@ import { usePlanViewport } from './usePlanViewport';
 import { useScanners } from './useScanners';
 import { useWifiStatus } from './useWifi';
 import { keepScreenOn } from './keepScreenOn';
-import { resultText } from './wifiText';
+import { resultText, setupLabel } from './wifiText';
 import './SensorMap.css';
 
 interface SensorMapPageProps {
@@ -183,7 +183,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [snapOverride, setSnapOverride] = useState<{ key: string; on: boolean } | null>(null);
   const [sheet, setSheet] = useState<
-    { kind: 'questions'; focus: string | null } | { kind: 'phone'; address: string } | { kind: 'wifi' } | null
+    { kind: 'questions'; focus: string | null } | { kind: 'phone'; address: string } | { kind: 'setup' } | null
   >(null);
   const [drag, setDrag] = useState<DragPreview | null>(null);
   const [capture, setCapture] = useState<Capture>({ phase: 'idle' });
@@ -240,7 +240,10 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
     return out;
   }, [pendingItems, suggest.doc, doc.devices, doc.layout_version]);
 
-  const wifiProposals = pendingItems.filter((item): item is Extract<SuggestItem, { kind: 'wifi' }> => item.kind === 'wifi');
+  const setupProposals = pendingItems.filter(
+    (item): item is Extract<SuggestItem, { kind: 'wifi' | 'phone' }> => item.kind === 'wifi' || item.kind === 'phone'
+  );
+  const setup = setupLabel(setupProposals.map(item => item.kind));
   const wifiReady = useWifiStatus(doc.wifi.source);
   const canCapture = doc.phones.length > 0 || doc.wifi.source !== null;
 
@@ -772,6 +775,11 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
         onRestore: () => setSkip(surveyPoint.id, false),
       }
     : null;
+  /** Decides one suggested setup, and closes the sheet when that was the last one waiting. */
+  const decideSetup = (decide: () => void) => {
+    decide();
+    if (setupProposals.length <= 1) setSheet(null);
+  };
   const goNext = () => {
     const point = nextPoint(surveyPts, progress, lastPoint.current);
     if (!point) return;
@@ -858,11 +866,11 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
             <SurveyBar
               progress={progress}
               wifi={wifiReady}
-              setupPending={wifiProposals.length > 0}
+              setup={setup}
               result={captureResult}
               busy={capture.phase === 'running'}
               onNext={goNext}
-              onSetup={() => setSheet({ kind: 'wifi' })}
+              onSetup={() => setSheet({ kind: 'setup' })}
             />
           )}
           {layers.coverage && <CoverageBar choices={apOptions} selected={apSelected} shown={shownCoverage.length} onSelect={setApFilter} />}
@@ -935,6 +943,8 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
               phonesConfigured={doc.phones.length > 0}
               chips={layers.phones}
               fab={layers.phones || layers.survey}
+              setup={setup}
+              onSetup={() => setSheet({ kind: 'setup' })}
               canCapture={canCapture}
               capture={capture}
               onAim={() => setCapture({ phase: 'aim' })}
@@ -979,12 +989,12 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
       {capture.phase !== 'confirm' && sheet?.kind === 'phone' && phoneSheet && (
         <PhoneSheet status={phoneSheet} doc={doc} onClose={() => setSheet(null)} />
       )}
-      {capture.phase !== 'confirm' && sheet?.kind === 'wifi' && (
-        <WifiSetupSheet
-          items={wifiProposals}
+      {capture.phase !== 'confirm' && sheet?.kind === 'setup' && (
+        <SetupSheet
+          items={setupProposals}
           doc={doc}
-          onAccept={actions.accept}
-          onReject={actions.reject}
+          onAccept={item => decideSetup(() => actions.accept(item))}
+          onReject={id => decideSetup(() => actions.reject(id))}
           onClose={() => setSheet(null)}
         />
       )}

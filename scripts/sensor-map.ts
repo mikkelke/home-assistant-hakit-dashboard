@@ -20,12 +20,15 @@
  *   { id, kind: 'new_device', device, reason }
  *   { id, kind: 'rename', device_key, name, reason }
  *   { id, kind: 'wifi', source?, aps?, reason }
+ *   { id, kind: 'phone', phone: { name, bermuda_address, person }, reason }
  *
  * and replaces the whole document, so a file holds every item that should stay. The page writes an accepted item
  * into `sensor_map`; no command does. A `wifi` item names the phone a survey capture reads, as `source`
  * ({ name, notify: 'notify.mobile_app_<device>', signal, bssid, frequency }, the last three being entity ids), and
  * the BSSID table, as `aps`: the BSSID of each virtual access point, from the controller's `stat/device`
  * `vap_table`, to the map device key of the access point that owns it.
+ * A `phone` item adds a tracked phone, or replaces the one with the same `bermuda_address`: the address Bermuda
+ * names the device by, which `bermuda.dump_devices` takes in either case.
  *
  * VITE_HA_URL and VITE_HA_TOKEN come from the environment, then `.env.development.local`, then `.env`. The
  * token must belong to an administrator: only administrators may write the system store.
