@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Icon, loadIcons } from '@iconify/react';
 import { useHass } from '@hakit/core';
 import type { SonosPlayerProps } from '../../types';
@@ -9,15 +9,15 @@ import { useLocalStorageBoolean, useLongPress, useModalBackButton, useSwipeToClo
 import { phonePlayerOf } from '../../home/household';
 import { maImageUrl, mediaKindOf, playMedia } from '../../music/api';
 import { queueIdFor } from '../../music/queue';
-import { useEpisodes, useLibrary, usePlaylists } from '../../music/useLibrary';
+import { useEpisodes, useLibrary, usePlaylists, usePlaylistTracks } from '../../music/useLibrary';
 import { favoritesFirst, podcastsByName, radioLabel } from '../../music/view';
-import { Art, EpisodeRow, MusicNote, PlaylistRow, PodcastRow, ResumeRow } from './MusicParts';
+import { Art, EpisodeRow, MusicNote, PlayAllButton, PlaylistRow, PodcastRow, ResumeRow, TrackRow } from './MusicParts';
 import { VolumeStrip } from './VolumeStrip';
 import { isUnsettled, runningVolume, sendVolume, type SentVolume } from './sentVolume';
 import './SonosPlayer.css';
 
-/** Episodes listed at first, and added by each tap on the older-episodes row. */
-const EPISODE_PAGE = 30;
+/** Episodes or tracks listed at first, and added by each tap on the more row. */
+const ROW_PAGE = 30;
 
 type SonosAttributes = {
   media_title?: string;
@@ -103,8 +103,8 @@ export function SonosPlayer({
   const topSlop = useTouchScrollSlopGuard();
   const viewer = useViewer();
   const [showGroupModal, setShowGroupModal] = useState(false);
-  // The Source sheet: one pop-up with four faces - the source grid, the Spotify playlists, the podcast feed list,
-  // and a feed's episodes. Same manual back/history machinery the podcast modal always used.
+  // The Source sheet: one pop-up with five faces - the source grid, the Spotify playlists and a playlist's tracks, the
+  // podcast feed list and a feed's episodes. Same manual back/history machinery the podcast modal always used.
   const [showSourcePicker, setShowSourcePicker] = useState(false);
   const sourceSheetOpenedAt = useRef<number>(0);
   const sourcePendingOpenRef = useRef(false);
@@ -129,10 +129,13 @@ export function SonosPlayer({
   /** Set synchronously on open so modalBackButton beats React re-render (embed/spurious popstate). */
   const podcastPendingOpenRef = useRef(false);
   const showPodcastModalRef = useRef(false);
-  const viewingEpisodesRef = useRef(false);
-  const [selectedPodcastUri, setSelectedPodcastUri] = useState<string | null>(null);
-  const [viewingEpisodes, setViewingEpisodes] = useState(false);
-  const [episodeLimit, setEpisodeLimit] = useState(EPISODE_PAGE);
+  const viewingItemsRef = useRef(false);
+  // The podcast or playlist whose episodes or tracks the sheet shows, and whether it does: the second level of a page.
+  const [openedUri, setOpenedUri] = useState<string | null>(null);
+  const [viewingItems, setViewingItems] = useState(false);
+  const sheetBodyRef = useRef<HTMLDivElement>(null);
+  const listScrollTop = useRef(0);
+  const [rowLimit, setRowLimit] = useState(ROW_PAGE);
   // The item a tap is starting on Music Assistant, held until it answers. Each open of the sheet and each tap is a new attempt;
   // an answer that arrives for an older one is dropped.
   const [starting, setStarting] = useState<string | null>(null);
@@ -141,8 +144,10 @@ export function SonosPlayer({
   const connection = useHass(s => s.connection);
   const library = useLibrary(showSourcePicker || showPodcastModal);
   const playlists = usePlaylists(showSourcePicker || showPodcastModal);
-  const selectedPodcast = (library.status === 'ready' && library.data.podcasts.find(p => p.uri === selectedPodcastUri)) || null;
-  const episodes = useEpisodes(showPodcastModal && viewingEpisodes, selectedPodcast);
+  const selectedPodcast = (library.status === 'ready' && library.data.podcasts.find(p => p.uri === openedUri)) || null;
+  const selectedPlaylist = (playlists.status === 'ready' && playlists.data.find(p => p.uri === openedUri)) || null;
+  const episodes = useEpisodes(showPodcastModal && viewingItems, selectedPodcast);
+  const tracks = usePlaylistTracks(showPodcastModal && viewingItems, selectedPlaylist);
   const [seekerPreview, setSeekerPreview] = useState<number | null>(null); // position in seconds while dragging
   const [, setSeekerTick] = useState(0); // force re-render for live position when playing
   const player = entities?.[entityId];
@@ -381,8 +386,13 @@ export function SonosPlayer({
   }, [showSourcePicker]);
 
   useEffect(() => {
-    viewingEpisodesRef.current = viewingEpisodes;
-  }, [viewingEpisodes]);
+    viewingItemsRef.current = viewingItems;
+  }, [viewingItems]);
+
+  // One scrolling body serves both levels of a page: a list opens at its top, and coming back finds the list where it was left.
+  useLayoutEffect(() => {
+    if (sheetBodyRef.current) sheetBodyRef.current.scrollTop = viewingItems ? 0 : listScrollTop.current;
+  }, [viewingItems]);
 
   // Same pattern as group modal + WeatherCard: Dashboard popstate runs first; without preventDefault
   // the room unmounts (feels like the podcast pop-up “closes”). Refs cover the frame before showPodcastModal commits.
@@ -399,11 +409,11 @@ export function SonosPlayer({
         return;
       }
 
-      if (viewingEpisodesRef.current) {
-        setViewingEpisodes(false);
+      if (viewingItemsRef.current) {
+        setViewingItems(false);
         try {
           withHistoryWindow(targetWindow => {
-            replaceHistoryState(targetWindow, { podcastModal: true, viewingEpisodes: false }, podcastHistoryUrl());
+            replaceHistoryState(targetWindow, { podcastModal: true, viewingItems: false }, podcastHistoryUrl());
           });
         } catch {
           /* ignore */
@@ -411,7 +421,7 @@ export function SonosPlayer({
       } else if (showPodcastModalRef.current) {
         // Podcasts page flips back to the source grid; the sheet itself stays open.
         setShowPodcastModal(false);
-        setSelectedPodcastUri(null);
+        setOpenedUri(null);
         try {
           withHistoryWindow(targetWindow => {
             replaceHistoryState(targetWindow, { podcastModal: null }, podcastHistoryUrl());
@@ -709,12 +719,12 @@ export function SonosPlayer({
     const handlePopState = (event: PopStateEvent) => {
       if (!showPodcastModal && !showSourcePicker) return;
       event.stopImmediatePropagation();
-      if (showPodcastModal && viewingEpisodes) {
+      if (showPodcastModal && viewingItems) {
         // Go back to podcast list
-        setViewingEpisodes(false);
+        setViewingItems(false);
         try {
           withHistoryWindow(targetWindow => {
-            replaceHistoryState(targetWindow, { podcastModal: true, viewingEpisodes: false }, podcastHistoryUrl());
+            replaceHistoryState(targetWindow, { podcastModal: true, viewingItems: false }, podcastHistoryUrl());
           });
         } catch {
           /* ignore */
@@ -722,7 +732,7 @@ export function SonosPlayer({
       } else if (showPodcastModal) {
         // Podcasts page flips back to the source grid; the sheet itself stays open.
         setShowPodcastModal(false);
-        setSelectedPodcastUri(null);
+        setOpenedUri(null);
         try {
           withHistoryWindow(targetWindow => {
             replaceHistoryState(targetWindow, { podcastModal: null }, podcastHistoryUrl());
@@ -743,15 +753,15 @@ export function SonosPlayer({
     };
     targetWindow.addEventListener('popstate', handlePopState, { capture: true });
     return () => targetWindow.removeEventListener('popstate', handlePopState, { capture: true });
-  }, [showPodcastModal, showSourcePicker, viewingEpisodes]);
+  }, [showPodcastModal, showSourcePicker, viewingItems]);
 
   // Custom swipe handler for the source sheet (needs special logic for back navigation)
   const handlePodcastSwipe = () => {
-    if (viewingEpisodes) {
-      setViewingEpisodes(false);
+    if (viewingItems) {
+      setViewingItems(false);
       try {
         withHistoryWindow(targetWindow => {
-          replaceHistoryState(targetWindow, { podcastModal: true, viewingEpisodes: false }, podcastHistoryUrl());
+          replaceHistoryState(targetWindow, { podcastModal: true, viewingItems: false }, podcastHistoryUrl());
         });
       } catch {
         /* ignore */
@@ -791,8 +801,8 @@ export function SonosPlayer({
     startAttempt.current += 1;
     setShowSourcePicker(false);
     setShowPodcastModal(false);
-    setViewingEpisodes(false);
-    setSelectedPodcastUri(null);
+    setViewingItems(false);
+    setOpenedUri(null);
     try {
       withHistoryWindow(targetWindow => {
         replaceHistoryState(targetWindow, { sourceSheet: null }, podcastHistoryUrl());
@@ -807,11 +817,11 @@ export function SonosPlayer({
     podcastPendingOpenRef.current = true;
     setSheetPage(page);
     setShowPodcastModal(true);
-    setViewingEpisodes(false);
-    setSelectedPodcastUri(null);
+    setViewingItems(false);
+    setOpenedUri(null);
     try {
       withHistoryWindow(targetWindow => {
-        targetWindow.history.pushState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
+        targetWindow.history.pushState({ podcastModal: true, viewingItems: false }, '', podcastHistoryUrl());
       });
     } catch {
       /* ignore */
@@ -825,8 +835,8 @@ export function SonosPlayer({
   const flipBackToSourceGrid = () => {
     podcastPendingOpenRef.current = false;
     setShowPodcastModal(false);
-    setViewingEpisodes(false);
-    setSelectedPodcastUri(null);
+    setViewingItems(false);
+    setOpenedUri(null);
     try {
       withHistoryWindow(targetWindow => {
         replaceHistoryState(targetWindow, { podcastModal: null }, podcastHistoryUrl());
@@ -843,24 +853,26 @@ export function SonosPlayer({
     flipBackToSourceGrid();
   };
 
-  const handleSelectPodcast = (podcastUri: string) => {
-    setSelectedPodcastUri(podcastUri);
-    setEpisodeLimit(EPISODE_PAGE);
-    setViewingEpisodes(true);
+  const handleOpenItem = (uri: string) => {
+    listScrollTop.current = sheetBodyRef.current?.scrollTop ?? 0;
+    setOpenedUri(uri);
+    setRowLimit(ROW_PAGE);
+    setStartFailed(false);
+    setViewingItems(true);
     try {
       withHistoryWindow(targetWindow => {
-        targetWindow.history.pushState({ podcastModal: true, viewingEpisodes: true, podcastUri }, '', podcastHistoryUrl());
+        targetWindow.history.pushState({ podcastModal: true, viewingItems: true, openedUri: uri }, '', podcastHistoryUrl());
       });
     } catch {
       /* ignore */
     }
   };
 
-  const handleBackToPodcasts = () => {
-    setViewingEpisodes(false);
+  const handleBackToList = () => {
+    setViewingItems(false);
     try {
       withHistoryWindow(targetWindow => {
-        replaceHistoryState(targetWindow, { podcastModal: true, viewingEpisodes: false }, podcastHistoryUrl());
+        replaceHistoryState(targetWindow, { podcastModal: true, viewingItems: false }, podcastHistoryUrl());
       });
     } catch {
       /* ignore */
@@ -956,8 +968,9 @@ export function SonosPlayer({
     });
   };
 
-  /** Replaces the queue of the group's coordinator with a radio station or an episode; the sheet closes once Music Assistant has taken it. */
-  const handlePlayItem = (uri: string) => {
+  /** Replaces the queue of the group's coordinator with a radio station, an episode or a playlist, which starts at `startItem`
+   * when given; the sheet closes once Music Assistant has taken it. `starting` names what the viewer tapped. */
+  const handlePlayItem = (uri: string, startItem?: string) => {
     if (starting !== null) return;
     const queueId = connection ? queueIdFor(entities, masterId) : null;
     if (!connection || !queueId) {
@@ -965,9 +978,9 @@ export function SonosPlayer({
       return;
     }
     const attempt = ++startAttempt.current;
-    setStarting(uri);
+    setStarting(startItem ?? uri);
     setStartFailed(false);
-    playMedia(connection, queueId, uri).then(
+    playMedia(connection, queueId, uri, startItem).then(
       () => {
         if (startAttempt.current !== attempt) return;
         setStarting(null);
@@ -1097,6 +1110,11 @@ export function SonosPlayer({
   const spotifyTile = playlists.status === 'failed' || (playlists.status === 'ready' && playlists.data.length > 0);
   const pageLook = showPodcastModal ? SHEET_PAGES[sheetPage] : null;
   const onSpotifyPage = showPodcastModal && sheetPage === 'spotify';
+  const sheetTitle = !viewingItems
+    ? (pageLook?.title ?? 'Source')
+    : onSpotifyPage
+      ? selectedPlaylist?.name || 'Tracks'
+      : selectedPodcast?.name || 'Episodes';
 
   // Group volume row only earns its place once there are 2+ members actually shown in the group.
   const groupVolumeEligibleCount = pickerSpeakers.filter(sp => {
@@ -1462,7 +1480,7 @@ export function SonosPlayer({
         </div>
       )}
 
-      {/* Source sheet - one pop-up, four faces: the grid, the Spotify playlists, the podcasts, a podcast's episodes */}
+      {/* Source sheet - one pop-up, five faces: the grid, the Spotify playlists, a playlist's tracks, the podcasts, a podcast's episodes */}
       {(showSourcePicker || showPodcastModal) && (
         <div
           className='sonos-modal-overlay'
@@ -1481,18 +1499,14 @@ export function SonosPlayer({
           >
             <div className='sonos-sheet-top'>
               {showPodcastModal && (
-                <button
-                  className='sonos-sheet-back'
-                  onClick={viewingEpisodes ? handleBackToPodcasts : flipBackToSourceGrid}
-                  aria-label='Back'
-                >
+                <button className='sonos-sheet-back' onClick={viewingItems ? handleBackToList : flipBackToSourceGrid} aria-label='Back'>
                   <Icon icon='mdi:chevron-left' />
                 </button>
               )}
               <span className={`sonos-glyph ${pageLook?.glyphClass ?? ''}`}>
                 <Icon icon={pageLook?.icon ?? 'mdi:speaker'} aria-hidden='true' />
               </span>
-              <span className='sonos-title'>{viewingEpisodes ? selectedPodcast?.name || 'Episodes' : (pageLook?.title ?? 'Source')}</span>
+              <span className='sonos-title'>{sheetTitle}</span>
               {onSpotifyPage && (
                 <button className='sonos-sheet-action' onClick={handleSpotifyClick} aria-label='Open Spotify'>
                   <Icon icon='mdi:open-in-new' />
@@ -1503,7 +1517,7 @@ export function SonosPlayer({
               </button>
             </div>
 
-            <div className='sonos-sheet-body'>
+            <div className='sonos-sheet-body' ref={sheetBodyRef}>
               {!showPodcastModal ? (
                 <>
                   <div className='sonos-srcgrid'>
@@ -1596,25 +1610,54 @@ export function SonosPlayer({
                     </div>
                   )}
                 </>
+              ) : onSpotifyPage && viewingItems ? (
+                // A playlist's tracks: play it all, or start it at a track
+                <>
+                  {selectedPlaylist && (
+                    <PlayAllButton starting={starting === selectedPlaylist.uri} onPlay={() => handlePlayItem(selectedPlaylist.uri)} />
+                  )}
+                  {tracks.status === 'loading' && <MusicNote kind='loading' />}
+                  {(tracks.status === 'failed' || startFailed) && <MusicNote kind='unavailable' />}
+                  {tracks.status === 'ready' &&
+                    (tracks.data.length === 0 ? (
+                      <div className='sonos-note'>No tracks found</div>
+                    ) : (
+                      <div className='sonos-rows'>
+                        {tracks.data.slice(0, rowLimit).map((track, index) => (
+                          <TrackRow
+                            key={`${index}:${track.uri}`}
+                            track={track}
+                            starting={starting === track.uri}
+                            onPlay={() => selectedPlaylist && handlePlayItem(selectedPlaylist.uri, track.uri)}
+                          />
+                        ))}
+                        {tracks.data.length > rowLimit && (
+                          <button
+                            type='button'
+                            className='sonos-more'
+                            onClick={() => setRowLimit(n => n + ROW_PAGE)}
+                            aria-label='More tracks'
+                          >
+                            <Icon icon='mdi:chevron-down' aria-hidden='true' />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                </>
               ) : onSpotifyPage ? (
-                // Spotify: the playlists, the most recently played first
+                // Spotify: the playlists, those played through Music Assistant first
                 <>
                   {playlists.status === 'loading' && <MusicNote kind='loading' />}
                   {(playlists.status === 'failed' || startFailed) && <MusicNote kind='unavailable' />}
                   {playlists.status === 'ready' && (
                     <div className='sonos-rows'>
                       {playlists.data.map(playlist => (
-                        <PlaylistRow
-                          key={playlist.uri}
-                          playlist={playlist}
-                          starting={starting === playlist.uri}
-                          onPlay={() => handlePlayItem(playlist.uri)}
-                        />
+                        <PlaylistRow key={playlist.uri} playlist={playlist} onOpen={() => handleOpenItem(playlist.uri)} />
                       ))}
                     </div>
                   )}
                 </>
-              ) : !viewingEpisodes ? (
+              ) : !viewingItems ? (
                 // Podcasts: unfinished episodes first, then the library
                 <>
                   {library.status === 'loading' && <MusicNote kind='loading' />}
@@ -1626,7 +1669,7 @@ export function SonosPlayer({
                       ))}
                       {library.data.resume.length > 0 && library.data.podcasts.length > 0 && <div className='sonos-rows-rule' />}
                       {podcastsByName(library.data.podcasts).map(podcast => (
-                        <PodcastRow key={podcast.uri} podcast={podcast} onOpen={() => handleSelectPodcast(podcast.uri)} />
+                        <PodcastRow key={podcast.uri} podcast={podcast} onOpen={() => handleOpenItem(podcast.uri)} />
                       ))}
                     </div>
                   )}
@@ -1641,7 +1684,7 @@ export function SonosPlayer({
                       <div className='sonos-note'>No episodes found</div>
                     ) : (
                       <div className='sonos-rows'>
-                        {episodes.data.slice(0, episodeLimit).map(episode => (
+                        {episodes.data.slice(0, rowLimit).map(episode => (
                           <EpisodeRow
                             key={episode.uri}
                             episode={episode}
@@ -1649,11 +1692,11 @@ export function SonosPlayer({
                             onPlay={() => handlePlayItem(episode.uri)}
                           />
                         ))}
-                        {episodes.data.length > episodeLimit && (
+                        {episodes.data.length > rowLimit && (
                           <button
                             type='button'
                             className='sonos-more'
-                            onClick={() => setEpisodeLimit(n => n + EPISODE_PAGE)}
+                            onClick={() => setRowLimit(n => n + ROW_PAGE)}
                             aria-label='Older episodes'
                           >
                             <Icon icon='mdi:chevron-down' aria-hidden='true' />

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Icon } from '@iconify/react';
-import { maImageUrl, type Episode, type Playlist, type Podcast, type ResumeItem } from '../../music/api';
-import { episodeMark, formatReleased, formatRunTime } from '../../music/view';
+import { maImageUrl, type Episode, type Playlist, type Podcast, type ResumeItem, type Track } from '../../music/api';
+import { episodeMark, formatReleased, formatRunTime, formatTrackLength } from '../../music/view';
 
 /** Artwork from Music Assistant; `fallback` stands in while there is none and when it will not load. */
 export function Art({ imageId, className, fallback }: { imageId: string | null; className?: string; fallback: ReactNode }) {
@@ -55,18 +55,49 @@ const playlistCover = (
   </span>
 );
 
-export function PlaylistRow({ playlist, starting, onPlay }: { playlist: Playlist; starting: boolean; onPlay: () => void }) {
+export function PlaylistRow({ playlist, onOpen }: { playlist: Playlist; onOpen: () => void }) {
   return (
-    <button type='button' className='sonos-row' onClick={onPlay}>
+    <button type='button' className='sonos-row' onClick={onOpen}>
+      <Art imageId={playlist.imageId} className='sonos-row-cover' fallback={playlistCover} />
+      <span className='sonos-row-title'>{playlist.name}</span>
+      <Icon icon='mdi:chevron-right' className='sonos-row-chev' aria-hidden='true' />
+    </button>
+  );
+}
+
+/** Starts the whole playlist; it does not wait for the track list, which Music Assistant may still be reading. */
+export function PlayAllButton({ starting, onPlay }: { starting: boolean; onPlay: () => void }) {
+  return (
+    <button type='button' className='sonos-playall' onClick={onPlay} aria-label='Play all'>
+      {starting ? <Spinner /> : <Icon icon='mdi:play' aria-hidden='true' />}
+      Play all
+    </button>
+  );
+}
+
+const trackCover = (
+  <span className='sonos-row-cover sonos-row-cover--empty'>
+    <Icon icon='mdi:music-note' aria-hidden='true' />
+  </span>
+);
+
+/** A track of a playlist; a tap starts the playlist at this track. */
+export function TrackRow({ track, starting, onPlay }: { track: Track; starting: boolean; onPlay: () => void }) {
+  return (
+    <button type='button' className={`sonos-row ${track.available ? '' : 'is-unavailable'}`} onClick={onPlay} disabled={!track.available}>
       <span className='sonos-row-art'>
-        <Art imageId={playlist.imageId} className='sonos-row-cover' fallback={playlistCover} />
+        <Art imageId={track.imageId} className='sonos-row-cover' fallback={trackCover} />
         {starting && (
           <span className='sonos-row-badge'>
             <Spinner />
           </span>
         )}
       </span>
-      <span className='sonos-row-title'>{playlist.name}</span>
+      <span className='sonos-row-text'>
+        <span className='sonos-row-title'>{track.name}</span>
+        {track.artists && <span className='sonos-row-sub'>{track.artists}</span>}
+      </span>
+      {track.durationS !== null && <span className='sonos-row-time'>{formatTrackLength(track.durationS)}</span>}
     </button>
   );
 }

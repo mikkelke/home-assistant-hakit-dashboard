@@ -1,0 +1,175 @@
+[
+  {
+    "uri": "spotify--a1B2c3D4://track/example01",
+    "name": "Lysets hastighed",
+    "item_id": "example01",
+    "provider": "spotify--a1B2c3D4",
+    "media_type": "track",
+    "position": 1,
+    "duration": 225,
+    "artists": [
+      {
+        "name": "Eksempel Band"
+      }
+    ],
+    "metadata": {
+      "images": [
+        {
+          "type": "thumb",
+          "path": "https://covers.example/track1.jpg",
+          "provider": "spotify--a1B2c3D4",
+          "remotely_accessible": true,
+          "proxy_id": "track1cover"
+        }
+      ]
+    },
+    "available": true
+  },
+  {
+    "uri": "spotify--a1B2c3D4://track/example02",
+    "name": "Duet i dur",
+    "item_id": "example02",
+    "provider": "spotify--a1B2c3D4",
+    "media_type": "track",
+    "position": 2,
+    "duration": 242,
+    "artists": [
+      {
+        "name": "Alma Eksempel"
+      },
+      {
+        "name": "Bo Prøve"
+      }
+    ],
+    "metadata": {
+      "images": [
+        {
+          "type": "thumb",
+          "path": "https://covers.example/track2.jpg",
+          "provider": "spotify--a1B2c3D4",
+          "remotely_accessible": true,
+          "proxy_id": "track2cover"
+        }
+      ]
+    },
+    "available": true
+  },
+  {
+    "uri": "spotify--a1B2c3D4://track/example03",
+    "name": "Uden omslag",
+    "item_id": "example03",
+    "provider": "spotify--a1B2c3D4",
+    "media_type": "track",
+    "position": 3,
+    "duration": 198,
+    "artists": [
+      {
+        "name": "Solo Eksempel"
+      }
+    ],
+    "metadata": {
+      "images": []
+    },
+    "available": true
+  },
+  {
+    "uri": "spotify--a1B2c3D4://track/example04",
+    "name": "Fjernet fra Spotify",
+    "item_id": "example04",
+    "provider": "spotify--a1B2c3D4",
+    "media_type": "track",
+    "position": 4,
+    "duration": 187,
+    "artists": [
+      {
+        "name": "Eksempel Band"
+      }
+    ],
+    "metadata": {
+      "images": [
+        {
+          "type": "thumb",
+          "path": "https://covers.example/track4.jpg",
+          "provider": "spotify--a1B2c3D4",
+          "remotely_accessible": true,
+          "proxy_id": "track4cover"
+        }
+      ]
+    },
+    "available": false
+  },
+  {
+    "uri": "spotify--a1B2c3D4://track/example05",
+    "name": "Uden længde",
+    "item_id": "example05",
+    "provider": "spotify--a1B2c3D4",
+    "media_type": "track",
+    "position": 5,
+    "duration": 0,
+    "artists": [
+      {
+        "name": "Eksempel Band"
+      }
+    ],
+    "metadata": {
+      "images": [
+        {
+          "type": "thumb",
+          "path": "https://covers.example/track5.jpg",
+          "provider": "spotify--a1B2c3D4",
+          "remotely_accessible": true,
+          "proxy_id": "track5cover"
+        }
+      ]
+    },
+    "available": true
+  },
+  {
+    "uri": "spotify--a1B2c3D4://track/example06",
+    "name": "Lang liveoptagelse",
+    "item_id": "example06",
+    "provider": "spotify--a1B2c3D4",
+    "media_type": "track",
+    "position": 6,
+    "duration": 3723,
+    "artists": [
+      {
+        "name": "Eksempel Band"
+      }
+    ],
+    "metadata": {
+      "images": [
+        {
+          "type": "thumb",
+          "path": "https://covers.example/track6.jpg",
+          "provider": "spotify--a1B2c3D4",
+          "remotely_accessible": true,
+          "proxy_id": "track6cover"
+        }
+      ]
+    },
+    "available": true
+  },
+  {
+    "uri": "spotify--a1B2c3D4://track/example07",
+    "name": "Uden kunstner",
+    "item_id": "example07",
+    "provider": "spotify--a1B2c3D4",
+    "media_type": "track",
+    "position": 7,
+    "duration": 140,
+    "artists": [],
+    "metadata": {
+      "images": [
+        {
+          "type": "thumb",
+          "path": "https://covers.example/track7.jpg",
+          "provider": "spotify--a1B2c3D4",
+          "remotely_accessible": true,
+          "proxy_id": "track7cover"
+        }
+      ]
+    },
+    "available": true
+  }
+]

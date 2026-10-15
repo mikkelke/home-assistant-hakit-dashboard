@@ -1,5 +1,54 @@
 [
   {
+    "item_id": "30",
+    "provider": "library",
+    "name": "Efterårsdage",
+    "version": "",
+    "sort_name": "efterårsdage",
+    "uri": "library://playlist/30",
+    "external_ids": [],
+    "is_playable": true,
+    "media_type": "playlist",
+    "provider_mappings": [
+      {
+        "item_id": "37i9dQZF1DXexample30",
+        "provider_domain": "spotify",
+        "provider_instance": "spotify--a1B2c3D4",
+        "available": true,
+        "in_library": true,
+        "is_unique": true,
+        "audio_format": {
+          "content_type": "?",
+          "codec_type": "?",
+          "sample_rate": 44100,
+          "bit_depth": 16,
+          "channels": 2,
+          "output_format_str": "?",
+          "bit_rate": 0
+        },
+        "url": "https://open.spotify.example/playlist/37i9dQZF1DXexample30",
+        "details": null
+      }
+    ],
+    "metadata": {
+      "images": [
+        {
+          "type": "thumb",
+          "path": "https://mosaic.example/640/efteraar",
+          "provider": "spotify--a1B2c3D4",
+          "remotely_accessible": true,
+          "proxy_id": "playlist30proxy"
+        }
+      ]
+    },
+    "favorite": false,
+    "owner": "Eksempel",
+    "is_editable": true,
+    "is_dynamic": false,
+    "supported_mediatypes": ["track"],
+    "available": true
+  },
+  {
     "item_id": "12",
     "provider": "library",
     "name": "Fredagsmix",
@@ -38,55 +87,6 @@
           "provider": "spotify--a1B2c3D4",
           "remotely_accessible": true,
           "proxy_id": "playlist12proxy"
-        }
-      ]
-    },
-    "favorite": false,
-    "owner": "Eksempel",
-    "is_editable": true,
-    "is_dynamic": false,
-    "supported_mediatypes": ["track"],
-    "available": true
-  },
-  {
-    "item_id": "7",
-    "provider": "library",
-    "name": "Morgenkaffe",
-    "version": "",
-    "sort_name": "morgenkaffe",
-    "uri": "library://playlist/7",
-    "external_ids": [],
-    "is_playable": true,
-    "media_type": "playlist",
-    "provider_mappings": [
-      {
-        "item_id": "37i9dQZF1DXexample07",
-        "provider_domain": "spotify",
-        "provider_instance": "spotify--a1B2c3D4",
-        "available": true,
-        "in_library": true,
-        "is_unique": true,
-        "audio_format": {
-          "content_type": "?",
-          "codec_type": "?",
-          "sample_rate": 44100,
-          "bit_depth": 16,
-          "channels": 2,
-          "output_format_str": "?",
-          "bit_rate": 0
-        },
-        "url": "https://open.spotify.example/playlist/37i9dQZF1DXexample07",
-        "details": null
-      }
-    ],
-    "metadata": {
-      "images": [
-        {
-          "type": "thumb",
-          "path": "https://mosaic.example/640/morgenkaffe",
-          "provider": "spotify--a1B2c3D4",
-          "remotely_accessible": true,
-          "proxy_id": "playlist7proxy"
         }
       ]
     },
@@ -147,6 +147,55 @@
     "available": true
   },
   {
+    "item_id": "7",
+    "provider": "library",
+    "name": "Morgenkaffe",
+    "version": "",
+    "sort_name": "morgenkaffe",
+    "uri": "library://playlist/7",
+    "external_ids": [],
+    "is_playable": true,
+    "media_type": "playlist",
+    "provider_mappings": [
+      {
+        "item_id": "37i9dQZF1DXexample07",
+        "provider_domain": "spotify",
+        "provider_instance": "spotify--a1B2c3D4",
+        "available": true,
+        "in_library": true,
+        "is_unique": true,
+        "audio_format": {
+          "content_type": "?",
+          "codec_type": "?",
+          "sample_rate": 44100,
+          "bit_depth": 16,
+          "channels": 2,
+          "output_format_str": "?",
+          "bit_rate": 0
+        },
+        "url": "https://open.spotify.example/playlist/37i9dQZF1DXexample07",
+        "details": null
+      }
+    ],
+    "metadata": {
+      "images": [
+        {
+          "type": "thumb",
+          "path": "https://mosaic.example/640/morgenkaffe",
+          "provider": "spotify--a1B2c3D4",
+          "remotely_accessible": true,
+          "proxy_id": "playlist7proxy"
+        }
+      ]
+    },
+    "favorite": false,
+    "owner": "Eksempel",
+    "is_editable": true,
+    "is_dynamic": false,
+    "supported_mediatypes": ["track"],
+    "available": true
+  },
+  {
     "item_id": "21",
     "provider": "library",
     "name": "Løbeture",
@@ -178,55 +227,6 @@
       }
     ],
     "metadata": {},
-    "favorite": false,
-    "owner": "Eksempel",
-    "is_editable": true,
-    "is_dynamic": false,
-    "supported_mediatypes": ["track"],
-    "available": true
-  },
-  {
-    "item_id": "30",
-    "provider": "library",
-    "name": "Efterårsdage",
-    "version": "",
-    "sort_name": "efterårsdage",
-    "uri": "library://playlist/30",
-    "external_ids": [],
-    "is_playable": true,
-    "media_type": "playlist",
-    "provider_mappings": [
-      {
-        "item_id": "37i9dQZF1DXexample30",
-        "provider_domain": "spotify",
-        "provider_instance": "spotify--a1B2c3D4",
-        "available": true,
-        "in_library": true,
-        "is_unique": true,
-        "audio_format": {
-          "content_type": "?",
-          "codec_type": "?",
-          "sample_rate": 44100,
-          "bit_depth": 16,
-          "channels": 2,
-          "output_format_str": "?",
-          "bit_rate": 0
-        },
-        "url": "https://open.spotify.example/playlist/37i9dQZF1DXexample30",
-        "details": null
-      }
-    ],
-    "metadata": {
-      "images": [
-        {
-          "type": "thumb",
-          "path": "https://mosaic.example/640/efteraar",
-          "provider": "spotify--a1B2c3D4",
-          "remotely_accessible": true,
-          "proxy_id": "playlist30proxy"
-        }
-      ]
-    },
     "favorite": false,
     "owner": "Eksempel",
     "is_editable": true,

@@ -30,8 +30,23 @@ export interface Podcast {
 
 export interface Playlist {
   uri: string;
+  /** With `provider`, what `music/playlists/playlist_tracks` asks for. */
+  itemId: string;
+  provider: string;
   name: string;
   imageId: string | null;
+}
+
+export interface Track {
+  /** The track's own uri, which `playMedia` takes as the item to start a playlist at. */
+  uri: string;
+  name: string;
+  /** The artists, comma separated; empty when Music Assistant names none. */
+  artists: string;
+  durationS: number | null;
+  imageId: string | null;
+  /** False for a track Music Assistant will skip, such as one that was removed from Spotify. */
+  available: boolean;
 }
 
 export interface Episode {
@@ -103,9 +118,30 @@ function toPodcast(raw: unknown): Podcast | null {
 function toSpotifyPlaylist(raw: unknown): Playlist | null {
   const item = record(raw);
   const uri = text(item?.uri);
+  const itemId = text(item?.item_id);
+  const provider = text(item?.provider);
   const name = text(item?.name);
   const onSpotify = list(item?.provider_mappings).some(mapping => record(mapping)?.provider_domain === 'spotify');
-  return item && uri && name && onSpotify ? { uri, name, imageId: imageIdOf(item) } : null;
+  return item && uri && itemId && provider && name && onSpotify ? { uri, itemId, provider, name, imageId: imageIdOf(item) } : null;
+}
+
+function toTrack(raw: unknown): Track | null {
+  const item = record(raw);
+  const uri = text(item?.uri);
+  const name = text(item?.name);
+  if (!item || !uri || !name) return null;
+  const durationS = amount(item.duration);
+  return {
+    uri,
+    name,
+    artists: list(item.artists)
+      .map(artist => text(record(artist)?.name))
+      .filter(Boolean)
+      .join(', '),
+    durationS: durationS !== null && durationS > 0 ? durationS : null,
+    imageId: imageIdOf(item),
+    available: item.available !== false,
+  };
 }
 
 function toEpisode(raw: unknown): Episode | null {
@@ -150,11 +186,35 @@ export async function fetchPodcasts(connection: BridgeConnection): Promise<Podca
     .filter(present);
 }
 
-/** The viewer's Spotify playlists, the most recently played one first. */
+/** The viewer's Spotify playlists: the ones played through Music Assistant first, the most recent at the top, then the rest in
+ * the order the Spotify app lists them, newest first. Music Assistant adds playlists to its library in the order Spotify lists
+ * them, so its `timestamp_added` order, ties in insertion order, is Spotify's; except that a playlist created in Spotify after
+ * a sync is added, and so listed, after the older ones until it has been played. A single `last_played_desc` query would list
+ * the unplayed ones, which all tie, oldest first. */
 export async function fetchSpotifyPlaylists(connection: BridgeConnection): Promise<Playlist[]> {
-  return list(await callBridge(connection, 'music/playlists/library_items', { order_by: 'last_played_desc' }))
-    .map(toSpotifyPlaylist)
-    .filter(present);
+  const [played, all] = await Promise.all([
+    callBridge(connection, 'music/playlists/library_items', { order_by: 'last_played_desc', played_only: true }),
+    callBridge(connection, 'music/playlists/library_items', { order_by: 'timestamp_added' }),
+  ]);
+  const playedFirst = list(played).map(toSpotifyPlaylist).filter(present);
+  const seen = new Set(playedFirst.map(playlist => playlist.uri));
+  return [
+    ...playedFirst,
+    ...list(all)
+      .map(toSpotifyPlaylist)
+      .filter(present)
+      .filter(playlist => !seen.has(playlist.uri)),
+  ];
+}
+
+/** The tracks of a playlist in playlist order. The first read of a playlist can take many seconds: Music Assistant pages through
+ * Spotify at a throttled rate and keeps what it read for a few hours. */
+export async function fetchPlaylistTracks(connection: BridgeConnection, playlist: Pick<Playlist, 'itemId' | 'provider'>): Promise<Track[]> {
+  const raw = await callBridge(connection, 'music/playlists/playlist_tracks', {
+    item_id: playlist.itemId,
+    provider_instance_id_or_domain: playlist.provider,
+  });
+  return list(raw).map(toTrack).filter(present);
 }
 
 function descending(a: number, b: number): number {
@@ -187,9 +247,15 @@ export async function fetchInProgress(connection: BridgeConnection): Promise<Res
     .filter(present);
 }
 
-/** Replaces the queue with one item. `queueId` is the queue of the group's coordinator. */
-export async function playMedia(connection: BridgeConnection, queueId: string, uri: string): Promise<void> {
-  await callBridge(connection, 'player_queues/play_media', { queue_id: queueId, media: [uri], option: 'replace' });
+/** Replaces the queue with one item. `queueId` is the queue of the group's coordinator. With `startItem`, a playlist plays from
+ * that track to its end and the tracks before it are left out. */
+export async function playMedia(connection: BridgeConnection, queueId: string, uri: string, startItem?: string): Promise<void> {
+  await callBridge(connection, 'player_queues/play_media', {
+    queue_id: queueId,
+    media: [uri],
+    option: 'replace',
+    ...(startItem === undefined ? {} : { start_item: startItem }),
+  });
 }
 
 /** The media type segment of a Music Assistant uri (`library://radio/5` is `radio`), or null for anything else. */

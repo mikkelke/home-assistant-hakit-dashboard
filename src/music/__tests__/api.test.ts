@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   fetchEpisodes,
   fetchInProgress,
+  fetchPlaylistTracks,
   fetchPodcasts,
   fetchRadios,
   fetchSpotifyPlaylists,
@@ -14,21 +15,23 @@ import {
 } from '../api';
 import episodes from './fixtures/episodes.json';
 import inProgress from './fixtures/in-progress.json';
+import playlistTracks from './fixtures/playlist-tracks.json';
 import playlists from './fixtures/playlists.json';
 import podcasts from './fixtures/podcasts.json';
 import radios from './fixtures/radios.json';
 
 type Sent = { type: string; command: string; args: Record<string, unknown> };
 
-/** A bridge that answers each command from `answers` and rejects the ones it does not know. */
+/** A bridge that answers each command from `answers`, which may be a function of the arguments, and rejects the ones it does not know. */
 function bridge(answers: Record<string, unknown>) {
   const sent: Sent[] = [];
   const connection: BridgeConnection = {
     async sendMessagePromise<T>(message: { type: string; [key: string]: unknown }): Promise<T> {
       sent.push(message as Sent);
-      const command = (message as Sent).command;
+      const { command, args } = message as Sent;
       if (!(command in answers)) throw new Error(`unknown command ${command}`);
-      return answers[command] as T;
+      const answer = answers[command];
+      return (typeof answer === 'function' ? answer(args) : answer) as T;
     },
   };
   return { connection, sent };
@@ -94,42 +97,150 @@ describe('the podcast library', () => {
 });
 
 describe('the Spotify playlists', () => {
-  it('are asked for as a music_bridge/call, most recently played first', async () => {
-    const { connection, sent } = bridge({ 'music/playlists/library_items': playlists });
-    await fetchSpotifyPlaylists(connection);
-    expect(sent).toEqual([{ type: 'music_bridge/call', command: 'music/playlists/library_items', args: { order_by: 'last_played_desc' } }]);
+  const byName = (name: string) => playlists.find(p => p.name === name);
+  const played = [byName('Morgenkaffe'), byName('Fredagsmix')];
+  const answers = (playedAnswer: unknown = played, allAnswer: unknown = playlists) => ({
+    'music/playlists/library_items': (args: Record<string, unknown>) => (args.played_only ? playedAnswer : allAnswer),
   });
 
-  it('keep Music Assistant order and read the library uri, name and the image of metadata.images', async () => {
-    const { connection } = bridge({ 'music/playlists/library_items': playlists });
-    const lists = await fetchSpotifyPlaylists(connection);
-    expect(lists[0]).toEqual({ uri: 'library://playlist/12', name: 'Fredagsmix', imageId: 'playlist12proxy' });
-    expect(lists.map(p => p.name)).toEqual(['Fredagsmix', 'Morgenkaffe', 'Løbeture', 'Efterårsdage']);
+  it('are asked for as two music_bridge/calls: the played ones by recency, and the library in the order it was filled', async () => {
+    const { connection, sent } = bridge(answers());
+    await fetchSpotifyPlaylists(connection);
+    expect(sent).toEqual([
+      { type: 'music_bridge/call', command: 'music/playlists/library_items', args: { order_by: 'last_played_desc', played_only: true } },
+      { type: 'music_bridge/call', command: 'music/playlists/library_items', args: { order_by: 'timestamp_added' } },
+    ]);
+  });
+
+  it('list the ones played through Music Assistant first, the most recent at the top, then the rest in the order of the library', async () => {
+    const lists = await fetchSpotifyPlaylists(bridge(answers()).connection);
+    expect(lists.map(p => p.name)).toEqual(['Morgenkaffe', 'Fredagsmix', 'Efterårsdage', 'Løbeture']);
+  });
+
+  it('list each playlist once, and follow the library alone when nothing has been played', async () => {
+    const both = await fetchSpotifyPlaylists(bridge(answers()).connection);
+    expect(new Set(both.map(p => p.uri)).size).toBe(both.length);
+    const lists = await fetchSpotifyPlaylists(bridge(answers([])).connection);
+    expect(lists.map(p => p.name)).toEqual(['Efterårsdage', 'Fredagsmix', 'Morgenkaffe', 'Løbeture']);
+  });
+
+  it('read the library uri, what the tracks are asked for by, the name and the image of metadata.images', async () => {
+    const lists = await fetchSpotifyPlaylists(bridge(answers()).connection);
+    expect(lists[0]).toEqual({
+      uri: 'library://playlist/7',
+      itemId: '7',
+      provider: 'library',
+      name: 'Morgenkaffe',
+      imageId: 'playlist7proxy',
+    });
   });
 
   it('leave out the playlists Music Assistant makes up itself', async () => {
-    const { connection } = bridge({ 'music/playlists/library_items': playlists });
-    const lists = await fetchSpotifyPlaylists(connection);
+    const lists = await fetchSpotifyPlaylists(bridge(answers()).connection);
     expect(lists.map(p => p.uri)).not.toContain('library://playlist/3');
+    const generated = await fetchSpotifyPlaylists(bridge(answers([byName('Random mix (from library)')])).connection);
+    expect(generated.map(p => p.name)).toEqual(['Efterårsdage', 'Fredagsmix', 'Morgenkaffe', 'Løbeture']);
   });
 
   it('have no image for a playlist without one', async () => {
-    const { connection } = bridge({ 'music/playlists/library_items': playlists });
-    expect((await fetchSpotifyPlaylists(connection)).find(p => p.name === 'Løbeture')?.imageId).toBeNull();
+    expect((await fetchSpotifyPlaylists(bridge(answers()).connection)).find(p => p.name === 'Løbeture')?.imageId).toBeNull();
   });
 
   it('are none for a viewer whose Music Assistant has none', async () => {
-    expect(await fetchSpotifyPlaylists(bridge({ 'music/playlists/library_items': [] }).connection)).toEqual([]);
+    expect(await fetchSpotifyPlaylists(bridge(answers([], [])).connection)).toEqual([]);
   });
 
   it('skip entries that are not playlists, and answer nothing for an answer that is not a list', async () => {
-    const { connection } = bridge({ 'music/playlists/library_items': [null, 7, 'x', {}, { uri: 'library://playlist/1' }, playlists[0]] });
-    expect((await fetchSpotifyPlaylists(connection)).map(p => p.uri)).toEqual(['library://playlist/12']);
-    expect(await fetchSpotifyPlaylists(bridge({ 'music/playlists/library_items': { items: playlists } }).connection)).toEqual([]);
+    const junk = [null, 7, 'x', {}, { uri: 'library://playlist/1' }, { ...playlists[0], item_id: '' }];
+    const { connection } = bridge(answers(junk, [...junk, playlists[0]]));
+    expect((await fetchSpotifyPlaylists(connection)).map(p => p.uri)).toEqual(['library://playlist/30']);
+    expect(await fetchSpotifyPlaylists(bridge(answers({ items: playlists }, { items: playlists })).connection)).toEqual([]);
+  });
+
+  it('reject when the bridge does, or when it refuses either query', async () => {
+    await expect(fetchSpotifyPlaylists(bridge({}).connection)).rejects.toThrow('unknown command');
+    const refusing = (refused: boolean) => ({
+      'music/playlists/library_items': (args: Record<string, unknown>) => {
+        if (Boolean(args.played_only) === refused) throw new Error('refused');
+        return playlists;
+      },
+    });
+    await expect(fetchSpotifyPlaylists(bridge(refusing(true)).connection)).rejects.toThrow('refused');
+    await expect(fetchSpotifyPlaylists(bridge(refusing(false)).connection)).rejects.toThrow('refused');
+  });
+});
+
+describe("a playlist's tracks", () => {
+  const playlist = { itemId: '12', provider: 'library' };
+
+  it('are asked for by item_id and provider_instance_id_or_domain', async () => {
+    const { connection, sent } = bridge({ 'music/playlists/playlist_tracks': playlistTracks });
+    await fetchPlaylistTracks(connection, playlist);
+    expect(sent).toEqual([
+      {
+        type: 'music_bridge/call',
+        command: 'music/playlists/playlist_tracks',
+        args: { item_id: '12', provider_instance_id_or_domain: 'library' },
+      },
+    ]);
+  });
+
+  it('keep the order of the playlist and read the track uri, name, artists, length and cover', async () => {
+    const tracks = await fetchPlaylistTracks(bridge({ 'music/playlists/playlist_tracks': playlistTracks }).connection, playlist);
+    expect(tracks.map(t => t.name)).toEqual([
+      'Lysets hastighed',
+      'Duet i dur',
+      'Uden omslag',
+      'Fjernet fra Spotify',
+      'Uden længde',
+      'Lang liveoptagelse',
+      'Uden kunstner',
+    ]);
+    expect(tracks[0]).toEqual({
+      uri: 'spotify--a1B2c3D4://track/example01',
+      name: 'Lysets hastighed',
+      artists: 'Eksempel Band',
+      durationS: 225,
+      imageId: 'track1cover',
+      available: true,
+    });
+    expect(tracks[1].artists).toBe('Alma Eksempel, Bo Prøve');
+  });
+
+  it('have no cover, no length or no artist when there is none, and are unavailable when the bridge says so', async () => {
+    const tracks = await fetchPlaylistTracks(bridge({ 'music/playlists/playlist_tracks': playlistTracks }).connection, playlist);
+    expect(tracks[2].imageId).toBeNull();
+    expect(tracks[4].durationS).toBeNull();
+    expect(tracks[6].artists).toBe('');
+    expect(tracks.map(t => t.available)).toEqual([true, true, true, false, true, true, true]);
+  });
+
+  it('are available unless the bridge says otherwise', async () => {
+    const [bare] = await fetchPlaylistTracks(
+      bridge({ 'music/playlists/playlist_tracks': [{ uri: 'spotify--a1B2c3D4://track/x', name: 'Bare' }] }).connection,
+      playlist
+    );
+    expect(bare).toEqual({
+      uri: 'spotify--a1B2c3D4://track/x',
+      name: 'Bare',
+      artists: '',
+      durationS: null,
+      imageId: null,
+      available: true,
+    });
+  });
+
+  it('skip entries that are not tracks, and answer nothing for an answer that is not a list', async () => {
+    const junk = [null, 7, 'x', {}, { uri: 'spotify--a1B2c3D4://track/1' }, playlistTracks[0]];
+    const tracks = await fetchPlaylistTracks(bridge({ 'music/playlists/playlist_tracks': junk }).connection, playlist);
+    expect(tracks.map(t => t.uri)).toEqual(['spotify--a1B2c3D4://track/example01']);
+    expect(
+      await fetchPlaylistTracks(bridge({ 'music/playlists/playlist_tracks': { items: playlistTracks } }).connection, playlist)
+    ).toEqual([]);
   });
 
   it('reject when the bridge does', async () => {
-    await expect(fetchSpotifyPlaylists(bridge({}).connection)).rejects.toThrow('unknown command');
+    await expect(fetchPlaylistTracks(bridge({}).connection, playlist)).rejects.toThrow('unknown command');
   });
 });
 
@@ -255,6 +366,16 @@ describe('starting something', () => {
         command: 'player_queues/play_media',
         args: { queue_id: 'RINCON_QUEUE', media: ['library://radio/5'], option: 'replace' },
       },
+    ]);
+  });
+
+  it('starts a playlist at a track when given one, and says nothing of a start item otherwise', async () => {
+    const { connection, sent } = bridge({ 'player_queues/play_media': null });
+    await playMedia(connection, 'RINCON_QUEUE', 'library://playlist/7', 'spotify--a1B2c3D4://track/example02');
+    await playMedia(connection, 'RINCON_QUEUE', 'library://playlist/7');
+    expect(sent.map(m => m.args)).toEqual([
+      { queue_id: 'RINCON_QUEUE', media: ['library://playlist/7'], option: 'replace', start_item: 'spotify--a1B2c3D4://track/example02' },
+      { queue_id: 'RINCON_QUEUE', media: ['library://playlist/7'], option: 'replace' },
     ]);
   });
 

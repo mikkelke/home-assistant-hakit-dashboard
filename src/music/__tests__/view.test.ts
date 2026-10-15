@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Episode, Podcast, Radio } from '../api';
-import { episodeMark, favoritesFirst, formatReleased, formatRunTime, podcastsByName, radioLabel } from '../view';
+import { episodeMark, favoritesFirst, formatReleased, formatRunTime, formatTrackLength, podcastsByName, radioLabel } from '../view';
 
 const radio = (name: string, favorite: boolean): Radio => ({ uri: `library://radio/${name}`, name, favorite, imageId: null });
 
@@ -76,6 +76,21 @@ describe('a run time', () => {
 
   it('is never less than a minute', () => {
     expect(formatRunTime(20)).toBe('1 min');
+  });
+});
+
+describe('a track length', () => {
+  it('is minutes and two-digit seconds, with hours only past the hour', () => {
+    expect(formatTrackLength(225)).toBe('3:45');
+    expect(formatTrackLength(61)).toBe('1:01');
+    expect(formatTrackLength(3600)).toBe('1:00:00');
+    expect(formatTrackLength(3723)).toBe('1:02:03');
+  });
+
+  it('rounds to the nearest second and never goes below zero', () => {
+    expect(formatTrackLength(59.6)).toBe('1:00');
+    expect(formatTrackLength(9)).toBe('0:09');
+    expect(formatTrackLength(-5)).toBe('0:00');
   });
 });
 

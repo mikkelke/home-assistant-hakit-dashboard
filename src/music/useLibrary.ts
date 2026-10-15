@@ -3,6 +3,7 @@ import { useHass } from '@hakit/core';
 import {
   fetchEpisodes,
   fetchInProgress,
+  fetchPlaylistTracks,
   fetchPodcasts,
   fetchRadios,
   fetchSpotifyPlaylists,
@@ -12,6 +13,7 @@ import {
   type Podcast,
   type Radio,
   type ResumeItem,
+  type Track,
 } from './api';
 
 export type Loaded<T> = { status: 'loading' } | { status: 'failed' } | { status: 'ready'; data: T };
@@ -70,8 +72,8 @@ export function useLibrary(active: boolean): Loaded<Library> {
   return useLoaded(active, 'library', loadLibrary);
 }
 
-/** The viewer's Spotify playlists, the most recently played first, fetched each time `active` turns on. Kept apart from the
- * library so a refusal of playlists leaves the stations and podcasts alone. */
+/** The viewer's Spotify playlists, those played through Music Assistant first, fetched each time `active` turns on. Kept apart
+ * from the library so a refusal of playlists leaves the stations and podcasts alone. */
 export function usePlaylists(active: boolean): Loaded<Playlist[]> {
   return useLoaded(active, 'playlists', fetchSpotifyPlaylists);
 }
@@ -82,4 +84,12 @@ export function useEpisodes(active: boolean, podcast: Podcast | null): Loaded<Ep
   const provider = podcast?.provider ?? '';
   const load = useCallback((connection: BridgeConnection) => fetchEpisodes(connection, { itemId, provider }), [itemId, provider]);
   return useLoaded(active && podcast !== null, `episodes:${provider}:${itemId}`, load);
+}
+
+/** The tracks of `playlist`, in playlist order, fetched each time `active` turns on. */
+export function usePlaylistTracks(active: boolean, playlist: Playlist | null): Loaded<Track[]> {
+  const itemId = playlist?.itemId ?? '';
+  const provider = playlist?.provider ?? '';
+  const load = useCallback((connection: BridgeConnection) => fetchPlaylistTracks(connection, { itemId, provider }), [itemId, provider]);
+  return useLoaded(active && playlist !== null, `tracks:${provider}:${itemId}`, load);
 }

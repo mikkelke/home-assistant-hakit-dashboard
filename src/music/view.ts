@@ -34,6 +34,15 @@ export function formatRunTime(seconds: number): string {
   return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
 }
 
+/** `3:45`, `1:02:03`: the length of a track. */
+export function formatTrackLength(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const rest = String(total % 60).padStart(2, '0');
+  return hours > 0 ? `${hours}:${String(minutes).padStart(2, '0')}:${rest}` : `${minutes}:${rest}`;
+}
+
 /** What an episode row shows about listening progress; `fraction` is how far in, or null without a known length. */
 export type EpisodeMark = { kind: 'played' } | { kind: 'resume'; fraction: number | null } | null;
 

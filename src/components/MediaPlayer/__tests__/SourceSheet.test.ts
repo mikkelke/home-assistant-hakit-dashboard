@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HassEntities } from '../../../types';
 import episodes from '../../../music/__tests__/fixtures/episodes.json';
 import inProgress from '../../../music/__tests__/fixtures/in-progress.json';
+import playlistTracks from '../../../music/__tests__/fixtures/playlist-tracks.json';
 import playlists from '../../../music/__tests__/fixtures/playlists.json';
 import podcasts from '../../../music/__tests__/fixtures/podcasts.json';
 import radios from '../../../music/__tests__/fixtures/radios.json';
@@ -78,11 +79,15 @@ function connect(answers: Record<string, Answer>, down = false) {
   return { sent, played: () => sent.filter(m => m.command === 'player_queues/play_media') };
 }
 
+/** The playlists played through Music Assistant, the most recently played first: the query for them says `played_only`. */
+const playedPlaylists = [playlists[3], playlists[1]];
+
 const library = (overrides: Record<string, Answer> = {}): Record<string, Answer> => ({
   'music/radios/library_items': radios,
   'music/podcasts/library_items': podcasts,
   'music/in_progress_items': inProgress,
-  'music/playlists/library_items': playlists,
+  'music/playlists/library_items': (args: Record<string, unknown>) => (args.played_only ? playedPlaylists : playlists),
+  'music/playlists/playlist_tracks': playlistTracks,
   'music/podcasts/podcast_episodes': episodes,
   'player_queues/play_media': null,
   ...overrides,
@@ -120,6 +125,8 @@ const texts = (selector: string) => [...document.querySelectorAll(selector)].map
 const tiles = () => texts('.sonos-srcgrid .sonos-srctile > span');
 const sheetOpen = () => pick('.sonos-sheet') !== null;
 const rowTitles = () => texts('.sonos-rows .sonos-row-title');
+const rowTitled = (title: string) =>
+  [...document.querySelectorAll('.sonos-row')].find(row => row.querySelector('.sonos-row-title')?.textContent === title) ?? null;
 
 async function openSources(entities: HassEntities = kitchenOnly(), entityId = 'media_player.kitchen') {
   await render(entities, entityId);
@@ -129,6 +136,11 @@ async function openSources(entities: HassEntities = kitchenOnly(), entityId = 'm
 async function openSpotify() {
   await openSources();
   await click(pick('[aria-label="Spotify"]'));
+}
+
+async function openTracks(playlist = 'Morgenkaffe') {
+  await openSpotify();
+  await click(rowTitled(playlist));
 }
 
 async function openPodcasts() {
@@ -277,59 +289,33 @@ describe('the source sheet while Music Assistant is out of reach', () => {
 });
 
 describe('the Spotify page', () => {
-  it('lists the playlists in the order Music Assistant gives, without its own generated ones', async () => {
+  it('lists the playlists played through Music Assistant first, then the rest in the order of the library, without its own generated ones', async () => {
     const { sent } = connect(library());
     await openSpotify();
     expect(pick('.sonos-sheet-top .sonos-title')?.textContent).toBe('Spotify');
-    expect(rowTitles()).toEqual(['Fredagsmix', 'Morgenkaffe', 'Løbeture', 'Efterårsdage']);
-    expect(sent.filter(m => m.command === 'music/playlists/library_items').map(m => m.args)).toEqual([{ order_by: 'last_played_desc' }]);
+    expect(rowTitles()).toEqual(['Morgenkaffe', 'Fredagsmix', 'Efterårsdage', 'Løbeture']);
+    expect(sent.filter(m => m.command === 'music/playlists/library_items').map(m => m.args)).toEqual([
+      { order_by: 'last_played_desc', played_only: true },
+      { order_by: 'timestamp_added' },
+    ]);
   });
 
   it('shows each playlist with its cover from the image proxy, or a playlist glyph without one', async () => {
     connect(library());
     await openSpotify();
     const rows = [...document.querySelectorAll('.sonos-rows .sonos-row')];
-    expect(rows[0].querySelector('img')?.getAttribute('src')).toBe('https://ma.me2go.dk/imageproxy/playlist12proxy?size=256');
-    expect(rows[2].querySelector('img')).toBeNull();
-    expect(rows[2].querySelector('[data-icon="mdi:playlist-music"]')).not.toBeNull();
+    expect(rows[0].querySelector('img')?.getAttribute('src')).toBe('https://ma.me2go.dk/imageproxy/playlist7proxy?size=256');
+    expect(rows[3].querySelector('img')).toBeNull();
+    expect(rows[3].querySelector('[data-icon="mdi:playlist-music"]')).not.toBeNull();
   });
 
-  it("starts a playlist on the speaker's queue by its library uri and closes the sheet once Music Assistant has taken it", async () => {
+  it('opens a playlist with a tap, and starts nothing', async () => {
     const { played } = connect(library());
     await openSpotify();
-    await click([...document.querySelectorAll('.sonos-row')].find(row => row.textContent === 'Morgenkaffe') ?? null);
-    expect(played().map(m => m.args)).toEqual([{ queue_id: KITCHEN_QUEUE, media: ['library://playlist/7'], option: 'replace' }]);
-    expect(sheetOpen()).toBe(false);
-  });
-
-  it('shows a spinner on the tapped playlist while Music Assistant answers, and ignores other taps meanwhile', async () => {
-    let finish: () => void = () => {};
-    const { played } = connect(library({ 'player_queues/play_media': () => new Promise<null>(done => (finish = () => done(null))) }));
-    await openSpotify();
-    const rows = () => [...document.querySelectorAll('.sonos-rows .sonos-row')];
-    await click(rows()[0]);
+    await click(rowTitled('Morgenkaffe'));
+    expect(pick('.sonos-sheet-top .sonos-title')?.textContent).toBe('Morgenkaffe');
+    expect(played()).toEqual([]);
     expect(sheetOpen()).toBe(true);
-    expect(rows()[0].querySelector('.sonos-row-badge [data-icon="mdi:loading"]')).not.toBeNull();
-    await click(rows()[1]);
-    expect(played()).toHaveLength(1);
-    await act(async () => finish());
-    await settle();
-    expect(sheetOpen()).toBe(false);
-  });
-
-  it('stays open with the note when Music Assistant refuses', async () => {
-    connect(
-      library({
-        'player_queues/play_media': () => {
-          throw new Error('refused');
-        },
-      })
-    );
-    await openSpotify();
-    await click(pick('.sonos-rows .sonos-row'));
-    expect(sheetOpen()).toBe(true);
-    expect(texts('.sonos-note')).toEqual(['Music Assistant unavailable']);
-    expect(pick('.sonos-row-badge')).toBeNull();
   });
 
   it('goes back to the source grid with the back button', async () => {
@@ -407,6 +393,196 @@ describe('the Spotify page', () => {
     await click(pick('[aria-label="Spotify"]'));
     expect(texts('.sonos-note')).toEqual(['Music Assistant unavailable']);
     expect(pick('.sonos-sheet-top [aria-label="Open Spotify"]')).not.toBeNull();
+  });
+});
+
+describe("a playlist's tracks", () => {
+  it('are asked for by the playlist, and the Spotify app stays one tap away in the header', async () => {
+    const { sent } = connect(library());
+    await openTracks();
+    expect(sent.filter(m => m.command === 'music/playlists/playlist_tracks').map(m => m.args)).toEqual([
+      { item_id: '7', provider_instance_id_or_domain: 'library' },
+    ]);
+    expect(pick('.sonos-sheet-top [aria-label="Open Spotify"]')).not.toBeNull();
+  });
+
+  it('follow a Play all button, in playlist order, with artist, length and cover', async () => {
+    connect(library());
+    await openTracks();
+    expect(pick('.sonos-sheet-body')?.firstElementChild?.getAttribute('aria-label')).toBe('Play all');
+    expect(rowTitles()).toEqual([
+      'Lysets hastighed',
+      'Duet i dur',
+      'Uden omslag',
+      'Fjernet fra Spotify',
+      'Uden længde',
+      'Lang liveoptagelse',
+      'Uden kunstner',
+    ]);
+    expect(texts('.sonos-row-sub')).toEqual([
+      'Eksempel Band',
+      'Alma Eksempel, Bo Prøve',
+      'Solo Eksempel',
+      'Eksempel Band',
+      'Eksempel Band',
+      'Eksempel Band',
+    ]);
+    expect(texts('.sonos-row-time')).toEqual(['3:45', '4:02', '3:18', '3:07', '1:02:03', '2:20']);
+    expect(rowTitled('Lysets hastighed')?.querySelector('img')?.getAttribute('src')).toBe(
+      'https://ma.me2go.dk/imageproxy/track1cover?size=256'
+    );
+    expect(rowTitled('Uden omslag')?.querySelector('img')).toBeNull();
+    expect(rowTitled('Uden omslag')?.querySelector('[data-icon="mdi:music-note"]')).not.toBeNull();
+  });
+
+  it("start the playlist at the tapped track on the speaker's queue and close the sheet once Music Assistant has taken it", async () => {
+    const { played } = connect(library());
+    await openTracks();
+    await click(rowTitled('Duet i dur'));
+    expect(played().map(m => m.args)).toEqual([
+      { queue_id: KITCHEN_QUEUE, media: ['library://playlist/7'], option: 'replace', start_item: 'spotify--a1B2c3D4://track/example02' },
+    ]);
+    expect(sheetOpen()).toBe(false);
+  });
+
+  it('are played whole by Play all, which does not wait for them to arrive', async () => {
+    let arrive: () => void = () => {};
+    const gate = new Promise<unknown>(done => (arrive = () => done(playlistTracks)));
+    const { played } = connect(library({ 'music/playlists/playlist_tracks': () => gate }));
+    await openTracks();
+    expect(pick('.sonos-note[aria-label="Loading"]')).not.toBeNull();
+    await click(pick('[aria-label="Play all"]'));
+    expect(played().map(m => m.args)).toEqual([{ queue_id: KITCHEN_QUEUE, media: ['library://playlist/7'], option: 'replace' }]);
+    expect(sheetOpen()).toBe(false);
+    await act(async () => arrive());
+  });
+
+  it('show a spinner on the tapped track while Music Assistant answers, and ignore other taps meanwhile', async () => {
+    let finish: () => void = () => {};
+    const { played } = connect(library({ 'player_queues/play_media': () => new Promise<null>(done => (finish = () => done(null))) }));
+    await openTracks();
+    await click(rowTitled('Duet i dur'));
+    expect(sheetOpen()).toBe(true);
+    expect(rowTitled('Duet i dur')?.querySelector('.sonos-row-badge [data-icon="mdi:loading"]')).not.toBeNull();
+    expect(pick('[aria-label="Play all"] [data-icon="mdi:loading"]')).toBeNull();
+    await click(rowTitled('Uden omslag'));
+    await click(pick('[aria-label="Play all"]'));
+    expect(played()).toHaveLength(1);
+    await act(async () => finish());
+    await settle();
+    expect(sheetOpen()).toBe(false);
+  });
+
+  it('show the spinner on Play all, and not on a track, when that is what was tapped', async () => {
+    let finish: () => void = () => {};
+    connect(library({ 'player_queues/play_media': () => new Promise<null>(done => (finish = () => done(null))) }));
+    await openTracks();
+    await click(pick('[aria-label="Play all"]'));
+    expect(pick('[aria-label="Play all"] [data-icon="mdi:loading"]')).not.toBeNull();
+    expect(document.querySelectorAll('.sonos-row-badge')).toHaveLength(0);
+    await act(async () => finish());
+    await settle();
+  });
+
+  it('dims a track Music Assistant will skip and does not start it', async () => {
+    const { played } = connect(library());
+    await openTracks();
+    const removed = rowTitled('Fjernet fra Spotify') as HTMLButtonElement;
+    expect(removed.disabled).toBe(true);
+    expect(removed.classList.contains('is-unavailable')).toBe(true);
+    await click(removed);
+    expect(played()).toEqual([]);
+    expect((rowTitled('Duet i dur') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('stay open with the note when Music Assistant refuses, with Play all still on offer', async () => {
+    connect(
+      library({
+        'player_queues/play_media': () => {
+          throw new Error('refused');
+        },
+      })
+    );
+    await openTracks();
+    await click(rowTitled('Duet i dur'));
+    expect(sheetOpen()).toBe(true);
+    expect(texts('.sonos-note')).toEqual(['Music Assistant unavailable']);
+    expect(pick('.sonos-row-badge')).toBeNull();
+    expect(pick('[aria-label="Play all"]')).not.toBeNull();
+  });
+
+  it('are shown thirty at a time', async () => {
+    const many = Array.from({ length: 35 }, (_, i) => ({
+      ...playlistTracks[0],
+      uri: `spotify--a1B2c3D4://track/many-${i}`,
+      name: `Nummer ${i}`,
+    }));
+    connect(library({ 'music/playlists/playlist_tracks': many }));
+    await openTracks();
+    expect(document.querySelectorAll('.sonos-rows .sonos-row')).toHaveLength(30);
+    expect(rowTitles()[0]).toBe('Nummer 0');
+    await click(pick('[aria-label="More tracks"]'));
+    expect(document.querySelectorAll('.sonos-rows .sonos-row')).toHaveLength(35);
+    expect(rowTitles().at(-1)).toBe('Nummer 34');
+    expect(pick('[aria-label="More tracks"]')).toBeNull();
+  });
+
+  it('may hold the same track twice', async () => {
+    connect(library({ 'music/playlists/playlist_tracks': [playlistTracks[0], playlistTracks[0]] }));
+    await openTracks();
+    expect(rowTitles()).toEqual(['Lysets hastighed', 'Lysets hastighed']);
+  });
+
+  it('say so when a playlist has none, and still offer Play all', async () => {
+    connect(library({ 'music/playlists/playlist_tracks': [] }));
+    await openTracks();
+    expect(texts('.sonos-note')).toEqual(['No tracks found']);
+    expect(pick('[aria-label="Play all"]')).not.toBeNull();
+  });
+
+  it('leave one note when they cannot be fetched, with Play all on offer and the playlists one step back', async () => {
+    connect(
+      library({
+        'music/playlists/playlist_tracks': () => {
+          throw new Error('refused');
+        },
+      })
+    );
+    await openTracks();
+    expect(texts('.sonos-note')).toEqual(['Music Assistant unavailable']);
+    expect(pick('[aria-label="Play all"]')).not.toBeNull();
+    await click(pick('[aria-label="Back"]'));
+    expect(rowTitles()).toContain('Morgenkaffe');
+    expect(pick('.sonos-note')).toBeNull();
+  });
+
+  it('are fetched again for a playlist that is opened again', async () => {
+    const { sent } = connect(library());
+    await openTracks();
+    await click(pick('[aria-label="Back"]'));
+    await click(rowTitled('Morgenkaffe'));
+    expect(sent.filter(m => m.command === 'music/playlists/playlist_tracks')).toHaveLength(2);
+  });
+
+  it('open for the playlist that was tapped', async () => {
+    const { sent } = connect(library());
+    await openTracks('Løbeture');
+    expect(pick('.sonos-sheet-top .sonos-title')?.textContent).toBe('Løbeture');
+    expect(sent.filter(m => m.command === 'music/playlists/playlist_tracks').map(m => m.args)).toEqual([
+      { item_id: '21', provider_instance_id_or_domain: 'library' },
+    ]);
+  });
+
+  it('open at the top and, on the way back, leave the playlists where they were scrolled to', async () => {
+    connect(library());
+    await openSpotify();
+    const body = pick('.sonos-sheet-body') as HTMLElement;
+    body.scrollTop = 240;
+    await click(rowTitled('Morgenkaffe'));
+    expect(body.scrollTop).toBe(0);
+    await click(pick('[aria-label="Back"]'));
+    expect(body.scrollTop).toBe(240);
+    expect(rowTitles()).toContain('Morgenkaffe');
   });
 });
 
