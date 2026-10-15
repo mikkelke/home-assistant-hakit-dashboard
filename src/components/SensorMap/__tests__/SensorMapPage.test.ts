@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { fitView, planToScreen } from '../../../sensorMap/geometry';
 import {
+  T0,
   device,
   makeDoc,
   makeFingerprint,
@@ -12,7 +13,7 @@ import {
   placement,
   ulidAt,
 } from '../../../sensorMap/__tests__/docFixtures';
-import type { FingerprintDoc, FingerprintWifi, MapDoc, WifiSource } from '../../../sensorMap/mapDoc';
+import type { FingerprintDoc, FingerprintWifi, MapDoc, SuggestDoc, WifiSource } from '../../../sensorMap/mapDoc';
 import { noWifi } from '../../../sensorMap/mapDoc';
 import { surveyPoints } from '../../../sensorMap/survey';
 
@@ -185,11 +186,24 @@ const field = (label: string) =>
     .find(node => node.querySelector('.sm-field-label')?.textContent === label)
     ?.querySelector('input') as HTMLInputElement;
 const choose = (text: string) => act(() => (queryAll('.sm-chip').find(node => node.textContent === text) as HTMLElement).click());
+/** Switches the mode control to View, Edit or Survey. */
+const mode = (name: 'View' | 'Edit' | 'Survey') =>
+  act(() => (queryAll('.sm-mode-btn').find(node => node.textContent === name) as HTMLElement).click());
+const openLayers = () => act(() => (query('[aria-label^="Layers"]') as HTMLElement).click());
+const layerRow = (label: string) =>
+  queryAll('.sm-sheet .sm-lay-row').find(node => node.querySelector('.sm-lay-label')?.textContent === label) as HTMLElement;
+/** Flips one row of the Layers sheet and puts the sheet away, so the plan answers taps again. */
+function toggleLayer(label: string) {
+  openLayers();
+  act(() => layerRow(label).click());
+  act(() => byLabel('Close').click());
+}
+const openQuestions = () => act(() => (query('[aria-label^="Questions"]') as HTMLElement).click());
 const editDoorSheet = () => press(marker('Test door contact'), 'Enter');
 /** Selects the door contact and switches to Edit, typing a new x when one is given. */
 function editDoor(x?: string) {
   editDoorSheet();
-  act(() => byLabel('Edit').click());
+  mode('Edit');
   if (x) typeInto(field('x'), x);
 }
 
@@ -285,8 +299,7 @@ describe('sheets and history', () => {
     press(marker, 'Enter');
     expect(query('.sm-sheet')?.textContent).toContain('Alpha radar');
 
-    const questions = queryAll('.sm-chip').find(node => node.textContent?.startsWith('Questions')) as HTMLElement;
-    act(() => questions.click());
+    openQuestions();
     expect(query('.sm-sheet')?.textContent).toContain('Which side is alpha?');
 
     act(() => byLabel('Close').click());
@@ -327,11 +340,13 @@ describe('fingerprints on the plan', () => {
     expect(queryAll('.sm-print.weak')).toHaveLength(1);
     expect(query('.sm-save')?.textContent).toContain('3 fingerprints');
 
-    const filter = queryAll('.sm-chip').find(node => node.textContent === 'Weak only 1') as HTMLElement;
-    act(() => filter.click());
+    openLayers();
+    expect(layerRow('Fingerprints').querySelector('.sm-count')?.textContent).toBe('3');
+    expect(layerRow('Weak only').querySelector('.sm-count')?.textContent).toBe('1');
+    act(() => layerRow('Weak only').click());
     expect(queryAll('.sm-print')).toHaveLength(1);
     expect(query('.sm-print.weak')).not.toBeNull();
-    act(() => filter.click());
+    act(() => layerRow('Weak only').click());
     expect(queryAll('.sm-print')).toHaveLength(3);
   });
 
@@ -350,7 +365,8 @@ describe('fingerprints on the plan', () => {
     const prints = makeFingerprintDoc();
     prints.items = [makeFingerprint('fp-a')];
     await open(fakeConnection({ ...docs(), sensor_map_fingerprints: prints }));
-    expect(queryAll('.sm-chip').some(node => node.textContent?.startsWith('Weak only'))).toBe(false);
+    openLayers();
+    expect(layerRow('Weak only')).toBeUndefined();
     expect(query('.sm-save')?.textContent).toContain('1 fingerprint');
     expect(query('.sm-save')?.textContent).not.toContain('1 fingerprints');
   });
@@ -396,7 +412,7 @@ describe('editing and saving', () => {
     const fake = fakeConnection(docs());
     await open(fake);
     expect(query('.sm-tray')).toBeNull();
-    act(() => byLabel('Edit').click());
+    mode('Edit');
     await flush();
     const tray = query('.sm-tray') as Element;
     expect(tray.textContent).toContain('Spare sensor');
@@ -411,8 +427,10 @@ describe('device types', () => {
     map.devices.ap_1 = device('Test access point', { type: 'wifi', placement: placement({ pos: { x: 6, y: 2, h: null } }) });
     const fake = fakeConnection({ ...docs(), sensor_map: map });
     await open(fake);
-    const chip = queryAll('.sm-layers .sm-chip').find(node => node.textContent?.startsWith('Wi-Fi AP'));
-    expect([chip?.textContent, chip?.classList.contains('t-wifi')]).toEqual(['Wi-Fi AP 1', true]);
+    openLayers();
+    const row = layerRow('Wi-Fi AP');
+    expect([row.querySelector('.sm-count')?.textContent, row.classList.contains('t-wifi')]).toEqual(['1', true]);
+    act(() => byLabel('Close').click());
     expect(queryAll('.sm-mk.t-wifi')).toHaveLength(1);
     await settle();
     expect(writes(fake)).toHaveLength(0);
@@ -440,7 +458,7 @@ describe('leaving a field or the page', () => {
   it('keeps a space typed in an answer, and keeps the answer as a draft when the page goes before the field is left', async () => {
     const fake = fakeConnection(docs());
     await open(fake);
-    choose('Questions 1');
+    openQuestions();
     const answer = document.querySelector('#sm-q-Q1 input') as HTMLInputElement;
     type(answer, 'left ');
     expect(answer.value).toBe('left ');
@@ -483,7 +501,7 @@ describe('dragging the selected marker', () => {
   });
 
   it.each([
-    ['Stop editing', () => act(() => byLabel('Stop editing').click())],
+    ['switching to View', () => mode('View')],
     ['Escape', () => press(query('.sm-main') as Element, 'Escape')],
     ['closing the sheet', () => act(() => byLabel('Close').click())],
   ])('moves nothing when %s comes before the release', async (_name, interrupt) => {
@@ -502,7 +520,7 @@ describe('dragging the selected marker', () => {
     const fake = fakeConnection(docs());
     await open(fake);
     press(marker('Alpha radar'), 'Enter');
-    act(() => byLabel('Edit').click());
+    mode('Edit');
     return fake;
   }
 
@@ -700,11 +718,14 @@ const startFrom = (id: string) => {
 describe('the survey', () => {
   it('is off until asked for, as is the coverage layer', async () => {
     await open(fakeConnection(docs()));
-    const pressed = (name: string) =>
-      queryAll('.sm-layers .sm-chip.toggle')
-        .find(node => node.textContent === name)
-        ?.getAttribute('aria-pressed');
-    expect([pressed('Survey'), pressed('Coverage')]).toEqual(['false', 'false']);
+    expect(queryAll('.sm-mode-btn').map(node => `${node.textContent}:${node.getAttribute('aria-pressed')}`)).toEqual([
+      'View:true',
+      'Edit:false',
+      'Survey:false',
+    ]);
+    openLayers();
+    expect(layerRow('Coverage').getAttribute('aria-checked')).toBe('false');
+    act(() => byLabel('Close').click());
     expect(queryAll('.sm-sv')).toHaveLength(0);
     expect(queryAll('.sm-cov-dot')).toHaveLength(0);
     expect(query('.sm-subbar')).toBeNull();
@@ -712,7 +733,7 @@ describe('the survey', () => {
 
   it('draws the points as numbered hollow targets and counts how many are done', async () => {
     await open(fakeConnection(docs()));
-    choose('Survey');
+    mode('Survey');
     const points = surveyPoints(makeDoc().plan);
     expect(queryAll('.sm-sv')).toHaveLength(points.length);
     expect(queryAll('.sm-sv .sm-sv-n').map(node => node.textContent)).toEqual(points.map(p => String(p.n)));
@@ -723,7 +744,7 @@ describe('the survey', () => {
 
   it('opens the capture sheet at a point when it is tapped, and Next point goes to the next one to do', async () => {
     await open(fakeConnection(docs()));
-    choose('Survey');
+    mode('Survey');
     const first = point(0);
     press(target(first.id), 'Enter');
     const sheet = query('.sm-sheet') as Element;
@@ -740,7 +761,7 @@ describe('the survey', () => {
   it('skips a point, remembers that in this browser only, and restores it', async () => {
     const fake = fakeConnection(docs());
     await open(fake);
-    choose('Survey');
+    mode('Survey');
     const first = point(0);
     press(target(first.id), 'Enter');
     act(() => chip('Skip this point').click());
@@ -760,7 +781,7 @@ describe('the survey', () => {
     const fake = fakeConnection({ ...docs(), sensor_map: wifiMap() });
     await open(fake);
     seedWifi();
-    choose('Survey');
+    mode('Survey');
     const first = point(0);
     press(target(first.id), 'Enter');
     typeInto(field('x'), '9.5');
@@ -779,7 +800,7 @@ describe('the survey', () => {
     const fake = fakeConnection({ ...docs(), sensor_map: wifiMap() });
     await open(fake);
     seedWifi();
-    choose('Survey');
+    mode('Survey');
     const first = point(0);
     startFrom(first.id);
     await advance(0);
@@ -812,7 +833,7 @@ describe('the survey', () => {
     const fake = fakeConnection({ ...docs(), sensor_map: map });
     await open(fake);
     seedWifi();
-    choose('Survey');
+    mode('Survey');
     const first = point(0);
     startFrom(first.id);
     await advance(1200);
@@ -828,7 +849,7 @@ describe('the survey', () => {
   it('saves a capture without Wi-Fi when the sensors are off, says why, and marks the point to take again', async () => {
     const fake = fakeConnection({ ...docs(), sensor_map: wifiMap() });
     await open(fake);
-    choose('Survey');
+    mode('Survey');
     expect(query('.sm-subbar')?.textContent).toContain('Wi-Fi sensors are off in the app');
     const first = point(0);
     startFrom(first.id);
@@ -853,7 +874,7 @@ describe('the survey', () => {
     fake.failCommands = true;
     await open(fake);
     seedWifi();
-    choose('Survey');
+    mode('Survey');
     startFrom(point(0).id);
     await advance(14_000);
     expect(savedPrints(fake).items[0].wifi.miss.dbm).toBe('command_failed');
@@ -864,7 +885,7 @@ describe('the survey', () => {
     const fake = fakeConnection({ ...docs(), sensor_map: wifiMap() });
     await open(fake);
     seedWifi();
-    choose('Survey');
+    mode('Survey');
     const first = point(0);
     startFrom(first.id);
     await advance(3000);
@@ -880,7 +901,7 @@ describe('the survey', () => {
     const fake = fakeConnection({ ...docs(), sensor_map: wifiMap() });
     await open(fake);
     seedWifi();
-    choose('Survey');
+    mode('Survey');
     startFrom(point(0).id);
     await advance(2000);
     act(() => (chip('Cancel') ?? (queryAll('.sm-fab').find(node => node.textContent === 'Cancel') as HTMLElement)).click());
@@ -892,7 +913,7 @@ describe('the survey', () => {
     const map = makeDoc();
     map.phones = [];
     await open(fakeConnection({ ...docs(), sensor_map: map }));
-    choose('Survey');
+    mode('Survey');
     press(target(point(0).id), 'Enter');
     expect(query('.sm-sheet')?.textContent).toContain('nothing to capture');
     expect((chip('Save and start') as HTMLButtonElement).disabled).toBe(true);
@@ -906,7 +927,7 @@ describe('the survey', () => {
     const prints = makeFingerprintDoc();
     prints.items = [makeFingerprint('fp-1', { survey_id: first.id, pos: { x: first.at[0], y: first.at[1], h: 1 }, wifi: noWifi('stale') })];
     await open(fakeConnection({ ...docs(), sensor_map_fingerprints: prints }));
-    choose('Survey');
+    mode('Survey');
     expect(target(first.id).classList.contains('done')).toBe(true);
     press(target(first.id), 'Enter');
     expect(query('.sm-sheet')?.textContent).toContain('Fingerprint');
@@ -926,7 +947,7 @@ describe('a suggested Wi-Fi setup', () => {
     });
     const fake = fakeConnection({ ...docs(), sensor_map_suggest: suggest });
     await open(fake);
-    choose('Survey');
+    mode('Survey');
     return fake;
   }
 
@@ -1001,17 +1022,17 @@ describe('a suggested phone', () => {
 
   it('is offered by a chip in the survey bar, and in the phone chips of the Phones layer', async () => {
     await openWithPhone();
-    choose('Survey');
+    mode('Survey');
     expect(queryAll('.sm-subbar .sm-chip').map(node => node.textContent)).toContain('Phone suggested');
-    act(() => chip('Survey').click());
+    mode('View');
     expect(query('.sm-subbar')).toBeNull();
-    choose('Phones');
+    toggleLayer('Phones');
     expect(queryAll('.sm-phones .sm-chip').map(node => node.textContent)).toContain('Phone suggested');
   });
 
   it('shows the phone with the address Bluetooth tracks it by, and writes nothing until accepted', async () => {
     const fake = await openWithPhone({ phones: false });
-    choose('Survey');
+    mode('Survey');
     act(() => chip('Phone suggested').click());
     const sheet = query('.sm-sheet') as Element;
     expect(sheet.textContent).toContain('Bermuda tracks the phone now');
@@ -1026,7 +1047,7 @@ describe('a suggested phone', () => {
 
   it('becomes a tracked phone of the map when accepted, written by the page, and the sheet closes', async () => {
     const fake = await openWithPhone({ phones: false });
-    choose('Survey');
+    mode('Survey');
     act(() => chip('Phone suggested').click());
     act(() => chip('Accept').click());
     await settle(1100);
@@ -1044,7 +1065,7 @@ describe('a suggested phone', () => {
     map.phones = [{ name: 'Old', bermuda_address: ADDRESS.toUpperCase(), person: 'person.test_owner' }];
     const fake = fakeConnection({ ...docs(), sensor_map: map, sensor_map_suggest: suggest });
     await open(fake);
-    choose('Survey');
+    mode('Survey');
     act(() => chip('Phone suggested').click());
     expect(query('.sm-sheet')?.textContent).toContain('It replaces the phone already listed with that address.');
     act(() => chip('Accept').click());
@@ -1054,7 +1075,7 @@ describe('a suggested phone', () => {
 
   it('is only logged when discarded', async () => {
     const fake = await openWithPhone({ phones: false });
-    choose('Survey');
+    mode('Survey');
     act(() => chip('Phone suggested').click());
     await discard();
     await settle(1100);
@@ -1066,7 +1087,7 @@ describe('a suggested phone', () => {
 
   it('shares the setup sheet with a Wi-Fi setup, and the sheet stays until the last one is decided', async () => {
     const fake = await openWithPhone({ phones: false, wifi: true });
-    choose('Survey');
+    mode('Survey');
     expect(queryAll('.sm-subbar .sm-chip').map(node => node.textContent)).toContain('Setup suggested');
     act(() => chip('Setup suggested').click());
     expect(queryAll('.sm-sheet .sm-suggest')).toHaveLength(2);
@@ -1095,7 +1116,7 @@ describe('a suggested phone', () => {
       phoneItem()
     );
     await open(fakeConnection({ ...docs(), sensor_map: noPhones(), sensor_map_suggest: suggest }));
-    choose('Survey');
+    mode('Survey');
     act(() => chip('Setup suggested').click());
     expect(queryAll('.sm-sheet .sm-suggest > p:first-child').map(node => node.textContent)).toEqual([
       'Bermuda tracks the phone now',
@@ -1105,7 +1126,7 @@ describe('a suggested phone', () => {
 
   it('makes the next capture ask Bermuda for the phone by the address that was accepted', async () => {
     const fake = await openWithPhone({ phones: false });
-    choose('Survey');
+    mode('Survey');
     act(() => chip('Phone suggested').click());
     act(() => chip('Accept').click());
     await settle(1100);
@@ -1147,13 +1168,13 @@ describe('the coverage layer', () => {
 
   async function openCoverage() {
     await open(fakeConnection({ ...docs(), sensor_map: wifiMap(), sensor_map_fingerprints: prints() }));
-    choose('Coverage');
+    toggleLayer('Coverage');
   }
 
   it('draws a dot for each capture that has a reading, coloured by its dBm', async () => {
     await open(fakeConnection({ ...docs(), sensor_map: wifiMap(), sensor_map_fingerprints: prints() }));
     expect(queryAll('.sm-cov-dot')).toHaveLength(0);
-    choose('Coverage');
+    toggleLayer('Coverage');
     expect(queryAll('.sm-cov-dot')).toHaveLength(4);
     expect(['strong', 'good', 'fair', 'weak'].map(bucket => queryAll(`.sm-cov-dot.b-${bucket}`).length)).toEqual([1, 1, 1, 1]);
     expect(queryAll('.sm-subbar .sm-chip.static').map(node => node.textContent)).toEqual(['≥ -55', '≥ -65', '≥ -72', '< -72']);
@@ -1194,7 +1215,7 @@ describe('the coverage layer', () => {
 
   it('says when no capture has a reading yet', async () => {
     await open(fakeConnection(docs()));
-    choose('Coverage');
+    toggleLayer('Coverage');
     expect(query('.sm-subbar')?.textContent).toContain('No capture holds a Wi-Fi reading yet');
     expect(queryAll('.sm-cov-fill')).toHaveLength(0);
   });
@@ -1266,7 +1287,7 @@ describe('tapping the plan during a survey', () => {
 
   it('opens the point that was touched, whatever is drawn beneath it', async () => {
     await open(fakeConnection(docs()));
-    choose('Survey');
+    mode('Survey');
     const first = point(0);
     tap(query(`.sm-sv[data-id="${first.id}"] .sm-mk-hit circle`) as Element, screenOf(first.at[0], first.at[1]));
     expect(query('.sm-sheet')?.textContent).toContain(`Point ${first.n}: ${first.label}`);
@@ -1286,7 +1307,7 @@ describe('tapping the plan during a survey', () => {
     // Scale the plan so that the two centres are 12 px apart: well inside the 22 px reach of both.
     Object.assign(canvas, { w: (12 / metres) * 13, h: 600 });
     await open(fakeConnection(docs()));
-    choose('Survey');
+    mode('Survey');
     const drawnLater = points.indexOf(over) > points.indexOf(under) ? over : under;
     const drawnEarlier = drawnLater === over ? under : over;
     tap(query(`.sm-sv[data-id="${drawnLater.id}"] .sm-mk-hit circle`) as Element, screenOf(drawnEarlier.at[0], drawnEarlier.at[1]));
@@ -1295,7 +1316,7 @@ describe('tapping the plan during a survey', () => {
 
   it('switches to another point when one is touched while a sheet is open', async () => {
     await open(fakeConnection(docs()));
-    choose('Survey');
+    mode('Survey');
     const [first, second] = [point(0), point(1)];
     press(target(first.id), 'Enter');
     tap(query(`.sm-sv[data-id="${second.id}"] .sm-mk-hit circle`) as Element, screenOf(second.at[0], second.at[1]));
@@ -1308,7 +1329,7 @@ describe('tapping the plan during a survey', () => {
     const fake = fakeConnection({ ...docs(), sensor_map: wifiMap() });
     await open(fake);
     seedWifi();
-    choose('Survey');
+    mode('Survey');
     const first = point(0);
     press(target(first.id), 'Enter');
     const spot = screenOf(7.5, 6);
@@ -1383,7 +1404,7 @@ describe('throwing a suggestion away', () => {
     press(marker('Test door contact'), 'Enter');
     expect(queryAll('.sm-sheet .sm-suggest .sm-chip').map(node => node.textContent)).toEqual(['Accept', 'Discard suggestion']);
     act(() => byLabel('Close').click());
-    choose('Questions 1');
+    openQuestions();
     expect(queryAll('.sm-qa .sm-suggest .sm-chip').map(node => node.textContent)).toEqual(['Accept', 'Discard suggestion']);
     await discard();
     await settle(1100);
@@ -1415,7 +1436,7 @@ describe('dragging a suggested marker', () => {
   it('accepts a suggested placement where it is dropped in Edit, at room certainty, as one write', async () => {
     const fake = fakeConnection(docs());
     await open(fake);
-    act(() => byLabel('Edit').click());
+    mode('Edit');
     dragGhost(40);
     await settle();
     expect(writes(fake)).toHaveLength(1);
@@ -1430,7 +1451,7 @@ describe('dragging a suggested marker', () => {
   it('shows the marker following the pointer while it is dragged, and writes nothing before the drop', async () => {
     const fake = fakeConnection(docs());
     await open(fake);
-    act(() => byLabel('Edit').click());
+    mode('Edit');
     const before = query('.sm-ghost [data-hit="ghost"]')?.getAttribute('transform');
     dragGhost(40, screenOf(4, 2.5), false);
     expect(query('.sm-ghost [data-hit="ghost"]')?.getAttribute('transform')).not.toBe(before);
@@ -1444,7 +1465,7 @@ describe('dragging a suggested marker', () => {
   it('selects the device it became, so Undo is there at once, and Undo puts it back as it was', async () => {
     const fake = fakeConnection(docs());
     await open(fake);
-    act(() => byLabel('Edit').click());
+    mode('Edit');
     dragGhost(40);
     await settle();
     expect(query('.sm-sheet')?.textContent).toContain('Test door contact');
@@ -1466,7 +1487,7 @@ describe('dragging a suggested marker', () => {
     suggest.items = [{ id: 's-new', kind: 'new_device', device: rest, reason: 'new in the registry' }];
     const fake = fakeConnection({ ...docs(), sensor_map_suggest: suggest });
     await open(fake);
-    act(() => byLabel('Edit').click());
+    mode('Edit');
     dragGhost(40);
     await settle();
     const written = writes(fake)[0].value as MapDoc;
@@ -1492,7 +1513,7 @@ describe('dragging a suggested marker', () => {
   it('still opens the suggestion when tapped in Edit, and a press that does not move accepts nothing', async () => {
     const fake = fakeConnection(docs());
     await open(fake);
-    act(() => byLabel('Edit').click());
+    mode('Edit');
     const at = screenOf(4, 2.5);
     fire(query('.sm-ghost .sm-mk-hit circle') as Element, 'pointerdown', at);
     fire(query('.sm-svg') as Element, 'pointerup', at);
@@ -1505,7 +1526,7 @@ describe('dragging a suggested marker', () => {
   it('can be reached from a sheet that is open, which gets out of the way for the drag', async () => {
     const fake = fakeConnection(docs());
     await open(fake);
-    act(() => byLabel('Edit').click());
+    mode('Edit');
     press(query('.sm-ghost [data-hit="ghost"]') as Element, 'Enter');
     expect(query('.sm-sheet')?.textContent).toContain('suggested placement');
     dragGhost(40);
@@ -1544,5 +1565,478 @@ describe('the text of a sheet', () => {
     expect(byLabel('Collapse').getAttribute('aria-expanded')).toBe('true');
     act(() => byLabel('Collapse').click());
     expect(byLabel('Expand').getAttribute('aria-expanded')).toBe('false');
+  });
+});
+
+describe('the top bar', () => {
+  it('is one header row of back, title, save state and Layers, with the modes under it and no chip row to scroll', async () => {
+    await open(fakeConnection(docs()));
+    const row = query('.sm-header-row') as Element;
+    expect([...row.children].map(node => node.getAttribute('aria-label') ?? node.className.split(' ')[0])).toEqual([
+      'Close the map',
+      'sm-title',
+      'sm-save',
+      'sm-pill',
+      'Layers',
+    ]);
+    expect(query('.sm-header .sm-mode-row .sm-mode')).not.toBeNull();
+    expect(query('.sm-layers')).toBeNull();
+    expect(queryAll('.sm-header [aria-pressed]').map(node => node.textContent)).toEqual(['View', 'Edit', 'Survey']);
+    expect(byLabel('Edit')).toBeNull();
+    expect(byLabel('Stop editing')).toBeNull();
+  });
+
+  it('opens Questions from an icon with the number still open, and a Layers badge only once a type is hidden', async () => {
+    await open(fakeConnection(docs()));
+    const questions = query('[aria-label^="Questions"]') as HTMLElement;
+    expect([questions.getAttribute('aria-label'), questions.querySelector('.sm-badge')?.textContent]).toEqual(['Questions, 1 open', '1']);
+    expect(query('[aria-label^="Layers"] .sm-badge')).toBeNull();
+    act(() => questions.click());
+    expect(query('.sm-sheet')?.textContent).toContain('Which side is alpha?');
+  });
+});
+
+describe('the modes', () => {
+  const pressed = () => queryAll('.sm-mode-btn').map(node => `${node.textContent}:${node.getAttribute('aria-pressed')}`);
+  const editing = () => query('.sm-main')?.getAttribute('data-edit');
+
+  it('start in View, and Edit and Survey are exclusive: each turns the other off', async () => {
+    await open(fakeConnection(docs()));
+    expect([pressed(), editing(), query('.sm-subbar')]).toEqual([['View:true', 'Edit:false', 'Survey:false'], 'false', null]);
+    mode('Edit');
+    expect([pressed(), editing()]).toEqual([['View:false', 'Edit:true', 'Survey:false'], 'true']);
+    mode('Survey');
+    expect([pressed(), editing()]).toEqual([['View:false', 'Edit:false', 'Survey:true'], 'false']);
+    expect(query('.sm-subbar')).not.toBeNull();
+    mode('Edit');
+    expect([pressed(), editing(), query('.sm-subbar')]).toEqual([['View:false', 'Edit:true', 'Survey:false'], 'true', null]);
+    mode('View');
+    expect([pressed(), editing()]).toEqual([['View:true', 'Edit:false', 'Survey:false'], 'false']);
+  });
+
+  it('change nothing when the mode that is on is tapped again', async () => {
+    const fake = fakeConnection(docs());
+    await open(fake);
+    mode('Edit');
+    mode('Edit');
+    expect([pressed(), editing()]).toEqual([['View:false', 'Edit:true', 'Survey:false'], 'true']);
+    await settle(1500);
+    expect(writes(fake)).toHaveLength(0);
+  });
+
+  it('write what is pending when Edit is left, as the pencil did', async () => {
+    const fake = fakeConnection(docs());
+    await open(fake);
+    editDoor('3.5');
+    expect(writes(fake)).toHaveLength(0);
+    mode('View');
+    await flush();
+    expect(writes(fake)).toHaveLength(1);
+    expect((writes(fake)[0].value as MapDoc).devices.door_1.placement.pos?.x).toBe(3.5);
+  });
+
+  it('keep Survey for the next visit, as the survey layer was kept', async () => {
+    const fake = fakeConnection(docs());
+    await open(fake);
+    mode('Survey');
+    await settle(500);
+    await act(async () => root.render(createElement('div')));
+    await flush();
+    await open(fake);
+    expect([pressed(), editing()]).toEqual([['View:false', 'Edit:false', 'Survey:true'], 'false']);
+    expect(query('.sm-subbar')).not.toBeNull();
+  });
+});
+
+describe('the Layers sheet', () => {
+  const rows = () => queryAll('.sm-sheet .sm-lay-row').map(node => node.querySelector('.sm-lay-label')?.textContent);
+  const badge = () => query('[aria-label^="Layers"] .sm-badge')?.textContent ?? null;
+  const markers = () => queryAll('.sm-mk').length;
+
+  it('lists every device type with its icon and count, then the display layers as switches', async () => {
+    await open(fakeConnection(docs()));
+    openLayers();
+    expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('Layers');
+    expect(queryAll('.sm-sheet [role="checkbox"] .sm-lay-label').map(node => node.textContent)).toEqual([
+      'BLE scanner',
+      'Presence radar',
+      'Contact',
+      'Plug',
+      'Bed sensor',
+      'Thermostat / temperature',
+      'Speaker',
+      'Wi-Fi AP',
+      'Other',
+    ]);
+    expect(layerRow('BLE scanner').querySelector('.sm-count')?.textContent).toBe('3');
+    expect(layerRow('BLE scanner').querySelector('svg path')).not.toBeNull();
+    expect(queryAll('.sm-sheet [role="switch"] .sm-lay-label').map(node => node.textContent)).toEqual([
+      'Names',
+      'Grid',
+      'Footprints',
+      'Phones',
+      'Fingerprints',
+      'Coverage',
+      'Suggestions',
+      'Light theme',
+    ]);
+    expect(layerRow('Suggestions').querySelector('.sm-count')?.textContent).toBe('2');
+    expect(rows()).not.toContain('Survey');
+  });
+
+  it('is opened and closed by the Layers button', async () => {
+    await open(fakeConnection(docs()));
+    expect(byLabel('Layers').getAttribute('aria-expanded')).toBe('false');
+    openLayers();
+    expect(byLabel('Layers').getAttribute('aria-expanded')).toBe('true');
+    openLayers();
+    expect(query('.sm-sheet')).toBeNull();
+  });
+
+  it('hides a type with its row and badges the button with how many types are hidden', async () => {
+    await open(fakeConnection(docs()));
+    const before = markers();
+    openLayers();
+    expect(layerRow('Contact').getAttribute('aria-checked')).toBe('true');
+    act(() => layerRow('Contact').click());
+    expect(layerRow('Contact').getAttribute('aria-checked')).toBe('false');
+    expect(markers()).toBe(before - 1);
+    expect([badge(), byLabel('Layers, 1 hidden') !== null, query('.sm-sheet .sm-sheet-sub')?.textContent]).toEqual(['1', true, '1 hidden']);
+    act(() => layerRow('Contact').click());
+    expect([markers(), badge()]).toEqual([before, null]);
+  });
+
+  it('hides every type with None and shows every type again with All', async () => {
+    await open(fakeConnection(docs()));
+    const before = markers();
+    openLayers();
+    choose('None');
+    expect([markers(), badge()]).toEqual([0, '9']);
+    expect(queryAll('.sm-sheet [role="checkbox"]').every(node => node.getAttribute('aria-checked') === 'false')).toBe(true);
+    choose('All');
+    expect([markers(), badge()]).toEqual([before, null]);
+  });
+
+  it('keeps a device that has a role which is still shown, as the chips did', async () => {
+    await open(fakeConnection(docs()));
+    const before = markers();
+    openLayers();
+    act(() => layerRow('BLE scanner').click());
+    expect(markers()).toBe(before - 2);
+    expect(query('.sm-mk[data-id="scan_b"]')).not.toBeNull();
+    act(() => layerRow('Plug').click());
+    expect(markers()).toBe(before - 3);
+  });
+
+  it('is remembered in this browser, with the display layers', async () => {
+    await open(fakeConnection(docs()));
+    openLayers();
+    act(() => layerRow('Contact').click());
+    act(() => layerRow('Names').click());
+    await settle(500);
+    expect(JSON.parse(window.localStorage.getItem('sensormap-ui-v1') ?? 'null').layers).toMatchObject({
+      hiddenTypes: ['contact'],
+      names: true,
+    });
+  });
+
+  it('turns each display layer on and off', async () => {
+    await open(fakeConnection(docs()));
+    openLayers();
+    const checked = (label: string) => layerRow(label).getAttribute('aria-checked');
+    expect([checked('Suggestions'), queryAll('.sm-ghost').length]).toEqual(['true', 1]);
+    act(() => layerRow('Suggestions').click());
+    expect([checked('Suggestions'), queryAll('.sm-ghost').length]).toEqual(['false', 0]);
+    expect([checked('Grid'), query('.sm-grid') !== null]).toEqual(['true', true]);
+    act(() => layerRow('Grid').click());
+    expect([checked('Grid'), query('.sm-grid') !== null]).toEqual(['false', false]);
+    expect([checked('Light theme'), query('.sm-workspace')?.getAttribute('data-theme')]).toEqual(['false', 'dark']);
+    act(() => layerRow('Light theme').click());
+    expect([checked('Light theme'), query('.sm-workspace')?.getAttribute('data-theme')]).toEqual(['true', 'light']);
+    expect([checked('Coverage'), query('.sm-subbar')]).toEqual(['false', null]);
+    act(() => layerRow('Coverage').click());
+    expect([checked('Coverage'), query('.sm-subbar') !== null]).toEqual(['true', true]);
+  });
+});
+
+/** A suggestion document with one suggestion of each kind, in no particular order. */
+function suggestionsOfEveryKind(): SuggestDoc {
+  const suggest = makeSuggestDoc();
+  const [placementItem, answerItem] = suggest.items;
+  const { history: _history, ...fresh } = device('New thing', {
+    type: 'contact',
+    ha: { device_ids: ['dev-new'], bindings: {}, scanner_source: null },
+    placement: placement({ pos: { x: 9, y: 2.5, h: 1.2 }, cert: 'guess' }),
+  });
+  void _history;
+  suggest.items = [
+    answerItem,
+    { id: 's-wifi', kind: 'wifi', source: WIFI_SOURCE, aps: { [BSSID_A]: 'door_1' }, reason: 'Derived from the controller' },
+    { id: 's-rename', kind: 'rename', device_key: 'door_1', name: 'Front door contact', reason: 'It is the front door' },
+    placementItem,
+    {
+      id: 's-phone',
+      kind: 'phone',
+      phone: { name: 'Test owner', bermuda_address: 'a1b2c3d4e5f60718293a4b5c6d7e8f90_1_2', person: 'person.test_owner' },
+      reason: 'Bermuda tracks the phone now',
+    },
+    { id: 's-new', kind: 'new_device', device: fresh, reason: 'New in the registry' },
+  ];
+  return suggest;
+}
+
+describe('the suggestions pill', () => {
+  const pill = () => query('.sm-pill') as HTMLElement | null;
+
+  it('is not there while nothing waits', async () => {
+    const suggest = makeSuggestDoc();
+    suggest.items = [];
+    await open(fakeConnection({ ...docs(), sensor_map_suggest: suggest }));
+    expect(pill()).toBeNull();
+  });
+
+  it('says how many suggestions wait, in the header row right after the save state', async () => {
+    await open(fakeConnection(docs()));
+    expect(pill()?.textContent).toBe('2 suggestions');
+    expect(pill()?.parentElement?.classList.contains('sm-header-row')).toBe(true);
+    expect(pill()?.previousElementSibling?.classList.contains('sm-save')).toBe(true);
+  });
+
+  it('counts only what no one has decided, and says suggestion for one', async () => {
+    const map = makeDoc();
+    map.suggest_log = [{ id: 's-1', accepted_at: T0 }];
+    await open(fakeConnection({ ...docs(), sensor_map: map }));
+    expect(pill()?.textContent).toBe('1 suggestion');
+  });
+
+  it('is gone once the log has decided every suggestion', async () => {
+    const map = makeDoc();
+    map.suggest_log = [
+      { id: 's-1', rejected_at: T0 },
+      { id: 's-2', accepted_at: T0 },
+    ];
+    await open(fakeConnection({ ...docs(), sensor_map: map }));
+    expect(pill()).toBeNull();
+  });
+
+  it('counts a suggestion of every kind', async () => {
+    await open(fakeConnection({ ...docs(), sensor_map_suggest: suggestionsOfEveryKind() }));
+    expect(pill()?.textContent).toBe('6 suggestions');
+  });
+
+  it('is shown whichever mode the map is in', async () => {
+    await open(fakeConnection(docs()));
+    mode('Edit');
+    expect(pill()?.textContent).toBe('2 suggestions');
+    mode('Survey');
+    expect(pill()?.textContent).toBe('2 suggestions');
+  });
+});
+
+describe('the suggestions sheet', () => {
+  const pill = () => query('.sm-pill') as HTMLElement;
+  const card = (tag: string) =>
+    queryAll('.sm-sheet .sm-suggest-card').find(node => node.querySelector('.sm-tag')?.textContent === tag) as HTMLElement;
+  const cardButton = (tag: string, text: string) =>
+    [...card(tag).querySelectorAll('button')].find(node => node.textContent === text) as HTMLElement;
+  const tags = () => queryAll('.sm-sheet .sm-suggest-card .sm-tag').map(node => node.textContent);
+  const viewBox = () => query('.sm-svg')?.getAttribute('viewBox');
+  const everyKind = { ...docs(), sensor_map_suggest: suggestionsOfEveryKind() };
+
+  async function openAll() {
+    const fake = fakeConnection(everyKind);
+    await open(fake);
+    act(() => pill().click());
+    return fake;
+  }
+
+  it('lists every suggestion that waits in one sheet: setup, new devices, placements, renames, then answers', async () => {
+    await openAll();
+    expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('Suggestions');
+    expect(query('.sm-sheet .sm-sheet-sub')?.textContent).toBe('6 waiting');
+    expect(tags()).toEqual(['Phone', 'Wi-Fi', 'New device', 'Placement', 'Rename', 'Answer']);
+  });
+
+  it('gives each its reason and says what it is about', async () => {
+    await openAll();
+    expect(card('Phone').textContent).toContain('Bermuda tracks the phone now');
+    expect(card('Phone').textContent).toContain('Phone Test owner: Bluetooth tracks it as a1b2c3d4e5f60718293a4b5c6d7e8f90_1_2');
+    expect(card('Wi-Fi').textContent).toContain('Derived from the controller');
+    expect(card('Wi-Fi').textContent).toContain(`${BSSID_A}Test door contact`);
+    expect(card('New device').textContent).toContain('New thing');
+    expect(card('New device').textContent).toContain('New in the registry');
+    expect(card('New device').textContent).toContain('At x 9.00, y 2.50.');
+    expect(card('Placement').textContent).toContain('Test door contact');
+    expect(card('Placement').textContent).toContain('Measured answer');
+    expect(card('Placement').textContent).toContain('At x 4.00, y 2.50.');
+    expect(card('Rename').textContent).toContain('Test door contact to Front door contact');
+    expect(card('Rename').textContent).toContain('It is the front door');
+    expect(card('Answer').textContent).toContain('Q1: Which side is alpha?');
+    expect(card('Answer').textContent).toContain('Proposed: The left side');
+    expect(card('Answer').textContent).toContain('Owner said so');
+  });
+
+  it('puts Accept and Discard on every one, and Show on map only on those that have a place on the plan', async () => {
+    await openAll();
+    const buttons = (tag: string) => [...card(tag).querySelectorAll('button')].map(node => node.textContent);
+    expect(buttons('Phone')).toEqual(['Accept', 'Discard suggestion']);
+    expect(buttons('Wi-Fi')).toEqual(['Accept', 'Discard suggestion']);
+    expect(buttons('New device')).toEqual(['Accept', 'Show on map', 'Discard suggestion']);
+    expect(buttons('Placement')).toEqual(['Accept', 'Show on map', 'Discard suggestion']);
+    expect(buttons('Rename')).toEqual(['Accept', 'Show on map', 'Discard suggestion']);
+    expect(buttons('Answer')).toEqual(['Accept', 'Discard suggestion']);
+  });
+
+  it('says a suggestion was made against an older layout', async () => {
+    const suggest = suggestionsOfEveryKind();
+    suggest.based_on_layout_version = 1;
+    await open(fakeConnection({ ...docs(), sensor_map_suggest: suggest }));
+    act(() => pill().click());
+    expect(card('Placement').textContent).toContain('Made against an older layout.');
+    expect(card('Answer').textContent).not.toContain('older layout');
+  });
+
+  it('writes nothing until a suggestion is decided', async () => {
+    const fake = await openAll();
+    await settle(1500);
+    expect(writes(fake)).toHaveLength(0);
+  });
+
+  it('is closed by the pill again, and by Close', async () => {
+    await openAll();
+    act(() => pill().click());
+    expect(query('.sm-sheet')).toBeNull();
+    act(() => pill().click());
+    expect(pill().getAttribute('aria-expanded')).toBe('true');
+    act(() => byLabel('Close').click());
+    expect(query('.sm-sheet')).toBeNull();
+  });
+
+  it('accepts one the way the device sheet does: written to the map, logged, and one fewer on the pill', async () => {
+    const fake = await openAll();
+    act(() => cardButton('Rename', 'Accept').click());
+    await settle(1100);
+    const written = writes(fake).at(-1)?.value as MapDoc;
+    expect(writes(fake).at(-1)?.key).toBe('sensor_map');
+    expect(written.devices.door_1.name).toBe('Front door contact');
+    expect(written.suggest_log).toEqual([expect.objectContaining({ id: 's-rename', accepted_at: expect.any(String) })]);
+    expect(pill().textContent).toBe('5 suggestions');
+    expect(tags()).toEqual(['Phone', 'Wi-Fi', 'New device', 'Placement', 'Answer']);
+    expect(query('.sm-sheet .sm-sheet-sub')?.textContent).toBe('5 waiting');
+  });
+
+  it('asks before it discards, the confirming tap waking up a moment later, then logs the rejection and takes it off the pill', async () => {
+    const fake = await openAll();
+    act(() => cardButton('Answer', 'Discard suggestion').click());
+    expect(card('Answer').textContent).toContain('Discard this suggestion?');
+    expect((chip('Yes, discard') as HTMLButtonElement).disabled).toBe(true);
+    await advance(700);
+    expect((chip('Yes, discard') as HTMLButtonElement).disabled).toBe(false);
+    expect(writes(fake)).toHaveLength(0);
+    act(() => chip('Yes, discard').click());
+    await settle(1100);
+    const written = writes(fake).at(-1)?.value as MapDoc;
+    expect(written.suggest_log).toEqual([expect.objectContaining({ id: 's-2', rejected_at: expect.any(String) })]);
+    expect(written.questions[0].answer).toBeNull();
+    expect(pill().textContent).toBe('5 suggestions');
+    expect(tags()).not.toContain('Answer');
+  });
+
+  it('leaves a suggestion where it is when the discard is called off with Keep it', async () => {
+    const fake = await openAll();
+    act(() => cardButton('Answer', 'Discard suggestion').click());
+    await advance(700);
+    act(() => chip('Keep it').click());
+    await settle(1500);
+    expect(writes(fake)).toHaveLength(0);
+    expect(pill().textContent).toBe('6 suggestions');
+  });
+
+  it('takes every kind through the same accept, and puts the sheet away after the last one', async () => {
+    const fake = await openAll();
+    for (const tag of ['Phone', 'Wi-Fi', 'New device', 'Placement', 'Rename']) {
+      act(() => cardButton(tag, 'Accept').click());
+      expect(query('.sm-sheet')).not.toBeNull();
+    }
+    expect(pill().textContent).toBe('1 suggestion');
+    act(() => cardButton('Answer', 'Accept').click());
+    expect(query('.sm-sheet')).toBeNull();
+    expect(query('.sm-pill')).toBeNull();
+    await settle(1100);
+    const written = writes(fake).at(-1)?.value as MapDoc;
+    expect(written.phones.map(phone => phone.name)).toContain('Test owner');
+    expect(written.wifi.aps).toEqual({ [BSSID_A]: 'door_1' });
+    expect(written.devices['dev-new'].name).toBe('New thing');
+    expect(written.devices.door_1.placement.pos).toMatchObject({ x: 4, y: 2.5 });
+    expect(written.devices.door_1.name).toBe('Front door contact');
+    expect(written.questions[0].answer).toBe('The left side');
+    expect(written.suggest_log.map(entry => entry.id).sort()).toEqual(['s-1', 's-2', 's-new', 's-phone', 's-rename', 's-wifi']);
+  });
+
+  it('puts the sheet away once the last suggestion is discarded', async () => {
+    const suggest = makeSuggestDoc();
+    suggest.items = [suggest.items[1]];
+    await open(fakeConnection({ ...docs(), sensor_map_suggest: suggest }));
+    act(() => pill().click());
+    await discard();
+    expect(query('.sm-sheet')).toBeNull();
+    expect(query('.sm-pill')).toBeNull();
+  });
+
+  it('shows a suggested placement on the map: centres on its marker, selects it and opens its sheet', async () => {
+    await openAll();
+    const before = viewBox();
+    act(() => cardButton('Placement', 'Show on map').click());
+    await settle(100);
+    expect(viewBox()).not.toBe(before);
+    expect(query('.sm-ghost.sel')).not.toBeNull();
+    expect(query('.sm-sheet .sm-sheet-sub')?.textContent).toBe('suggested placement');
+    expect(query('.sm-sheet')?.textContent).toContain('Measured answer');
+    expect(pill().textContent).toBe('6 suggestions');
+  });
+
+  it('shows a suggested new device on the map the same way', async () => {
+    await openAll();
+    act(() => cardButton('New device', 'Show on map').click());
+    await settle(100);
+    expect(query('.sm-ghost.sel')).not.toBeNull();
+    expect(query('.sm-sheet .sm-sheet-sub')?.textContent).toBe('suggested new device');
+    expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('New thing');
+  });
+
+  it('switches the Suggestions layer back on when it was off, so the marker is there to select', async () => {
+    await open(fakeConnection(everyKind));
+    toggleLayer('Suggestions');
+    expect(queryAll('.sm-ghost')).toHaveLength(0);
+    act(() => pill().click());
+    act(() => cardButton('Placement', 'Show on map').click());
+    await settle(100);
+    expect(queryAll('.sm-ghost')).toHaveLength(2);
+    expect(query('.sm-ghost.sel')).not.toBeNull();
+  });
+
+  it('shows a rename on the map by selecting the device it renames', async () => {
+    await openAll();
+    act(() => cardButton('Rename', 'Show on map').click());
+    await settle(100);
+    expect(query('.sm-mk.sel[data-id="door_1"]')).not.toBeNull();
+    expect(query('.sm-sheet')?.textContent).toContain('Suggested name "Front door contact": It is the front door');
+  });
+
+  it('can be taken back to from the pill after Show on map', async () => {
+    await openAll();
+    act(() => cardButton('Placement', 'Show on map').click());
+    act(() => pill().click());
+    expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('Suggestions');
+    expect(tags()).toHaveLength(6);
+  });
+
+  it('is on the Survey bar as well: the setup chip still opens its own sheet with the same suggestions', async () => {
+    await open(fakeConnection(everyKind));
+    mode('Survey');
+    act(() => chip('Setup suggested').click());
+    expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('Survey setup');
+    expect(queryAll('.sm-sheet .sm-suggest')).toHaveLength(2);
+    expect(pill()?.textContent).toBe('6 suggestions');
   });
 });

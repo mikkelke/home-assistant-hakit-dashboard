@@ -555,7 +555,7 @@ export function validateMapDoc(raw: unknown): string[] {
   return problems;
 }
 
-/** The device types the page has a marker icon and a colour for, in the order the layer chips list them. */
+/** The device types the page has a marker icon and a colour for, in the order the Layers sheet lists them. */
 export const KNOWN_TYPES: readonly TypeDef[] = [
   { key: 'ble', label: 'BLE scanner' },
   { key: 'presence', label: 'Presence radar' },

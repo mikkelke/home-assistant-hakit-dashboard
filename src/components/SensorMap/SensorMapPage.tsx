@@ -44,17 +44,30 @@ import { HIT_RADIUS_PX } from './DeviceMarker';
 import { DeviceSheet } from './DeviceSheet';
 import { FingerprintSheet } from './FingerprintSheet';
 import { GhostSheet } from './GhostSheet';
+import { LayersSheet } from './LayersSheet';
 import type { Ghost } from './MarkLayers';
+import { ModeControl } from './ModeControl';
 import { PhoneLayer } from './PhoneLayer';
 import { PhoneSheet } from './PhoneSheet';
 import { PlanCanvas, type CoverageView, type SurveyView } from './PlanCanvas';
 import { QuestionsSheet } from './QuestionsSheet';
+import { SuggestionsSheet } from './SuggestionsSheet';
 import { SurveyBar } from './SurveyBar';
 import { TraySheet } from './TraySheet';
 import { UnplacedTray } from './UnplacedTray';
 import { SetupSheet } from './SetupSheet';
 import { ZoneSheet } from './ZoneSheet';
-import { typeVisible, type Capture, type DeviceActions, type DragPreview, type Layers, type Selection } from './types';
+import {
+  hiddenTypeCount,
+  typeVisible,
+  type Capture,
+  type DeviceActions,
+  type DragPreview,
+  type Layers,
+  type Mode,
+  type Selection,
+  type Switch,
+} from './types';
 import { loadUi, saveUi } from './uiStorage';
 import { DraftPrompt } from './DraftPrompt';
 import { useCandidates } from './useCandidates';
@@ -78,19 +91,6 @@ const SHEET_COVER = 0.45;
 const SAVE_TEXT = { saved: 'saved', pending: 'pending', saving: 'saving', failed: 'failed', conflict: 'changed elsewhere' } as const;
 const HANDLE_KEY = '#handle';
 const stamp = () => new Date().toISOString();
-
-const TOGGLES = ['names', 'grid', 'footprints', 'phones', 'fingerprints', 'survey', 'coverage', 'suggestions', 'light'] as const;
-const TOGGLE_LABEL: Record<(typeof TOGGLES)[number], string> = {
-  names: 'Names',
-  grid: 'Grid',
-  footprints: 'Footprints',
-  phones: 'Phones',
-  fingerprints: 'Fingerprints',
-  survey: 'Survey',
-  coverage: 'Coverage',
-  suggestions: 'Suggestions',
-  light: 'Light',
-};
 
 /** Bed mats lie under the mattress, not on a wall face; everything else defaults to the nearest wall. */
 function defaultSnap(device: Pick<MapDevice, 'type'>): boolean {
@@ -183,7 +183,12 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [snapOverride, setSnapOverride] = useState<{ key: string; on: boolean } | null>(null);
   const [sheet, setSheet] = useState<
-    { kind: 'questions'; focus: string | null } | { kind: 'phone'; address: string } | { kind: 'setup' } | null
+    | { kind: 'questions'; focus: string | null }
+    | { kind: 'phone'; address: string }
+    | { kind: 'setup' }
+    | { kind: 'suggestions' }
+    | { kind: 'layers' }
+    | null
   >(null);
   const [drag, setDrag] = useState<DragPreview | null>(null);
   const [capture, setCapture] = useState<Capture>({ phase: 'idle' });
@@ -290,6 +295,12 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
     },
     [queue]
   );
+
+  const mode: Mode = layers.survey ? 'survey' : edit ? 'edit' : 'view';
+  const setMode = (next: Mode) => {
+    if (edit !== (next === 'edit')) setEdit(next === 'edit');
+    setLayers(current => (current.survey === (next === 'survey') ? current : { ...current, survey: next === 'survey' }));
+  };
 
   const cancelCapture = useCallback(() => {
     captureAbort.current?.abort();
@@ -544,6 +555,17 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
     [centreOn]
   );
 
+  /** Centres the plan on a suggestion's marker and selects it; a rename shows the device it renames. */
+  const showSuggestion = (item: SuggestItem) => {
+    if (item.kind === 'rename') return jumpTo(item.device_key);
+    const ghost = ghosts.find(candidate => candidate.id === item.id);
+    if (!ghost) return;
+    setLayers(current => (current.suggestions ? current : { ...current, suggestions: true }));
+    setSheet(null);
+    setSelection({ kind: 'ghost', id: ghost.id });
+    centreOn(ghost.at[0], ghost.at[1], 60, window.innerWidth < SIDE_PANEL_MIN_PX ? window.innerHeight * 0.18 : 0);
+  };
+
   const activate = useCallback(
     (key: string) => {
       const pos = docRef.current.devices[key]?.placement.pos;
@@ -734,6 +756,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   const weakCount = blePrints.filter(item => item.weak).length;
   const shownPrints = useMemo(() => (weakOnly ? blePrints.filter(item => item.weak) : blePrints), [weakOnly, blePrints]);
   const unanswered = doc.questions.filter(question => !question.answer).length;
+  const hiddenTypes = hiddenTypeCount(layers, doc.types);
   const typeCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const device of Object.values(doc.devices)) {
@@ -746,7 +769,10 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
       ...current,
       hiddenTypes: current.hiddenTypes.includes(key) ? current.hiddenTypes.filter(item => item !== key) : [...current.hiddenTypes, key],
     }));
-  const toggle = (name: (typeof TOGGLES)[number]) => setLayers(current => ({ ...current, [name]: !current[name] }));
+  const setAllTypes = (visible: boolean) =>
+    setLayers(current => ({ ...current, hiddenTypes: visible ? [] : doc.types.map(type => type.key) }));
+  const toggle = (name: Switch) => setLayers(current => ({ ...current, [name]: !current[name] }));
+  const toggleSheet = (kind: 'suggestions' | 'layers') => setSheet(current => (current?.kind === kind ? null : { kind }));
 
   const ghostSelected = selection?.kind === 'ghost' ? ghosts.find(ghost => ghost.id === selection.id) : undefined;
   const ghostItem = ghostSelected ? pendingItems.find(item => item.id === ghostSelected.id) : undefined;
@@ -779,6 +805,11 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   const decideSetup = (decide: () => void) => {
     decide();
     if (setupProposals.length <= 1) setSheet(null);
+  };
+  /** Decides one suggestion, and closes the sheet when that was the last one waiting. */
+  const decideSuggestion = (decide: () => void) => {
+    decide();
+    if (pendingItems.length <= 1) setSheet(null);
   };
   const goNext = () => {
     const point = nextPoint(surveyPts, progress, lastPoint.current);
@@ -823,43 +854,46 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
                 </span>
               )}
             </span>
-            <button
-              type='button'
-              className={`sm-icon-btn${edit ? ' on' : ''}`}
-              aria-pressed={edit}
-              onClick={() => setEdit(!edit)}
-              aria-label={edit ? 'Stop editing' : 'Edit'}
-            >
-              <Icon icon={edit ? 'mdi:pencil-off' : 'mdi:pencil'} />
-            </button>
-          </div>
-          <div className='sm-layers' role='group' aria-label='Layers'>
-            {doc.types.map(type => (
+            {pendingItems.length > 0 && (
               <button
-                key={type.key}
                 type='button'
-                className={`sm-chip small t-${type.key}`}
-                aria-pressed={!layers.hiddenTypes.includes(type.key)}
-                onClick={() => toggleType(type.key)}
-                title={type.label}
+                className='sm-pill'
+                aria-expanded={sheet?.kind === 'suggestions'}
+                onClick={() => toggleSheet('suggestions')}
               >
-                <span className='sm-dot type' />
-                {type.label} <span className='sm-count'>{typeCounts[type.key] ?? 0}</span>
-              </button>
-            ))}
-            <span className='sm-sep' />
-            {TOGGLES.map(name => (
-              <button key={name} type='button' className='sm-chip small toggle' aria-pressed={layers[name]} onClick={() => toggle(name)}>
-                {name === 'suggestions' && pendingItems.length > 0 ? `Suggestions ${pendingItems.length}` : TOGGLE_LABEL[name]}
-              </button>
-            ))}
-            {layers.fingerprints && weakCount > 0 && (
-              <button type='button' className='sm-chip small toggle' aria-pressed={weakOnly} onClick={() => setWeakOnly(value => !value)}>
-                Weak only {weakCount}
+                <Icon icon='mdi:lightbulb-on-outline' />
+                {pendingItems.length} {pendingItems.length === 1 ? 'suggestion' : 'suggestions'}
               </button>
             )}
-            <button type='button' className='sm-chip small' onClick={() => setSheet({ kind: 'questions', focus: null })}>
-              Questions {unanswered > 0 && <span className='sm-count'>{unanswered}</span>}
+            <button
+              type='button'
+              className='sm-icon-btn'
+              aria-label={hiddenTypes > 0 ? `Layers, ${hiddenTypes} hidden` : 'Layers'}
+              aria-expanded={sheet?.kind === 'layers'}
+              onClick={() => toggleSheet('layers')}
+            >
+              <Icon icon='mdi:layers-outline' />
+              {hiddenTypes > 0 && (
+                <span className='sm-badge' aria-hidden='true'>
+                  {hiddenTypes}
+                </span>
+              )}
+            </button>
+          </div>
+          <div className='sm-mode-row'>
+            <ModeControl mode={mode} onChange={setMode} />
+            <button
+              type='button'
+              className='sm-icon-btn'
+              aria-label={unanswered > 0 ? `Questions, ${unanswered} open` : 'Questions'}
+              onClick={() => setSheet({ kind: 'questions', focus: null })}
+            >
+              <Icon icon='mdi:comment-question-outline' />
+              {unanswered > 0 && (
+                <span className='sm-badge' aria-hidden='true'>
+                  {unanswered}
+                </span>
+              )}
             </button>
           </div>
           {layers.survey && (
@@ -995,6 +1029,33 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
           doc={doc}
           onAccept={item => decideSetup(() => actions.accept(item))}
           onReject={id => decideSetup(() => actions.reject(id))}
+          onClose={() => setSheet(null)}
+        />
+      )}
+      {capture.phase !== 'confirm' && sheet?.kind === 'suggestions' && (
+        <SuggestionsSheet
+          items={pendingItems}
+          doc={doc}
+          ghosts={ghosts}
+          onAccept={item => decideSuggestion(() => actions.accept(item))}
+          onReject={id => decideSuggestion(() => actions.reject(id))}
+          onShow={showSuggestion}
+          onClose={() => setSheet(null)}
+        />
+      )}
+      {capture.phase !== 'confirm' && sheet?.kind === 'layers' && (
+        <LayersSheet
+          layers={layers}
+          types={doc.types}
+          counts={typeCounts}
+          fingerprints={prints.items.length}
+          weak={weakCount}
+          weakOnly={weakOnly}
+          suggestions={pendingItems.length}
+          onType={toggleType}
+          onAllTypes={setAllTypes}
+          onSwitch={toggle}
+          onWeakOnly={() => setWeakOnly(value => !value)}
           onClose={() => setSheet(null)}
         />
       )}

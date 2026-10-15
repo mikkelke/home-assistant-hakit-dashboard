@@ -14,6 +14,13 @@ export interface Layers {
   light: boolean;
 }
 
+/** What the map is for right now: looking at it, changing it, or walking a Wi-Fi survey. */
+export type Mode = 'view' | 'edit' | 'survey';
+
+/** The layers the Layers sheet offers as switches. `survey` is a mode, not a switch. */
+export const SWITCHES = ['names', 'grid', 'footprints', 'phones', 'fingerprints', 'coverage', 'suggestions', 'light'] as const;
+export type Switch = (typeof SWITCHES)[number];
+
 export const DEFAULT_LAYERS: Layers = {
   hiddenTypes: [],
   names: false,
@@ -45,6 +52,10 @@ export function typeVisible(layers: Layers, type: string, roles: readonly string
   const hidden = layers.hiddenTypes;
   return !hidden.includes(type) || roles.some(role => !hidden.includes(role));
 }
+
+/** How many of the document's device types are switched off. */
+export const hiddenTypeCount = (layers: Layers, types: readonly { key: string }[]): number =>
+  types.filter(type => layers.hiddenTypes.includes(type.key)).length;
 
 /** The id of the clip path for a zone (`z`) or an open region (`c`). */
 export const clipIdOf = (kind: 'z' | 'c', id: string) => `sm-clip-${kind}-${id}`;

@@ -8,7 +8,7 @@ interface CoverageBarProps {
   onSelect: (id: string) => void;
 }
 
-/** The legend of the coverage colours and the access point filter, under the layer chips. */
+/** The legend of the coverage colours and the access point filter, under the mode control. */
 export function CoverageBar({ choices, selected, shown, onSelect }: CoverageBarProps) {
   return (
     <div className='sm-subbar' role='group' aria-label='Wi-Fi coverage'>

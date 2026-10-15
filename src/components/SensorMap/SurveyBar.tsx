@@ -14,7 +14,7 @@ interface SurveyBarProps {
   onSetup: () => void;
 }
 
-/** The survey's controls under the layer chips: how far along it is, the next point, and whether Wi-Fi is ready. */
+/** The survey's controls under the mode control: how far along it is, the next point, and whether Wi-Fi is ready. */
 export function SurveyBar({ progress, wifi, setup, result, busy, onNext, onSetup }: SurveyBarProps) {
   const left = progress.total - progress.done - progress.skipped;
   return (

@@ -115,6 +115,7 @@
 /* Header ------------------------------------------------------------------------------------------------- */
 
 .sm-header {
+  container-type: inline-size;
   flex-shrink: 0;
   padding: calc(6px + env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 6px max(10px, env(safe-area-inset-left));
   background: var(--sm-panel);
@@ -123,15 +124,20 @@
 
 .sm-header-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px 8px;
 }
 
 .sm-title {
-  flex: 1;
+  min-width: 0;
+  flex: 1 1 0;
   margin: 0;
+  overflow: hidden;
   font-size: 1.05rem;
   font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sm-icon-btn {
@@ -147,6 +153,29 @@
   color: var(--sm-fg);
   font-size: 1.3rem;
   cursor: pointer;
+}
+
+.sm-header .sm-icon-btn {
+  position: relative;
+  width: 44px;
+  height: 44px;
+}
+
+.sm-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--sm-accent);
+  color: var(--sm-bg);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  pointer-events: none;
 }
 
 .sm-icon-btn.on,
@@ -169,6 +198,7 @@
 
 .sm-save {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 6px;
   font-size: 0.82rem;
@@ -205,6 +235,8 @@
 }
 
 .sm-link {
+  min-width: 44px;
+  min-height: 44px;
   padding: 4px 6px;
   border: 0;
   background: none;
@@ -214,26 +246,115 @@
   cursor: pointer;
 }
 
-/* Layer chips ---------------------------------------------------------------------------------------------- */
+/* Pending suggestions, and the mode control ------------------------------------------------------------------- */
 
-.sm-layers {
-  display: flex;
-  gap: 6px;
-  padding-top: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.sm-layers::-webkit-scrollbar {
-  display: none;
-}
-
-.sm-sep {
-  width: 1px;
+.sm-pill {
+  display: inline-flex;
+  min-height: 44px;
   flex-shrink: 0;
-  margin: 2px 2px;
-  background: var(--sm-border);
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px 0 10px;
+  border: 1px solid var(--sm-warn);
+  border-radius: 999px;
+  background: var(--sm-warn);
+  color: var(--sm-bg);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
 }
+
+.sm-pill svg {
+  width: 18px;
+  height: 18px;
+}
+
+.sm-pill[aria-expanded='true'] {
+  box-shadow:
+    0 0 0 2px var(--sm-panel),
+    0 0 0 4px var(--sm-warn);
+}
+
+.sm-mode-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 6px;
+}
+
+.sm-mode-row .sm-icon-btn {
+  margin-left: auto;
+}
+
+.sm-mode {
+  display: flex;
+  min-width: 0;
+  max-width: 340px;
+  flex: 1 1 0;
+  overflow: hidden;
+  border: 1px solid var(--sm-border);
+  border-radius: 12px;
+}
+
+.sm-mode-btn {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 44px;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 0;
+  border-left: 1px solid var(--sm-border);
+  background: var(--sm-panel);
+  color: var(--sm-muted);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sm-mode-btn:first-child {
+  border-left: 0;
+}
+
+.sm-mode-btn[aria-pressed='true'] {
+  background: var(--sm-accent);
+  color: var(--sm-bg);
+}
+
+.sm-mode-btn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* When the header is narrow the title gives way, and then the fingerprint count, so the save state, the suggestions
+   and Layers stay on one row. The header's own width counts, not the screen's: a sheet beside the map narrows it. */
+@container (max-width: 540px) {
+  .sm-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    flex: none;
+    clip: rect(0 0 0 0);
+  }
+
+  .sm-save {
+    margin-left: auto;
+  }
+}
+
+@container (max-width: 460px) {
+  .sm-save .sm-muted {
+    display: none;
+  }
+}
+
+/* Chips ----------------------------------------------------------------------------------------------------- */
 
 .sm-chip {
   display: inline-flex;
@@ -264,12 +385,6 @@
   box-shadow: inset 0 0 0 1px var(--sm-accent);
 }
 
-.sm-layers .sm-chip[aria-pressed='false']:not(.toggle) {
-  background: var(--sm-panel-2);
-  color: var(--sm-muted);
-  text-decoration: line-through;
-}
-
 .sm-chip:disabled {
   opacity: 0.45;
   cursor: default;
@@ -292,10 +407,6 @@
   stroke-width: 2.4;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-.sm-dot.type {
-  background: var(--tc);
 }
 
 .sm-count {
@@ -1406,8 +1517,16 @@ select.sm-input {
   font-size: 0.86rem;
 }
 
-.sm-suggest.sm-wifi-item {
+.sm-suggest.sm-suggest-card {
   display: block;
+}
+
+.sm-suggest-card > p {
+  margin: 4px 0;
+}
+
+.sm-suggest-card > .sm-suggest-head {
+  font-weight: 600;
 }
 
 .sm-table {
@@ -1426,6 +1545,113 @@ select.sm-input {
 .sm-table th {
   color: var(--sm-muted);
   font-weight: 600;
+}
+
+.sm-lay-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sm-lay-head .sm-chip {
+  min-width: 56px;
+  min-height: 44px;
+  justify-content: center;
+}
+
+.sm-lay-row {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--sm-border);
+  background: none;
+  color: var(--sm-fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sm-lay-row.nested {
+  padding-left: 34px;
+}
+
+.sm-lay-label {
+  min-width: 0;
+  flex: 1;
+}
+
+.sm-lay-row .sm-chip-glyph {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.sm-lay-row[role='checkbox'][aria-checked='false'] .sm-chip-glyph,
+.sm-lay-row[role='checkbox'][aria-checked='false'] .sm-lay-label {
+  opacity: 0.5;
+}
+
+.sm-tick {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border: 2px solid var(--sm-muted);
+  border-radius: 6px;
+}
+
+.sm-lay-row[aria-checked='true'] .sm-tick {
+  border-color: var(--sm-accent);
+  background: var(--sm-accent);
+}
+
+.sm-lay-row[aria-checked='true'] .sm-tick::after {
+  position: absolute;
+  top: 1px;
+  left: 5px;
+  width: 6px;
+  height: 11px;
+  border: solid var(--sm-bg);
+  border-width: 0 2.5px 2.5px 0;
+  content: '';
+  transform: rotate(45deg);
+}
+
+.sm-switch {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  flex-shrink: 0;
+  border: 1px solid var(--sm-border);
+  border-radius: 13px;
+  background: var(--sm-panel-2);
+}
+
+.sm-switch::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--sm-muted);
+  content: '';
+  transition: left 0.15s;
+}
+
+.sm-lay-row[aria-checked='true'] .sm-switch {
+  border-color: var(--sm-accent);
+  background: var(--sm-accent);
+}
+
+.sm-lay-row[aria-checked='true'] .sm-switch::after {
+  left: 20px;
+  background: var(--sm-bg);
 }
 
 .sm-qa-list {
