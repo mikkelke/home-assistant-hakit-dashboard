@@ -10,7 +10,7 @@ vi.hoisted(() => {
 
 const store = vi.hoisted(() => {
   type State = { areas: Record<string, { area_id: string; name: string }>; hassUrl: string; helpers: { callService: () => void } };
-  let state: State = {
+  const state: State = {
     areas: { kitchen: { area_id: 'kitchen', name: 'Kitchen' } },
     hassUrl: '',
     helpers: { callService: () => {} },
