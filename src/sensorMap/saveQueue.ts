@@ -95,6 +95,7 @@ export class SaveQueue {
   private readonly writer: string;
   private readonly entries: Record<DocKey, Entry>;
   private attempt: Promise<void> | null = null;
+  private readonly live = new Set<string>();
   private error: string | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private disposed = false;
@@ -174,6 +175,7 @@ export class SaveQueue {
     const entry = this.entries[key];
     const sent = this.docs[key];
     const id = this.newId();
+    this.live.add(id);
     let timer: ReturnType<typeof setTimeout> | undefined;
     const late = new Promise<never>((_, reject) => {
       timer = setTimeout(() => reject(new Error('Home Assistant did not answer in time')), WRITE_TIMEOUT_MS);
@@ -182,17 +184,20 @@ export class SaveQueue {
       await Promise.race([this.guardedWrite(key, sent, id), late]);
       entry.base = id;
       entry.acked = this.docs[key] === sent;
-      this.deps.drafts?.clear(key);
+      if (entry.acked) this.deps.drafts?.clear(key);
+      else this.deps.drafts?.save(key, id, this.docs[key]);
     } catch (error) {
       if (error instanceof ChangedElsewhere) entry.conflict = true;
       else this.error = messageOf(error);
     } finally {
       clearTimeout(timer);
+      this.live.delete(id);
     }
   }
 
   private async guardedWrite(key: DocKey, doc: QueueDocs[DocKey], id: string) {
     const stored = stampOf(await this.deps.read(NAMES[key]));
+    if (!this.live.has(id)) throw new Error('The write was abandoned');
     if (stored.id !== this.entries[key].base && stored.writer !== this.writer) throw new ChangedElsewhere();
     await this.deps.write(NAMES[key], { ...doc, write_id: id, writer: this.writer });
   }
@@ -227,6 +232,7 @@ export class SaveQueue {
   dispose() {
     this.saveDrafts();
     this.disposed = true;
+    this.live.clear();
     this.cancelQuiet();
     this.listeners.clear();
   }

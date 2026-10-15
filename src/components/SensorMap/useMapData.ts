@@ -99,12 +99,8 @@ export function useMapData(): { load: MapLoad; suggest: SuggestState; retry: () 
 
   useEffect(
     () => () => {
-      const queue = queueRef.current;
+      queueRef.current?.dispose();
       queueRef.current = null;
-      if (queue) {
-        void queue.flush();
-        queue.dispose();
-      }
     },
     []
   );

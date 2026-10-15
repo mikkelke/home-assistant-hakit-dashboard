@@ -134,6 +134,7 @@ async function open(fake: Fake, user: Promise<User> = Promise.resolve({ is_admin
 const query = (selector: string) => document.querySelector(selector);
 const queryAll = (selector: string) => [...document.querySelectorAll(selector)];
 const writes = (fake: Fake) => fake.sent.filter(message => message.type === 'frontend/set_system_data');
+const draft = () => JSON.parse(window.localStorage.getItem('sensormap-draft-v1:map') ?? 'null');
 const byLabel = (label: string) => document.querySelector(`[aria-label="${label}"]`) as HTMLElement;
 
 function type(input: HTMLInputElement, value: string) {
@@ -398,7 +399,7 @@ describe('leaving a field or the page', () => {
     expect(query('.sm-save')?.className).toContain('saved');
   });
 
-  it('keeps a space typed in an answer, and reaches Home Assistant when the page goes before the field is left', async () => {
+  it('keeps a space typed in an answer, and keeps the answer as a draft when the page goes before the field is left', async () => {
     const fake = fakeConnection(docs());
     await open(fake);
     choose('Questions 1');
@@ -408,7 +409,8 @@ describe('leaving a field or the page', () => {
     type(answer, 'left side');
     await act(async () => root.render(createElement('div')));
     await flush();
-    expect((fake.data.sensor_map as MapDoc).questions[0].answer).toBe('left side');
+    expect(draft()?.doc.questions[0].answer).toBe('left side');
+    expect(writes(fake)).toHaveLength(0);
   });
 });
 
@@ -488,7 +490,6 @@ describe('dragging the selected marker', () => {
 });
 
 describe('unsaved edits when the page goes', () => {
-  const draft = () => JSON.parse(window.localStorage.getItem('sensormap-draft-v1:map') ?? 'null');
   async function leaveFailing() {
     const fake = fakeConnection(docs());
     await open(fake);
@@ -560,7 +561,7 @@ describe('a page that is hidden', () => {
     fake.failWrites = true;
     editDoor('3.5');
     act(() => void window.dispatchEvent(new Event('pagehide')));
-    expect(JSON.parse(window.localStorage.getItem('sensormap-draft-v1:map') ?? 'null')?.doc.devices.door_1.placement.pos.x).toBe(3.5);
+    expect(draft()?.doc.devices.door_1.placement.pos.x).toBe(3.5);
   });
 });
 
@@ -586,7 +587,7 @@ describe('a map changed elsewhere', () => {
     await settle();
     press(marker('Renamed elsewhere'), 'Enter');
     expect(query('.sm-sheet')?.textContent).toContain('Renamed elsewhere');
-    expect(window.localStorage.getItem('sensormap-draft-v1:map')).toBeNull();
+    expect(draft()).toBeNull();
     expect(writes(fake)).toHaveLength(0);
   });
 

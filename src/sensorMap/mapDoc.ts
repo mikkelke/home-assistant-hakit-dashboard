@@ -5,8 +5,8 @@
  *   sensor_map_suggest      written by the CLI: proposed placements and answers
  *   sensor_map_fingerprints written by the map page: a bounded set of BLE fingerprints
  *
- * The page stamps each write with a random `write_id` and the id of its own `writer`, and reads a key before
- * writing it, so a document another writer changed is never overwritten unseen.
+ * Every write, by the page or by the command line, carries a random `write_id` and the id of its `writer`, and
+ * the page reads a key before writing it, so a document another writer changed is never overwritten unseen.
  */
 
 export const SCHEMA_VERSION = 1;
@@ -168,7 +168,7 @@ export interface SuggestLogEntry {
   rejected_at?: string;
 }
 
-/** What the page adds to a document when it writes it. */
+/** What a writer adds to a document when it writes it. */
 export interface WriteStamp {
   write_id?: string;
   writer?: string;

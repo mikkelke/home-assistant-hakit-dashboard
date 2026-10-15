@@ -8,15 +8,22 @@ const move = (n: number, x = n): QueuedOp => ({ target: 'map', op: { kind: 'move
 const print = (id: string): QueuedOp => ({ target: 'fingerprints', op: { kind: 'fingerprint', item: makeFingerprint(id), at: at(1) } });
 const tick = (ms = 0) => vi.advanceTimersByTimeAsync(ms);
 
-/** Home Assistant's system store, with writes that can be held back, refused, or lost after they landed. */
+/** Home Assistant's system store, with reads and writes that can be held back, and writes refused or lost after they landed. */
 function store(initial: Record<string, unknown> = { [MAP_KEY]: makeDoc(), [FINGERPRINTS_KEY]: makeFingerprintDoc() }) {
   const data = new Map(Object.entries(initial));
   const held: (() => void)[] = [];
+  const parked: (() => void)[] = [];
   const ha = {
     data,
     writes: [] as { key: string; value: Record<string, unknown> }[],
     mode: 'land' as 'land' | 'hold' | 'refuse' | 'lose',
-    read: async (key: string) => data.get(key) ?? null,
+    reading: 'land' as 'land' | 'hold',
+    read: (key: string) =>
+      new Promise<unknown>(resolve => {
+        const answer = () => resolve(data.get(key) ?? null);
+        if (ha.reading === 'hold') parked.push(answer);
+        else answer();
+      }),
     write: (key: string, value: unknown) =>
       new Promise<void>((resolve, reject) => {
         ha.writes.push({ key, value: value as Record<string, unknown> });
@@ -27,6 +34,7 @@ function store(initial: Record<string, unknown> = { [MAP_KEY]: makeDoc(), [FINGE
         else land();
       }),
     release: () => held.splice(0).forEach(land => land()),
+    releaseReads: () => parked.splice(0).forEach(answer => answer()),
     stored: (key = MAP_KEY) => data.get(key) as MapDoc & FingerprintDoc,
     x: () => ha.stored().devices.door_1.placement.pos?.x,
   };
@@ -138,6 +146,21 @@ describe('failing', () => {
     expect(ha.writes).toHaveLength(2);
   });
 
+  it('does not let an attempt that timed out write later, however late its read comes back', async () => {
+    const ha = store();
+    const { queue, state } = open(ha);
+    ha.reading = 'hold';
+    queue.apply(move(1, 3));
+    await tick(QUIET_MS + WRITE_TIMEOUT_MS);
+    expect(state()).toBe('failed');
+    ha.reading = 'land';
+    queue.apply(move(2, 4));
+    expect(await queue.flush()).toBe(true);
+    ha.releaseReads();
+    await tick();
+    expect([ha.x(), ha.writes.length, state()]).toEqual([4, 1, 'saved']);
+  });
+
   it('resolves a flush false when the write fails, so a close can be refused, and true when nothing is unsaved', async () => {
     const ha = store();
     const { queue } = open(ha);
@@ -210,19 +233,47 @@ describe('drafts', () => {
     expect(drafts.save.mock.calls[0][2].devices.door_1.placement.pos.x).toBe(5);
   });
 
-  it('is cleared by a write acknowledged after the page is gone', async () => {
+  it('is cleared by the acknowledgement, after the page is gone, of a write that was all there was', async () => {
     const ha = store();
     const { queue, drafts } = open(ha);
     queue.apply(move(1, 5));
     ha.mode = 'hold';
     void queue.flush();
-    queue.dispose();
     await tick();
+    queue.dispose();
     ha.release();
     await tick();
     expect(drafts.save).toHaveBeenCalledTimes(1);
     expect(drafts.clear).toHaveBeenCalledWith('map');
     expect(ha.x()).toBe(5);
+  });
+
+  it('outlives the acknowledgement of an older write, and then has that write as its base', async () => {
+    const ha = store();
+    const { queue, drafts } = open(ha);
+    queue.apply(move(1, 5));
+    ha.mode = 'hold';
+    void queue.flush();
+    await tick();
+    queue.apply(move(2, 6));
+    queue.dispose();
+    ha.release();
+    await tick();
+    expect(drafts.clear).not.toHaveBeenCalled();
+    const [key, base, doc] = drafts.save.mock.calls[drafts.save.mock.calls.length - 1];
+    expect([key, base, doc.devices.door_1.placement.pos.x, ha.x()]).toEqual(['map', 'a-2', 6, 5]);
+  });
+
+  it('is all that is left of a document whose read was still on its way when the page went, and nothing is written', async () => {
+    const ha = store();
+    const { queue, drafts } = open(ha);
+    ha.reading = 'hold';
+    queue.apply(move(1, 5));
+    void queue.flush();
+    queue.dispose();
+    ha.releaseReads();
+    await tick();
+    expect([ha.writes.length, drafts.save.mock.calls.length, drafts.clear.mock.calls.length]).toEqual([0, 1, 0]);
   });
 
   it('is made the local document by restore, and saved like an edit', async () => {

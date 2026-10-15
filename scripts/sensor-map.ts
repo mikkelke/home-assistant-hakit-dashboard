@@ -10,11 +10,13 @@
  * document, and the page reads it live; `--prune` first drops the items the map has already accepted or
  * rejected. `export-fingerprints` merges the current fingerprint set into `<dir>/<date>.json`, so nothing the
  * page later drops is lost. `seed` writes the map once and refuses when the key already holds a document unless
- * `--force`; the key can be a scratch copy, for a trial run.
+ * `--force`; the key can be a scratch copy, for a trial run. Every document written carries a fresh `write_id`
+ * and `writer`, so a page that has the map open notices the change instead of writing over it.
  *
  * VITE_HA_URL and VITE_HA_TOKEN come from the environment, then `.env.development.local`, then `.env`. The
  * token must belong to an administrator: only administrators may write the system store.
  */
+import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import dotenv from 'dotenv';
@@ -29,6 +31,7 @@ import {
   parseSuggestDoc,
   writableByCommand,
   type SuggestDoc,
+  type WriteStamp,
 } from '../src/sensorMap/mapDoc.ts';
 
 dotenv.config({ path: ['.env.development.local', '.env'], quiet: true });
@@ -171,6 +174,7 @@ function readJson(source: string): unknown {
   }
 }
 
+const stamped = <T extends object>(doc: T): T & WriteStamp => ({ ...doc, write_id: randomUUID(), writer: 'cli' });
 const isScratch = (key: string) => key.startsWith(`${MAP_KEY}_scratch`);
 const readableKeys = [MAP_KEY, SUGGEST_KEY, FINGERPRINTS_KEY];
 
@@ -194,7 +198,7 @@ function summary(key: string, doc: unknown): string {
   ].join('\n');
 }
 
-async function run(command: string, args: string[], client: HaClient) {
+export async function run(command: string, args: string[], client: Pick<HaClient, 'get' | 'set'>) {
   const free = positional(args);
   if (command === 'get') {
     const key = free[0] ?? MAP_KEY;
@@ -221,7 +225,7 @@ async function run(command: string, args: string[], client: HaClient) {
       const decided = new Set(parseMapDoc(mapDoc).suggest_log.map(entry => entry.id));
       items = items.filter(item => !decided.has(item.id));
     }
-    const doc = { ...full, items };
+    const doc = stamped({ ...full, items });
     await client.set(SUGGEST_KEY, doc);
     const back = await client.get(SUGGEST_KEY);
     if (canonical(back) !== canonical(doc)) throw new Failure('The suggestion document read back differs from what was written');
@@ -249,7 +253,7 @@ async function run(command: string, args: string[], client: HaClient) {
     if (!free[0]) throw new Failure('seed needs a file');
     const key = option(args, 'key') ?? MAP_KEY;
     if (!writableByCommand('seed', key)) throw new Failure(`seed may write ${MAP_KEY} or a ${MAP_KEY}_scratch key, not ${key}`);
-    const doc = parseMapDoc(readJson(free[0]));
+    const doc = stamped(parseMapDoc(readJson(free[0])));
     const existing = await client.get(key);
     if (existing !== null && !flag(args, 'force')) {
       throw new Failure(`${key} already holds a document; seed refuses to replace it without --force`);
@@ -281,7 +285,7 @@ async function main() {
   }
 }
 
-main().catch(error => {
+const fail = (error: unknown) => {
   if (error instanceof DocError) {
     console.error(`${error.message.split(':')[0]} is not a valid document:`);
     for (const problem of error.problems) console.error(`  ${problem}`);
@@ -289,4 +293,7 @@ main().catch(error => {
   }
   console.error(error instanceof Failure ? error.message : error);
   process.exit(error instanceof Failure ? 1 : 2);
-});
+};
+
+// A test imports this file for `run` and must not start the command line.
+if (!process.env.VITEST) main().catch(fail);
