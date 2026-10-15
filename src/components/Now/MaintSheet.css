@@ -1,0 +1,186 @@
+/* The sheet of a maintenance row on the Now timeline: its numbers, a how-to guide behind the info button,
+   and for a tapped row a Done button that asks first. It is built on the shared ApplianceSheet shell and
+   portaled to document.body, so it sets its own accent. */
+
+.maint-sheet {
+  --appliance-accent: #94a3b8;
+  --appliance-accent-bg: rgba(148, 163, 184, 0.16);
+}
+
+.maint-sheet .appliance-sheet-close {
+  width: 44px !important;
+  height: 44px !important; /* Override index.css's 32px !important. */
+}
+
+.maint-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.maint-detail {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.maint-info {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 1.35;
+  color: rgba(235, 235, 245, 0.6);
+}
+
+.maint-how {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+.maint-how:active {
+  transform: scale(0.97);
+}
+.maint-how svg {
+  font-size: 18px;
+}
+
+.maint-guide {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.maint-warn {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.maint-warn svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  font-size: 18px;
+}
+
+.maint-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding-left: 1.3rem;
+  font-size: 14px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.88);
+}
+.maint-steps li::marker {
+  color: rgba(235, 235, 245, 0.5);
+  font-variant-numeric: tabular-nums;
+}
+
+.maint-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.maint-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 1;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 14px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 120ms var(--ease-out),
+    opacity 120ms;
+}
+.maint-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.maint-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.maint-btn svg {
+  font-size: 20px;
+}
+.maint-btn.is-primary {
+  background: var(--appliance-accent);
+  color: #0b0b0c;
+}
+.maint-btn.is-ghost {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.maint-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.maint-ask {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.maint-done {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.maint-done-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #34d399;
+  font-size: 15px;
+  font-weight: 600;
+}
+.maint-done-text svg {
+  font-size: 20px;
+}
+.maint-done .maint-btn {
+  flex: 0 0 auto;
+}
+
+.maint-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  color: #fb7185;
+}

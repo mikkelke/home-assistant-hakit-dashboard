@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { HouseEventViewer } from '../houseEvents';
-import { canViewerSeeUpcoming, isUpcomingFor, MAX_HOUSE_UPCOMING_ROWS, parseHouseUpcoming, type HouseUpcomingRow } from '../houseUpcoming';
+import {
+  canViewerSeeUpcoming,
+  hasSheet,
+  isUpcomingFor,
+  MAX_HOUSE_UPCOMING_ROWS,
+  parseHouseUpcoming,
+  type HouseUpcomingRow,
+} from '../houseUpcoming';
 
 const MIKKEL: HouseEventViewer = { isAdmin: true, name: 'Mikkel' };
 const KRISTINE: HouseEventViewer = { isAdmin: false, name: 'Kristine' };
@@ -70,6 +77,10 @@ describe('parseHouseUpcoming', () => {
       adminOnly: false,
       users: ['Kristine'],
       skipNext: false,
+      tapDone: false,
+      info: [],
+      steps: [],
+      warn: null,
     });
     expect(rain).toMatchObject({ areaId: 'living_room', adminOnly: false, users: null, chip: null });
     expect(ws90).toMatchObject({ atMs: null, adminOnly: true, users: null, areaId: 'rooftop' });
@@ -107,6 +118,79 @@ describe('parseHouseUpcoming', () => {
     const rows = parse(many);
     expect(rows).toHaveLength(MAX_HOUSE_UPCOMING_ROWS);
     expect(rows[0].icon).toBe('mdi:information-outline');
+  });
+});
+
+/** A tapped maintenance row as the publisher sends it on 15.10.2026. */
+const SHEET_ROW = {
+  id: 'maint:dishwasher:filters',
+  kind: 'maint',
+  at: '2026-12-27T08:00:00+00:00',
+  icon: 'mdi:dishwasher',
+  title: 'Dishwasher filters + spray arms',
+  detail: 'rinse filter + arms, 30 runs left, ~27.12',
+  area: 'kitchen',
+  audience: 'admin',
+  done: 'tap',
+  info: ['Every 30 runs (~2 months)', 'Counting from 15.10'],
+  steps: ['Switch the dishwasher off.', 'Rinse the filters under running water.', 'Refit in reverse.'],
+  warn: 'Never run the dishwasher without the filters and the lower spray arm.',
+};
+
+describe('the sheet of a maintenance row', () => {
+  it('reads the Done button, the info lines, the steps and the safety note', () => {
+    const [row] = parse([SHEET_ROW]);
+    expect(row).toMatchObject({
+      tapDone: true,
+      info: ['Every 30 runs (~2 months)', 'Counting from 15.10'],
+      steps: ['Switch the dishwasher off.', 'Rinse the filters under running water.', 'Refit in reverse.'],
+      warn: 'Never run the dishwasher without the filters and the lower spray arm.',
+      areaId: 'kitchen',
+      adminOnly: true,
+    });
+    expect(hasSheet(row)).toBe(true);
+  });
+
+  it('opens a sheet for a guide alone and for a Done button alone, and for nothing else', () => {
+    const without = (...keys: string[]) => Object.fromEntries(Object.entries(SHEET_ROW).filter(([key]) => !keys.includes(key)));
+    const [guide, done, plain] = parse([without('done'), without('steps', 'warn'), without('done', 'steps', 'warn', 'info')]);
+    expect([hasSheet(guide), hasSheet(done), hasSheet(plain)]).toEqual([true, true, false]);
+    expect(done.warn).toBeNull();
+    expect(plain).toMatchObject({ tapDone: false, info: [], steps: [], warn: null });
+  });
+
+  it('keeps only the non-empty lines and trims them', () => {
+    const [row] = parse([{ ...SHEET_ROW, info: [' one ', '', '  '], steps: ['', ' Rinse. '], warn: '  ' }]);
+    expect(row).toMatchObject({ info: ['one'], steps: ['Rinse.'], warn: null });
+  });
+
+  it('gives only a maintenance row a sheet', () => {
+    const [rain] = parse([{ ...ROWS[1], done: 'tap', info: ['x'], steps: ['Close the door.'], warn: 'Careful.' }]);
+    expect(rain).toMatchObject({ tapDone: false, info: [], steps: [], warn: null });
+    expect(hasSheet(rain)).toBe(false);
+  });
+
+  it('is a Done button only for done "tap"', () => {
+    for (const bad of ['true', 'Tap', '']) {
+      expect(parse([{ ...SHEET_ROW, done: bad }])[0].tapDone, bad).toBe(false);
+    }
+  });
+
+  it('drops a row whose lines are not strings, as for any other field', () => {
+    expect(
+      parse([
+        { ...SHEET_ROW, steps: ['Rinse.', 3] },
+        { ...SHEET_ROW, info: [null] },
+        { ...SHEET_ROW, warn: 5 },
+      ])
+    ).toEqual([]);
+  });
+
+  it('is seen by admins only', () => {
+    const rows = parse([SHEET_ROW]);
+    expect(seenBy(rows, MIKKEL)).toEqual(['maint:dishwasher:filters']);
+    expect(seenBy(rows, KRISTINE)).toEqual([]);
+    expect(seenBy(rows, RESOLVING)).toEqual([]);
   });
 });
 

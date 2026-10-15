@@ -21,7 +21,17 @@ export interface HouseUpcomingRow {
   users: string[] | null;
   /** The next chip passes over it (`next: "skip"`): a row timed at now that can stay so for days. */
   skipNext: boolean;
+  /** A maintenance row an admin closes with a Done button (`done: "tap"`). */
+  tapDone: boolean;
+  /** The short lines of its sheet: the interval, when it was last done. */
+  info: string[];
+  /** What to do, in order, and the safety note that goes with it (`steps`, `warn`). */
+  steps: string[];
+  warn: string | null;
 }
+
+/** Whether a tap on the row opens its sheet instead of its room: it has a Done button or a guide. */
+export const hasSheet = (row: HouseUpcomingRow): boolean => row.tapDone || row.steps.length > 0;
 
 /** The publisher keeps at most this many rows. */
 export const MAX_HOUSE_UPCOMING_ROWS = 30;
@@ -29,6 +39,10 @@ export const MAX_HOUSE_UPCOMING_ROWS = 30;
 const KINDS: readonly string[] = ['rain', 'train', 'maint'];
 
 const text = (value: unknown): string | null => (typeof value === 'string' && value.trim() ? value.trim() : null);
+
+/** The non-empty lines of a list of strings; none for anything else. */
+const lines = (value: unknown): string[] =>
+  Array.isArray(value) ? value.flatMap(line => (typeof line === 'string' && line.trim() ? [line.trim()] : [])) : [];
 
 /** One row, or null when it breaks the contract: every value a string or a list of strings, an id,
  * a known kind and a title, an `at` that parses. A row that names an audience it gets wrong, or a
@@ -51,6 +65,8 @@ function parseRow(raw: unknown): HouseUpcomingRow | null {
   if (listed && (!users?.length || users.length !== listed.length)) return null;
   if (kind === 'train' && !users) return null;
   const adminOnly = kind === 'maint' || row.audience === 'admin';
+  // Only a maintenance row, which only admins see, has a sheet.
+  const sheet = kind === 'maint';
   return {
     id,
     kind,
@@ -63,6 +79,10 @@ function parseRow(raw: unknown): HouseUpcomingRow | null {
     adminOnly,
     users: adminOnly ? null : users,
     skipNext: row.next === 'skip',
+    tapDone: sheet && row.done === 'tap',
+    info: sheet ? lines(row.info) : [],
+    steps: sheet ? lines(row.steps) : [],
+    warn: sheet ? text(row.warn) : null,
   };
 }
 

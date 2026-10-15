@@ -227,6 +227,148 @@ describe('the running appliance card', () => {
   });
 });
 
+describe('a maintenance row with a sheet', () => {
+  const NOW = home(2026, 10, 14, 7, 0);
+  const iso = (ms: number) => new Date(ms).toISOString();
+  const TAPPED = {
+    id: 'maint:dishwasher:filters',
+    kind: 'maint',
+    at: iso(home(2026, 12, 27, 9, 0)),
+    icon: 'mdi:dishwasher',
+    title: 'Dishwasher filters + spray arms',
+    detail: 'rinse filter + arms, 30 runs left, ~27.12',
+    area: 'kitchen',
+    audience: 'admin',
+    done: 'tap',
+    info: ['Every 30 runs (~2 months)', 'Counting from 14.10'],
+    steps: ['Switch the dishwasher off.', 'Rinse the filters under running water.'],
+    warn: 'Never run the dishwasher without the filters.',
+  };
+  const GUIDE_ONLY = {
+    id: 'maint:washer:drum',
+    kind: 'maint',
+    icon: 'mdi:washing-machine',
+    title: 'Washer drum + drawer clean',
+    detail: 'Bomuld 90, empty + a little powder, due, last unknown',
+    area: 'guest_bathroom',
+    audience: 'admin',
+    steps: ['Pull the plug.', 'Start Bomuld 90 C with an empty drum.'],
+  };
+  const BATTERY = {
+    id: 'maint:battery:sensor.ecowitt_battery_8351',
+    kind: 'maint',
+    icon: 'mdi:battery-alert-variant-outline',
+    title: 'Roof weather station',
+    detail: 'replace, 2x AA',
+    area: 'rooftop',
+    audience: 'admin',
+  };
+  const upcoming = (...rows: unknown[]): Entities => ({
+    'sensor.house_upcoming': {
+      entity_id: 'sensor.house_upcoming',
+      state: iso(NOW),
+      attributes: { expires: iso(NOW + 10 * 60_000), rows },
+    },
+    'sun.sun': {
+      entity_id: 'sun.sun',
+      state: 'above_horizon',
+      attributes: { next_rising: '2026-10-15T05:39:15+00:00', next_setting: '2026-10-14T16:13:29+00:00' },
+    },
+  });
+
+  async function openAs(isAdmin: boolean, ...rows: unknown[]) {
+    user.current = { is_admin: isAdmin, name: isAdmin ? 'Mikkel' : 'Kristine' };
+    vi.setSystemTime(NOW);
+    const opened: string[] = [];
+    const send = vi.fn(() => Promise.resolve(null));
+    store.setState({ entities: upcoming(...rows), connection: { sendMessagePromise: send } });
+    await act(async () => {
+      root.render(
+        createElement(NowView, {
+          key: `${isAdmin}`,
+          focus: null,
+          arrival: 'cold',
+          onBack: () => {},
+          onOpenRoom: areaId => opened.push(areaId),
+        })
+      );
+    });
+    return { opened, send };
+  }
+
+  const row = (id: string) => document.querySelector<HTMLButtonElement>(`[data-row-id="${id}"] button`);
+  const sheet = () => document.querySelector('.maint-sheet');
+  const sheetText = () => document.querySelector('.maint-body')?.textContent ?? '';
+
+  it('opens the sheet of a tapped row instead of its room', async () => {
+    const { opened } = await openAs(true, TAPPED, BATTERY);
+    expect(sheet()).toBeNull();
+    await act(async () => row(TAPPED.id)?.click());
+    expect(sheet()).not.toBeNull();
+    expect(opened).toEqual([]);
+    expect(document.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Dishwasher filters + spray arms');
+    expect(sheetText()).toContain('rinse filter + arms, 30 runs left, ~27.12');
+    expect(sheetText()).toContain('Done');
+  });
+
+  it('still opens the room of a maintenance row that has no sheet', async () => {
+    const { opened } = await openAs(true, TAPPED, BATTERY);
+    await act(async () => row(BATTERY.id)?.click());
+    expect(opened).toEqual(['rooftop']);
+    expect(sheet()).toBeNull();
+  });
+
+  it('opens a guide without a Done button for a row that is closed some other way, and it opens the room from there', async () => {
+    const { opened } = await openAs(true, GUIDE_ONLY);
+    await act(async () => row(GUIDE_ONLY.id)?.click());
+    expect(sheet()).not.toBeNull();
+    expect([...document.querySelectorAll('.maint-body button')].map(button => button.textContent)).toEqual(['How to', 'Open room']);
+    await act(async () => document.querySelector<HTMLButtonElement>('.maint-body .maint-btn')?.click());
+    expect(opened).toEqual(['guest_bathroom']);
+  });
+
+  it('fires the Done event for the row it was opened on', async () => {
+    const { send } = await openAs(true, TAPPED);
+    await act(async () => row(TAPPED.id)?.click());
+    const press = async (label: string) =>
+      act(async () => {
+        [...document.querySelectorAll<HTMLButtonElement>('.maint-body button')]
+          .find(button => button.textContent?.includes(label))
+          ?.click();
+      });
+    await press('Done');
+    await press('Yes, done');
+    expect(send).toHaveBeenCalledExactlyOnceWith({
+      type: 'fire_event',
+      event_type: 'house_upcoming_done',
+      event_data: { row: 'maint:dishwasher:filters' },
+    });
+  });
+
+  it('follows the row when it changes and closes with it when it is gone', async () => {
+    await openAs(true, TAPPED);
+    await act(async () => row(TAPPED.id)?.click());
+    await act(async () => {
+      store.setState({
+        entities: upcoming({ ...TAPPED, detail: 'rinse filter + arms, 30 runs left, ~14.12', info: ['Done 14.10, no runs since'] }),
+      });
+    });
+    expect(sheetText()).toContain('~14.12');
+    expect(sheetText()).toContain('Done 14.10, no runs since');
+    await act(async () => {
+      store.setState({ entities: upcoming(BATTERY) });
+    });
+    expect(sheet()).toBeNull();
+  });
+
+  it('is never reached by a housemate, who does not see the row', async () => {
+    await openAs(false, TAPPED, GUIDE_ONLY);
+    expect(row(TAPPED.id)).toBeNull();
+    expect(row(GUIDE_ONLY.id)).toBeNull();
+    expect(sheet()).toBeNull();
+  });
+});
+
 describe('rows from sensor.house_upcoming', () => {
   const NOW = home(2026, 10, 14, 7, 0);
   const iso = (ms: number) => new Date(ms).toISOString();
