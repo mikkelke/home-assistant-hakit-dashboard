@@ -156,6 +156,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   const [drag, setDrag] = useState<DragPreview | null>(null);
   const [capture, setCapture] = useState<Capture>({ phase: 'idle' });
   const [captureError, setCaptureError] = useState<string | null>(null);
+  const [weakOnly, setWeakOnly] = useState(false);
 
   const docRef = useRef(doc);
   const lastStampRef = useRef(0);
@@ -516,6 +517,8 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
     }
   };
 
+  const weakCount = prints.items.filter(item => item.weak).length;
+  const shownPrints = useMemo(() => (weakOnly ? prints.items.filter(item => item.weak) : prints.items), [weakOnly, prints.items]);
   const unanswered = doc.questions.filter(question => !question.answer).length;
   const typeCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -613,6 +616,11 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
                 {name === 'suggestions' && pendingItems.length > 0 ? `Suggestions ${pendingItems.length}` : TOGGLE_LABEL[name]}
               </button>
             ))}
+            {layers.fingerprints && weakCount > 0 && (
+              <button type='button' className='sm-chip small toggle' aria-pressed={weakOnly} onClick={() => setWeakOnly(value => !value)}>
+                Weak only {weakCount}
+              </button>
+            )}
             <button type='button' className='sm-chip small' onClick={() => setSheet({ kind: 'questions', focus: null })}>
               Questions {unanswered > 0 && <span className='sm-count'>{unanswered}</span>}
             </button>
@@ -640,7 +648,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
             drag={drag}
             scannerSources={scannerSources}
             ghosts={ghosts}
-            fingerprints={prints.items}
+            fingerprints={shownPrints}
             phoneAreas={areas}
             crosshair={crosshair}
             onActivate={activate}

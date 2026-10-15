@@ -2,7 +2,7 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
-import { makeDoc, makeFingerprintDoc, makeSuggestDoc } from '../../../sensorMap/__tests__/docFixtures';
+import { makeDoc, makeFingerprint, makeFingerprintDoc, makeSuggestDoc } from '../../../sensorMap/__tests__/docFixtures';
 import type { MapDoc } from '../../../sensorMap/mapDoc';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -247,6 +247,34 @@ describe('sheets and history', () => {
     const written = writes(fake).at(-1)?.value as MapDoc;
     expect(written.devices.door_1.placement.pos).toEqual({ x: 4, y: 2.5, h: 1.9 });
     expect(written.suggest_log.map(entry => entry.id)).toEqual(['s-1']);
+  });
+});
+
+describe('fingerprints on the plan', () => {
+  it('draws each as a cross, hollow when weak, and lists the weak ones under a filter', async () => {
+    const prints = makeFingerprintDoc();
+    prints.items = [makeFingerprint('fp-a'), makeFingerprint('fp-b', { weak: true, pos: { x: 3, y: 3, h: 1 } }), makeFingerprint('fp-c')];
+    const fake = fakeConnection({ ...docs(), sensor_map_fingerprints: prints });
+    await open(fake);
+    expect(queryAll('.sm-print')).toHaveLength(3);
+    expect(queryAll('.sm-print.weak')).toHaveLength(1);
+    expect(query('.sm-save')?.textContent).toContain('3 fingerprints');
+
+    const filter = queryAll('.sm-chip').find(node => node.textContent === 'Weak only 1') as HTMLElement;
+    act(() => filter.click());
+    expect(queryAll('.sm-print')).toHaveLength(1);
+    expect(query('.sm-print.weak')).not.toBeNull();
+    act(() => filter.click());
+    expect(queryAll('.sm-print')).toHaveLength(3);
+  });
+
+  it('offers no weak filter when every fingerprint is strong', async () => {
+    const prints = makeFingerprintDoc();
+    prints.items = [makeFingerprint('fp-a')];
+    await open(fakeConnection({ ...docs(), sensor_map_fingerprints: prints }));
+    expect(queryAll('.sm-chip').some(node => node.textContent?.startsWith('Weak only'))).toBe(false);
+    expect(query('.sm-save')?.textContent).toContain('1 fingerprint');
+    expect(query('.sm-save')?.textContent).not.toContain('1 fingerprints');
   });
 });
 
