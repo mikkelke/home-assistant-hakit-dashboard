@@ -907,7 +907,29 @@ export function SonosPlayer({
       (window.top ?? window).location.href = SPOTIFY_ANDROID_INTENT;
     } else {
       e.preventDefault();
-      window.open('https://open.spotify.com', '_blank');
+      let appOpened = false;
+      const startTime = Date.now();
+      const handleBlur = () => {
+        appOpened = true;
+        window.removeEventListener('blur', handleBlur);
+      };
+      window.addEventListener('blur', handleBlur);
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = 'spotify://';
+      document.body.appendChild(iframe);
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 100);
+      setTimeout(() => {
+        window.removeEventListener('blur', handleBlur);
+        if (!appOpened && document.hasFocus()) {
+          const elapsed = Date.now() - startTime;
+          if (elapsed > 800 && !isEmbedded) {
+            window.open('https://open.spotify.com', '_blank');
+          }
+        }
+      }, 1200);
     }
   };
 
