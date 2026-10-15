@@ -107,6 +107,20 @@ describe('useLongPress', () => {
     expect(onHold).not.toHaveBeenCalled();
   });
 
+  it("fires at the platform's own long press and not again when the timer would have", () => {
+    pointer('pointerdown');
+    wait(500);
+    const menu = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    act(() => {
+      button.dispatchEvent(menu);
+    });
+    expect(onHold).toHaveBeenCalledTimes(1);
+    wait(2000);
+    pointer('pointerup');
+    click();
+    expect(counts()).toEqual([1, 0]);
+  });
+
   it('keeps the context menu away', () => {
     const menu = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
     act(() => {

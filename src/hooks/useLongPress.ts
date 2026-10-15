@@ -12,7 +12,9 @@ interface Press {
 
 /**
  * Press-and-hold on a control that also has a tap. `onHold` fires once, `holdMs` after the press, unless the pointer
- * is lifted, drifts past the slop or is cancelled (the browser taking the touch over for a scroll) first. A hold
+ * is lifted, drifts past the slop or is cancelled (the browser taking the touch over for a scroll) first. Where the
+ * platform recognises a long press itself (Android fires `contextmenu` and its own long-press haptic), the hold fires
+ * then instead, so the system buzz and the hold land together. A hold
  * swallows the click its release would otherwise produce, so the control's own `onClick` stays purely the tap.
  * Spread the returned props onto the element.
  */
@@ -33,18 +35,19 @@ export function useLongPress(onHold: () => void, holdMs = 1500) {
     if (press.current?.id === e.pointerId) cancel();
   };
 
+  const fire = () => {
+    cancel();
+    held.current = true;
+    onHold();
+  };
+
   return {
     onPointerDown: (e: ReactPointerEvent) => {
       cancel();
       held.current = false;
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       press.current = { id: e.pointerId, x: e.clientX, y: e.clientY };
-      timer.current = window.setTimeout(() => {
-        timer.current = null;
-        press.current = null;
-        held.current = true;
-        onHold();
-      }, holdMs);
+      timer.current = window.setTimeout(fire, holdMs);
     },
     onPointerMove: (e: ReactPointerEvent) => {
       const p = press.current;
@@ -53,7 +56,10 @@ export function useLongPress(onHold: () => void, holdMs = 1500) {
     onPointerUp: end,
     onPointerCancel: end,
     onPointerLeave: end,
-    onContextMenu: (e: ReactMouseEvent) => e.preventDefault(),
+    onContextMenu: (e: ReactMouseEvent) => {
+      e.preventDefault();
+      if (press.current) fire();
+    },
     onClickCapture: (e: ReactMouseEvent) => {
       if (!held.current) return;
       held.current = false;

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Icon } from '@iconify/react';
+import { Icon, loadIcons } from '@iconify/react';
 import type { SonosPlayerProps } from '../../types';
 import { FAMILY_ZONE, SONOS_SPEAKERS, rawSonosEntityId } from '../../config/speakers';
 import { RADIO_STATIONS } from '../../config/radio';
@@ -155,11 +155,24 @@ export function SonosPlayer({
   // group-volume icon toggles party mode, which switches the family-room volume sync off; the icon becomes a party
   // popper while it is on. Does nothing until the helper exists.
   const partyState = entities?.[FAMILY_SYNC_PARTY_ENTITY]?.state;
-  const partyOn = partyState === 'on';
+  const [partyShown, setPartyShown] = useState<boolean | null>(null);
+  const partyOn = partyShown ?? partyState === 'on';
+  useEffect(() => {
+    loadIcons(['mdi:party-popper']);
+  }, []);
+  useEffect(() => {
+    setPartyShown(null);
+  }, [partyState]);
+  useEffect(() => {
+    if (partyShown === null) return;
+    const t = window.setTimeout(() => setPartyShown(null), 3000);
+    return () => window.clearTimeout(t);
+  }, [partyShown]);
   const syncPartyHold = useLongPress(() => {
     if (!callService || (partyState !== 'on' && partyState !== 'off')) return;
     hapticTick();
-    callService({ domain: 'input_boolean', service: 'toggle', target: { entity_id: FAMILY_SYNC_PARTY_ENTITY } });
+    setPartyShown(!partyOn);
+    callService({ domain: 'input_boolean', service: partyOn ? 'turn_off' : 'turn_on', target: { entity_id: FAMILY_SYNC_PARTY_ENTITY } });
   });
 
   // Use safe fallbacks when player is missing so all hooks run unconditionally (avoids React #300 when switching rooms)

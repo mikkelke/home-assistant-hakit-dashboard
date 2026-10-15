@@ -20,7 +20,7 @@ import {
   visibleHouseEvents,
   type HouseEpisode,
 } from '../../home/houseEvents';
-import { canViewerSeeUpcoming, parseHouseUpcoming } from '../../home/houseUpcoming';
+import { canViewerSeeUpcoming, hasSheet, parseHouseUpcoming } from '../../home/houseUpcoming';
 import { MARKERS } from '../../home/markers';
 import { MotionScopeContext, useMotionSlot } from '../../home/motionBudget';
 import { linkedRing, NOW_RESOLVE_GIVE_UP_MS, resolveNowFocus, resolveNowItem, type NowResolution } from '../../home/nowResolve';
@@ -52,6 +52,7 @@ import {
   type RunningRow,
   type UpRow,
 } from './nowModel';
+import { MaintSheet } from './MaintSheet';
 import { useRoberMaps } from './useRoberMaps';
 import './NowView.css';
 
@@ -371,8 +372,19 @@ function PlanCard({
   );
 }
 
-/** A `sensor.house_upcoming` row, drawn like the Rober2 card: no buttons, a tap opens its room. */
-function UpCard({ row, focused, onOpenRoom }: { row: UpRow; focused: boolean; onOpenRoom: (areaId: string) => void }) {
+/** A `sensor.house_upcoming` row, drawn like the Rober2 card: no buttons, a tap opens its sheet when it has one
+ * (a maintenance row with a guide or a Done button), else its room. */
+function UpCard({
+  row,
+  focused,
+  onOpenRoom,
+  onOpenSheet,
+}: {
+  row: UpRow;
+  focused: boolean;
+  onOpenRoom: (areaId: string) => void;
+  onOpenSheet: (id: string) => void;
+}) {
   const up = row.row;
   const tone = UP_TONES[up.kind];
   return (
@@ -380,6 +392,7 @@ function UpCard({ row, focused, onOpenRoom }: { row: UpRow; focused: boolean; on
       <RowBody
         areaId={up.areaId}
         onOpenRoom={onOpenRoom}
+        onTap={hasSheet(up) ? () => onOpenSheet(up.id) : undefined}
         className='now-card'
         label={[up.title, up.detail, up.chip].filter(Boolean).join(', ')}
       >
@@ -482,6 +495,9 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
     arrival === 'warm' && itemId ? (episodes.find(episode => episode.id === itemId && episode.kind === 'ring') ?? null) : null
   );
   const [roomMaps, setRoomMaps] = useState<{ maps: MapEntry[]; index: number } | null>(null);
+  // The row whose sheet is open, by id: the sheet reads the live row, so it follows a Done and closes with the row.
+  const [sheetId, setSheetId] = useState<string | null>(null);
+  const sheetRow = sheetId == null ? null : (upRows.find(row => row.id === sheetId && hasSheet(row)) ?? null);
   const mapWhen = (map: MapEntry) => {
     const atMs = mapEntryMs(map);
     return atMs == null ? '' : `${dayLabel(atMs, nowMs)} ${formatHomeClock(atMs)}`;
@@ -607,7 +623,7 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
                 {row.type === 'marker' ? (
                   <Marker row={row} focused={isFocused(row.id)} />
                 ) : row.type === 'up' ? (
-                  <UpCard row={row} focused={isFocused(row.id)} onOpenRoom={onOpenRoom} />
+                  <UpCard row={row} focused={isFocused(row.id)} onOpenRoom={onOpenRoom} onOpenSheet={setSheetId} />
                 ) : (
                   <PlanCard row={row} isAdmin={viewer.isAdmin === true} focused={isFocused(row.id)} onOpenRoom={onOpenRoom} />
                 )}
@@ -622,6 +638,7 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
           <RingSheet episode={ring} onClose={() => setRing(null)} />
         </LazyBoundary>
       )}
+      {sheetRow && <MaintSheet row={sheetRow} isAdmin={viewer.isAdmin === true} onClose={() => setSheetId(null)} onOpenRoom={onOpenRoom} />}
       {roomMaps && (
         <LazyBoundary fallback={null} error={null}>
           <RoomMapModal
