@@ -10,7 +10,7 @@ export type States = Readonly<Record<string, EntityLike | undefined>>;
 export const POWER_ON_W = 5;
 
 export interface Live {
-  /** Something is happening at this device: presence, a person in the bed, a load running, music playing, smoke. */
+  /** Something is happening at this device: presence, a person in the bed, vibration, a load running, music playing, smoke. */
   lit: boolean;
   pir: boolean;
   open: boolean;
@@ -52,6 +52,7 @@ export function liveOf(bindings: Readonly<Record<string, string>>, states: State
     lit:
       isOn(entity('presence')) ||
       isOn(entity('bed')) ||
+      isOn(entity('vibration')) ||
       (power !== null && power > POWER_ON_W) ||
       entity('media_player')?.state === 'playing' ||
       smoke,

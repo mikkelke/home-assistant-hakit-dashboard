@@ -48,6 +48,11 @@ describe('live state by binding', () => {
     expect(liveOf({ smoke: 'binary_sensor.s' }, states({ 'binary_sensor.s': 'on' }))).toMatchObject({ lit: true, alert: true });
   });
 
+  it('lights a vibration sensor while it senses vibration', () => {
+    expect(liveOf({ vibration: 'binary_sensor.v' }, states({ 'binary_sensor.v': 'on' })).lit).toBe(true);
+    expect(liveOf({ vibration: 'binary_sensor.v' }, states({ 'binary_sensor.v': 'off' })).lit).toBe(false);
+  });
+
   it('formats a temperature from a sensor or the reading of a climate entity', () => {
     expect(liveOf({ temperature: 'sensor.t' }, states({ 'sensor.t': '21.46' })).temperature).toBe('21.5°');
     expect(
