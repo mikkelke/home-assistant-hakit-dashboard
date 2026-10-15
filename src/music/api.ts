@@ -28,6 +28,12 @@ export interface Podcast {
   imageId: string | null;
 }
 
+export interface Playlist {
+  uri: string;
+  name: string;
+  imageId: string | null;
+}
+
 export interface Episode {
   /** The episode's own uri. Playing a podcast uri instead starts at its oldest unplayed episode. */
   uri: string;
@@ -93,6 +99,15 @@ function toPodcast(raw: unknown): Podcast | null {
   return item && uri && itemId && provider && name ? { uri, itemId, provider, name, imageId: imageIdOf(item) } : null;
 }
 
+/** Only playlists that live on Spotify; the ones Music Assistant generates itself have no Spotify mapping. */
+function toSpotifyPlaylist(raw: unknown): Playlist | null {
+  const item = record(raw);
+  const uri = text(item?.uri);
+  const name = text(item?.name);
+  const onSpotify = list(item?.provider_mappings).some(mapping => record(mapping)?.provider_domain === 'spotify');
+  return item && uri && name && onSpotify ? { uri, name, imageId: imageIdOf(item) } : null;
+}
+
 function toEpisode(raw: unknown): Episode | null {
   const item = record(raw);
   const uri = text(item?.uri);
@@ -132,6 +147,13 @@ export async function fetchRadios(connection: BridgeConnection): Promise<Radio[]
 export async function fetchPodcasts(connection: BridgeConnection): Promise<Podcast[]> {
   return list(await callBridge(connection, 'music/podcasts/library_items'))
     .map(toPodcast)
+    .filter(present);
+}
+
+/** The viewer's Spotify playlists, the most recently played one first. */
+export async function fetchSpotifyPlaylists(connection: BridgeConnection): Promise<Playlist[]> {
+  return list(await callBridge(connection, 'music/playlists/library_items', { order_by: 'last_played_desc' }))
+    .map(toSpotifyPlaylist)
     .filter(present);
 }
 

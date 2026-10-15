@@ -4,6 +4,7 @@ import {
   fetchInProgress,
   fetchPodcasts,
   fetchRadios,
+  fetchSpotifyPlaylists,
   maImageUrl,
   mediaKindOf,
   newestFirst,
@@ -13,6 +14,7 @@ import {
 } from '../api';
 import episodes from './fixtures/episodes.json';
 import inProgress from './fixtures/in-progress.json';
+import playlists from './fixtures/playlists.json';
 import podcasts from './fixtures/podcasts.json';
 import radios from './fixtures/radios.json';
 
@@ -88,6 +90,46 @@ describe('the podcast library', () => {
       imageId: null,
     });
     expect(shows[1].imageId).toBe('podcast5proxy');
+  });
+});
+
+describe('the Spotify playlists', () => {
+  it('are asked for as a music_bridge/call, most recently played first', async () => {
+    const { connection, sent } = bridge({ 'music/playlists/library_items': playlists });
+    await fetchSpotifyPlaylists(connection);
+    expect(sent).toEqual([{ type: 'music_bridge/call', command: 'music/playlists/library_items', args: { order_by: 'last_played_desc' } }]);
+  });
+
+  it('keep Music Assistant order and read the library uri, name and the image of metadata.images', async () => {
+    const { connection } = bridge({ 'music/playlists/library_items': playlists });
+    const lists = await fetchSpotifyPlaylists(connection);
+    expect(lists[0]).toEqual({ uri: 'library://playlist/12', name: 'Fredagsmix', imageId: 'playlist12proxy' });
+    expect(lists.map(p => p.name)).toEqual(['Fredagsmix', 'Morgenkaffe', 'Løbeture', 'Efterårsdage']);
+  });
+
+  it('leave out the playlists Music Assistant makes up itself', async () => {
+    const { connection } = bridge({ 'music/playlists/library_items': playlists });
+    const lists = await fetchSpotifyPlaylists(connection);
+    expect(lists.map(p => p.uri)).not.toContain('library://playlist/3');
+  });
+
+  it('have no image for a playlist without one', async () => {
+    const { connection } = bridge({ 'music/playlists/library_items': playlists });
+    expect((await fetchSpotifyPlaylists(connection)).find(p => p.name === 'Løbeture')?.imageId).toBeNull();
+  });
+
+  it('are none for a viewer whose Music Assistant has none', async () => {
+    expect(await fetchSpotifyPlaylists(bridge({ 'music/playlists/library_items': [] }).connection)).toEqual([]);
+  });
+
+  it('skip entries that are not playlists, and answer nothing for an answer that is not a list', async () => {
+    const { connection } = bridge({ 'music/playlists/library_items': [null, 7, 'x', {}, { uri: 'library://playlist/1' }, playlists[0]] });
+    expect((await fetchSpotifyPlaylists(connection)).map(p => p.uri)).toEqual(['library://playlist/12']);
+    expect(await fetchSpotifyPlaylists(bridge({ 'music/playlists/library_items': { items: playlists } }).connection)).toEqual([]);
+  });
+
+  it('reject when the bridge does', async () => {
+    await expect(fetchSpotifyPlaylists(bridge({}).connection)).rejects.toThrow('unknown command');
   });
 });
 

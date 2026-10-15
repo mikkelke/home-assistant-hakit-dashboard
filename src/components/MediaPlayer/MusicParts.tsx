@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Icon } from '@iconify/react';
-import { maImageUrl, type Episode, type Podcast, type ResumeItem } from '../../music/api';
+import { maImageUrl, type Episode, type Playlist, type Podcast, type ResumeItem } from '../../music/api';
 import { episodeMark, formatReleased, formatRunTime } from '../../music/view';
 
 /** Artwork from Music Assistant; `fallback` stands in while there is none and when it will not load. */
@@ -45,6 +45,28 @@ export function PodcastRow({ podcast, onOpen }: { podcast: Podcast; onOpen: () =
       <Art imageId={podcast.imageId} className='sonos-row-cover' fallback={podcastCover} />
       <span className='sonos-row-title'>{podcast.name}</span>
       <Icon icon='mdi:chevron-right' className='sonos-row-chev' aria-hidden='true' />
+    </button>
+  );
+}
+
+const playlistCover = (
+  <span className='sonos-row-cover sonos-row-cover--empty'>
+    <Icon icon='mdi:playlist-music' aria-hidden='true' />
+  </span>
+);
+
+export function PlaylistRow({ playlist, starting, onPlay }: { playlist: Playlist; starting: boolean; onPlay: () => void }) {
+  return (
+    <button type='button' className='sonos-row' onClick={onPlay}>
+      <span className='sonos-row-art'>
+        <Art imageId={playlist.imageId} className='sonos-row-cover' fallback={playlistCover} />
+        {starting && (
+          <span className='sonos-row-badge'>
+            <Spinner />
+          </span>
+        )}
+      </span>
+      <span className='sonos-row-title'>{playlist.name}</span>
     </button>
   );
 }

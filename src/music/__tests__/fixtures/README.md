@@ -7,6 +7,9 @@ ignores, so the readers are tested against the noise as well.
 - `radios.json`: `music/radios/library_items`. Six stations in Music Assistant's order, two of them favorites,
   one with no image.
 - `podcasts.json`: `music/podcasts/library_items`. Four shows; one has an empty `metadata`, so no image.
+- `playlists.json`: `music/playlists/library_items`. Four Spotify playlists, the most recently played first (the
+  order the dashboard asks for), one with no image, and one of Music Assistant's own generated playlists, which
+  has no Spotify mapping.
 - `episodes.json`: `music/podcasts/podcast_episodes` for the first show. Six episodes in no particular order:
   one unfinished, one played, one with a length of 0, one with no release date, two released at the same moment.
 - `in-progress.json`: `music/in_progress_items`. These are short `ItemMapping` objects: the image sits in `image`,

@@ -9,9 +9,9 @@ import { useLocalStorageBoolean, useLongPress, useModalBackButton, useSwipeToClo
 import { phonePlayerOf } from '../../home/household';
 import { maImageUrl, mediaKindOf, playMedia } from '../../music/api';
 import { queueIdFor } from '../../music/queue';
-import { useEpisodes, useLibrary } from '../../music/useLibrary';
+import { useEpisodes, useLibrary, usePlaylists } from '../../music/useLibrary';
 import { favoritesFirst, podcastsByName, radioLabel } from '../../music/view';
-import { Art, EpisodeRow, MusicNote, PodcastRow, ResumeRow } from './MusicParts';
+import { Art, EpisodeRow, MusicNote, PlaylistRow, PodcastRow, ResumeRow } from './MusicParts';
 import { VolumeStrip } from './VolumeStrip';
 import { isUnsettled, runningVolume, sendVolume, type SentVolume } from './sentVolume';
 import './SonosPlayer.css';
@@ -83,6 +83,12 @@ interface SonosCardProps extends SonosPlayerProps {
 const SPOTIFY_ANDROID_INTENT =
   'intent://open/#Intent;scheme=spotify;package=com.spotify.music;S.browser_fallback_url=https%3A%2F%2Fopen.spotify.com;end';
 
+const SHEET_PAGES = {
+  podcasts: { icon: 'mdi:podcast', title: 'Podcasts', glyphClass: 'is-podcast' },
+  spotify: { icon: 'mdi:spotify', title: 'Spotify', glyphClass: 'is-spotify' },
+};
+type SheetPage = keyof typeof SHEET_PAGES;
+
 export function SonosPlayer({
   entityId,
   entities,
@@ -97,7 +103,7 @@ export function SonosPlayer({
   const topSlop = useTouchScrollSlopGuard();
   const viewer = useViewer();
   const [showGroupModal, setShowGroupModal] = useState(false);
-  // The Source sheet: one pop-up with three faces - the source grid, the podcast feed list,
+  // The Source sheet: one pop-up with four faces - the source grid, the Spotify playlists, the podcast feed list,
   // and a feed's episodes. Same manual back/history machinery the podcast modal always used.
   const [showSourcePicker, setShowSourcePicker] = useState(false);
   const sourceSheetOpenedAt = useRef<number>(0);
@@ -116,7 +122,9 @@ export function SonosPlayer({
   // from it, so rapid taps accumulate and a dragged slider holds; once HA settles or something else moves the speaker
   // it is dropped and the live level is used.
   const [sentVolumes, setSentVolumes] = useState<Record<string, SentVolume>>({});
+  // On for every page above the source grid; `sheetPage` says which one.
   const [showPodcastModal, setShowPodcastModal] = useState(false);
+  const [sheetPage, setSheetPage] = useState<SheetPage>('podcasts');
   const podcastModalOpenedAt = useRef<number>(0);
   /** Set synchronously on open so modalBackButton beats React re-render (embed/spurious popstate). */
   const podcastPendingOpenRef = useRef(false);
@@ -132,6 +140,7 @@ export function SonosPlayer({
   const startAttempt = useRef(0);
   const connection = useHass(s => s.connection);
   const library = useLibrary(showSourcePicker || showPodcastModal);
+  const playlists = usePlaylists(showSourcePicker || showPodcastModal);
   const selectedPodcast = (library.status === 'ready' && library.data.podcasts.find(p => p.uri === selectedPodcastUri)) || null;
   const episodes = useEpisodes(showPodcastModal && viewingEpisodes, selectedPodcast);
   const [seekerPreview, setSeekerPreview] = useState<number | null>(null); // position in seconds while dragging
@@ -793,9 +802,10 @@ export function SonosPlayer({
     }
   };
 
-  const handleOpenPodcastsPage = () => {
+  const openSheetPage = (page: SheetPage) => {
     podcastModalOpenedAt.current = Date.now();
     podcastPendingOpenRef.current = true;
+    setSheetPage(page);
     setShowPodcastModal(true);
     setViewingEpisodes(false);
     setSelectedPodcastUri(null);
@@ -808,7 +818,10 @@ export function SonosPlayer({
     }
   };
 
-  /** Flips the Podcasts page away; the Source sheet underneath stays open. */
+  const handleOpenPodcastsPage = () => openSheetPage('podcasts');
+  const handleOpenSpotifyPage = () => openSheetPage('spotify');
+
+  /** Flips the Podcasts or Spotify page away; the Source sheet underneath stays open. */
   const flipBackToSourceGrid = () => {
     podcastPendingOpenRef.current = false;
     setShowPodcastModal(false);
@@ -1078,6 +1091,12 @@ export function SonosPlayer({
   // else from today's Inputs list survives as a chip under the grid.
   const tvSource = inputSources.find(isTVSourceName) ?? inputSources[0];
   const otherInputSources = inputSources.filter(s => s !== tvSource);
+
+  // Spotify stays on offer when the playlists cannot be fetched, so its app is still one tap away; a viewer whose Music
+  // Assistant has none gets no Spotify tile.
+  const spotifyTile = playlists.status === 'failed' || (playlists.status === 'ready' && playlists.data.length > 0);
+  const pageLook = showPodcastModal ? SHEET_PAGES[sheetPage] : null;
+  const onSpotifyPage = showPodcastModal && sheetPage === 'spotify';
 
   // Group volume row only earns its place once there are 2+ members actually shown in the group.
   const groupVolumeEligibleCount = pickerSpeakers.filter(sp => {
@@ -1443,7 +1462,7 @@ export function SonosPlayer({
         </div>
       )}
 
-      {/* Source sheet - one pop-up, three faces: the grid, the podcasts, a podcast's episodes */}
+      {/* Source sheet - one pop-up, four faces: the grid, the Spotify playlists, the podcasts, a podcast's episodes */}
       {(showSourcePicker || showPodcastModal) && (
         <div
           className='sonos-modal-overlay'
@@ -1470,12 +1489,15 @@ export function SonosPlayer({
                   <Icon icon='mdi:chevron-left' />
                 </button>
               )}
-              <span className={`sonos-glyph ${showPodcastModal ? 'is-podcast' : ''}`}>
-                <Icon icon={showPodcastModal ? 'mdi:podcast' : 'mdi:speaker'} aria-hidden='true' />
+              <span className={`sonos-glyph ${pageLook?.glyphClass ?? ''}`}>
+                <Icon icon={pageLook?.icon ?? 'mdi:speaker'} aria-hidden='true' />
               </span>
-              <span className='sonos-title'>
-                {viewingEpisodes ? selectedPodcast?.name || 'Episodes' : showPodcastModal ? 'Podcasts' : 'Source'}
-              </span>
+              <span className='sonos-title'>{viewingEpisodes ? selectedPodcast?.name || 'Episodes' : (pageLook?.title ?? 'Source')}</span>
+              {onSpotifyPage && (
+                <button className='sonos-sheet-action' onClick={handleSpotifyClick} aria-label='Open Spotify'>
+                  <Icon icon='mdi:open-in-new' />
+                </button>
+              )}
               <button className='sonos-sheet-close modal-close-button' onClick={handleCloseSourceSheet} aria-label='Close'>
                 <Icon icon='mdi:close' />
               </button>
@@ -1485,17 +1507,19 @@ export function SonosPlayer({
               {!showPodcastModal ? (
                 <>
                   <div className='sonos-srcgrid'>
-                    <div className='sonos-srctile'>
-                      <button
-                        type='button'
-                        className='sonos-srcbtn sonos-srcbtn--bare'
-                        onClick={handleSpotifyClick}
-                        aria-label='Open Spotify'
-                      >
-                        <Icon icon='mdi:spotify' className='sonos-mark--spotify' aria-hidden='true' />
-                      </button>
-                      <span>Spotify{isSpotify ? ' · now' : ''}</span>
-                    </div>
+                    {spotifyTile && (
+                      <div className='sonos-srctile'>
+                        <button
+                          type='button'
+                          className='sonos-srcbtn sonos-srcbtn--bare'
+                          onClick={handleOpenSpotifyPage}
+                          aria-label='Spotify'
+                        >
+                          <Icon icon='mdi:spotify' className='sonos-mark--spotify' aria-hidden='true' />
+                        </button>
+                        <span>Spotify{isSpotify ? ' · now' : ' ›'}</span>
+                      </div>
+                    )}
 
                     {library.status === 'ready' &&
                       favoritesFirst(library.data.radios).map(radio => {
@@ -1568,6 +1592,24 @@ export function SonosPlayer({
                         >
                           {getSourceDisplayName(source)}
                         </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : onSpotifyPage ? (
+                // Spotify: the playlists, the most recently played first
+                <>
+                  {playlists.status === 'loading' && <MusicNote kind='loading' />}
+                  {(playlists.status === 'failed' || startFailed) && <MusicNote kind='unavailable' />}
+                  {playlists.status === 'ready' && (
+                    <div className='sonos-rows'>
+                      {playlists.data.map(playlist => (
+                        <PlaylistRow
+                          key={playlist.uri}
+                          playlist={playlist}
+                          starting={starting === playlist.uri}
+                          onPlay={() => handlePlayItem(playlist.uri)}
+                        />
                       ))}
                     </div>
                   )}

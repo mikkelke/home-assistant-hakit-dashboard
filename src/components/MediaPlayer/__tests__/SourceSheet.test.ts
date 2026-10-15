@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HassEntities } from '../../../types';
 import episodes from '../../../music/__tests__/fixtures/episodes.json';
 import inProgress from '../../../music/__tests__/fixtures/in-progress.json';
+import playlists from '../../../music/__tests__/fixtures/playlists.json';
 import podcasts from '../../../music/__tests__/fixtures/podcasts.json';
 import radios from '../../../music/__tests__/fixtures/radios.json';
 
@@ -81,6 +82,7 @@ const library = (overrides: Record<string, Answer> = {}): Record<string, Answer>
   'music/radios/library_items': radios,
   'music/podcasts/library_items': podcasts,
   'music/in_progress_items': inProgress,
+  'music/playlists/library_items': playlists,
   'music/podcasts/podcast_episodes': episodes,
   'player_queues/play_media': null,
   ...overrides,
@@ -124,6 +126,11 @@ async function openSources(entities: HassEntities = kitchenOnly(), entityId = 'm
   await click(pick('[aria-label="Source"]'));
 }
 
+async function openSpotify() {
+  await openSources();
+  await click(pick('[aria-label="Spotify"]'));
+}
+
 async function openPodcasts() {
   await openSources();
   await click(pick('[aria-label="Podcasts"]'));
@@ -138,7 +145,16 @@ describe('the radio tiles', () => {
   it("are the library's stations, favorites first, without the codec tag", async () => {
     connect(library());
     await openSources();
-    expect(tiles()).toEqual(['Spotify', 'Kanal 3', 'Kanal 4 København', 'Kanal 1', 'Kanal 2', 'Kanal 6 BEAT', 'Lokalradio', 'Podcasts ›']);
+    expect(tiles()).toEqual([
+      'Spotify ›',
+      'Kanal 3',
+      'Kanal 4 København',
+      'Kanal 1',
+      'Kanal 2',
+      'Kanal 6 BEAT',
+      'Lokalradio',
+      'Podcasts ›',
+    ]);
   });
 
   it('wear the station logo from the image proxy, or a radio glyph without one', async () => {
@@ -233,7 +249,7 @@ describe('the source sheet while Music Assistant is out of reach', () => {
   it('shows the other sources and one note, with no stations and no Podcasts tile', async () => {
     connect({}, true);
     await openSources();
-    expect(tiles()).toEqual(['Spotify']);
+    expect(tiles()).toEqual(['Spotify ›']);
     expect(texts('.sonos-note')).toEqual(['Music Assistant unavailable']);
   });
 
@@ -243,7 +259,7 @@ describe('the source sheet while Music Assistant is out of reach', () => {
     connect(library({ 'music/radios/library_items': () => gate }));
     await openSources();
     expect(pick('.sonos-note[aria-label="Loading"]')).not.toBeNull();
-    expect(tiles()).toEqual(['Spotify']);
+    expect(tiles()).toEqual(['Spotify ›']);
     await act(async () => arrive());
     await settle();
     expect(pick('.sonos-note')).toBeNull();
@@ -257,6 +273,140 @@ describe('the source sheet while Music Assistant is out of reach', () => {
     await click(pick('[aria-label="Close"]'));
     await click(pick('[aria-label="Source"]'));
     expect(sent.filter(m => m.command === 'music/radios/library_items')).toHaveLength(asked + 1);
+  });
+});
+
+describe('the Spotify page', () => {
+  it('lists the playlists in the order Music Assistant gives, without its own generated ones', async () => {
+    const { sent } = connect(library());
+    await openSpotify();
+    expect(pick('.sonos-sheet-top .sonos-title')?.textContent).toBe('Spotify');
+    expect(rowTitles()).toEqual(['Fredagsmix', 'Morgenkaffe', 'Løbeture', 'Efterårsdage']);
+    expect(sent.filter(m => m.command === 'music/playlists/library_items').map(m => m.args)).toEqual([{ order_by: 'last_played_desc' }]);
+  });
+
+  it('shows each playlist with its cover from the image proxy, or a playlist glyph without one', async () => {
+    connect(library());
+    await openSpotify();
+    const rows = [...document.querySelectorAll('.sonos-rows .sonos-row')];
+    expect(rows[0].querySelector('img')?.getAttribute('src')).toBe('https://ma.me2go.dk/imageproxy/playlist12proxy?size=256');
+    expect(rows[2].querySelector('img')).toBeNull();
+    expect(rows[2].querySelector('[data-icon="mdi:playlist-music"]')).not.toBeNull();
+  });
+
+  it("starts a playlist on the speaker's queue by its library uri and closes the sheet once Music Assistant has taken it", async () => {
+    const { played } = connect(library());
+    await openSpotify();
+    await click([...document.querySelectorAll('.sonos-row')].find(row => row.textContent === 'Morgenkaffe') ?? null);
+    expect(played().map(m => m.args)).toEqual([{ queue_id: KITCHEN_QUEUE, media: ['library://playlist/7'], option: 'replace' }]);
+    expect(sheetOpen()).toBe(false);
+  });
+
+  it('shows a spinner on the tapped playlist while Music Assistant answers, and ignores other taps meanwhile', async () => {
+    let finish: () => void = () => {};
+    const { played } = connect(library({ 'player_queues/play_media': () => new Promise<null>(done => (finish = () => done(null))) }));
+    await openSpotify();
+    const rows = () => [...document.querySelectorAll('.sonos-rows .sonos-row')];
+    await click(rows()[0]);
+    expect(sheetOpen()).toBe(true);
+    expect(rows()[0].querySelector('.sonos-row-badge [data-icon="mdi:loading"]')).not.toBeNull();
+    await click(rows()[1]);
+    expect(played()).toHaveLength(1);
+    await act(async () => finish());
+    await settle();
+    expect(sheetOpen()).toBe(false);
+  });
+
+  it('stays open with the note when Music Assistant refuses', async () => {
+    connect(
+      library({
+        'player_queues/play_media': () => {
+          throw new Error('refused');
+        },
+      })
+    );
+    await openSpotify();
+    await click(pick('.sonos-rows .sonos-row'));
+    expect(sheetOpen()).toBe(true);
+    expect(texts('.sonos-note')).toEqual(['Music Assistant unavailable']);
+    expect(pick('.sonos-row-badge')).toBeNull();
+  });
+
+  it('goes back to the source grid with the back button', async () => {
+    connect(library());
+    await openSpotify();
+    await click(pick('[aria-label="Back"]'));
+    expect(pick('.sonos-rows')).toBeNull();
+    expect(tiles()).toContain('Spotify ›');
+    expect(tiles()).toContain('Kanal 3');
+  });
+
+  it('opens the Spotify app from a button in its header, and nowhere else', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    connect(library());
+    await openSources();
+    expect(pick('[aria-label="Open Spotify"]')).toBeNull();
+    await click(pick('[aria-label="Spotify"]'));
+
+    // The desktop route adds a hidden iframe on spotify:// and takes it away again; neither is wanted in the test page.
+    const appended = vi.spyOn(document.body, 'appendChild').mockImplementation(node => node);
+    const removed = vi.spyOn(document.body, 'removeChild').mockImplementation(node => node);
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    let attached: Node[] = [];
+    let detached: Node[] = [];
+    try {
+      await act(async () => (pick('.sonos-sheet-top [aria-label="Open Spotify"]') as HTMLElement).click());
+      await act(async () => vi.advanceTimersByTime(2000));
+      attached = appended.mock.calls.map(([node]) => node);
+      detached = removed.mock.calls.map(([node]) => node);
+    } finally {
+      vi.useRealTimers();
+      appended.mockRestore();
+      removed.mockRestore();
+    }
+    expect(attached.map(node => (node as HTMLElement).getAttribute('src'))).toEqual(['spotify://']);
+    expect(attached[0]).toBeInstanceOf(HTMLIFrameElement);
+    expect(detached).toEqual(attached);
+    expect(open).not.toHaveBeenCalled();
+    expect(sheetOpen()).toBe(true);
+    expect(rowTitles()).toHaveLength(4);
+    await click(pick('[aria-label="Back"]'));
+    await click(pick('[aria-label="Podcasts"]'));
+    expect(pick('[aria-label="Open Spotify"]')).toBeNull();
+  });
+
+  it('marks its tile when Spotify is what plays', async () => {
+    connect(library());
+    await openSources(kitchenOnly({ media_content_id: 'spotify--a1B2c3D4://track/abc', media_title: 'Et nummer' }, 'playing'));
+    expect(tiles()).toContain('Spotify · now');
+  });
+
+  it('offers no tile to a viewer whose Music Assistant has no Spotify playlists', async () => {
+    for (const answer of [[], [playlists[2]]]) {
+      connect(library({ 'music/playlists/library_items': answer }));
+      await openSources();
+      expect(pick('[aria-label="Spotify"]')).toBeNull();
+      expect(tiles()).not.toContain('Spotify ›');
+      expect(tiles()).toContain('Kanal 3');
+      await click(pick('[aria-label="Close"]'));
+    }
+  });
+
+  it('keeps its tile when the playlists cannot be fetched, leaving the stations alone', async () => {
+    connect(
+      library({
+        'music/playlists/library_items': () => {
+          throw new Error('refused');
+        },
+      })
+    );
+    await openSources();
+    expect(tiles()).toContain('Spotify ›');
+    expect(tiles()).toContain('Kanal 3');
+    expect(pick('.sonos-note')).toBeNull();
+    await click(pick('[aria-label="Spotify"]'));
+    expect(texts('.sonos-note')).toEqual(['Music Assistant unavailable']);
+    expect(pick('.sonos-sheet-top [aria-label="Open Spotify"]')).not.toBeNull();
   });
 });
 

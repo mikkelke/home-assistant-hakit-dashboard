@@ -58,6 +58,10 @@
   background: linear-gradient(160deg, #9333ea, #d946ef);
   color: #fff;
 }
+.sonos-glyph.is-spotify {
+  background: rgba(29, 185, 84, 0.16);
+  color: #1db954;
+}
 
 .sonos-title {
   flex: 1;
@@ -477,6 +481,7 @@
 }
 
 .sonos-sheet-back,
+.sonos-sheet-action,
 .sonos-sheet-close {
   display: flex;
   align-items: center;
@@ -490,15 +495,20 @@
   color: rgba(235, 235, 245, 0.4);
   cursor: pointer;
 }
-.sonos-sheet-back:active {
+.sonos-sheet-back:active,
+.sonos-sheet-action:active {
   transform: scale(0.97);
 }
 .sonos-sheet-back svg,
+.sonos-sheet-action svg,
 .sonos-sheet-close svg {
   font-size: 1.2rem;
 }
 .sonos-sheet-back {
   margin-left: -0.4rem;
+}
+.sonos-sheet-back,
+.sonos-sheet-action {
   transition: transform 120ms var(--ease-out);
 }
 

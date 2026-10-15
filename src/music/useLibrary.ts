@@ -5,8 +5,10 @@ import {
   fetchInProgress,
   fetchPodcasts,
   fetchRadios,
+  fetchSpotifyPlaylists,
   type BridgeConnection,
   type Episode,
+  type Playlist,
   type Podcast,
   type Radio,
   type ResumeItem,
@@ -66,6 +68,12 @@ function useLoaded<T>(active: boolean, key: string, load: (connection: BridgeCon
 /** The viewer's radios, podcasts and unfinished episodes, fetched each time `active` turns on. */
 export function useLibrary(active: boolean): Loaded<Library> {
   return useLoaded(active, 'library', loadLibrary);
+}
+
+/** The viewer's Spotify playlists, the most recently played first, fetched each time `active` turns on. Kept apart from the
+ * library so a refusal of playlists leaves the stations and podcasts alone. */
+export function usePlaylists(active: boolean): Loaded<Playlist[]> {
+  return useLoaded(active, 'playlists', fetchSpotifyPlaylists);
 }
 
 /** The episodes of `podcast`, newest first, fetched each time `active` turns on. */
