@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   MAX_SCALE,
+  ZONE_REACH_M,
   centreOn,
   clampCentre,
   clampScale,
@@ -20,11 +21,12 @@ import {
   wallSnapRadius,
   viewBoxOf,
   zoneAt,
+  zoneNear,
   zoomAt,
   type Size,
   type View,
 } from '../geometry';
-import { makeDoc } from './docFixtures';
+import { makeDoc, rect } from './docFixtures';
 
 const size: Size = { w: 800, h: 600 };
 const doc = makeDoc();
@@ -169,6 +171,51 @@ describe('polygons', () => {
 
   it('puts every zone centre in its own zone', () => {
     for (const zone of zones) expect(zoneAt(zones, zone.label[0], zone.label[1])?.zone_id).toBe(zone.zone_id);
+  });
+});
+
+describe('the zone a point belongs to', () => {
+  const id = (x: number, y: number, reach?: number) => zoneNear(zones, x, y, reach)?.zone_id ?? null;
+
+  it('is the zone the point is in', () => {
+    expect([id(2, 2), id(6, 3), id(11, 5), id(2, 6)]).toEqual(['alpha', 'beta', 'gamma', 'delta']);
+  });
+
+  it('is the zone a point is on or just outside the outer edge of, where zoneAt gives none', () => {
+    expect(zoneAt(zones, 0, 2)).toBeNull();
+    expect(zoneAt(zones, -0.03, 2)).toBeNull();
+    expect([id(0, 2), id(-0.03, 2), id(2, -0.1), id(12.1, 3)]).toEqual(['alpha', 'alpha', 'alpha', 'gamma']);
+  });
+
+  it('reaches fifteen centimetres from the polygon and no further', () => {
+    expect(ZONE_REACH_M).toBe(0.15);
+    expect([id(-0.14, 2), id(-0.16, 2), id(-0.1, -0.1), id(-0.12, -0.12)]).toEqual(['alpha', null, 'alpha', null]);
+  });
+
+  it('measures to the polygon and not to the box around it', () => {
+    expect([id(9, 4.1), id(9, 4.2), id(9, 5), id(9.95, 5)]).toEqual(['gamma', null, null, 'gamma']);
+  });
+
+  it('gives nothing for a point far from every zone, and nothing without zones', () => {
+    expect([id(-3, -3), id(20, 3)]).toEqual([null, null]);
+    expect(zoneNear([], 1, 1)).toBeNull();
+  });
+
+  it('gives nothing on an edge two zones share, where either would do', () => {
+    expect([id(4, 2), id(4.004, 2), id(4, 4)]).toEqual([null, null, null]);
+  });
+
+  it('takes the nearer of two zones with a wall between them, and nothing from the middle of the wall', () => {
+    const apart = [
+      { ...zones[0], zone_id: 'left', poly: rect(0, 0, 3.95, 4) },
+      { ...zones[1], zone_id: 'right', poly: rect(4.05, 0, 8, 4) },
+    ];
+    const pick = (x: number) => zoneNear(apart, x, 2)?.zone_id ?? null;
+    expect([pick(3.99), pick(4.01), pick(4)]).toEqual(['left', 'right', null]);
+  });
+
+  it('takes the reach as an argument', () => {
+    expect([id(-0.4, 2), id(-0.4, 2, 0.5), id(-0.03, 2, 0), id(2, 2, 0)]).toEqual([null, 'alpha', null, 'alpha']);
   });
 });
 

@@ -23,6 +23,8 @@ export const MAX_SCALE = 420;
 const MIN_SCALE_OF_FIT = 0.6;
 export const WALL_SNAP_M = 0.15;
 export const WALL_SNAP_PX = 20;
+/** How far outside a zone a point still belongs to it, for a spot on the face of a wall. */
+export const ZONE_REACH_M = 0.15;
 
 /** Wall snap reach in metres at scale `s` (px per metre): a fixed finger distance, never under WALL_SNAP_M. */
 export function wallSnapRadius(s: number): number {
@@ -105,20 +107,34 @@ export function centreOn(view: View, size: Size, fit: Rect, bounds: Rect, x: num
 
 export type Location = 'in' | 'on' | 'out';
 
+function distanceToSegment(x: number, y: number, [x1, y1]: Point, [x2, y2]: Point): number {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const lengthSq = dx * dx + dy * dy;
+  const t = lengthSq === 0 ? 0 : clamp(((x - x1) * dx + (y - y1) * dy) / lengthSq, 0, 1);
+  return Math.hypot(x - (x1 + t * dx), y - (y1 + t * dy));
+}
+
 /** Where a point lies against a polygon; within a centimetre of an edge counts as on it. */
 export function locate(x: number, y: number, poly: Point[]): Location {
   let inside = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i, i += 1) {
     const [x1, y1] = poly[j];
     const [x2, y2] = poly[i];
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const lengthSq = dx * dx + dy * dy;
-    const t = lengthSq === 0 ? 0 : clamp(((x - x1) * dx + (y - y1) * dy) / lengthSq, 0, 1);
-    if (Math.hypot(x - (x1 + t * dx), y - (y1 + t * dy)) <= BOUNDARY_EPS) return 'on';
+    if (distanceToSegment(x, y, poly[j], poly[i]) <= BOUNDARY_EPS) return 'on';
     if (y1 > y !== y2 > y && x < ((x2 - x1) * (y - y1)) / (y2 - y1) + x1) inside = !inside;
   }
   return inside ? 'in' : 'out';
+}
+
+/** The distance in metres from a point to a polygon: zero in it or on its edge, else the distance to the nearest edge. */
+function distanceToPolygon(x: number, y: number, poly: Point[]): number {
+  if (locate(x, y, poly) !== 'out') return 0;
+  let nearest = Number.POSITIVE_INFINITY;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i, i += 1) {
+    nearest = Math.min(nearest, distanceToSegment(x, y, poly[j], poly[i]));
+  }
+  return nearest;
 }
 
 export const pointInPolygon = (x: number, y: number, poly: Point[]): boolean => locate(x, y, poly) === 'in';
@@ -132,6 +148,25 @@ export function zoneAt(zones: readonly Zone[], x: number, y: number): Zone | nul
     if (where === 'in' && hit === null) hit = zone;
   }
   return hit;
+}
+
+/**
+ * The zone a point belongs to: the one it is in or on the edge of, else the one whose polygon is nearest within
+ * `reach` metres. Null when no zone is that near, or when two are equally near, as on an edge they share.
+ */
+export function zoneNear(zones: readonly Zone[], x: number, y: number, reach = ZONE_REACH_M): Zone | null {
+  let best: Zone | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  let nextDistance = Number.POSITIVE_INFINITY;
+  for (const zone of zones) {
+    const distance = distanceToPolygon(x, y, zone.poly);
+    if (distance < bestDistance) {
+      nextDistance = bestDistance;
+      best = zone;
+      bestDistance = distance;
+    } else if (distance < nextDistance) nextDistance = distance;
+  }
+  return bestDistance <= reach && nextDistance - bestDistance > BOUNDARY_EPS ? best : null;
 }
 
 interface Candidate {

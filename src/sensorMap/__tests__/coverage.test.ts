@@ -136,6 +136,12 @@ describe('the fill of a room', () => {
     expect(roomCoverage([], zones)).toEqual([]);
   });
 
+  it('counts a point just outside the edge of a zone for that zone, but not one on an edge two zones share', () => {
+    expect(roomCoverage([point('1', -0.03, 2, -60), point('2', 4, 2, -90)], zones)).toEqual([
+      { zone_id: 'alpha', dbm: -60, bucket: 'good', count: 1 },
+    ]);
+  });
+
   it('counts only the points it is given, so an access point filter changes the medians', () => {
     const all = [point('1', 1, 1, -50), point('2', 2, 2, -80)];
     expect(roomCoverage(all, zones)[0].dbm).toBe(-65);

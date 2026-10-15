@@ -1,4 +1,4 @@
-import { zoneAt } from './geometry';
+import { zoneNear } from './geometry';
 import type { Fingerprint, WifiBand, Zone } from './mapDoc';
 import { median } from './wifi';
 
@@ -107,11 +107,12 @@ export interface RoomCoverage {
   count: number;
 }
 
-/** One entry for each zone that has a point inside it; a point on a boundary or outside every zone belongs to none. */
+/** One entry for each zone that has a point in it or just outside its edge; a point on an edge two zones share, or far from every zone,
+ * belongs to none. */
 export function roomCoverage(points: readonly CoveragePoint[], zones: readonly Zone[]): RoomCoverage[] {
   const byZone = new Map<string, number[]>();
   for (const point of points) {
-    const zone = zoneAt(zones, point.x, point.y);
+    const zone = zoneNear(zones, point.x, point.y);
     if (zone) byZone.set(zone.zone_id, [...(byZone.get(zone.zone_id) ?? []), point.dbm]);
   }
   return zones.flatMap(zone => {

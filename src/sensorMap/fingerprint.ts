@@ -1,5 +1,5 @@
 import type { Advert, DeviceDump } from './bermuda';
-import { zoneAt } from './geometry';
+import { zoneNear } from './geometry';
 import type { Fingerprint, FingerprintScanner, FingerprintWifi, MapDevice, Zone } from './mapDoc';
 import { normalizeMac } from './registry';
 
@@ -86,7 +86,7 @@ export function finishCapture(state: CaptureState, context: CaptureContext): Fin
     phone: state.config.phone.name,
     bermuda_address: state.config.phone.bermuda_address,
     pos: { x: pos.x, y: pos.y, h: pos.h },
-    zone_id: zoneAt(context.zones, pos.x, pos.y)?.zone_id ?? null,
+    zone_id: zoneNear(context.zones, pos.x, pos.y)?.zone_id ?? null,
     layout_version: state.config.layoutVersion,
     window_s: state.config.windowS,
     polls: state.polls,

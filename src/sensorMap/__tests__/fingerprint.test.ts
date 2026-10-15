@@ -143,6 +143,12 @@ describe('the saved fingerprint', () => {
     expect(finishCapture(captureWith([SCANNER_A], 6, 2), context()).zone_id).toBe('beta');
   });
 
+  it('gives a spot just outside the face of a wall the zone beside it, and none from further than fifteen centimetres out', () => {
+    expect(finishCapture(captureWith([SCANNER_A], -0.03, 2), context()).zone_id).toBe('alpha');
+    expect(finishCapture(captureWith([SCANNER_A], 2, -0.14), context()).zone_id).toBe('alpha');
+    expect(finishCapture(captureWith([SCANNER_A], -0.2, 2), context()).zone_id).toBeNull();
+  });
+
   it('carries the Wi-Fi record and the survey point it was made for', () => {
     const wifi: FingerprintWifi = {
       dbm: -62,
