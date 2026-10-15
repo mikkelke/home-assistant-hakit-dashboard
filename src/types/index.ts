@@ -23,6 +23,8 @@ export interface Area {
 export interface Speaker {
   id: string;
   name: string;
+  /** The speaker's Music Assistant player id, which is also its own queue id. */
+  maPlayerId?: string;
 }
 
 // Component Props
