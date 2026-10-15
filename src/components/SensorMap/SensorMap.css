@@ -1146,7 +1146,9 @@
   bottom: 12px;
   display: flex;
   max-width: calc(100% - 20px);
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 10px;
 }
 

@@ -8,7 +8,7 @@ export const MISS_TEXT: Record<WifiMiss, string> = {
   invalid: 'the sensor reported something that is not a Wi-Fi value',
   roamed: 'the phone moved to another access point during the window',
   command_failed: 'the update command failed and no reading came',
-  stale: 'no new reading arrived inside the window',
+  stale: 'the phone sent no new reading while the capture waited',
 };
 
 /** Android hides the BSSID from an app that may not read the location, and the app then reports a placeholder. */

@@ -846,6 +846,83 @@ describe('the survey', () => {
     expect(target(first.id).classList.contains('done')).toBe(true);
   });
 
+  it('goes on waiting for Wi-Fi after the window, says so, and saves the moment a reading lands', async () => {
+    const fake = fakeConnection({ ...docs(), sensor_map: wifiMap() });
+    await open(fake);
+    seedWifi();
+    mode('Survey');
+    const first = point(0);
+    startFrom(first.id);
+    await advance(9000);
+    expect(query('.sm-fab-wrap')?.textContent).toContain('keep the screen on');
+    expect(query('.sm-fab-wrap')?.textContent).not.toContain('Waiting for Wi-Fi');
+    await advance(1600);
+    expect(query('.sm-fab-wrap')?.textContent).toContain('Waiting for Wi-Fi… 10 s');
+    expect(queryAll('.sm-fab').map(node => node.textContent)).toEqual(['Save without Wi-Fi', 'Cancel']);
+    await advance(14_000);
+    expect(query('.sm-fab-wrap')?.textContent).toContain('Waiting for Wi-Fi… 24 s');
+    expect(savedPrints(fake)).toBeUndefined();
+    reportSignal('-61');
+    await advance(2500);
+    const [item] = savedPrints(fake).items;
+    expect(item.wifi).toMatchObject({ dbm: -61, bssid: BSSID_A, miss: {} });
+    expect(fake.commands).toHaveLength(3);
+    expect(query('.sm-fab-wrap')?.textContent).toContain('I am here');
+    expect(query('.sm-subbar-note')?.textContent).toBe(`Point ${first.n} saved: -61 dBm, 5 GHz, Test access point.`);
+  });
+
+  it('saves without Wi-Fi at once when asked to, with the capture as far as it got', async () => {
+    const fake = fakeConnection({ ...docs(), sensor_map: wifiMap() });
+    await open(fake);
+    seedWifi();
+    mode('Survey');
+    const first = point(0);
+    startFrom(first.id);
+    await advance(15_000);
+    act(() => (queryAll('.sm-fab').find(node => node.textContent === 'Save without Wi-Fi') as HTMLElement).click());
+    await advance(2600);
+    const [item] = savedPrints(fake).items;
+    expect(item).toMatchObject({
+      survey_id: first.id,
+      bermuda_address: 'test-beacon-address',
+      wifi: { dbm: null, miss: { dbm: 'stale' } },
+    });
+    expect(target(first.id).classList.contains('nowifi')).toBe(true);
+    expect(query('.sm-subbar-note')?.textContent).toContain(
+      `Point ${first.n} saved without Wi-Fi: the phone sent no new reading while the capture waited`
+    );
+    expect(query('.sm-fab-wrap')?.textContent).toContain('I am here');
+  });
+
+  it('saves without Wi-Fi after sixty seconds with no reading, having asked the phone again every ten', async () => {
+    const fake = fakeConnection({ ...docs(), sensor_map: wifiMap() });
+    await open(fake);
+    seedWifi();
+    mode('Survey');
+    const first = point(0);
+    startFrom(first.id);
+    await advance(59_000);
+    expect(query('.sm-fab-wrap')?.textContent).toContain('Waiting for Wi-Fi… 59 s');
+    expect(savedPrints(fake)).toBeUndefined();
+    await advance(3600);
+    expect(savedPrints(fake).items[0].wifi).toMatchObject({ dbm: null, miss: { dbm: 'stale' } });
+    expect(fake.commands).toHaveLength(6);
+    expect(target(first.id).classList.contains('nowifi')).toBe(true);
+  });
+
+  it('is cancelled with the Cancel button while it waits for Wi-Fi, which keeps nothing', async () => {
+    const fake = fakeConnection({ ...docs(), sensor_map: wifiMap() });
+    await open(fake);
+    seedWifi();
+    mode('Survey');
+    startFrom(point(0).id);
+    await advance(20_000);
+    act(() => (queryAll('.sm-fab').find(node => node.textContent === 'Cancel') as HTMLElement).click());
+    await advance(60_000);
+    expect(savedPrints(fake)).toBeUndefined();
+    expect(query('.sm-fab-wrap')?.textContent).toContain('I am here');
+  });
+
   it('saves a capture without Wi-Fi when the sensors are off, says why, and marks the point to take again', async () => {
     const fake = fakeConnection({ ...docs(), sensor_map: wifiMap() });
     await open(fake);
@@ -876,7 +953,7 @@ describe('the survey', () => {
     seedWifi();
     mode('Survey');
     startFrom(point(0).id);
-    await advance(14_000);
+    await advance(62_000);
     expect(savedPrints(fake).items[0].wifi.miss.dbm).toBe('command_failed');
     expect(query('.sm-subbar-note')?.textContent).toContain('the update command failed and no reading came (no such service)');
   });

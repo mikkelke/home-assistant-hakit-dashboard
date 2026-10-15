@@ -22,6 +22,8 @@ interface PhoneLayerProps {
   capture: Capture;
   onAim: () => void;
   onCancelCapture: () => void;
+  /** Ends the wait for Wi-Fi and saves what the capture holds. */
+  onSkipWifi: () => void;
   onScanners: (address: string) => void;
 }
 
@@ -42,6 +44,7 @@ export function PhoneLayer({
   capture,
   onAim,
   onCancelCapture,
+  onSkipWifi,
   onScanners,
 }: PhoneLayerProps) {
   const areaName = (area: string | null) => {
@@ -90,8 +93,19 @@ export function PhoneLayer({
         )}
         {capture.phase === 'running' && (
           <>
-            <span className='sm-ring' style={{ '--ratio': ratio } as CSSProperties} aria-hidden='true' />
-            <span className='sm-hint'>Stand still, keep the screen on for {remaining} s</span>
+            {capture.waitS === undefined ? (
+              <>
+                <span className='sm-ring' style={{ '--ratio': ratio } as CSSProperties} aria-hidden='true' />
+                <span className='sm-hint'>Stand still, keep the screen on for {remaining} s</span>
+              </>
+            ) : (
+              <>
+                <span className='sm-hint'>Waiting for Wi-Fi… {capture.waitS} s</span>
+                <button type='button' className='sm-fab' onClick={onSkipWifi}>
+                  Save without Wi-Fi
+                </button>
+              </>
+            )}
             <button type='button' className='sm-fab' onClick={onCancelCapture}>
               Cancel
             </button>

@@ -3,7 +3,9 @@ import { CaptureCancelled, abortableWait } from '../fingerprint';
 import { ulidAt } from './docFixtures';
 import {
   WIFI_COMMAND,
+  WIFI_RESEND_S,
   WIFI_ROAM_TOLERANCE_MS,
+  WIFI_WAIT_S,
   bandOf,
   emptyObserved,
   foldWifi,
@@ -291,11 +293,13 @@ describe('running the Wi-Fi side of a capture', () => {
       frequency: state('5180', T - skew - 3_600_000),
     };
     const controller = new AbortController();
+    const skip = new AbortController();
     const send = vi.fn(async () => {
       if (options.fail) throw new Error('no such service');
       return ulidAt(haNow());
     });
     const progress: number[] = [];
+    const waits: number[] = [];
     const run: WifiRun = {
       windowS: 10,
       send,
@@ -303,12 +307,17 @@ describe('running the Wi-Fi side of a capture', () => {
       wait: abortableWait,
       now: Date.now,
       signal: controller.signal,
+      skip: skip.signal,
       onProgress: elapsed => progress.push(elapsed),
+      onWait: waited => waits.push(waited),
     };
     return {
       controller,
+      skip,
       send,
       progress,
+      waits,
+      entities,
       run,
       change: (value: string, field: keyof WifiRead = 'signal') => {
         entities[field] = { state: value, last_updated: iso(haNow()) };
@@ -316,6 +325,10 @@ describe('running the Wi-Fi side of a capture', () => {
       start: () => runWifi(run),
     };
   }
+
+  it('waits sixty seconds for a reading and sends the command again every ten', () => {
+    expect([WIFI_WAIT_S, WIFI_RESEND_S]).toEqual([60, 10]);
+  });
 
   it('sends the command at the start and keeps the reading that follows it, with the BSSID that did not change', async () => {
     const h = harness();
@@ -331,25 +344,61 @@ describe('running the Wi-Fi side of a capture', () => {
     expect(h.send).toHaveBeenCalledTimes(1);
     expect(h.progress[0]).toBe(0);
     expect(h.progress.at(-1)).toBe(10);
+    expect(h.waits).toEqual([]);
   });
 
-  it('sends the command again at three and six seconds while nothing has changed, and then says stale', async () => {
+  it('sends the command again every ten seconds while nothing has arrived, and says stale after sixty', async () => {
     const h = harness();
     const result = h.start();
-    await vi.advanceTimersByTimeAsync(2900);
+    await vi.advanceTimersByTimeAsync(9900);
     expect(h.send).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(200);
     expect(h.send).toHaveBeenCalledTimes(2);
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(10_000);
     expect(h.send).toHaveBeenCalledTimes(3);
-    await vi.advanceTimersByTimeAsync(8000);
+    await vi.advanceTimersByTimeAsync(40_000);
     const { wifi } = await result;
-    expect(h.send).toHaveBeenCalledTimes(3);
+    expect(h.send).toHaveBeenCalledTimes(6);
     expect(wifi.dbm).toBeNull();
     expect(wifi.miss).toEqual({ dbm: 'stale', bssid: 'stale', freq: 'stale' });
+    expect(h.waits[0]).toBe(10);
+    expect(h.waits.at(-1)).toBe(59.5);
   });
 
-  it('does not send again when the signal entity does not exist, since the sensors are off', async () => {
+  it('goes on after the window and keeps the reading the moment it lands, without another command', async () => {
+    const h = harness();
+    let done = false;
+    const result = h.start().then(value => {
+      done = true;
+      return value;
+    });
+    await vi.advanceTimersByTimeAsync(24_900);
+    expect(done).toBe(false);
+    h.change('-61');
+    await vi.advanceTimersByTimeAsync(200);
+    expect(done).toBe(true);
+    const { wifi } = await result;
+    expect(wifi).toMatchObject({ dbm: -61, bssid: BSSID_A, freq_mhz: 5180, miss: {} });
+    expect(wifi.readings).toHaveLength(1);
+    expect(h.send).toHaveBeenCalledTimes(3);
+    expect(h.waits.at(-1)).toBe(24.5);
+  });
+
+  it('never uses a reading stored before the start, even one that reaches the page after it', async () => {
+    const h = harness();
+    const result = h.start();
+    await vi.advanceTimersByTimeAsync(2000);
+    h.entities.signal = state('-55', T - 500);
+    await vi.advanceTimersByTimeAsync(40_000);
+    expect(h.waits.at(-1)).toBeGreaterThan(40);
+    h.change('-62');
+    await vi.advanceTimersByTimeAsync(1000);
+    const { wifi } = await result;
+    expect(wifi.readings.map(reading => reading.dbm)).toEqual([-62]);
+    expect(wifi.dbm).toBe(-62);
+  });
+
+  it('does not wait after the window when the signal entity does not exist, since the sensors are off', async () => {
     const h = harness();
     h.run.read = () => ({});
     const result = runWifi(h.run);
@@ -357,6 +406,7 @@ describe('running the Wi-Fi side of a capture', () => {
     const { wifi } = await result;
     expect(h.send).toHaveBeenCalledTimes(1);
     expect(wifi.miss.dbm).toBe('no_entity');
+    expect(h.waits).toEqual([]);
   });
 
   it('does not send again once the signal has changed', async () => {
@@ -367,6 +417,47 @@ describe('running the Wi-Fi side of a capture', () => {
     await vi.advanceTimersByTimeAsync(9000);
     await result;
     expect(h.send).toHaveBeenCalledTimes(1);
+  });
+
+  it('ends the wait when it is skipped, and keeps what the window caught', async () => {
+    const h = harness();
+    const result = h.start();
+    await vi.advanceTimersByTimeAsync(15_000);
+    h.skip.abort();
+    await vi.advanceTimersByTimeAsync(600);
+    const { wifi, error } = await result;
+    expect(error).toBeNull();
+    expect(wifi.dbm).toBeNull();
+    expect(wifi.miss.dbm).toBe('stale');
+    expect(h.send).toHaveBeenCalledTimes(2);
+  });
+
+  it('lets a skip before the window is over wait for the window to end, since Bluetooth needs it', async () => {
+    const h = harness();
+    let done = false;
+    void h.start().then(() => {
+      done = true;
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+    h.skip.abort();
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(done).toBe(false);
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(done).toBe(true);
+  });
+
+  it('waits no longer than it was told to, and never less than the window', async () => {
+    const h = harness();
+    h.run.waitS = 20;
+    const result = runWifi(h.run);
+    await vi.advanceTimersByTimeAsync(20_100);
+    expect((await result).wifi.miss.dbm).toBe('stale');
+    expect(h.send).toHaveBeenCalledTimes(2);
+    const short = harness();
+    short.run.waitS = 3;
+    const ended = runWifi(short.run);
+    await vi.advanceTimersByTimeAsync(10_100);
+    expect((await ended).wifi.miss.dbm).toBe('stale');
   });
 
   it('places the window by the clock of Home Assistant, so a phone clock that runs ahead loses no reading', async () => {
@@ -387,25 +478,27 @@ describe('running the Wi-Fi side of a capture', () => {
     expect((await result).wifi.dbm).toBe(-61);
   });
 
-  it('does not take the reading from before the command for one in the window', async () => {
+  it('does not take the reading from before the command for one that arrived, and waits the whole time', async () => {
     const h = harness();
     vi.setSystemTime(T - 1000);
     h.change('-55');
     vi.setSystemTime(T);
     const result = h.start();
-    await vi.advanceTimersByTimeAsync(11_000);
+    await vi.advanceTimersByTimeAsync(60_100);
     const { wifi } = await result;
     expect(wifi.dbm).toBeNull();
+    expect(wifi.miss.dbm).toBe('stale');
+    expect(h.send).toHaveBeenCalledTimes(6);
   });
 
-  it('keeps going without a window anchor when every command fails, and names the failure', async () => {
+  it('keeps trying without a window anchor when every command fails, and names the failure', async () => {
     const h = harness({ fail: true });
     const result = h.start();
-    await vi.advanceTimersByTimeAsync(11_000);
+    await vi.advanceTimersByTimeAsync(60_100);
     const { wifi, error } = await result;
     expect(error).toBe('no such service');
     expect(wifi.miss.dbm).toBe('command_failed');
-    expect(h.send).toHaveBeenCalledTimes(3);
+    expect(h.send).toHaveBeenCalledTimes(6);
   });
 
   it('keeps the readings of the window even when the command failed, and reports no failure', async () => {
@@ -432,7 +525,7 @@ describe('running the Wi-Fi side of a capture', () => {
     expect(h.send).toHaveBeenCalledTimes(1);
   });
 
-  it('is cancelled while it waits for a command that has not been answered', async () => {
+  it('is cancelled while it waits after the window for a command that has not been answered', async () => {
     const h = harness();
     h.send.mockImplementation(() => new Promise<string>(() => {}));
     const settled = h.start().then(
@@ -445,11 +538,11 @@ describe('running the Wi-Fi side of a capture', () => {
     expect(await settled).toBeInstanceOf(CaptureCancelled);
   });
 
-  it('stops waiting for a command nobody answers after two more seconds', async () => {
+  it('stops waiting for a command nobody answers two seconds after the wait is over', async () => {
     const h = harness();
     h.send.mockImplementation(() => new Promise<string>(() => {}));
     const result = h.start();
-    await vi.advanceTimersByTimeAsync(12_100);
+    await vi.advanceTimersByTimeAsync(62_100);
     const { wifi } = await result;
     expect(wifi.miss.dbm).toBe('command_failed');
   });

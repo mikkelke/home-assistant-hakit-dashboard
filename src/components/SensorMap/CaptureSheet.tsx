@@ -1,6 +1,6 @@
 import { CAPTURE_WINDOW_S } from '../../sensorMap/fingerprint';
 import type { Phone, Point } from '../../sensorMap/mapDoc';
-import type { WifiReady } from '../../sensorMap/wifi';
+import { WIFI_WAIT_S, type WifiReady } from '../../sensorMap/wifi';
 import { NumberField, TextField } from './fields';
 import { Sheet } from './Sheet';
 
@@ -31,7 +31,7 @@ interface CaptureSheetProps {
 const H_CHIPS = [30, 100, 150];
 
 const WIFI_NOTE: Record<WifiReady, string> = {
-  ready: "Wi-Fi is read from the phone's Companion app during the window.",
+  ready: `The phone's Companion app sends Wi-Fi when it changes, so the capture waits up to ${WIFI_WAIT_S} s for a new reading.`,
   none: 'No Wi-Fi source is set up, so this capture holds Bluetooth only.',
   missing: 'The Wi-Fi sensors are not enabled in the Companion app, so this capture will have no Wi-Fi.',
   offline: 'The Wi-Fi sensors report no value right now, so this capture may have no Wi-Fi.',

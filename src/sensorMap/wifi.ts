@@ -3,8 +3,10 @@ import { normalizeBssid, type FingerprintWifi, type WifiBand, type WifiMiss, typ
 
 /** The message that makes the Android Companion app update all its sensors at once. */
 export const WIFI_COMMAND = 'command_update_sensors';
-/** Seconds after the start at which the command goes out again while no reading has arrived. */
-export const WIFI_RETRY_AT_S: readonly number[] = [3, 6];
+/** How long the Wi-Fi part of a capture waits for a reading newer than its start. The app only sends a value that changed. */
+export const WIFI_WAIT_S = 60;
+/** Seconds between two sends of the command while no reading has arrived. */
+export const WIFI_RESEND_S = 10;
 export const WIFI_TICK_MS = 500;
 /** How long after the window the page still waits for a command that has not been answered. */
 const SETTLE_MS = 2000;
@@ -206,16 +208,24 @@ export async function sendUpdateCommand(connection: CommandConnection, notify: s
 }
 
 export interface WifiRun {
+  /** The capture window in seconds; readings are watched for at least this long. */
   windowS: number;
+  /** The longest the run waits for a reading newer than its start, in seconds. Never less than the window. */
+  waitS?: number;
   send: () => Promise<string | null>;
   read: () => WifiRead;
   wait: (ms: number, signal: AbortSignal) => Promise<void>;
   /** The page's clock in milliseconds. */
   now: () => number;
   signal: AbortSignal;
+  /** Ends the wait for a reading when it aborts, and keeps what has come. Only the time after the window can be skipped. */
+  skip?: AbortSignal;
+  /** The seconds since the start, up to the window. */
   onProgress?: (elapsedS: number) => void;
+  /** The seconds since the start, on every tick after the window while no reading newer than the start has come. */
+  onWait?: (waitedS: number) => void;
   tickMs?: number;
-  retryAtS?: readonly number[];
+  resendS?: number;
 }
 
 export interface WifiResult {
@@ -227,16 +237,18 @@ export interface WifiResult {
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /**
- * Runs the Wi-Fi side of a capture: sends the update command, then watches the three entities for the length of the
- * window and sends the command again, up to twice, while the signal has not changed since the start and its entity
- * exists. The window is
- * placed on Home Assistant's clock by the time of the first command that went through, so a phone clock that is off
- * does not matter. Aborting the signal ends it with `CaptureCancelled`.
+ * Runs the Wi-Fi side of a capture: sends the update command, then watches the three entities. The Companion app only
+ * sends a sensor whose value changed, so the run goes on after the window until a signal reading stored after the start
+ * has come, up to `waitS`, and sends the command again every `resendS` seconds while none has. It ends at the window
+ * when the signal entity does not exist, since nothing can come, and when `skip` aborts. The window is placed on Home
+ * Assistant's clock by the time of the first command that went through, so a phone clock that is off does not matter,
+ * and a reading from before the start is never used. Aborting `signal` ends it with `CaptureCancelled`.
  */
 export async function runWifi(run: WifiRun): Promise<WifiResult> {
   const tick = run.tickMs ?? WIFI_TICK_MS;
-  const retries = [...(run.retryAtS ?? WIFI_RETRY_AT_S)];
+  const resendMs = (run.resendS ?? WIFI_RESEND_S) * 1000;
   const windowMs = run.windowS * 1000;
+  const waitMs = Math.max(windowMs, (run.waitS ?? WIFI_WAIT_S) * 1000);
   const guard = () => {
     if (run.signal.aborted) throw new CaptureCancelled();
   };
@@ -264,16 +276,25 @@ export async function runWifi(run: WifiRun): Promise<WifiResult> {
     );
   };
 
+  /** Whether a reading stored after the start has come. It can only be told once a command was answered, which places the start. */
+  const arrived = () =>
+    (succeeded > 0 || failure !== null) && observed.signal.slice(before).some(seen => seen.at >= started + (offset ?? 0));
+
   dispatch();
+  let nextSend = resendMs;
+  let elapsed = 0;
   for (;;) {
-    const elapsed = run.now() - started;
+    elapsed = run.now() - started;
     run.onProgress?.(Math.min(elapsed, windowMs) / 1000);
-    if (retries.length > 0 && elapsed >= retries[0] * 1000) {
-      retries.shift();
-      if (observed.signal.length === before && run.read().signal !== undefined) dispatch();
+    const waiting = elapsed >= windowMs;
+    const fresh = arrived();
+    if (waiting && (fresh || elapsed >= waitMs || run.skip?.aborted || run.read().signal === undefined)) break;
+    if (waiting) run.onWait?.(elapsed / 1000);
+    if (elapsed >= nextSend) {
+      nextSend += resendMs;
+      if (!fresh && run.read().signal !== undefined) dispatch();
     }
-    if (elapsed >= windowMs) break;
-    await run.wait(Math.min(tick, windowMs - elapsed), run.signal);
+    await run.wait(Math.min(tick, (waiting ? waitMs : windowMs) - elapsed), run.signal);
     guard();
     observed = observeWifi(observed, run.read());
   }
@@ -282,6 +303,6 @@ export async function runWifi(run: WifiRun): Promise<WifiResult> {
   observed = observeWifi(observed, run.read());
 
   const from = started + (offset ?? 0);
-  const wifi = foldWifi(observed, run.read(), { from, to: from + windowMs + TAIL_MS }, succeeded === 0);
+  const wifi = foldWifi(observed, run.read(), { from, to: from + elapsed + TAIL_MS }, succeeded === 0);
   return { wifi, error: succeeded > 0 ? null : failure };
 }

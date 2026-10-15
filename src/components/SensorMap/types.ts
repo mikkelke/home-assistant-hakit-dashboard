@@ -79,4 +79,5 @@ export type Capture =
   | { phase: 'aim' }
   /** `address` is empty when no phone is tracked; `surveyId` names the survey point being captured. */
   | { phase: 'confirm'; at: Point; hCm: number; note: string; address: string; surveyId?: string }
-  | { phase: 'running'; at: Point; elapsedS: number; surveyId?: string };
+  /** `waitS` is set once the window is over and Wi-Fi is still awaited: the whole seconds since the start. */
+  | { phase: 'running'; at: Point; elapsedS: number; surveyId?: string; waitS?: number };

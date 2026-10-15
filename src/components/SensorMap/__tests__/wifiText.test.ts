@@ -26,7 +26,7 @@ describe('what the page says about a capture', () => {
   it('gives the strength, band and access point of a capture in one line, or why there is none', () => {
     expect(wifiLine(caught(), 'AP One')).toBe('-62 dBm, 5 GHz, AP One');
     expect(wifiLine(caught({ band: null }), null)).toBe('-62 dBm');
-    expect(wifiLine(noWifi('stale'), null)).toBe('no Wi-Fi, no new reading arrived inside the window');
+    expect(wifiLine(noWifi('stale'), null)).toBe('no Wi-Fi, the phone sent no new reading while the capture waited');
   });
 
   it('points at the location permission when the BSSID is the placeholder Android gives', () => {
@@ -56,7 +56,7 @@ describe('what the page says about a capture', () => {
 
   it('says why nothing was caught, with the failure of the command when there was one, and what to do', () => {
     expect(resultText('Point 4', noWifi('stale'), null, null)).toEqual({
-      text: 'Point 4 saved without Wi-Fi: no new reading arrived inside the window. Tap the point to capture it again.',
+      text: 'Point 4 saved without Wi-Fi: the phone sent no new reading while the capture waited. Tap the point to capture it again.',
       ok: false,
     });
     const failed = { ...noWifi('command_failed') };

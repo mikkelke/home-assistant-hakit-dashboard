@@ -202,6 +202,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   const scaleRef = useRef(0);
   const dragOrigin = useRef<DragOrigin | null>(null);
   const captureAbort = useRef<AbortController | null>(null);
+  const wifiSkip = useRef<AbortController | null>(null);
   const hiddenAbort = useRef(false);
   const lastPoint = useRef<string | null>(null);
   const heightCm = useRef(100);
@@ -588,7 +589,9 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
       const source = current.wifi.source;
       if (!connection || (!phone && !source)) return;
       const controller = new AbortController();
+      const skip = new AbortController();
       captureAbort.current = controller;
+      wifiSkip.current = skip;
       hiddenAbort.current = false;
       heightCm.current = details.hCm;
       if (details.surveyId) lastPoint.current = details.surveyId;
@@ -598,6 +601,10 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
       const releaseScreen = keepScreenOn();
       const onProgress = (elapsedS: number) =>
         setCapture(previous => (previous.phase === 'running' && elapsedS > previous.elapsedS ? { ...previous, elapsedS } : previous));
+      const onWait = (waitedS: number) => {
+        const waitS = Math.floor(waitedS);
+        setCapture(previous => (previous.phase === 'running' && waitS !== previous.waitS ? { ...previous, waitS } : previous));
+      };
       try {
         const config: CaptureConfig = {
           phone: phone ? { name: phone.name, bermuda_address: phone.bermuda_address } : { name: source?.name ?? '', bermuda_address: '' },
@@ -622,7 +629,9 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
               wait: abortableWait,
               now: Date.now,
               signal: controller.signal,
+              skip: skip.signal,
               onProgress,
+              onWait,
             })
           : Promise.resolve({ wifi: noWifi('not_captured'), error: null });
         const [state, { wifi, error }] = await Promise.all([bluetooth, wifiRun]);
@@ -656,6 +665,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
       } finally {
         releaseScreen();
         if (captureAbort.current === controller) captureAbort.current = null;
+        if (wifiSkip.current === skip) wifiSkip.current = null;
       }
     },
     [connection, queue]
@@ -983,6 +993,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
               capture={capture}
               onAim={() => setCapture({ phase: 'aim' })}
               onCancelCapture={cancelCapture}
+              onSkipWifi={() => wifiSkip.current?.abort()}
               onScanners={address => setSheet({ kind: 'phone', address })}
             />
           )}
