@@ -902,9 +902,12 @@ export function SonosPlayer({
           window.open('https://open.spotify.com', '_blank');
         }, 1000);
       }
-    } else {
+    } else if (/Android/i.test(navigator.userAgent)) {
       e.preventDefault();
       (window.top ?? window).location.href = SPOTIFY_ANDROID_INTENT;
+    } else {
+      e.preventDefault();
+      window.open('https://open.spotify.com', '_blank');
     }
   };
 
