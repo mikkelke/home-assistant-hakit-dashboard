@@ -8,7 +8,6 @@ import { WALL_SNAP_M, markerNear, scaleBarLength, snapToWall } from '../../senso
 import type { GestureEvent, Hit } from '../../sensorMap/gestures';
 import {
   FACING_STEP_DEG,
-  FINGERPRINT_LIMIT_BYTES,
   fingerprintBytes,
   isRadar,
   nextStamp,
@@ -520,7 +519,9 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   const unanswered = doc.questions.filter(question => !question.answer).length;
   const typeCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const device of Object.values(doc.devices)) counts[device.type] = (counts[device.type] ?? 0) + 1;
+    for (const device of Object.values(doc.devices)) {
+      for (const key of new Set([device.type, ...device.roles])) counts[key] = (counts[key] ?? 0) + 1;
+    }
     return counts;
   }, [doc.devices]);
   const toggleType = (key: string) =>
@@ -566,7 +567,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
               role='status'
               title={
                 snapshot.error ??
-                `${prints.items.length} fingerprints, ${Math.round(printBytes / 1000)} of ${Math.round(FINGERPRINT_LIMIT_BYTES / 1000)} KB`
+                `${prints.items.length} fingerprints, ${Math.round(printBytes / 1000)} of ${Math.round(prints.limit_bytes / 1000)} KB`
               }
             >
               <span className='sm-dot' />

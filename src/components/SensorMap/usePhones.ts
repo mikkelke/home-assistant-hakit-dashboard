@@ -77,6 +77,7 @@ export function usePhones(phones: readonly Phone[], enabled: boolean): { statuse
     };
     const start = () => {
       if (timer === null) {
+        trackers.current = {};
         void poll();
         timer = setInterval(() => void poll(), PHONE_POLL_MS);
       }
