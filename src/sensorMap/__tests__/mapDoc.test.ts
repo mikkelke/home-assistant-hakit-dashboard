@@ -3,6 +3,7 @@ import {
   DocError,
   FINGERPRINT_LIMIT_BYTES,
   HISTORY_LIMIT,
+  KNOWN_TYPES,
   SUGGEST_LOG_LIMIT,
   appendFingerprint,
   applyFingerprintOp,
@@ -18,6 +19,7 @@ import {
   validateFingerprintDoc,
   validateMapDoc,
   validateSuggestDoc,
+  withKnownTypes,
   writableByCommand,
   type MapDoc,
   type MapOp,
@@ -82,6 +84,44 @@ describe('validation and parsing', () => {
     expect(writableByCommand('seed', 'sensor_map_scratch_1')).toBe(true);
     expect(writableByCommand('seed', 'sensor_map_suggest')).toBe(false);
     expect(writableByCommand('seed', 'sensor_map_fingerprints')).toBe(false);
+  });
+});
+
+describe('known device types', () => {
+  const keys = (types: { key: string }[]) => types.map(type => type.key);
+  const stored = () => JSON.parse(JSON.stringify(makeDoc())) as { types: { key: string; label: string }[] };
+
+  it('lists a known type the stored document lacks, before "other", and keeps the entries and labels it has', () => {
+    const raw = stored();
+    raw.types[0].label = 'Own label';
+    const parsed = parseMapDoc(raw);
+    expect(keys(parsed.types)).toEqual(['ble', 'presence', 'contact', 'plug', 'bed', 'thermo', 'speaker', 'wifi', 'other']);
+    expect(parsed.types[0]).toEqual({ key: 'ble', label: 'Own label' });
+    expect(parsed.types.find(type => type.key === 'wifi')).toEqual({ key: 'wifi', label: 'Wi-Fi AP' });
+    expect(keys(raw.types)).toEqual(['ble', 'presence', 'contact', 'plug', 'other']);
+  });
+
+  it('puts the Wi-Fi AP type between the speaker and "other" when every other type is there', () => {
+    const before = KNOWN_TYPES.filter(type => type.key !== 'wifi');
+    expect(withKnownTypes([...before])).toEqual(KNOWN_TYPES);
+  });
+
+  it('adds the missing types last when there is no "other", and returns a complete list as it is', () => {
+    const own = [
+      { key: 'ble', label: 'Mine' },
+      { key: 'wifi', label: 'Access point' },
+    ];
+    const merged = withKnownTypes(own);
+    expect(keys(merged)).toEqual(['ble', 'wifi', 'presence', 'contact', 'bed', 'thermo', 'plug', 'speaker', 'other']);
+    expect(merged.slice(0, 2)).toEqual(own);
+    const complete = [...KNOWN_TYPES];
+    expect(withKnownTypes(complete)).toBe(complete);
+  });
+
+  it('leaves an unknown type of the document where it is', () => {
+    const raw = stored();
+    raw.types.splice(1, 0, { key: 'camera', label: 'Camera' });
+    expect(keys(parseMapDoc(raw).types).slice(0, 3)).toEqual(['ble', 'camera', 'presence']);
   });
 });
 

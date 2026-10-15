@@ -449,13 +449,38 @@ export function validateMapDoc(raw: unknown): string[] {
   return problems;
 }
 
-/** The document as the page works with it: validated, with the optional lists present. Throws `DocError`. */
+/** The device types the page has a marker icon and a colour for, in the order the layer chips list them. */
+export const KNOWN_TYPES: readonly TypeDef[] = [
+  { key: 'ble', label: 'BLE scanner' },
+  { key: 'presence', label: 'Presence radar' },
+  { key: 'contact', label: 'Door/window contact' },
+  { key: 'bed', label: 'Bed sensor' },
+  { key: 'thermo', label: 'Thermostat / temperature' },
+  { key: 'plug', label: 'Plug' },
+  { key: 'speaker', label: 'Speaker' },
+  { key: 'wifi', label: 'Wi-Fi AP' },
+  { key: 'other', label: 'Other' },
+];
+
+/** `types` with every known type listed. One the document lacks goes in before "other", or last when there is no
+ * "other"; the entries the document has keep their labels and their order. */
+export function withKnownTypes(types: TypeDef[]): TypeDef[] {
+  const missing = KNOWN_TYPES.filter(known => !types.some(type => type.key === known.key));
+  if (missing.length === 0) return types;
+  const other = types.findIndex(type => type.key === 'other');
+  const at = other < 0 ? types.length : other;
+  return [...types.slice(0, at), ...missing, ...types.slice(at)];
+}
+
+/** The document as the page works with it: validated, with the optional lists present and every known type listed.
+ * Throws `DocError`. */
 export function parseMapDoc(raw: unknown): MapDoc {
   const problems = validateMapDoc(raw);
   if (problems.length > 0) throw new DocError('sensor_map', problems);
   const doc = raw as MapDoc;
   return {
     ...doc,
+    types: withKnownTypes(doc.types),
     ignored_device_ids: doc.ignored_device_ids ?? [],
     phones: doc.phones ?? [],
     observations: doc.observations ?? [],

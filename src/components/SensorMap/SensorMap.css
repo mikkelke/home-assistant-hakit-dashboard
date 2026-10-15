@@ -30,6 +30,7 @@
   --t-thermo: #fb923c;
   --t-plug: #fbbf24;
   --t-speaker: #4ade80;
+  --t-wifi: #a3e635;
   --t-other: #a3b1c2;
   --tc: var(--t-other);
 
@@ -76,6 +77,7 @@
   --t-thermo: #ea580c;
   --t-plug: #b45309;
   --t-speaker: #15803d;
+  --t-wifi: #4d7c0f;
   --t-other: #475569;
   color-scheme: light;
 }
@@ -313,6 +315,9 @@
 }
 .t-speaker {
   --tc: var(--t-speaker);
+}
+.t-wifi {
+  --tc: var(--t-wifi);
 }
 .t-other {
   --tc: var(--t-other);

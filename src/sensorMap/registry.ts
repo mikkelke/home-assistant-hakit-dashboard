@@ -69,10 +69,14 @@ function domainsOf(device: RegistryDevice, entryDomains: Record<string, string>)
   return device.config_entries.map(entry => entryDomains[entry]).filter((domain): domain is string => Boolean(domain));
 }
 
+/** Ubiquiti's UniFi access points, which have a UAP or U6 model name. */
+const UNIFI_ACCESS_POINT = /\bubiquiti\b.*\b(UAP|U6)/i;
+
 function guessType(model: string, platform: string, scanner: boolean): string {
   if (scanner) return 'ble';
   if (platform === 'sonos') return 'speaker';
   if (platform === 'withings') return 'bed';
+  if (UNIFI_ACCESS_POINT.test(model)) return 'wifi';
   if (/presence|radar|FP300|ZG-20\d/i.test(model)) return 'presence';
   if (/contact|SNZB-04|PARASOLL/i.test(model)) return 'contact';
   if (/thermostat|SNZB-02|temperature/i.test(model)) return 'thermo';

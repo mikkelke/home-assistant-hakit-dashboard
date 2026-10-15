@@ -201,6 +201,22 @@ describe('one chip per physical thing', () => {
     );
     expect(types).toEqual({ a: 'presence', b: 'contact', c: 'thermo', d: 'speaker', e: 'plug', f: 'other' });
   });
+
+  it('guesses a Wi-Fi access point from the Ubiquiti manufacturer and a UAP or U6 model, and nothing else of theirs', () => {
+    const types = Object.fromEntries(
+      buildCandidates(
+        input([
+          reg('a', 'e-mqtt', { manufacturer: 'Ubiquiti Networks', model: 'UAP6MP' }),
+          reg('b', 'e-mqtt', { manufacturer: 'Ubiquiti Networks', model: 'U6M' }),
+          reg('c', 'e-mqtt', { manufacturer: 'Ubiquiti Inc.', model: 'UAP-AC-Pro' }),
+          reg('d', 'e-mqtt', { manufacturer: 'Ubiquiti Networks', model: 'USW-Lite-8-PoE' }),
+          reg('e', 'e-mqtt', { manufacturer: 'Vendor', model: 'U6M' }),
+          reg('f', 'e-mqtt', { manufacturer: null, model: 'UAP6MP' }),
+        ])
+      ).map(c => [c.id, c.type])
+    );
+    expect(types).toEqual({ a: 'wifi', b: 'wifi', c: 'wifi', d: 'other', e: 'other', f: 'other' });
+  });
 });
 
 describe('the unplaced tray', () => {

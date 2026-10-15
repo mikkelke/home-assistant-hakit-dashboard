@@ -3,7 +3,7 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { fitView, planToScreen } from '../../../sensorMap/geometry';
-import { makeDoc, makeFingerprint, makeFingerprintDoc, makeSuggestDoc } from '../../../sensorMap/__tests__/docFixtures';
+import { device, makeDoc, makeFingerprint, makeFingerprintDoc, makeSuggestDoc, placement } from '../../../sensorMap/__tests__/docFixtures';
 import type { MapDoc } from '../../../sensorMap/mapDoc';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -382,6 +382,24 @@ describe('editing and saving', () => {
     expect(tray.textContent).toContain('Spare sensor');
     act(() => (tray.querySelector('button') as HTMLElement).click());
     expect(query('.sm-sheet')?.textContent).toContain('Tap the plan where it is');
+  });
+});
+
+describe('device types', () => {
+  it('lists a known type the stored document lacks, with its count, and stores it only with the next edit', async () => {
+    const map = makeDoc();
+    map.devices.ap_1 = device('Test access point', { type: 'wifi', placement: placement({ pos: { x: 6, y: 2, h: null } }) });
+    const fake = fakeConnection({ ...docs(), sensor_map: map });
+    await open(fake);
+    const chip = queryAll('.sm-layers .sm-chip').find(node => node.textContent?.startsWith('Wi-Fi AP'));
+    expect([chip?.textContent, chip?.classList.contains('t-wifi')]).toEqual(['Wi-Fi AP 1', true]);
+    expect(queryAll('.sm-mk.t-wifi')).toHaveLength(1);
+    await settle();
+    expect(writes(fake)).toHaveLength(0);
+
+    editDoor('3.5');
+    await settle(1000);
+    expect((writes(fake)[0].value as MapDoc).types.map(type => type.key)).toContain('wifi');
   });
 });
 

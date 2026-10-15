@@ -8,6 +8,7 @@ export const GLYPHS: Record<string, string> = {
   thermo: 'M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0zM12 9v7',
   plug: 'M9 2.5v5M15 2.5v5M6 7.5h12v3.5a6 6 0 0 1-12 0zM12 17v4.5',
   speaker: 'M11 5L6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.6 5.4a9.3 9.3 0 0 1 0 13.2',
+  wifi: 'M12 18h.01M9.17 15.17a4 4 0 0 1 5.66 0M6.34 12.34a8 8 0 0 1 11.32 0M3.51 9.51a12 12 0 0 1 16.98 0',
   other: 'M8 8h8v8H8zM12 3v5M12 16v5M3 12h5M16 12h5',
 };
 
