@@ -79,7 +79,8 @@ This generates `supported-types.d.ts` locally. The project is set up so that any
 
 `npm test` (vitest). Test fixtures are written by hand: never commit a live export from Home
 Assistant (an entity dump, a log, an archive index), because this repo is public and real
-timestamps show when people are home, asleep or away.
+timestamps show when people are home, asleep or away. The sensor map's floor plan, device list and
+fingerprints live in Home Assistant, never here: its tests run on an invented plan.
 
 ## Further documentation
 For further documentation, please visit the [documentation website](https://shannonhochkins.github.io/ha-component-kit/) for more information.
