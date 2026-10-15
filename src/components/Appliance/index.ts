@@ -1,4 +1,4 @@
-export { formatTimeOnly, formatDuration, formatCycleTs } from './applianceFormat';
+export { formatTimeOnly, formatDuration, formatCycleTs, startedLine } from './applianceFormat';
 export { ApplianceSheet } from './ApplianceSheet';
 export type { ApplianceSheetProps } from './ApplianceSheet';
 export { AppliancePickerSheet } from './AppliancePickerSheet';

@@ -6,7 +6,7 @@ import { formatKr } from '../../utils/format';
 import { useRunCost } from '../../energy';
 import { ApplianceCycleTiming } from '../ApplianceCycleTiming';
 import { useLocalStorageBoolean } from '../../hooks';
-import { ApplianceCard, AppliancePickerSheet, ApplianceHistorySheet, formatTimeOnly, formatDuration } from '../Appliance';
+import { ApplianceCard, AppliancePickerSheet, ApplianceHistorySheet, formatTimeOnly, formatDuration, startedLine } from '../Appliance';
 import type { ApplianceCycle, ApplianceFeedbackJson } from '../Appliance';
 
 const ACCENT_CLASS = 'appliance-accent-dishwasher';
@@ -283,12 +283,7 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
   const doneAtDisplay = Number.isFinite(lastChangedMs)
     ? new Date(lastChangedMs).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
     : null;
-  const startedByRaw = typeof attrs.started_by === 'string' ? attrs.started_by.trim() : '';
-  const heroLine2 = startedByRaw
-    ? `Started by ${startedByRaw} · ${startedDisplay}`
-    : hasStartedDisplay
-      ? `Started ${startedDisplay}`
-      : null;
+  const heroLine2 = startedLine(attrs, startedDisplay, hasStartedDisplay);
 
   const renderChips = () => (
     <div className='appliance-chips'>

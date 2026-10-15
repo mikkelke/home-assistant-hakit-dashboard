@@ -5,6 +5,8 @@
  * than branching inside these.
  */
 
+import { applianceStarter } from '../../home/upcoming';
+
 /** "HH:MM" from a backend time-only string (used as-is) or a UTC ISO timestamp (parsed and
  * converted to the browser's local time). Falls back to a naive slice when parsing fails. */
 export function formatTimeOnly(isoOrTime: string | undefined): string {
@@ -46,4 +48,12 @@ export function formatCycleTs(ts: string): string {
   } catch {
     return ts.slice(0, 16);
   }
+}
+
+/** "Started by Claudia · 15:10", "Started 15:10" or null. A name only from a reliable attribution
+ * method; the time is left out when the card has none. */
+export function startedLine(attrs: Record<string, unknown>, startedDisplay: string, hasStartedDisplay: boolean): string | null {
+  const name = applianceStarter(attrs.started_by, attrs.started_by_method);
+  if (name) return hasStartedDisplay ? `Started by ${name} · ${startedDisplay}` : `Started by ${name}`;
+  return hasStartedDisplay ? `Started ${startedDisplay}` : null;
 }
