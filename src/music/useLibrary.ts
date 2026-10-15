@@ -1,0 +1,77 @@
+import { useCallback, useEffect, useState } from 'react';
+import { useHass } from '@hakit/core';
+import {
+  fetchEpisodes,
+  fetchInProgress,
+  fetchPodcasts,
+  fetchRadios,
+  type BridgeConnection,
+  type Episode,
+  type Podcast,
+  type Radio,
+  type ResumeItem,
+} from './api';
+
+export type Loaded<T> = { status: 'loading' } | { status: 'failed' } | { status: 'ready'; data: T };
+
+export interface Library {
+  radios: Radio[];
+  podcasts: Podcast[];
+  resume: ResumeItem[];
+}
+
+async function loadLibrary(connection: BridgeConnection): Promise<Library> {
+  const [radios, podcasts, resume] = await Promise.all([fetchRadios(connection), fetchPodcasts(connection), fetchInProgress(connection)]);
+  return { radios, podcasts, resume };
+}
+
+interface Slot<T> {
+  key: string;
+  connection: object;
+  data: T | null;
+  failed: boolean;
+}
+
+/** Fetches whenever `active` turns on, `key` changes or the connection is replaced. The last answer for the same `key`
+ * stays on screen while a new fetch is in flight and when it fails. `load` must keep its identity between renders. */
+function useLoaded<T>(active: boolean, key: string, load: (connection: BridgeConnection) => Promise<T>): Loaded<T> {
+  const connection = useHass(s => s.connection);
+  const [slot, setSlot] = useState<Slot<T> | null>(null);
+
+  useEffect(() => {
+    if (!active || !connection) return;
+    let cancelled = false;
+    load(connection).then(
+      data => {
+        if (!cancelled) setSlot({ key, connection, data, failed: false });
+      },
+      () => {
+        if (cancelled) return;
+        setSlot(current => {
+          const kept = current && current.key === key && current.connection === connection ? current.data : null;
+          return { key, connection, data: kept, failed: true };
+        });
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [active, connection, key, load]);
+
+  if (!slot || slot.key !== key || slot.connection !== connection) return { status: 'loading' };
+  if (slot.data !== null) return { status: 'ready', data: slot.data };
+  return slot.failed ? { status: 'failed' } : { status: 'loading' };
+}
+
+/** The viewer's radios, podcasts and unfinished episodes, fetched each time `active` turns on. */
+export function useLibrary(active: boolean): Loaded<Library> {
+  return useLoaded(active, 'library', loadLibrary);
+}
+
+/** The episodes of `podcast`, newest first, fetched each time `active` turns on. */
+export function useEpisodes(active: boolean, podcast: Podcast | null): Loaded<Episode[]> {
+  const itemId = podcast?.itemId ?? '';
+  const provider = podcast?.provider ?? '';
+  const load = useCallback((connection: BridgeConnection) => fetchEpisodes(connection, { itemId, provider }), [itemId, provider]);
+  return useLoaded(active && podcast !== null, `episodes:${provider}:${itemId}`, load);
+}
