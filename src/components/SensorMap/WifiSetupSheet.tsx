@@ -30,6 +30,12 @@ export function WifiSetupSheet({ items, doc, onAccept, onReject, onClose }: Wifi
               {item.source.bssid} and {item.source.frequency}.
             </p>
           )}
+          <div className='sm-row wrap'>
+            <button type='button' className='sm-chip on' onClick={() => onAccept(item)}>
+              Accept
+            </button>
+            <DiscardSuggestion onDiscard={() => onReject(item.id)} />
+          </div>
           {item.aps && (
             <table className='sm-table'>
               <thead>
@@ -48,12 +54,6 @@ export function WifiSetupSheet({ items, doc, onAccept, onReject, onClose }: Wifi
               </tbody>
             </table>
           )}
-          <div className='sm-row wrap'>
-            <button type='button' className='sm-chip on' onClick={() => onAccept(item)}>
-              Accept
-            </button>
-            <DiscardSuggestion onDiscard={() => onReject(item.id)} />
-          </div>
         </div>
       ))}
     </Sheet>

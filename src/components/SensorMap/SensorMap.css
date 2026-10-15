@@ -1406,6 +1406,10 @@ select.sm-input {
   font-size: 0.86rem;
 }
 
+.sm-suggest.sm-wifi-item {
+  display: block;
+}
+
 .sm-table {
   width: 100%;
   border-collapse: collapse;
