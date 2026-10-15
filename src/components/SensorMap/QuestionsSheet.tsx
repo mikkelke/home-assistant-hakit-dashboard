@@ -60,7 +60,7 @@ function Row({
         label={`Answer ${entry.id}`}
         value={entry.answer}
         placeholder='Your answer'
-        onCommit={value => onAnswer(entry.id, value)}
+        onChange={value => onAnswer(entry.id, value)}
       />
       {proposal && (
         <div className='sm-suggest'>

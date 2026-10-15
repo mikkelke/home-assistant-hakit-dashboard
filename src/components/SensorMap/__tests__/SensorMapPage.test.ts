@@ -2,6 +2,7 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { fitView, planToScreen } from '../../../sensorMap/geometry';
 import { makeDoc, makeFingerprint, makeFingerprintDoc, makeSuggestDoc } from '../../../sensorMap/__tests__/docFixtures';
 import type { MapDoc } from '../../../sensorMap/mapDoc';
 
@@ -79,8 +80,31 @@ const docs = (): Record<string, unknown> => ({
 let root: Root;
 let onClose: Mock<() => void>;
 
+const canvas = { w: 800, h: 600 };
+
 beforeEach(() => {
   vi.useFakeTimers();
+  const kept = new Map<string, string>();
+  Object.defineProperty(window, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (key: string) => kept.get(key) ?? null,
+      setItem: (key: string, value: string) => void kept.set(key, value),
+      removeItem: (key: string) => void kept.delete(key),
+    },
+  });
+  Object.assign(canvas, { w: 800, h: 600 });
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(() => ({
+    x: 0,
+    y: 0,
+    left: 0,
+    top: 0,
+    right: canvas.w,
+    bottom: canvas.h,
+    width: canvas.w,
+    height: canvas.h,
+    toJSON: () => ({}),
+  }));
   lookups.clear();
   onClose = vi.fn<() => void>();
   store.setState({ connection: null, entities: {}, devices: {} });
@@ -112,12 +136,17 @@ const queryAll = (selector: string) => [...document.querySelectorAll(selector)];
 const writes = (fake: Fake) => fake.sent.filter(message => message.type === 'frontend/set_system_data');
 const byLabel = (label: string) => document.querySelector(`[aria-label="${label}"]`) as HTMLElement;
 
-function typeInto(input: HTMLInputElement, value: string) {
+function type(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
   act(() => {
     setter?.call(input, value);
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
+}
+
+/** Types and leaves the field, as a person does before the page changes. */
+function typeInto(input: HTMLInputElement, value: string) {
+  type(input, value);
   act(() => {
     input.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
   });
@@ -125,6 +154,23 @@ function typeInto(input: HTMLInputElement, value: string) {
 
 const press = (element: Element, key: string) =>
   act(() => void element.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true })));
+const settle = (ms = 1500) =>
+  act(async () => {
+    await vi.advanceTimersByTimeAsync(ms);
+  });
+const marker = (name: string) => queryAll('.sm-mk').find(node => node.getAttribute('aria-label') === name) as Element;
+const field = (label: string) =>
+  queryAll('.sm-field')
+    .find(node => node.querySelector('.sm-field-label')?.textContent === label)
+    ?.querySelector('input') as HTMLInputElement;
+const choose = (text: string) => act(() => (queryAll('.sm-chip').find(node => node.textContent === text) as HTMLElement).click());
+const editDoorSheet = () => press(marker('Test door contact'), 'Enter');
+/** Selects the door contact and switches to Edit, typing a new x when one is given. */
+function editDoor(x?: string) {
+  editDoorSheet();
+  act(() => byLabel('Edit').click());
+  if (x) typeInto(field('x'), x);
+}
 
 describe('who may open the map', () => {
   it('shows a loading surface while the viewer is looked up, and asks Home Assistant for nothing', async () => {
@@ -290,39 +336,24 @@ describe('fingerprints on the plan', () => {
 });
 
 describe('editing and saving', () => {
-  async function editDoor(fake: Fake, x: string) {
-    const marker = queryAll('.sm-mk').find(node => node.getAttribute('aria-label') === 'Test door contact') as Element;
-    press(marker, 'Enter');
-    act(() => byLabel('Edit').click());
-    const field = queryAll('.sm-field')
-      .find(node => node.querySelector('.sm-field-label')?.textContent === 'x')
-      ?.querySelector('input') as HTMLInputElement;
-    typeInto(field, x);
-    return fake;
-  }
-
-  it('moves a marker to exactly the number typed, reports pending, then saving, then saved only after the acknowledgement', async () => {
+  it('moves a marker to exactly the number typed, reports pending, then saved only after the acknowledgement', async () => {
     const fake = fakeConnection(docs());
     await open(fake);
-    await editDoor(fake, '3.5');
+    editDoor('3.5');
     expect(query('.sm-save')?.className).toContain('pending');
     expect(writes(fake)).toHaveLength(0);
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000);
-    });
+    await settle(1000);
     expect(writes(fake)).toHaveLength(1);
     const written = writes(fake)[0].value as MapDoc;
     expect(writes(fake)[0].key).toBe('sensor_map');
-    expect(written.devices.door_1.placement.pos).toEqual({ x: 3.5, y: 3, h: 1 });
-    expect(written.devices.door_1.placement.cert).toBe('room');
+    expect(written.devices.door_1.placement).toMatchObject({ pos: { x: 3.5, y: 3, h: 1 }, cert: 'room' });
     expect(query('.sm-save')?.className).toContain('saved');
   });
 
   it('writes on close before closing, and refuses to close while the write fails', async () => {
     const fake = fakeConnection(docs());
     await open(fake);
-    await editDoor(fake, '3.5');
+    editDoor('3.5');
     fake.failWrites = true;
     act(() => byLabel('Close the map').click());
     await flush();
@@ -331,31 +362,13 @@ describe('editing and saving', () => {
     expect(query('.sm-save')?.className).toContain('failed');
 
     fake.failWrites = false;
-    const retry = query('.sm-save .sm-link') as HTMLElement;
-    act(() => retry.click());
+    act(() => (query('.sm-save .sm-link') as HTMLElement).click());
     await flush();
     expect(writes(fake)).toHaveLength(2);
     expect(query('.sm-save')?.className).toContain('saved');
     act(() => byLabel('Close the map').click());
     await flush();
     expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it('keeps the edit through a failed write and lands it once on retry', async () => {
-    const fake = fakeConnection(docs());
-    await open(fake);
-    fake.failWrites = true;
-    await editDoor(fake, '2.5');
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000);
-    });
-    expect(query('.sm-save')?.className).toContain('failed');
-    fake.failWrites = false;
-    act(() => (query('.sm-save .sm-link') as HTMLElement).click());
-    await flush();
-    const stored = fake.data.sensor_map as MapDoc;
-    expect(stored.devices.door_1.placement.pos?.x).toBe(2.5);
-    expect(stored.devices.door_1.history).toHaveLength(1);
   });
 
   it('shows the unplaced devices in Edit and puts one on the plan with a tap on the tray and the plan', async () => {
@@ -369,18 +382,223 @@ describe('editing and saving', () => {
     act(() => (tray.querySelector('button') as HTMLElement).click());
     expect(query('.sm-sheet')?.textContent).toContain('Tap the plan where it is');
   });
+});
 
-  it('answers a question and saves the answer', async () => {
+describe('leaving a field or the page', () => {
+  it('Escape drops a typed coordinate: the marker stays, nothing is written', async () => {
     const fake = fakeConnection(docs());
     await open(fake);
-    const questions = queryAll('.sm-chip').find(node => node.textContent?.startsWith('Questions')) as HTMLElement;
-    act(() => questions.click());
-    const input = document.querySelector('#sm-q-Q1 input') as HTMLInputElement;
-    typeInto(input, 'The left side');
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000);
-    });
+    editDoor();
+    act(() => field('x').focus());
+    type(field('x'), '7.5');
+    press(field('x'), 'Escape');
+    expect(field('x').value).toBe('4');
+    await settle();
+    expect(writes(fake)).toHaveLength(0);
+    expect(query('.sm-save')?.className).toContain('saved');
+  });
+
+  it('keeps a space typed in an answer, and reaches Home Assistant when the page goes before the field is left', async () => {
+    const fake = fakeConnection(docs());
+    await open(fake);
+    choose('Questions 1');
+    const answer = document.querySelector('#sm-q-Q1 input') as HTMLInputElement;
+    type(answer, 'left ');
+    expect(answer.value).toBe('left ');
+    type(answer, 'left side');
+    await act(async () => root.render(createElement('div')));
+    await flush();
+    expect((fake.data.sensor_map as MapDoc).questions[0].answer).toBe('left side');
+  });
+});
+
+describe('dragging the selected marker', () => {
+  const screenOf = (x: number, y: number) => planToScreen(fitView(canvas, makeDoc().plan.fit), canvas, x, y);
+  const fire = (target: Element, name: string, x: number, y: number) =>
+    act(
+      () =>
+        void target.dispatchEvent(
+          new PointerEvent(name, { bubbles: true, pointerId: 1, pointerType: 'mouse', button: 0, clientX: x, clientY: y })
+        )
+    );
+  /** Presses on `target` at `from`, drags 40 px to the right and stops just short of the release. */
+  const drag = (target: string, from: { x: number; y: number }) => {
+    fire(query(target) as Element, 'pointerdown', from.x, from.y);
+    fire(query('.sm-svg') as Element, 'pointermove', from.x + 20, from.y);
+    fire(query('.sm-svg') as Element, 'pointermove', from.x + 40, from.y);
+    return () => fire(query('.sm-svg') as Element, 'pointerup', from.x + 40, from.y);
+  };
+  const door = () => screenOf(4, 3);
+  const doorX = (fake: Fake) => (writes(fake)[0].value as MapDoc).devices.door_1.placement.pos?.x;
+
+  it('moves by the distance dragged, and the write follows the release', async () => {
+    const fake = fakeConnection(docs());
+    await open(fake);
+    editDoor();
+    const release = drag('.sm-mk[data-id="door_1"] .sm-mk-bg', door());
+    expect(writes(fake)).toHaveLength(0);
+    release();
+    await settle();
+    expect(doorX(fake)).toBeCloseTo(4 + 40 / (canvas.w / 13), 1);
+  });
+
+  it.each([
+    ['Stop editing', () => act(() => byLabel('Stop editing').click())],
+    ['Escape', () => press(query('.sm-main') as Element, 'Escape')],
+    ['closing the sheet', () => act(() => byLabel('Close').click())],
+  ])('moves nothing when %s comes before the release', async (_name, interrupt) => {
+    const fake = fakeConnection(docs());
+    await open(fake);
+    editDoor();
+    const release = drag('.sm-mk[data-id="door_1"] .sm-mk-bg', door());
+    interrupt();
+    release();
+    await settle();
+    expect(writes(fake)).toHaveLength(0);
+  });
+
+  async function selectRadar(w: number, h: number) {
+    Object.assign(canvas, { w, h });
+    const fake = fakeConnection(docs());
+    await open(fake);
+    press(marker('Alpha radar'), 'Enter');
+    act(() => byLabel('Edit').click());
+    return fake;
+  }
+
+  it.each([
+    [300, 200, false],
+    [800, 600, true],
+  ])('on a %i by %i canvas the facing handle is drawn: %s', async (w, h, drawn) => {
+    await selectRadar(w, h);
+    expect(query('.sm-handle') !== null).toBe(drawn);
+  });
+
+  it('moves a radar pressed where its facing handle also reaches, rather than turning it', async () => {
+    const fake = await selectRadar(400, 280);
+    const radar = screenOf(1, 3);
+    const handle = screenOf(1 + 1.2 * Math.cos(Math.PI * 1.75), 3 + 1.2 * Math.sin(Math.PI * 1.75));
+    const reach = 18 / Math.hypot(handle.x - radar.x, handle.y - radar.y);
+    drag('.sm-handle .sm-handle-knob', { x: radar.x + (handle.x - radar.x) * reach, y: radar.y + (handle.y - radar.y) * reach })();
+    await settle();
+    const { pos, facing } = (writes(fake)[0].value as MapDoc).devices.radar_a.placement;
+    expect(pos?.x).toBeGreaterThan(2);
+    expect(facing).toEqual({ state: 'known', deg: 315 });
+  });
+});
+
+describe('unsaved edits when the page goes', () => {
+  const draft = () => JSON.parse(window.localStorage.getItem('sensormap-draft-v1:map') ?? 'null');
+  async function leaveFailing() {
+    const fake = fakeConnection(docs());
+    await open(fake);
+    fake.failWrites = true;
+    editDoor('3.5');
+    await settle();
+    expect(query('.sm-save')?.className).toContain('failed');
+    await act(async () => root.render(createElement('div')));
+    await flush();
+    fake.failWrites = false;
+    return fake;
+  }
+
+  it('are kept as a draft on Back, and offered with Restore when the page opens again', async () => {
+    const fake = await leaveFailing();
+    expect(draft()).toMatchObject({ base: null, doc: { devices: { door_1: { placement: { pos: { x: 3.5 } } } } } });
+    await open(fake);
+    expect(query('.sm-workspace')).toBeNull();
+    expect(query('.sm-status')?.textContent).toContain('Unsaved changes were kept');
+    expect(query('.sm-status')?.textContent).not.toContain('Changed elsewhere');
+    choose('Restore');
+    await settle();
+    expect(query('.sm-workspace')).not.toBeNull();
+    expect((fake.data.sensor_map as MapDoc).devices.door_1.placement.pos?.x).toBe(3.5);
+    expect(draft()).toBeNull();
+  });
+
+  it('are dropped with Discard, which writes nothing', async () => {
+    const fake = await leaveFailing();
+    const before = writes(fake).length;
+    await open(fake);
+    choose('Discard');
+    await settle();
+    expect(query('.sm-workspace')).not.toBeNull();
+    expect(draft()).toBeNull();
+    expect(writes(fake)).toHaveLength(before);
+  });
+
+  it('say when Home Assistant holds a document the draft was not made from, and Overwrite still replaces it', async () => {
+    const fake = await leaveFailing();
+    fake.data.sensor_map = { ...makeDoc(), write_id: 'elsewhere', writer: 'other', updated_at: '2030-02-02T10:00:00.000Z' };
+    await open(fake);
+    expect(query('.sm-status')?.textContent).toContain('Changed elsewhere: Home Assistant holds a newer map');
+    choose('Overwrite');
+    await settle();
     const stored = fake.data.sensor_map as MapDoc;
-    expect(stored.questions[0]).toMatchObject({ id: 'Q1', answer: 'The left side' });
+    expect([stored.devices.door_1.placement.pos?.x, stored.writer === 'other']).toEqual([3.5, false]);
+  });
+
+  it('are kept when the connection is replaced and the viewer lookup unmounts the page', async () => {
+    const fake = fakeConnection(docs());
+    await open(fake);
+    fake.failWrites = true;
+    editDoor('3.5');
+    await settle();
+    const next = fakeConnection(docs());
+    lookups.set(next.connection, new Promise<User>(() => {}));
+    act(() => store.setState({ connection: next.connection }));
+    await flush();
+    expect(query('.sm-workspace')).toBeNull();
+    expect(draft()?.doc.devices.door_1.placement.pos.x).toBe(3.5);
+  });
+});
+
+describe('a page that is hidden', () => {
+  it('keeps what Home Assistant has not acknowledged as a draft at once, since it may never come back', async () => {
+    const fake = fakeConnection(docs());
+    await open(fake);
+    fake.failWrites = true;
+    editDoor('3.5');
+    act(() => void window.dispatchEvent(new Event('pagehide')));
+    expect(JSON.parse(window.localStorage.getItem('sensormap-draft-v1:map') ?? 'null')?.doc.devices.door_1.placement.pos.x).toBe(3.5);
+  });
+});
+
+describe('a map changed elsewhere', () => {
+  async function conflict() {
+    const fake = fakeConnection(docs());
+    await open(fake);
+    const stored = fake.data.sensor_map as MapDoc;
+    const theirs = { ...stored, write_id: 'theirs', writer: 'other-page' };
+    theirs.devices = { ...stored.devices, door_1: { ...stored.devices.door_1, name: 'Renamed elsewhere' } };
+    fake.data.sensor_map = theirs;
+    editDoor('3.5');
+    await settle();
+    return fake;
+  }
+
+  it('is not written over: the page keeps the edit as a draft and offers it against the other document, and Reload drops it', async () => {
+    const fake = await conflict();
+    expect(query('.sm-workspace')).toBeNull();
+    expect(query('.sm-status')?.textContent).toContain('Changed elsewhere');
+    expect(writes(fake)).toHaveLength(0);
+    choose('Reload');
+    await settle();
+    press(marker('Renamed elsewhere'), 'Enter');
+    expect(query('.sm-sheet')?.textContent).toContain('Renamed elsewhere');
+    expect(window.localStorage.getItem('sensormap-draft-v1:map')).toBeNull();
+    expect(writes(fake)).toHaveLength(0);
+  });
+
+  it('is replaced by Overwrite, as a write of this page', async () => {
+    const fake = await conflict();
+    choose('Overwrite');
+    await settle();
+    const stored = fake.data.sensor_map as MapDoc;
+    expect([stored.devices.door_1.placement.pos?.x, stored.devices.door_1.name, stored.writer === 'other-page']).toEqual([
+      3.5,
+      'Test door contact',
+      false,
+    ]);
   });
 });

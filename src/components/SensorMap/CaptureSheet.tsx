@@ -44,7 +44,7 @@ export function CaptureSheet({ at, hCm, note, address, phones, onChange, onSave,
           </label>
         )}
       </div>
-      <TextField label='Note' value={note} placeholder='Note (optional)' onCommit={value => onChange({ note: value ?? '' })} />
+      <TextField label='Note' value={note} placeholder='Note (optional)' onChange={value => onChange({ note: value ?? '' })} />
       <div className='sm-row'>
         <button type='button' className='sm-chip on' onClick={onSave}>
           Save and start

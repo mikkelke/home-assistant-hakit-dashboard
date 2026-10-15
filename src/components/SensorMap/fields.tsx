@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react';
+import { useRef, useState, type KeyboardEvent } from 'react';
 
 interface NumberFieldProps {
   label: string;
@@ -22,7 +22,12 @@ export function NumberField({ label, value, unit, disabled, onCommit, id }: Numb
     setSeen(text);
     setDraft(text);
   }
+  const skipBlur = useRef(false);
   const commit = () => {
+    if (skipBlur.current) {
+      skipBlur.current = false;
+      return;
+    }
     const trimmed = draft.trim().replace(',', '.');
     const parsed = trimmed === '' ? null : Number(trimmed);
     if (parsed !== null && !Number.isFinite(parsed)) return setDraft(text);
@@ -33,6 +38,7 @@ export function NumberField({ label, value, unit, disabled, onCommit, id }: Numb
     event.stopPropagation();
     if (event.key === 'Enter') event.currentTarget.blur();
     else if (event.key === 'Escape') {
+      skipBlur.current = true;
       setDraft(text);
       event.currentTarget.blur();
     }
@@ -59,22 +65,19 @@ interface TextFieldProps {
   label: string;
   value: string | null;
   placeholder?: string;
-  onCommit: (value: string | null) => void;
+  /** Called with every change as it is typed, and with null when the field is empty. */
+  onChange: (value: string | null) => void;
 }
 
-export function TextField({ label, value, placeholder, onCommit }: TextFieldProps) {
+export function TextField({ label, value, placeholder, onChange }: TextFieldProps) {
   const text = value ?? '';
   const [draft, setDraft] = useState(text);
   const [seen, setSeen] = useState(text);
   if (text !== seen) {
     setSeen(text);
-    setDraft(text);
+    // What comes back may be trimmed: it must not eat a space typed on the way to the next word.
+    if (text !== draft.trim()) setDraft(text);
   }
-  const commit = () => {
-    const next = draft.trim();
-    if (next === text) return setDraft(text);
-    onCommit(next === '' ? null : next);
-  };
   return (
     <label className='sm-field wide'>
       <span className='sm-visually-hidden'>{label}</span>
@@ -83,8 +86,10 @@ export function TextField({ label, value, placeholder, onCommit }: TextFieldProp
         value={draft}
         placeholder={placeholder}
         aria-label={label}
-        onChange={event => setDraft(event.target.value)}
-        onBlur={commit}
+        onChange={event => {
+          setDraft(event.target.value);
+          onChange(event.target.value.trim() === '' ? null : event.target.value);
+        }}
         onKeyDown={event => {
           event.stopPropagation();
           if (event.key === 'Enter') event.currentTarget.blur();

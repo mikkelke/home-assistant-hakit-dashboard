@@ -10,10 +10,8 @@ import {
   FACING_STEP_DEG,
   fingerprintBytes,
   isRadar,
-  nextStamp,
   normalizeDeg,
   round2,
-  undoTarget,
   type Facing,
   type MapDevice,
   type MapOp,
@@ -21,7 +19,7 @@ import {
   type Point,
   type SuggestItem,
 } from '../../sensorMap/mapDoc';
-import { bearingTo } from '../../sensorMap/radarRange';
+import { HANDLE_MIN_PX_PER_M, bearingTo, handlePoint } from '../../sensorMap/radarRange';
 import { deviceFromCandidate, trayItems } from '../../sensorMap/registry';
 import type { SaveQueue } from '../../sensorMap/saveQueue';
 import { useViewer } from '../../hooks/useViewer';
@@ -41,6 +39,7 @@ import { UnplacedTray } from './UnplacedTray';
 import { ZoneSheet } from './ZoneSheet';
 import { typeVisible, type Capture, type DeviceActions, type DragPreview, type Layers, type Selection } from './types';
 import { loadUi, saveUi } from './uiStorage';
+import { DraftPrompt } from './DraftPrompt';
 import { useCandidates } from './useCandidates';
 import { useMapData, type SuggestState } from './useMapData';
 import { phoneAreas, usePhones } from './usePhones';
@@ -56,7 +55,10 @@ interface SensorMapPageProps {
 const SIDE_PANEL_MIN_PX = 900;
 const SHEET_COVER = 0.45;
 
-const SAVE_TEXT = { saved: 'saved', pending: 'pending', saving: 'saving', failed: 'failed' } as const;
+const SAVE_TEXT = { saved: 'saved', pending: 'pending', saving: 'saving', failed: 'failed', conflict: 'changed elsewhere' } as const;
+const HANDLE_KEY = '#handle';
+const stamp = () => new Date().toISOString();
+
 const TOGGLES = ['names', 'grid', 'footprints', 'phones', 'fingerprints', 'suggestions', 'light'] as const;
 const TOGGLE_LABEL: Record<(typeof TOGGLES)[number], string> = {
   names: 'Names',
@@ -92,10 +94,10 @@ export function SensorMapPage({ onClose }: SensorMapPageProps) {
 }
 
 function SensorMapLoader({ onClose }: SensorMapPageProps) {
-  const { load, suggest, retry } = useMapData();
+  const { load, suggest, retry, settleDrafts } = useMapData();
   return (
     <div className='sensor-map' data-theme='dark'>
-      {load.status === 'ready' ? (
+      {load.status === 'ready' && load.drafts.length === 0 ? (
         <MapWorkspace queue={load.queue} suggest={suggest} onClose={onClose} />
       ) : (
         <>
@@ -109,6 +111,7 @@ function SensorMapLoader({ onClose }: SensorMapPageProps) {
           </header>
           <div className='sm-status' role={load.status === 'error' ? 'alert' : 'status'}>
             {load.status === 'loading' && <p>Loading the map...</p>}
+            {load.status === 'ready' && <DraftPrompt queue={load.queue} drafts={load.drafts} onDone={settleDrafts} />}
             {load.status === 'empty' && (
               <>
                 <p>There is no map document in Home Assistant yet.</p>
@@ -159,7 +162,6 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   const [weakOnly, setWeakOnly] = useState(false);
 
   const docRef = useRef(doc);
-  const lastStampRef = useRef(0);
   const dragOrigin = useRef<DragOrigin | null>(null);
   const captureAbort = useRef<AbortController | null>(null);
 
@@ -167,13 +169,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
     docRef.current = doc;
   });
 
-  const stamp = useCallback(() => {
-    const next = nextStamp(Date.now(), lastStampRef.current);
-    lastStampRef.current = next.ms;
-    return next.iso;
-  }, []);
-
-  const apply = useCallback((make: (at: string) => MapOp) => queue.apply({ target: 'map', op: make(stamp()) }), [queue, stamp]);
+  const apply = useCallback((make: (at: string) => MapOp) => queue.apply({ target: 'map', op: make(stamp()) }), [queue]);
 
   const selectedKey = selection?.kind === 'device' ? selection.key : null;
   const selectedDevice = selectedKey ? doc.devices[selectedKey] : undefined;
@@ -232,7 +228,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
       setSelection({ kind: 'device', key });
       setCollapsed(false);
     },
-    [queue, stamp]
+    [queue]
   );
 
   function handleGesture(event: GestureEvent) {
@@ -300,7 +296,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
       dragOrigin.current = null;
       setDrag(null);
       setCollapsed(false);
-      if (!origin || !last) return;
+      if (!origin || !last || !edit || selectedKey !== origin.key) return;
       if (last.kind === 'move') {
         if (round2(last.x) !== origin.x || round2(last.y) !== origin.y)
           apply(at => ({ kind: 'move', key: last.key, at, x: last.x, y: last.y }));
@@ -321,6 +317,10 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
     if (pos) viewport.reveal(pos.x, pos.y, window.innerWidth < SIDE_PANEL_MIN_PX ? SHEET_COVER : 0);
   }
 
+  const selectedPos = selectedDevice?.placement.pos;
+  const handleAt =
+    edit && selectedDevice && selectedPos && isRadar(selectedDevice) ? handlePoint(selectedPos, selectedDevice.placement.facing) : null;
+
   const markerPoints = useMemo(
     () =>
       Object.entries(doc.devices).flatMap(([key, device]) =>
@@ -336,13 +336,17 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
     initialView: saved.view,
     draggable: (hit: Hit) => edit && selectedKey !== null && hit.id === selectedKey && (hit.kind === 'marker' || hit.kind === 'handle'),
     refineHit: (hit, px, shown, size) => {
-      if (hit.kind === 'handle' || hit.kind === 'ghost' || hit.kind === 'fingerprint') return hit;
-      const key = markerNear(markerPoints, shown, size, px, HIT_RADIUS_PX, selectedKey);
-      return key ? { kind: 'marker', id: key } : hit;
+      if (hit.kind === 'ghost' || hit.kind === 'fingerprint') return hit;
+      const handle = shown.s >= HANDLE_MIN_PX_PER_M ? handleAt : null;
+      const targets = handle ? [...markerPoints, { key: HANDLE_KEY, x: handle[0], y: handle[1] }] : markerPoints;
+      const key = markerNear(targets, shown, size, px, HIT_RADIUS_PX, selectedKey);
+      return key === HANDLE_KEY ? { kind: 'handle', id: selectedKey } : key ? { kind: 'marker', id: key } : hit;
     },
     onEvent: handleGesture,
   });
-  const { centreOn, zoomBy, fit, panByMetres, reveal } = viewport;
+  const { centreOn, zoomBy, fit, panByMetres, reveal, cancelGestures } = viewport;
+
+  useEffect(() => cancelGestures(), [selectedKey, edit, cancelGestures]);
 
   const actions = useMemo<DeviceActions>(
     () => ({
@@ -350,11 +354,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
       facing: (key, facing: Facing) => apply(at => ({ kind: 'facing', key, at, facing })),
       height: (key, h) => apply(at => ({ kind: 'height', key, at, h })),
       confirm: (key, confirmed) => apply(at => ({ kind: 'confirm', key, at, confirmed })),
-      undo: key => {
-        const device = docRef.current.devices[key];
-        const target = device ? undoTarget(device) : null;
-        if (target) apply(at => ({ kind: 'undo', key, at, history_at: target.at }));
-      },
+      undo: key => apply(at => ({ kind: 'undo', key, at })),
       unplace: key => apply(at => ({ kind: 'unplace', key, at })),
       setType: (key, type) => apply(at => ({ kind: 'type', key, at, type })),
       accept: item => apply(at => ({ kind: 'accept', item, at })),
@@ -419,7 +419,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
         );
         const item = finishCapture(state, {
           at: new Date().toISOString(),
-          note: details.note,
+          note: details.note.trim(),
           zones,
           devices: docRef.current.devices,
           roomActive,
@@ -446,6 +446,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
 
   useEffect(() => {
     const onHide = () => {
+      queue.saveDrafts();
       void queue.flush();
       captureAbort.current?.abort();
     };
@@ -520,6 +521,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
     }
   };
 
+  const printBytes = useMemo(() => fingerprintBytes(prints), [prints]);
   const weakCount = prints.items.filter(item => item.weak).length;
   const shownPrints = useMemo(() => (weakOnly ? prints.items.filter(item => item.weak) : prints.items), [weakOnly, prints.items]);
   const unanswered = doc.questions.filter(question => !question.answer).length;
@@ -552,7 +554,6 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
           ? (selection.at ?? null)
           : null;
   const bar = view ? scaleBarLength(view.s) : 1;
-  const printBytes = fingerprintBytes(prints);
   const idle = capture.phase !== 'confirm' && !sheet;
 
   return (
@@ -579,7 +580,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
               <span className='sm-dot' />
               {SAVE_TEXT[snapshot.state]}
               {snapshot.state === 'failed' && (
-                <button type='button' className='sm-link' onClick={() => void queue.retry()}>
+                <button type='button' className='sm-link' onClick={() => void queue.flush()}>
                   Retry
                 </button>
               )}

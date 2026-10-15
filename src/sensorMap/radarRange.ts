@@ -9,6 +9,8 @@ export const DEFAULT_FOV_DEG = 120;
 const FP300_ZONES = 24;
 const FP300_ZONE_M = 0.25;
 export const HANDLE_DISTANCE_M = 1.2;
+/** Below this many pixels per metre the handle sits too close to its radar to be told apart from it, so it is not drawn. */
+export const HANDLE_MIN_PX_PER_M = 30;
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 

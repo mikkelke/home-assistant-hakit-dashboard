@@ -1,313 +1,243 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FINGERPRINTS_KEY, MAP_KEY, applyMapOp, type FingerprintDoc, type MapDoc, type MapOp, type SystemKey } from '../mapDoc';
-import { QUIET_MS, SaveQueue, WRITE_TIMEOUT_MS, type QueueDocs, type QueueSnapshot } from '../saveQueue';
-import { makeDoc, makeFingerprint, makeFingerprintDoc, T0 } from './docFixtures';
+import { FINGERPRINTS_KEY, MAP_KEY, type FingerprintDoc, type MapDoc, type MapOp } from '../mapDoc';
+import { QUIET_MS, SaveQueue, WRITE_TIMEOUT_MS, loadDocs, type QueuedOp } from '../saveQueue';
+import { T0, makeDoc, makeFingerprint, makeFingerprintDoc } from './docFixtures';
 
 const at = (n: number) => new Date(Date.parse(T0) + n * 1000).toISOString();
+const move = (n: number, x = n): QueuedOp => ({ target: 'map', op: { kind: 'move', key: 'door_1', at: at(n), x, y: 2 } });
+const print = (id: string): QueuedOp => ({ target: 'fingerprints', op: { kind: 'fingerprint', item: makeFingerprint(id), at: at(1) } });
+const tick = (ms = 0) => vi.advanceTimersByTimeAsync(ms);
 
-type Call = { key: SystemKey; value: MapDoc | FingerprintDoc; resolve: () => void; reject: (error: Error) => void };
-
-function setup(docs: QueueDocs = { map: makeDoc(), fingerprints: makeFingerprintDoc() }) {
-  const calls: Call[] = [];
-  const queue = new SaveQueue(
-    {
-      write: (key, value) =>
-        new Promise<void>((resolve, reject) => {
-          calls.push({ key, value: value as MapDoc | FingerprintDoc, resolve, reject });
-        }),
-    },
-    docs
-  );
-  const snapshots: QueueSnapshot[] = [];
-  queue.subscribe(() => snapshots.push(queue.getSnapshot()));
-  return { queue, calls, snapshots };
+/** Home Assistant's system store, with writes that can be held back, refused, or lost after they landed. */
+function store(initial: Record<string, unknown> = { [MAP_KEY]: makeDoc(), [FINGERPRINTS_KEY]: makeFingerprintDoc() }) {
+  const data = new Map(Object.entries(initial));
+  const held: (() => void)[] = [];
+  const ha = {
+    data,
+    writes: [] as { key: string; value: Record<string, unknown> }[],
+    mode: 'land' as 'land' | 'hold' | 'refuse' | 'lose',
+    read: async (key: string) => data.get(key) ?? null,
+    write: (key: string, value: unknown) =>
+      new Promise<void>((resolve, reject) => {
+        ha.writes.push({ key, value: value as Record<string, unknown> });
+        if (ha.mode === 'refuse') return reject(new Error('connection lost'));
+        const land = () => (data.set(key, value), resolve());
+        if (ha.mode === 'hold') held.push(land);
+        else if (ha.mode === 'lose') data.set(key, value);
+        else land();
+      }),
+    release: () => held.splice(0).forEach(land => land()),
+    stored: (key = MAP_KEY) => data.get(key) as MapDoc & FingerprintDoc,
+    x: () => ha.stored().devices.door_1.placement.pos?.x,
+  };
+  return ha;
 }
 
-const move = (n: number, x = n): { target: 'map'; op: MapOp } => ({
-  target: 'map',
-  op: { kind: 'move', key: 'door_1', at: at(n), x, y: 2 },
-});
+function open(ha: ReturnType<typeof store>, writer = 'a') {
+  let n = 0;
+  const drafts = { save: vi.fn(), clear: vi.fn() };
+  const docs = { map: ha.stored(MAP_KEY), fingerprints: ha.stored(FINGERPRINTS_KEY) ?? makeFingerprintDoc() };
+  const queue = new SaveQueue({ read: ha.read, write: ha.write, drafts, newId: () => `${writer}-${++n}` }, docs);
+  return { queue, drafts, state: () => queue.getSnapshot().state, doc: () => queue.getSnapshot().docs.map };
+}
 
-describe('saving', () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
+beforeEach(() => vi.useFakeTimers());
+afterEach(() => vi.useRealTimers());
 
-  it('starts saved, goes pending with an edit, saving a second later, and saved only after the acknowledgement', async () => {
-    const { queue, calls } = setup();
-    expect(queue.getSnapshot().state).toBe('saved');
-    queue.apply(move(1));
-    expect(queue.getSnapshot()).toMatchObject({ state: 'pending', pending: 1 });
-    expect(calls).toHaveLength(0);
-
-    await vi.advanceTimersByTimeAsync(QUIET_MS - 1);
-    expect(calls).toHaveLength(0);
-    await vi.advanceTimersByTimeAsync(1);
-    expect(calls).toHaveLength(1);
-    expect(queue.getSnapshot().state).toBe('saving');
-
-    await vi.advanceTimersByTimeAsync(5000);
-    expect(queue.getSnapshot().state).toBe('saving');
-
-    calls[0].resolve();
-    await vi.advanceTimersByTimeAsync(0);
-    expect(queue.getSnapshot()).toMatchObject({ state: 'saved', pending: 0, error: null });
-  });
-
-  it('applies an edit to the document at once and writes the whole document under its key', async () => {
-    const { queue, calls } = setup();
+describe('saving whole documents', () => {
+  it('is saved only after the acknowledgement of the whole stamped document, written after a read', async () => {
+    const ha = store();
+    const { queue, state } = open(ha);
+    expect(state()).toBe('saved');
     queue.apply(move(1, 5));
-    expect(queue.getSnapshot().docs.map.devices.door_1.placement.pos?.x).toBe(5);
-    await vi.advanceTimersByTimeAsync(QUIET_MS);
-    expect(calls[0].key).toBe(MAP_KEY);
-    expect((calls[0].value as MapDoc).devices.door_1.placement.pos?.x).toBe(5);
+    expect(state()).toBe('pending');
+    ha.mode = 'hold';
+    await tick(QUIET_MS - 1);
+    expect(ha.writes).toHaveLength(0);
+    await tick(1);
+    await tick(5000);
+    expect(state()).toBe('saving');
+    ha.release();
+    await tick();
+    expect(state()).toBe('saved');
+    expect(ha.writes).toHaveLength(1);
+    expect(ha.writes[0]).toMatchObject({ key: MAP_KEY, value: { write_id: 'a-2', writer: 'a-1', layout_version: 3 } });
+    expect(ha.x()).toBe(5);
   });
 
-  it('writes once for several edits within the quiet period', async () => {
-    const { queue, calls } = setup();
+  it('writes once for several edits in the quiet period, and again, right behind it, for an edit made during a write', async () => {
+    const ha = store();
+    const { queue, state } = open(ha);
     queue.apply(move(1));
-    await vi.advanceTimersByTimeAsync(600);
+    await tick(600);
     queue.apply(move(2));
-    await vi.advanceTimersByTimeAsync(600);
-    expect(calls).toHaveLength(0);
-    await vi.advanceTimersByTimeAsync(400);
-    expect(calls).toHaveLength(1);
-    expect((calls[0].value as MapDoc).devices.door_1.history).toHaveLength(2);
+    await tick(600);
+    expect(ha.writes).toHaveLength(0);
+    ha.mode = 'hold';
+    await tick(400);
+    queue.apply(move(3));
+    ha.release();
+    await tick();
+    expect(state()).toBe('saving');
+    ha.release();
+    await tick();
+    expect([ha.writes.length, ha.x(), state()]).toEqual([2, 3, 'saved']);
   });
 
-  it('writes each document under its own key', async () => {
-    const { queue, calls } = setup();
+  it('writes only the document that changed, under its own key, and may write one nobody stamped or created', async () => {
+    const ha = store({ [MAP_KEY]: makeDoc() });
+    const { queue, state } = open(ha);
+    queue.apply(print('fp-1'));
+    await tick(QUIET_MS);
+    expect(ha.writes.map(write => write.key)).toEqual([FINGERPRINTS_KEY]);
     queue.apply(move(1));
-    queue.apply({ target: 'fingerprints', op: { kind: 'fingerprint', item: makeFingerprint('fp-1'), at: at(2) } });
-    await vi.advanceTimersByTimeAsync(QUIET_MS);
-    expect(calls.map(call => call.key).sort()).toEqual([FINGERPRINTS_KEY, MAP_KEY].sort());
-    calls.forEach(call => call.resolve());
-    await vi.advanceTimersByTimeAsync(0);
-    expect(queue.getSnapshot().state).toBe('saved');
-  });
-
-  it('writes only the document that changed', async () => {
-    const { queue, calls } = setup();
-    queue.apply({ target: 'fingerprints', op: { kind: 'fingerprint', item: makeFingerprint('fp-1'), at: at(1) } });
-    await vi.advanceTimersByTimeAsync(QUIET_MS);
-    expect(calls.map(call => call.key)).toEqual([FINGERPRINTS_KEY]);
-  });
-
-  it('keeps an edit made during a write and writes it afterwards', async () => {
-    const { queue, calls } = setup();
-    queue.apply(move(1));
-    await vi.advanceTimersByTimeAsync(QUIET_MS);
-    queue.apply(move(2));
-    expect(queue.getSnapshot()).toMatchObject({ state: 'saving', pending: 2 });
-    calls[0].resolve();
-    await vi.advanceTimersByTimeAsync(0);
-    expect(queue.getSnapshot()).toMatchObject({ state: 'pending', pending: 1 });
-    await vi.advanceTimersByTimeAsync(QUIET_MS);
-    expect(calls).toHaveLength(2);
-    expect((calls[1].value as MapDoc).devices.door_1.history).toHaveLength(2);
-    calls[1].resolve();
-    await vi.advanceTimersByTimeAsync(0);
-    expect(queue.getSnapshot().state).toBe('saved');
+    await tick(QUIET_MS);
+    expect(ha.writes.map(write => write.key)).toEqual([FINGERPRINTS_KEY, MAP_KEY]);
+    expect(state()).toBe('saved');
+    queue.apply({ target: 'map', op: { kind: 'move', key: 'nope', at: at(1), x: 1, y: 1 } });
+    expect(state()).toBe('saved');
   });
 });
 
-describe('failing and retrying', () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
-
-  it('shows failed with the reason when Home Assistant refuses, and keeps the edit', async () => {
-    const { queue, calls } = setup();
+describe('failing', () => {
+  it('shows failed with the reason, keeps the latest document, and sends it again on flush', async () => {
+    const ha = store();
+    const { queue, state, doc } = open(ha);
+    ha.mode = 'refuse';
     queue.apply(move(1, 5));
-    await vi.advanceTimersByTimeAsync(QUIET_MS);
-    calls[0].reject(new Error('connection lost'));
-    await vi.advanceTimersByTimeAsync(0);
-    expect(queue.getSnapshot()).toMatchObject({ state: 'failed', pending: 1, error: 'connection lost' });
-    expect(queue.getSnapshot().docs.map.devices.door_1.placement.pos?.x).toBe(5);
-  });
-
-  it('shows failed when no answer comes within ten seconds, and ignores a late acknowledgement', async () => {
-    const { queue, calls } = setup();
-    queue.apply(move(1));
-    await vi.advanceTimersByTimeAsync(QUIET_MS);
-    await vi.advanceTimersByTimeAsync(WRITE_TIMEOUT_MS);
-    expect(queue.getSnapshot().state).toBe('failed');
-    calls[0].resolve();
-    await vi.advanceTimersByTimeAsync(0);
-    expect(queue.getSnapshot()).toMatchObject({ state: 'failed', pending: 1 });
-  });
-
-  it('retries with the kept edit and reaches saved', async () => {
-    const { queue, calls } = setup();
-    queue.apply(move(1, 5));
-    await vi.advanceTimersByTimeAsync(QUIET_MS);
-    calls[0].reject(new Error('down'));
-    await vi.advanceTimersByTimeAsync(0);
-
-    const retried = queue.retry();
-    await vi.advanceTimersByTimeAsync(0);
-    expect(queue.getSnapshot().state).toBe('saving');
-    expect(calls).toHaveLength(2);
-    expect((calls[1].value as MapDoc).devices.door_1.placement.pos?.x).toBe(5);
-    calls[1].resolve();
-    expect(await retried).toBe(true);
-    expect(queue.getSnapshot()).toMatchObject({ state: 'saved', pending: 0 });
-  });
-
-  it('retries by itself when another edit comes in after a failure', async () => {
-    const { queue, calls } = setup();
-    queue.apply(move(1));
-    await vi.advanceTimersByTimeAsync(QUIET_MS);
-    calls[0].reject(new Error('down'));
-    await vi.advanceTimersByTimeAsync(0);
-    queue.apply(move(2));
-    await vi.advanceTimersByTimeAsync(QUIET_MS);
-    expect(calls).toHaveLength(2);
-    expect((calls[1].value as MapDoc).devices.door_1.history).toHaveLength(2);
-  });
-
-  it('counts a failure of either document as a failure of the save', async () => {
-    const { queue, calls } = setup();
-    queue.apply(move(1));
-    queue.apply({ target: 'fingerprints', op: { kind: 'fingerprint', item: makeFingerprint('fp-1'), at: at(2) } });
-    await vi.advanceTimersByTimeAsync(QUIET_MS);
-    calls.find(call => call.key === MAP_KEY)?.resolve();
-    calls.find(call => call.key === FINGERPRINTS_KEY)?.reject(new Error('too large'));
-    await vi.advanceTimersByTimeAsync(0);
-    expect(queue.getSnapshot()).toMatchObject({ state: 'failed', pending: 2 });
-  });
-});
-
-describe('flushing', () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
-
-  it('writes at once without waiting for the quiet period and resolves true after the acknowledgement', async () => {
-    const { queue, calls } = setup();
-    queue.apply(move(1));
-    const flushed = queue.flush();
-    await vi.advanceTimersByTimeAsync(0);
-    expect(calls).toHaveLength(1);
-    let settled = false;
-    void flushed.then(() => (settled = true));
-    await vi.advanceTimersByTimeAsync(0);
-    expect(settled).toBe(false);
-    calls[0].resolve();
-    expect(await flushed).toBe(true);
-    await vi.advanceTimersByTimeAsync(QUIET_MS * 2);
-    expect(calls).toHaveLength(1);
-  });
-
-  it('resolves true at once when nothing is pending', async () => {
-    const { queue, calls } = setup();
+    await tick(QUIET_MS);
+    expect(state()).toBe('failed');
+    expect(queue.getSnapshot().error).toBe('connection lost');
+    queue.apply(move(2, 6));
+    await tick(QUIET_MS);
+    ha.mode = 'land';
     expect(await queue.flush()).toBe(true);
-    expect(calls).toHaveLength(0);
+    expect(ha.x()).toBe(6);
+    expect(doc().devices.door_1.placement.pos?.x).toBe(6);
   });
 
-  it('resolves false when the write fails, so a close can be refused', async () => {
-    const { queue, calls } = setup();
-    queue.apply(move(1));
-    const flushed = queue.flush();
-    await vi.advanceTimersByTimeAsync(0);
-    calls[0].reject(new Error('down'));
-    expect(await flushed).toBe(false);
-    expect(queue.getSnapshot().state).toBe('failed');
-  });
-
-  it('waits for a write already under way and then writes what came after it', async () => {
-    const { queue, calls } = setup();
-    queue.apply(move(1));
-    await vi.advanceTimersByTimeAsync(QUIET_MS);
-    queue.apply(move(2));
-    const flushed = queue.flush();
-    calls[0].resolve();
-    await vi.advanceTimersByTimeAsync(0);
-    expect(calls).toHaveLength(2);
-    calls[1].resolve();
-    expect(await flushed).toBe(true);
-  });
-});
-
-describe('after a reconnect', () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
-
-  it('puts the edits that were never acknowledged on top of the fresh document and writes once', async () => {
-    const { queue, calls } = setup();
-    queue.apply(move(1, 5));
-    await vi.advanceTimersByTimeAsync(QUIET_MS);
-    calls[0].reject(new Error('connection lost'));
-    await vi.advanceTimersByTimeAsync(0);
-
-    const fresh: QueueDocs = { map: makeDoc(), fingerprints: makeFingerprintDoc() };
-    const done = queue.reconnect(fresh);
-    await vi.advanceTimersByTimeAsync(0);
-    expect(calls).toHaveLength(2);
-    expect((calls[1].value as MapDoc).devices.door_1.placement.pos?.x).toBe(5);
-    expect((calls[1].value as MapDoc).devices.door_1.history).toHaveLength(1);
-    calls[1].resolve();
-    expect(await done).toBe(true);
-    expect(queue.getSnapshot()).toMatchObject({ state: 'saved', pending: 0 });
-    expect(calls).toHaveLength(2);
-  });
-
-  it('lands an edit once when the first write did reach Home Assistant but its acknowledgement was lost', async () => {
-    const { queue, calls } = setup();
-    const operations: MapOp[] = [
-      { kind: 'move', key: 'scan_a', at: at(1), x: 2, y: 2 },
-      { kind: 'confirm', key: 'door_1', at: at(2), confirmed: true },
-      { kind: 'answer', id: 'Q1', at: at(3), answer: 'left' },
+  it('lands the latest document after a write whose acknowledgement was lost, however many edits came before', async () => {
+    const ha = store();
+    const { queue, state, doc } = open(ha);
+    const ops: MapOp[] = [
+      { kind: 'move', key: 'door_1', at: at(1), x: 2, y: 3 },
+      { kind: 'move', key: 'door_1', at: at(2), x: 3, y: 3 },
+      { kind: 'move', key: 'door_1', at: at(3), x: 2, y: 3 },
+      { kind: 'confirm', key: 'door_1', at: at(4), confirmed: true },
+      { kind: 'height', key: 'door_1', at: at(5), h: 2 },
+      { kind: 'move', key: 'door_1', at: at(6), x: 3, y: 3 },
     ];
-    for (const op of operations) queue.apply({ target: 'map', op });
-    await vi.advanceTimersByTimeAsync(QUIET_MS);
-    const landed = calls[0].value as MapDoc;
-    expect(landed.layout_version).toBe(4);
-    await vi.advanceTimersByTimeAsync(WRITE_TIMEOUT_MS);
-    expect(queue.getSnapshot().state).toBe('failed');
-
-    const done = queue.reconnect({ map: landed, fingerprints: makeFingerprintDoc() });
-    await vi.advanceTimersByTimeAsync(0);
-    const rewritten = calls[1].value as MapDoc;
-    expect(rewritten).toEqual(landed);
-    expect(rewritten.devices.scan_a.history).toHaveLength(1);
-    expect(rewritten.layout_version).toBe(4);
-    calls[1].resolve();
-    await done;
+    ops.forEach(op => queue.apply({ target: 'map', op }));
+    ha.mode = 'lose';
+    await tick(QUIET_MS + WRITE_TIMEOUT_MS);
+    expect(state()).toBe('failed');
+    ha.mode = 'land';
+    expect(await queue.flush()).toBe(true);
+    expect(ha.stored().devices).toEqual(doc().devices);
+    expect(ha.stored().devices.door_1.placement).toMatchObject({ pos: { x: 3, y: 3, h: 2 }, cert: 'room', confirmed_at: null });
+    expect(ha.writes).toHaveLength(2);
   });
 
-  it('adopts the fresh documents when nothing is pending', async () => {
-    const { queue, calls } = setup();
-    const changed = applyMapOp(makeDoc(), { kind: 'answer', id: 'Q1', at: at(9), answer: 'elsewhere' });
-    expect(await queue.reconnect({ map: changed, fingerprints: makeFingerprintDoc() })).toBe(true);
-    expect(queue.getSnapshot().docs.map.questions[0].answer).toBe('elsewhere');
-    expect(calls).toHaveLength(0);
-  });
-
-  it('ignores the acknowledgement of a write that began before the reconnect', async () => {
-    const { queue, calls } = setup();
+  it('resolves a flush false when the write fails, so a close can be refused, and true when nothing is unsaved', async () => {
+    const ha = store();
+    const { queue } = open(ha);
+    expect(await queue.flush()).toBe(true);
+    ha.mode = 'refuse';
     queue.apply(move(1));
-    await vi.advanceTimersByTimeAsync(QUIET_MS);
-    const done = queue.reconnect({ map: makeDoc(), fingerprints: makeFingerprintDoc() });
-    await vi.advanceTimersByTimeAsync(0);
-    calls[0].resolve();
-    await vi.advanceTimersByTimeAsync(0);
-    expect(queue.getSnapshot().state).toBe('saving');
-    calls[1].resolve();
-    await done;
-    expect(queue.getSnapshot().state).toBe('saved');
+    expect(await queue.flush()).toBe(false);
   });
 });
 
-describe('disposing', () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
+describe('a document another writer changed', () => {
+  async function elsewhere() {
+    const ha = store();
+    const page = open(ha, 'a');
+    const other = open(ha, 'b');
+    other.queue.apply(move(1, 4));
+    await tick(QUIET_MS);
+    page.queue.apply(move(2, 9));
+    await tick(QUIET_MS);
+    return { ha, page };
+  }
 
-  it('stops writing and stops notifying', async () => {
-    const { queue, calls, snapshots } = setup();
-    queue.apply(move(1));
-    const seen = snapshots.length;
-    queue.dispose();
-    await vi.advanceTimersByTimeAsync(QUIET_MS * 3);
-    expect(calls).toHaveLength(0);
-    queue.apply(move(2));
-    expect(snapshots).toHaveLength(seen);
+  it('is not written over: the queue says so, keeps its document as a draft with the write it was edited from, and writes no more', async () => {
+    const { ha, page } = await elsewhere();
+    expect(page.state()).toBe('conflict');
+    expect(ha.x()).toBe(4);
+    expect(page.doc().devices.door_1.placement.pos?.x).toBe(9);
+    page.queue.apply(move(3, 8));
+    await tick(QUIET_MS);
+    expect(await page.queue.flush()).toBe(false);
+    expect(ha.writes).toHaveLength(1);
+    page.queue.dispose();
+    expect(page.drafts.save.mock.calls[0].slice(0, 2)).toEqual(['map', null]);
+    expect(page.drafts.save.mock.calls[0][2].devices.door_1.placement.pos.x).toBe(8);
   });
+
+  it('cannot be reverted by a second page saving from an earlier snapshot: markers and fingerprints alike', async () => {
+    const ha = store();
+    const first = open(ha, 'a');
+    const second = open(ha, 'b');
+    first.queue.apply(move(1, 4));
+    first.queue.apply(print('fp-first'));
+    await tick(QUIET_MS);
+    second.queue.apply({ target: 'map', op: { kind: 'move', key: 'scan_a', at: at(2), x: 7, y: 7 } });
+    second.queue.apply(print('fp-second'));
+    await tick(QUIET_MS);
+    expect(second.state()).toBe('conflict');
+    expect(ha.stored().devices.scan_a.placement.pos?.x).toBe(1);
+    expect(ha.stored(FINGERPRINTS_KEY).items.map(item => item.id)).toEqual(['fp-first']);
+  });
+});
+
+describe('drafts', () => {
+  it('keeps what was never acknowledged, with the write it was edited from, and nothing when all is saved', async () => {
+    const ha = store();
+    const clean = open(ha);
+    clean.queue.dispose();
+    expect(clean.drafts.save).not.toHaveBeenCalled();
+
+    const { queue, drafts } = open(ha, 'b');
+    ha.mode = 'refuse';
+    queue.apply(move(1, 5));
+    queue.apply(print('fp-1'));
+    await tick(QUIET_MS);
+    queue.dispose();
+    expect(drafts.save.mock.calls.map(call => call.slice(0, 2))).toEqual([
+      ['map', null],
+      ['fingerprints', null],
+    ]);
+    expect(drafts.save.mock.calls[0][2].devices.door_1.placement.pos.x).toBe(5);
+  });
+
+  it('is cleared by a write acknowledged after the page is gone', async () => {
+    const ha = store();
+    const { queue, drafts } = open(ha);
+    queue.apply(move(1, 5));
+    ha.mode = 'hold';
+    void queue.flush();
+    queue.dispose();
+    await tick();
+    ha.release();
+    await tick();
+    expect(drafts.save).toHaveBeenCalledTimes(1);
+    expect(drafts.clear).toHaveBeenCalledWith('map');
+    expect(ha.x()).toBe(5);
+  });
+
+  it('is made the local document by restore, and saved like an edit', async () => {
+    const ha = store();
+    const { queue, state, doc } = open(ha);
+    const kept = { ...makeDoc(), devices: { ...makeDoc().devices, door_1: { ...makeDoc().devices.door_1, name: 'Restored' } } };
+    queue.restore([{ key: 'map', base: null, savedAt: at(8), doc: kept }]);
+    expect([state(), doc().devices.door_1.name]).toEqual(['pending', 'Restored']);
+    await tick(QUIET_MS);
+    expect([ha.stored().devices.door_1.name, state()]).toEqual(['Restored', 'saved']);
+  });
+});
+
+it('loads both documents, and has none to edit without a map', async () => {
+  expect((await loadDocs(store().read))?.map.devices.door_1.name).toBe('Test door contact');
+  expect(await loadDocs(async () => null)).toBeNull();
+  expect((await loadDocs(async key => (key === MAP_KEY ? makeDoc() : null)))?.fingerprints.items).toEqual([]);
 });

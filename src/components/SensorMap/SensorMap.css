@@ -184,11 +184,13 @@
   background: var(--sm-warn);
 }
 
-.sm-save.failed {
+.sm-save.failed,
+.sm-save.conflict {
   color: var(--sm-bad);
 }
 
-.sm-save.failed .sm-dot {
+.sm-save.failed .sm-dot,
+.sm-save.conflict .sm-dot {
   background: var(--sm-bad);
 }
 

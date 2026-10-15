@@ -1,16 +1,7 @@
 import { useMemo } from 'react';
 import { Icon } from '@iconify/react';
 import { liveOf } from '../../sensorMap/live';
-import {
-  FACING_STEP_DEG,
-  isRadar,
-  normalizeDeg,
-  undoTarget,
-  type Facing,
-  type MapDevice,
-  type MapDoc,
-  type SuggestItem,
-} from '../../sensorMap/mapDoc';
+import { FACING_STEP_DEG, isRadar, normalizeDeg, type Facing, type MapDevice, type MapDoc, type SuggestItem } from '../../sensorMap/mapDoc';
 import { decodeRange } from '../../sensorMap/radarRange';
 import { NumberField } from './fields';
 import { glyphOf, typeClass } from './glyphs';
@@ -75,7 +66,7 @@ export function DeviceSheet({ id, device, doc, edit, collapsed, snap, pending, o
   const pos = placement.pos;
   const radar = isRadar(device);
   const zone = doc.plan.zones.find(candidate => candidate.zone_id === device.zone_id);
-  const history = undoTarget(device);
+  const canUndo = device.history.length > 0;
   const known = placement.facing.state === 'known' ? placement.facing.deg : 0;
   const questionIds = [...doc.questions.filter(question => question.refs.includes(id)).map(question => question.id), ...device.measure_ids];
   const typeLabel = doc.types.find(type => type.key === device.type)?.label ?? device.type;
@@ -229,7 +220,7 @@ export function DeviceSheet({ id, device, doc, edit, collapsed, snap, pending, o
             >
               <Icon icon='mdi:check-decagram' /> {placement.cert === 'confirmed' ? 'Confirmed' : 'Confirm'}
             </button>
-            <button type='button' className='sm-chip' disabled={!history} onClick={() => actions.undo(id)}>
+            <button type='button' className='sm-chip' disabled={!canUndo} onClick={() => actions.undo(id)}>
               <Icon icon='mdi:undo' /> Undo
             </button>
             <button type='button' className='sm-chip' disabled={!pos} onClick={() => actions.unplace(id)}>

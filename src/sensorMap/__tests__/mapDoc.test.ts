@@ -11,12 +11,10 @@ import {
   emptyMapDoc,
   fingerprintBytes,
   newDeviceKey,
-  nextStamp,
   normalizeDeg,
   parseFingerprintDoc,
   parseMapDoc,
   parseSuggestDoc,
-  undoTarget,
   validateFingerprintDoc,
   validateMapDoc,
   validateSuggestDoc,
@@ -118,27 +116,21 @@ describe('placement edits', () => {
     for (let i = 1; i <= 8; i += 1) doc = applyMapOp(doc, { kind: 'move', key: 'door_1', at: at(i), x: i, y: 1 });
     expect(doc.devices.door_1.history).toHaveLength(HISTORY_LIMIT);
     expect(doc.devices.door_1.history[0].at).toBe(at(4));
-    expect(undoTarget(doc.devices.door_1)?.at).toBe(at(8));
+    expect(doc.devices.door_1.history.at(-1)?.at).toBe(at(8));
   });
 
-  it('applies each operation once, however often it is replayed', () => {
+  it('ends a long mixed sequence of edits as the last edit left it', () => {
     const ops: MapOp[] = [
-      { kind: 'move', key: 'scan_a', at: at(1), x: 2, y: 2 },
-      { kind: 'facing', key: 'radar_b', at: at(2), facing: { state: 'known', deg: 90 } },
-      { kind: 'height', key: 'door_1', at: at(3), h: 1.9 },
+      { kind: 'move', key: 'door_1', at: at(1), x: 2, y: 3 },
+      { kind: 'move', key: 'door_1', at: at(2), x: 3, y: 3 },
+      { kind: 'move', key: 'door_1', at: at(3), x: 2, y: 3 },
       { kind: 'confirm', key: 'door_1', at: at(4), confirmed: true },
-      { kind: 'unplace', key: 'door_1', at: at(5) },
-      { kind: 'ignore', device_id: 'dev-x', at: at(6) },
-      { kind: 'answer', id: 'Q1', at: at(7), answer: 'left' },
-      { kind: 'reject', id: 's-9', at: at(8) },
+      { kind: 'height', key: 'door_1', at: at(5), h: 2 },
+      { kind: 'move', key: 'door_1', at: at(6), x: 3, y: 3 },
     ];
-    for (const op of ops) {
-      const once = applyMapOp(makeDoc(), op);
-      expect(applyMapOp(once, op)).toEqual(once);
-    }
-    const sequence = ops.reduce(applyMapOp, makeDoc());
-    expect(ops.reduce(applyMapOp, sequence)).toEqual(sequence);
-    expect(sequence.layout_version).toBe(4);
+    const { placement, history } = ops.reduce(applyMapOp, makeDoc()).devices.door_1;
+    expect(placement).toMatchObject({ pos: { x: 3, y: 3, h: 2 }, cert: 'room', confirmed_at: null });
+    expect(history).toHaveLength(HISTORY_LIMIT);
   });
 
   it('bumps the layout version only when a scanner changes place or facing', () => {
@@ -204,9 +196,7 @@ describe('height, confirmation and undo', () => {
     expect(doc.devices.door_1.placement.cert).toBe('room');
     expect(doc.devices.door_1.placement.confirmed_at).toBeNull();
 
-    const target = undoTarget(doc.devices.door_1);
-    expect(target?.placement).toEqual(confirmed);
-    doc = applyMapOp(doc, { kind: 'undo', key: 'door_1', at: at(3), history_at: target?.at ?? '' });
+    doc = applyMapOp(doc, { kind: 'undo', key: 'door_1', at: at(3) });
     expect(doc.devices.door_1.placement).toEqual(confirmed);
     expect(doc.devices.door_1.history.map(entry => entry.at)).toEqual([at(1)]);
   });
@@ -218,15 +208,15 @@ describe('height, confirmation and undo', () => {
     expect(doc.devices.door_1.placement.confirmed_at).toBeNull();
   });
 
-  it('does nothing for an undo whose entry is already gone', () => {
+  it('does nothing for an undo with nothing to go back to', () => {
     const doc = makeDoc();
-    expect(applyMapOp(doc, { kind: 'undo', key: 'door_1', at: at(1), history_at: at(99) })).toBe(doc);
+    expect(applyMapOp(doc, { kind: 'undo', key: 'door_1', at: at(1) })).toBe(doc);
   });
 
   it('bumps the layout version when undoing a scanner move back', () => {
     let doc = applyMapOp(makeDoc(), { kind: 'move', key: 'scan_a', at: at(1), x: 3, y: 3 });
     expect(doc.layout_version).toBe(4);
-    doc = applyMapOp(doc, { kind: 'undo', key: 'scan_a', at: at(2), history_at: at(1) });
+    doc = applyMapOp(doc, { kind: 'undo', key: 'scan_a', at: at(2) });
     expect(doc.layout_version).toBe(5);
     expect(doc.devices.scan_a.placement.pos).toEqual({ x: 1, y: 1, h: 1 });
   });
@@ -406,13 +396,5 @@ describe('fingerprints', () => {
     expect(next.items.map(item => item.id)).toEqual(['fp-2']);
     expect(applyFingerprintOp(next, { kind: 'remove_fingerprint', id: 'fp-1', at: at(4) })).toBe(next);
     expect(applyFingerprintOp(next, { kind: 'fingerprint', item: makeFingerprint('fp-2'), at: at(5) })).toBe(next);
-  });
-});
-
-describe('edit timestamps', () => {
-  it('uses the clock, and moves on by a millisecond when two edits would share one', () => {
-    expect(nextStamp(1000, 0)).toEqual({ iso: new Date(1000).toISOString(), ms: 1000 });
-    expect(nextStamp(1000, 1000).ms).toBe(1001);
-    expect(nextStamp(900, 1000).ms).toBe(1001);
   });
 });

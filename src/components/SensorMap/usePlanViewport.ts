@@ -1,16 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
-import {
-  clampCentre,
-  centreOn,
-  fitView,
-  panBy,
-  planToScreen,
-  screenToPlan,
-  zoomAt,
-  type Px,
-  type Size,
-  type View,
-} from '../../sensorMap/geometry';
+import { clampCentre, centreOn, fitView, panBy, planToScreen, zoomAt, type Px, type Size, type View } from '../../sensorMap/geometry';
 import {
   idleMachine,
   step,
@@ -21,7 +10,7 @@ import {
   type HitKind,
   type PointerInput,
 } from '../../sensorMap/gestures';
-import type { Plan, Point } from '../../sensorMap/mapDoc';
+import type { Plan } from '../../sensorMap/mapDoc';
 
 const WHEEL_STEP = 0.0016;
 const WHEEL_STEP_LINES = 0.05;
@@ -57,7 +46,6 @@ export interface PlanViewport {
   panByMetres: (dx: number, dy: number) => void;
   /** Pans, if need be, so a plan point shows above a sheet that covers the bottom `coveredFraction` of the canvas. */
   reveal: (x: number, y: number, coveredFraction: number) => void;
-  toPlan: (clientX: number, clientY: number) => Point | null;
   /** Ends any gesture in progress, as a page hide does; a drag in progress is cancelled. */
   cancelGestures: () => void;
 }
@@ -264,13 +252,5 @@ export function usePlanViewport(options: PlanViewportOptions): PlanViewport {
     [commit]
   );
 
-  const toPlan = useCallback((clientX: number, clientY: number): Point | null => {
-    const svg = svgRef.current;
-    const current = viewRef.current;
-    if (!svg || !current) return null;
-    const box = svg.getBoundingClientRect();
-    return screenToPlan(current, sizeRef.current, clientX - box.left, clientY - box.top);
-  }, []);
-
-  return { view, size, containerRef, svgRef, pointerHandlers, zoomBy, fit, centreOn: centre, panByMetres, reveal, toPlan, cancelGestures };
+  return { view, size, containerRef, svgRef, pointerHandlers, zoomBy, fit, centreOn: centre, panByMetres, reveal, cancelGestures };
 }

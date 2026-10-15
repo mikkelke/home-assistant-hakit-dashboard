@@ -1,5 +1,6 @@
 import { memo, useMemo, type CSSProperties, type RefObject } from 'react';
 import { fitView, markerRadiusPx, viewBoxOf, type Size, type View } from '../../sensorMap/geometry';
+import { HANDLE_MIN_PX_PER_M } from '../../sensorMap/radarRange';
 import { isRadar, type Facing, type Fingerprint, type MapDoc, type MapDevice, type Point } from '../../sensorMap/mapDoc';
 import { normalizeMac } from '../../sensorMap/registry';
 import { DeviceMarker } from './DeviceMarker';
@@ -169,7 +170,7 @@ export const PlanCanvas = memo(function PlanCanvas(props: PlanCanvasProps) {
             onActivate={onActivateGhost}
           />
         ))}
-      {edit && selected && selectedPos && isRadar(selected.device) && (
+      {edit && selected && selectedPos && isRadar(selected.device) && shown.s >= HANDLE_MIN_PX_PER_M && (
         <FacingHandle radar={selectedPos} facing={facingOf(selected)} deviceId={selected.key} yTop={yTop} />
       )}
       {crosshair && <Crosshair at={crosshair} yTop={yTop} />}

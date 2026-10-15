@@ -1,14 +1,12 @@
 /**
- * The three documents of the sensor map, kept as plain JSON in Home Assistant's frontend system store. Each
- * key has exactly one writer, so no revision protocol is needed:
+ * The three documents of the sensor map, kept as plain JSON in Home Assistant's frontend system store:
  *
  *   sensor_map              written by the map page: plan, devices, placements, answers
  *   sensor_map_suggest      written by the CLI: proposed placements and answers
  *   sensor_map_fingerprints written by the map page: a bounded set of BLE fingerprints
  *
- * Every edit is an operation applied by a pure function. Operations carry their own timestamp and are safe to
- * apply twice to a document that already contains their effect, which is what makes replaying a queue onto a
- * freshly read document after a reconnect land each edit once.
+ * The page stamps each write with a random `write_id` and the id of its own `writer`, and reads a key before
+ * writing it, so a document another writer changed is never overwritten unseen.
  */
 
 export const SCHEMA_VERSION = 1;
@@ -170,7 +168,13 @@ export interface SuggestLogEntry {
   rejected_at?: string;
 }
 
-export interface MapDoc {
+/** What the page adds to a document when it writes it. */
+export interface WriteStamp {
+  write_id?: string;
+  writer?: string;
+}
+
+export interface MapDoc extends WriteStamp {
   schema_version: number;
   layout_version: number;
   updated_at: string;
@@ -225,7 +229,7 @@ export interface Fingerprint {
   note: string;
 }
 
-export interface FingerprintDoc {
+export interface FingerprintDoc extends WriteStamp {
   schema_version: number;
   updated_at: string;
   limit_bytes: number;
@@ -556,7 +560,7 @@ export type MapOp =
   | { kind: 'facing'; key: string; at: string; facing: Facing; fov_deg?: number | null }
   | { kind: 'height'; key: string; at: string; h: number | null }
   | { kind: 'confirm'; key: string; at: string; confirmed: boolean }
-  | { kind: 'undo'; key: string; at: string; history_at: string }
+  | { kind: 'undo'; key: string; at: string }
   | { kind: 'unplace'; key: string; at: string }
   | { kind: 'place'; key: string; at: string; x: number; y: number; device: NewDevice }
   | { kind: 'type'; key: string; at: string; type: string }
@@ -587,11 +591,11 @@ function samePlacement(a: Placement, b: Placement): boolean {
   return samePlacementGeometry(a, b) && a.cert === b.cert && a.confirmed_at === b.confirmed_at;
 }
 
-/** Applies an edit of `key` made at `at`, keeping the placement before it for Undo. A device whose history
- * already holds this edit's timestamp has had it applied, and an edit that changes nothing is dropped. */
+/** Applies an edit of `key` made at `at`, keeping the placement before it for Undo. An edit that changes
+ * nothing is dropped. */
 function editPlacement(doc: MapDoc, key: string, at: string, edit: (placement: Placement) => Placement): MapDoc {
   const device = doc.devices[key];
-  if (!device || device.history.some(entry => entry.at === at)) return doc;
+  if (!device) return doc;
   const next = edit(device.placement);
   if (samePlacement(next, device.placement)) return doc;
   return withPlacement(doc, key, device, next, at, pushHistory(device.history, at, device.placement));
@@ -654,10 +658,8 @@ export function applyMapOp(doc: MapDoc, op: MapOp): MapDoc {
       );
     case 'undo': {
       const device = doc.devices[op.key];
-      const entry = device?.history.find(item => item.at === op.history_at);
-      if (!device || !entry) return doc;
-      const history = device.history.filter(item => item.at !== op.history_at);
-      return withPlacement(doc, op.key, device, entry.placement, op.at, history);
+      const entry = device?.history[device.history.length - 1];
+      return device && entry ? withPlacement(doc, op.key, device, entry.placement, op.at, device.history.slice(0, -1)) : doc;
     }
     case 'unplace':
       return editPlacement(doc, op.key, op.at, placement => ({ ...placement, pos: null, cert: 'guess', confirmed_at: null }));
@@ -728,14 +730,4 @@ export function applyFingerprintOp(doc: FingerprintDoc, op: FingerprintOp): Fing
 
 export function fingerprintBytes(doc: FingerprintDoc): number {
   return utf8Length(JSON.stringify(doc.items));
-}
-
-/** The next unique ISO timestamp: `now` unless an earlier edit already used that millisecond. */
-export function nextStamp(nowMs: number, lastMs: number): { iso: string; ms: number } {
-  const ms = Math.max(nowMs, lastMs + 1);
-  return { iso: new Date(ms).toISOString(), ms };
-}
-
-export function undoTarget(device: MapDevice): HistoryEntry | null {
-  return device.history.length > 0 ? device.history[device.history.length - 1] : null;
 }
