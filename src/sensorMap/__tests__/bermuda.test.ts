@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dumpOf, dumpRequest, parseDump } from '../bermuda';
+import { dumpOf, dumpRequest, fetchDump, parseDump } from '../bermuda';
 
 const response = {
   'test-beacon-address': {
@@ -77,5 +77,42 @@ describe('the dump request', () => {
 
   it('joins the addresses and turns redaction and the configured device list off', () => {
     expect(dumpRequest([' addr-one ', 'addr-two'])).toEqual({ addresses: 'addr-one addr-two', redact: false, configured_devices: false });
+  });
+});
+
+describe('fetching a dump', () => {
+  it('calls the service with the addresses and asks for the response', async () => {
+    const sent: unknown[] = [];
+    const connection = {
+      sendMessagePromise: async <T>(message: { type: string }) => {
+        sent.push(message);
+        return { response } as T;
+      },
+    };
+    const dump = await fetchDump(connection, ['test-beacon-address']);
+    expect(sent).toEqual([
+      {
+        type: 'call_service',
+        domain: 'bermuda',
+        service: 'dump_devices',
+        service_data: { addresses: 'test-beacon-address', redact: false, configured_devices: false },
+        return_response: true,
+      },
+    ]);
+    expect(dumpOf(dump, 'test-beacon-address')?.areaId).toBe('alpha_area');
+  });
+
+  it('sends nothing for an empty list', async () => {
+    const connection = {
+      sendMessagePromise: async <T>() => {
+        throw new Error('must not be called') as T;
+      },
+    };
+    expect(await fetchDump(connection, [])).toEqual({});
+  });
+
+  it('survives a reply without a response', async () => {
+    const connection = { sendMessagePromise: async <T>() => ({}) as T };
+    expect(await fetchDump(connection, ['x'])).toEqual({});
   });
 });

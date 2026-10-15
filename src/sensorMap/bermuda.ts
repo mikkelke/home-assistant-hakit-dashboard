@@ -60,3 +60,21 @@ export function dumpRequest(addresses: readonly string[]): { addresses: string; 
   const list = addresses.map(address => address.trim()).filter(address => address !== '');
   return list.length === 0 ? null : { addresses: list.join(' '), redact: false, configured_devices: false };
 }
+
+interface DumpConnection {
+  sendMessagePromise<T>(message: { type: string; [key: string]: unknown }): Promise<T>;
+}
+
+/** Asks Bermuda for the named devices through `bermuda.dump_devices`; nothing is sent for an empty list. */
+export async function fetchDump(connection: DumpConnection, addresses: readonly string[]): Promise<Record<string, DeviceDump>> {
+  const request = dumpRequest(addresses);
+  if (!request) return {};
+  const reply = await connection.sendMessagePromise<{ response?: unknown }>({
+    type: 'call_service',
+    domain: 'bermuda',
+    service: 'dump_devices',
+    service_data: request,
+    return_response: true,
+  });
+  return parseDump(reply?.response);
+}
