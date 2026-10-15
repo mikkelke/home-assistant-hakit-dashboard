@@ -1,23 +1,16 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Icon, loadIcons } from '@iconify/react';
-import { useHass } from '@hakit/core';
 import type { SonosPlayerProps } from '../../types';
 import { FAMILY_ZONE, SONOS_SPEAKERS, rawSonosEntityId } from '../../config/speakers';
+import { RADIO_STATIONS } from '../../config/radio';
+import { PODCAST_FEEDS } from '../../config/podcasts';
 import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
 import { hapticTick } from '../../utils/haptics';
 import { useLocalStorageBoolean, useLongPress, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard, useViewer } from '../../hooks';
 import { phonePlayerOf } from '../../home/household';
-import { maImageUrl, mediaKindOf, playMedia } from '../../music/api';
-import { queueIdFor } from '../../music/queue';
-import { useEpisodes, useLibrary } from '../../music/useLibrary';
-import { favoritesFirst, podcastsByName, radioLabel } from '../../music/view';
-import { Art, EpisodeRow, MusicNote, PodcastRow, ResumeRow } from './MusicParts';
 import { VolumeStrip } from './VolumeStrip';
 import { isUnsettled, runningVolume, sendVolume, type SentVolume } from './sentVolume';
 import './SonosPlayer.css';
-
-/** Episodes listed at first, and added by each tap on the older-episodes row. */
-const EPISODE_PAGE = 30;
 
 type SonosAttributes = {
   media_title?: string;
@@ -34,6 +27,21 @@ type SonosAttributes = {
   media_position?: number;
   media_position_updated_at?: string;
   app_id?: string;
+};
+
+// Normalize media_content_id to better detect known radio stations
+const normalizeContentId = (id: string) => {
+  if (!id) return { full: '', base: '' };
+  let url = id;
+  const prefixes = ['builtin://radio/', 'hls-radio://', 'x-rincon-mp3radio://', 'radio://'];
+  prefixes.forEach(p => {
+    if (url.startsWith(p)) {
+      url = url.slice(p.length);
+    }
+  });
+  const full = url;
+  const base = url.split('?')[0];
+  return { full, base };
 };
 
 /**
@@ -113,24 +121,17 @@ export function SonosPlayer({
   // from it, so rapid taps accumulate and a dragged slider holds; once HA settles or something else moves the speaker
   // it is dropped and the live level is used.
   const [sentVolumes, setSentVolumes] = useState<Record<string, SentVolume>>({});
+  const [podcastEpisodes, setPodcastEpisodes] = useState<Record<string, Array<{ title: string; url: string; pubDate?: string }>>>({});
+  const [podcastLoading, setPodcastLoading] = useState<string | null>(null);
+  const [podcastError, setPodcastError] = useState<string | null>(null);
   const [showPodcastModal, setShowPodcastModal] = useState(false);
   const podcastModalOpenedAt = useRef<number>(0);
   /** Set synchronously on open so modalBackButton beats React re-render (embed/spurious popstate). */
   const podcastPendingOpenRef = useRef(false);
   const showPodcastModalRef = useRef(false);
   const viewingEpisodesRef = useRef(false);
-  const [selectedPodcastUri, setSelectedPodcastUri] = useState<string | null>(null);
+  const [selectedPodcastId, setSelectedPodcastId] = useState<string | null>(null);
   const [viewingEpisodes, setViewingEpisodes] = useState(false);
-  const [episodeLimit, setEpisodeLimit] = useState(EPISODE_PAGE);
-  // The item a tap is starting on Music Assistant, held until it answers. Each open of the sheet and each tap is a new attempt;
-  // an answer that arrives for an older one is dropped.
-  const [starting, setStarting] = useState<string | null>(null);
-  const [startFailed, setStartFailed] = useState(false);
-  const startAttempt = useRef(0);
-  const connection = useHass(s => s.connection);
-  const library = useLibrary(showSourcePicker || showPodcastModal);
-  const selectedPodcast = (library.status === 'ready' && library.data.podcasts.find(p => p.uri === selectedPodcastUri)) || null;
-  const episodes = useEpisodes(showPodcastModal && viewingEpisodes, selectedPodcast);
   const [seekerPreview, setSeekerPreview] = useState<number | null>(null); // position in seconds while dragging
   const [, setSeekerTick] = useState(0); // force re-render for live position when playing
   const player = entities?.[entityId];
@@ -209,11 +210,18 @@ export function SonosPlayer({
   const mediaPosition = typeof attributes.media_position === 'number' ? attributes.media_position : undefined;
   const mediaPositionUpdatedAt = attributes.media_position_updated_at;
 
-  // Music Assistant names what it plays by uri (`library://radio/5`, `dr_podcasts://podcast_episode/...`); its media type is
-  // the one reliable mark of radio and podcasts. The station is only known once the library has loaded.
-  const mediaKind = mediaKindOf(mediaContentId);
-  const isRadio = mediaKind === 'radio';
-  const currentRadio = (library.status === 'ready' && library.data.radios.find(radio => radio.uri === mediaContentId)) || null;
+  // Detect current radio station (handle wrapped URLs from automations)
+  const normalized = normalizeContentId(mediaContentId);
+  const currentRadio = RADIO_STATIONS.find(station => {
+    const stationBase = station.mediaId.split('?')[0];
+    const stationNameKey = station.name.toLowerCase().replace('dr ', '').trim();
+    // Check if normalized URL contains station base URL (works for wrapped URLs)
+    const urlMatch =
+      (normalized.full && normalized.full.includes(stationBase)) || (normalized.base && normalized.base.includes(stationBase));
+    // Also check if media_title matches station name (for cases where URL might differ)
+    const titleMatch = mediaTitle && mediaTitle.toLowerCase().includes(stationNameKey);
+    return urlMatch || titleMatch;
+  });
 
   // Detect Spotify based on media_content_id, app_id, or entity_picture
   const isSpotify = Boolean(
@@ -222,15 +230,145 @@ export function SonosPlayer({
     attributes?.entity_picture?.toLowerCase().includes('spotify')
   );
 
-  // Allow detection when playing, paused, OR idle (if there's media content), and never while the source is TV
+  // Helper function to normalize titles for matching
+  const normalizeTitle = (str: string) =>
+    str
+      .toLowerCase()
+      .replace(/podcast/g, '')
+      .replace(/&/g, '')
+      .replace(/[:\-–—]/g, ' ') // Replace colons and dashes with spaces
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  // Extract key words from a title (removes common words and keeps meaningful terms)
+  const extractKeywords = (str: string) => {
+    const normalized = normalizeTitle(str);
+    // Remove common words that don't help with matching
+    const stopWords = [
+      'med',
+      'og',
+      'et',
+      'en',
+      'den',
+      'det',
+      'de',
+      'der',
+      'som',
+      'på',
+      'til',
+      'for',
+      'af',
+      'i',
+      'er',
+      'har',
+      'var',
+      'blev',
+      'blev',
+      'kan',
+      'skal',
+      'vil',
+      'må',
+      'all',
+    ];
+    return normalized
+      .split(' ')
+      .filter(word => word.length > 2 && !stopWords.includes(word))
+      .join(' ');
+  };
+
+  // Detect podcast - check multiple ways:
+  // 1. media_content_id contains "podcastfeed"
+  // 2. media_title matches podcast title (using normalized matching)
+  // 3. media_artist matches podcast feed URL domain (e.g., "DR" for DR podcasts)
+  // 4. DR API URLs (api.dr.dk) with matching titles
+  // BUT: Skip podcast detection if we already detected a radio station
+  // AND: Skip podcast detection if source is TV
+  // Allow detection when playing, paused, OR idle (if there's media content)
   const isPlayingState = state === 'playing' || state === 'paused';
   const hasMediaContent = mediaTitle && mediaTitle !== 'Not playing' && mediaContentId;
   const canDetectPodcast = isPlayingState || (state === 'idle' && hasMediaContent);
   const isTVSource = currentSource && currentSource.toLowerCase().includes('tv');
-  const isPodcast = !isRadio && !isTVSource && canDetectPodcast && mediaKind === 'podcast_episode';
+  const isPodcastById = !currentRadio && !isTVSource && canDetectPodcast && mediaContentId?.includes('podcastfeed');
+  const isDRApiUrl = mediaContentId?.includes('api.dr.dk') || mediaContentId?.includes('dr.dk/radio');
 
-  // Prefer entity picture; fall back to the station's logo when it is known
-  const fallbackLogo = currentRadio?.imageId ? maImageUrl(currentRadio.imageId) : null;
+  let currentPodcast = null;
+
+  // Only detect podcast if it's not a radio station, not TV source, and has media content
+  if (!currentRadio && !isTVSource && canDetectPodcast) {
+    // First try to match by media_content_id URL pattern (podcastfeed or DR API)
+    if (isPodcastById || isDRApiUrl) {
+      currentPodcast = PODCAST_FEEDS.find(feed => {
+        const feedBaseUrl = feed.url.replace('/feed.xml', '');
+        // Check for direct feed URL match
+        if (mediaContentId.includes(feedBaseUrl)) return true;
+        // For DR API URLs, check if feed URL domain matches
+        if (isDRApiUrl && feed.url.includes('drpodcast.nu')) {
+          return true; // Will be refined by title matching below
+        }
+        return false;
+      });
+    }
+
+    // If not found, try to match by title (normalize for better matching)
+    // Only match if media_title is not empty and not generic
+    if (!currentPodcast && mediaTitle && mediaTitle !== 'Not playing' && mediaTitle.length > 3) {
+      currentPodcast = PODCAST_FEEDS.find(feed => {
+        const titleNormalized = normalizeTitle(mediaTitle);
+        const feedTitleNormalized = normalizeTitle(feed.title);
+
+        // Require a stronger match - both titles should be substantial
+        if (titleNormalized.length < 5 || feedTitleNormalized.length < 5) return false;
+
+        // Check if normalized titles match or contain each other
+        if (titleNormalized.includes(feedTitleNormalized) || feedTitleNormalized.includes(titleNormalized)) {
+          return true;
+        }
+
+        // Also try keyword matching for better episode title matching
+        // This helps match "Nytårsbangers med Ena: Et all" to "Bangers med Ena"
+        const titleKeywords = extractKeywords(mediaTitle);
+        const feedKeywords = extractKeywords(feed.title);
+
+        // Check if key words from podcast feed are present in episode title
+        if (feedKeywords && titleKeywords) {
+          const feedWords = feedKeywords.split(' ').filter(w => w.length >= 3);
+          const titleWords = titleKeywords.split(' ');
+          // Match words from feed to title (allowing partial matches)
+          const matchingWords = feedWords.filter(feedWord =>
+            titleWords.some(titleWord => titleWord.includes(feedWord) || feedWord.includes(titleWord))
+          );
+          // If we have at least one substantial match (4+ chars) OR multiple shorter matches, consider it a match
+          const hasSubstantialMatch = matchingWords.some(word => word.length >= 4);
+          if (hasSubstantialMatch || matchingWords.length >= 2) {
+            return true;
+          }
+        }
+
+        return false;
+      });
+    }
+
+    // If still not found and media_artist is "DR", try to match by feed URL domain
+    // This helps when episode titles don't directly match but we know it's from DR
+    // Also check for DR API URLs
+    if (!currentPodcast && mediaArtist && mediaArtist.toLowerCase() === 'dr') {
+      // Check if any DR podcast feed URL matches the media_content_id or if it's a DR API URL
+      currentPodcast = PODCAST_FEEDS.find(feed => {
+        if (feed.url.includes('drpodcast.nu')) {
+          // If media_content_id contains drpodcast.nu or DR API URL, it's likely a DR podcast
+          return mediaContentId?.includes('drpodcast.nu') || mediaContentId?.includes('drpodcast') || isDRApiUrl;
+        }
+        return false;
+      });
+    }
+  }
+
+  // Consider it a podcast if we found a match OR if media_content_id contains podcastfeed or DR API URL
+  // But only if it's not a radio station, not TV source, and has media content
+  const isPodcast = !currentRadio && !isTVSource && canDetectPodcast && (isPodcastById || isDRApiUrl || currentPodcast !== null);
+
+  // Prefer entity picture; fallback to station logo or podcast cover when known
+  const fallbackLogo = currentRadio?.logo || currentPodcast?.cover || null;
 
   // Check if entity picture is likely a placeholder (generic icon)
   const isPlaceholderImage = (url: string | null | undefined): boolean => {
@@ -249,7 +387,7 @@ export function SonosPlayer({
 
   const pickImage = () => {
     const candidate = mediaPictureLocal || mediaPicture;
-    // If the entity picture is a placeholder and the station's logo is known, prefer the logo
+    // If we have a detected podcast/radio with cover and the entity picture is a placeholder, prefer the cover
     if (fallbackLogo && candidate && isPlaceholderImage(candidate)) {
       return fallbackLogo;
     }
@@ -265,7 +403,7 @@ export function SonosPlayer({
   }, [imageUrl]);
 
   // If we have a fallback logo and no entity picture, use fallback directly
-  // If entity picture is a placeholder and we have a station logo, prefer the logo
+  // If entity picture is a placeholder and we have a podcast/radio cover, prefer the cover
   // Otherwise use imageUrl and fallback to fallbackLogo on error
   const entityPicture = mediaPictureLocal || mediaPicture;
   const isPlaceholder = entityPicture ? isPlaceholderImage(entityPicture) : false;
@@ -300,8 +438,12 @@ export function SonosPlayer({
     }
   };
 
-  // The station logo is served by Music Assistant, not by Home Assistant
-  const isExternalAllowed = (url: string | null | undefined) => Boolean(url) && url === fallbackLogo;
+  // Allow external URLs for podcast covers and radio logos (known safe sources)
+  const isExternalAllowed = (url: string | null | undefined) => {
+    if (!url) return false;
+    // Check if it's a podcast cover or radio logo
+    return currentPodcast?.cover === url || currentRadio?.logo === url;
+  };
 
   const safeImage =
     resolvedImage && (isSameOrigin(resolvedImage) || isHassUrl(resolvedImage) || isExternalAllowed(resolvedImage))
@@ -399,7 +541,7 @@ export function SonosPlayer({
       } else if (showPodcastModalRef.current) {
         // Podcasts page flips back to the source grid; the sheet itself stays open.
         setShowPodcastModal(false);
-        setSelectedPodcastUri(null);
+        setSelectedPodcastId(null);
         try {
           withHistoryWindow(targetWindow => {
             replaceHistoryState(targetWindow, { podcastModal: null }, podcastHistoryUrl());
@@ -461,7 +603,7 @@ export function SonosPlayer({
 
   // On line-in HA often leaves media_title empty – show the source name instead of "Not playing"
   const displayTitle =
-    (currentRadio && radioLabel(currentRadio.name)) ||
+    currentRadio?.name ||
     (isLineIn(currentSource) && (!mediaTitle || mediaTitle === 'Not playing') ? currentSource : mediaTitle) ||
     'Not playing';
 
@@ -469,7 +611,7 @@ export function SonosPlayer({
   const getDisplaySource = () => {
     // Check specific sources in priority order (regardless of state)
     if (isSpotify) return 'Spotify';
-    if (currentRadio) return radioLabel(currentRadio.name); // Radio should show even when idle
+    if (currentRadio) return currentRadio.name; // Radio should show even when idle
 
     // Check for TV source BEFORE podcast detection (TV should take priority)
     if (currentSource && currentSource.toLowerCase().includes('tv')) {
@@ -478,8 +620,6 @@ export function SonosPlayer({
 
     // Check AirPlay BEFORE podcast – when casting a podcast via AirPlay, show "AirPlay" as source
     if (isAirPlay) return 'AirPlay';
-
-    if (isRadio) return 'Radio';
 
     if (isPodcast) return 'Podcast'; // Podcast detected (playing, paused, or idle with media)
 
@@ -507,7 +647,7 @@ export function SonosPlayer({
 
   // --- Media seeker: only when relevant (not radio, not line-in) ---
   const showSeeker =
-    !isRadio && !isLineIn(currentSource) && mediaDuration != null && mediaDuration > 0 && mediaPosition != null && mediaPosition >= 0;
+    !currentRadio && !isLineIn(currentSource) && mediaDuration != null && mediaDuration > 0 && mediaPosition != null && mediaPosition >= 0;
 
   const getCurrentPosition = (): number => {
     if (seekerPreview != null) return seekerPreview;
@@ -563,12 +703,6 @@ export function SonosPlayer({
 
   // Service calls
   useEffect(() => () => clearTimeout(pendingPlayTimer.current), []);
-  useEffect(
-    () => () => {
-      startAttempt.current += 1;
-    },
-    []
-  );
 
   const handlePlayPause = () => {
     if (!callService) return;
@@ -689,6 +823,49 @@ export function SonosPlayer({
     setSentVolumes(prev => ({ ...prev, ...updates }));
   };
 
+  const parseRss = (xmlText: string) => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlText, 'text/xml');
+    const items = Array.from(doc.querySelectorAll('item'));
+    return items
+      .map(item => {
+        const title = item.querySelector('title')?.textContent?.trim() || 'Episode';
+        const enclosure = item.querySelector('enclosure');
+        const url = enclosure?.getAttribute('url') || '';
+        const pubDate = item.querySelector('pubDate')?.textContent || '';
+        return url ? { title, url, pubDate } : null;
+      })
+      .filter(Boolean) as Array<{ title: string; url: string; pubDate?: string }>;
+  };
+
+  const fetchPodcast = async (feedId: string, feedUrl: string) => {
+    setPodcastLoading(feedId);
+    setPodcastError(null);
+    try {
+      const res = await fetch(feedUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      const eps = parseRss(text);
+      setPodcastEpisodes(prev => ({ ...prev, [feedId]: eps }));
+    } catch (err: unknown) {
+      setPodcastError(err instanceof Error ? err.message : 'Failed to load feed');
+      setPodcastEpisodes(prev => ({ ...prev, [feedId]: [] }));
+    } finally {
+      setPodcastLoading(null);
+    }
+  };
+
+  useEffect(() => {
+    if (showPodcastModal && selectedPodcastId && viewingEpisodes) {
+      const feed = PODCAST_FEEDS.find(f => f.id === selectedPodcastId);
+      if (feed && !podcastEpisodes[feed.id]) {
+        fetchPodcast(feed.id, feed.url);
+      }
+    }
+    // Intentionally omit fetchPodcast and podcastEpisodes to avoid re-running when episodes load
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPodcastModal, selectedPodcastId, viewingEpisodes]);
+
   // Browser back button support (capture to avoid closing the whole room)
   useEffect(() => {
     const targetWindow = getAccessibleHistoryWindow();
@@ -710,7 +887,7 @@ export function SonosPlayer({
       } else if (showPodcastModal) {
         // Podcasts page flips back to the source grid; the sheet itself stays open.
         setShowPodcastModal(false);
-        setSelectedPodcastUri(null);
+        setSelectedPodcastId(null);
         try {
           withHistoryWindow(targetWindow => {
             replaceHistoryState(targetWindow, { podcastModal: null }, podcastHistoryUrl());
@@ -761,9 +938,6 @@ export function SonosPlayer({
   const handleOpenSourceSheet = () => {
     sourceSheetOpenedAt.current = Date.now();
     sourcePendingOpenRef.current = true;
-    startAttempt.current += 1;
-    setStarting(null);
-    setStartFailed(false);
     // useModalBackButton pushes the sheet's history entry when isOpen flips.
     setShowSourcePicker(true);
   };
@@ -776,11 +950,10 @@ export function SonosPlayer({
 
   const handleCloseSourceSheet = () => {
     sourcePendingOpenRef.current = false;
-    startAttempt.current += 1;
     setShowSourcePicker(false);
     setShowPodcastModal(false);
     setViewingEpisodes(false);
-    setSelectedPodcastUri(null);
+    setSelectedPodcastId(null);
     try {
       withHistoryWindow(targetWindow => {
         replaceHistoryState(targetWindow, { sourceSheet: null }, podcastHistoryUrl());
@@ -795,7 +968,7 @@ export function SonosPlayer({
     podcastPendingOpenRef.current = true;
     setShowPodcastModal(true);
     setViewingEpisodes(false);
-    setSelectedPodcastUri(null);
+    setSelectedPodcastId(null);
     try {
       withHistoryWindow(targetWindow => {
         targetWindow.history.pushState({ podcastModal: true, viewingEpisodes: false }, '', podcastHistoryUrl());
@@ -810,7 +983,7 @@ export function SonosPlayer({
     podcastPendingOpenRef.current = false;
     setShowPodcastModal(false);
     setViewingEpisodes(false);
-    setSelectedPodcastUri(null);
+    setSelectedPodcastId(null);
     try {
       withHistoryWindow(targetWindow => {
         replaceHistoryState(targetWindow, { podcastModal: null }, podcastHistoryUrl());
@@ -827,13 +1000,12 @@ export function SonosPlayer({
     flipBackToSourceGrid();
   };
 
-  const handleSelectPodcast = (podcastUri: string) => {
-    setSelectedPodcastUri(podcastUri);
-    setEpisodeLimit(EPISODE_PAGE);
+  const handleSelectPodcast = (feedId: string) => {
+    setSelectedPodcastId(feedId);
     setViewingEpisodes(true);
     try {
       withHistoryWindow(targetWindow => {
-        targetWindow.history.pushState({ podcastModal: true, viewingEpisodes: true, podcastUri }, '', podcastHistoryUrl());
+        targetWindow.history.pushState({ podcastModal: true, viewingEpisodes: true, feedId }, '', podcastHistoryUrl());
       });
     } catch {
       /* ignore */
@@ -937,29 +1109,25 @@ export function SonosPlayer({
     });
   };
 
-  /** Replaces the queue of the group's coordinator with a radio station or an episode; the sheet closes once Music Assistant has taken it. */
-  const handlePlayItem = (uri: string) => {
-    if (starting !== null) return;
-    const queueId = connection ? queueIdFor(entities, masterId) : null;
-    if (!connection || !queueId) {
-      setStartFailed(true);
-      return;
-    }
-    const attempt = ++startAttempt.current;
-    setStarting(uri);
-    setStartFailed(false);
-    playMedia(connection, queueId, uri).then(
-      () => {
-        if (startAttempt.current !== attempt) return;
-        setStarting(null);
-        handleCloseSourceSheet();
+  const handlePlayRadio = (stationId: string) => {
+    if (!callService) return;
+    const station = RADIO_STATIONS.find(s => s.id === stationId);
+    if (!station) return;
+
+    const targetId = hasGroup ? groupMembers[0] : entityId; // ensure we target coordinator when grouped
+    const mediaContentId = station.maMediaId || station.mediaId;
+    const mediaContentType = station.maMediaType || station.mediaType || 'music';
+
+    callService({
+      domain: 'media_player',
+      service: 'play_media',
+      target: { entity_id: targetId },
+      serviceData: {
+        media_content_id: mediaContentId,
+        media_content_type: mediaContentType,
       },
-      () => {
-        if (startAttempt.current !== attempt) return;
-        setStarting(null);
-        setStartFailed(true);
-      }
-    );
+    });
+    handleCloseSourceSheet();
   };
 
   const handleSelectSource = (source: string) => {
@@ -1054,14 +1222,12 @@ export function SonosPlayer({
   // The source door wears the CURRENT source's mark - brands as logos, everything else as a glyph.
   const sourceMark = isSpotify ? (
     <Icon icon='mdi:spotify' className='sonos-mark--spotify' aria-hidden='true' />
-  ) : currentRadio?.imageId ? (
-    <Art imageId={currentRadio.imageId} className='sonos-mark-logo' fallback={<Icon icon='mdi:radio' aria-hidden='true' />} />
+  ) : currentRadio?.logo ? (
+    <img src={currentRadio.logo} alt='' className='sonos-mark-logo' />
   ) : isTVSource ? (
     <Icon icon='mdi:television' className='sonos-mark--tv' aria-hidden='true' />
   ) : isAirPlay ? (
     <Icon icon='mdi:airplay' aria-hidden='true' />
-  ) : isRadio ? (
-    <Icon icon='mdi:radio' aria-hidden='true' />
   ) : isPodcast ? (
     <Icon icon='mdi:podcast' aria-hidden='true' />
   ) : (
@@ -1437,7 +1603,7 @@ export function SonosPlayer({
         </div>
       )}
 
-      {/* Source sheet - one pop-up, three faces: the grid, the podcasts, a podcast's episodes */}
+      {/* Source sheet - one pop-up, three faces: the grid, the podcast feeds, a feed's episodes */}
       {(showSourcePicker || showPodcastModal) && (
         <div
           className='sonos-modal-overlay'
@@ -1468,7 +1634,11 @@ export function SonosPlayer({
                 <Icon icon={showPodcastModal ? 'mdi:podcast' : 'mdi:speaker'} aria-hidden='true' />
               </span>
               <span className='sonos-title'>
-                {viewingEpisodes ? selectedPodcast?.name || 'Episodes' : showPodcastModal ? 'Podcasts' : 'Source'}
+                {viewingEpisodes
+                  ? PODCAST_FEEDS.find(f => f.id === selectedPodcastId)?.title || 'Episodes'
+                  : showPodcastModal
+                    ? 'Podcasts'
+                    : 'Source'}
               </span>
               <button className='sonos-sheet-close modal-close-button' onClick={handleCloseSourceSheet} aria-label='Close'>
                 <Icon icon='mdi:close' />
@@ -1491,32 +1661,28 @@ export function SonosPlayer({
                       <span>Spotify{isSpotify ? ' · now' : ''}</span>
                     </div>
 
-                    {library.status === 'ready' &&
-                      favoritesFirst(library.data.radios).map(radio => {
-                        const label = radioLabel(radio.name);
-                        return (
-                          <div key={radio.uri} className='sonos-srctile'>
-                            <button
-                              type='button'
-                              className='sonos-srcbtn sonos-srcbtn--logo'
-                              onClick={() => handlePlayItem(radio.uri)}
-                              aria-label={label}
-                            >
-                              {starting === radio.uri ? (
-                                <Icon icon='mdi:loading' className='sonos-spin' aria-hidden='true' />
-                              ) : (
-                                <Art imageId={radio.imageId} fallback={<Icon icon='mdi:radio' aria-hidden='true' />} />
-                              )}
-                            </button>
-                            <span>
-                              {label}
-                              {radio.uri === mediaContentId ? ' · now' : ''}
-                            </span>
-                          </div>
-                        );
-                      })}
+                    {RADIO_STATIONS.map(station => (
+                      <div key={station.id} className='sonos-srctile'>
+                        <button
+                          type='button'
+                          className='sonos-srcbtn sonos-srcbtn--logo'
+                          onClick={() => handlePlayRadio(station.id)}
+                          aria-label={station.name}
+                        >
+                          {station.logo ? (
+                            <img src={station.logo} alt='' />
+                          ) : (
+                            <Icon icon={station.icon || 'mdi:radio'} aria-hidden='true' />
+                          )}
+                        </button>
+                        <span>
+                          {station.name}
+                          {currentRadio?.id === station.id ? ' · now' : ''}
+                        </span>
+                      </div>
+                    ))}
 
-                    {library.status === 'ready' && (library.data.podcasts.length > 0 || library.data.resume.length > 0) && (
+                    {PODCAST_FEEDS.length > 0 && (
                       <div className='sonos-srctile'>
                         <button
                           type='button'
@@ -1548,9 +1714,6 @@ export function SonosPlayer({
                     )}
                   </div>
 
-                  {library.status === 'loading' && <MusicNote kind='loading' />}
-                  {(library.status === 'failed' || startFailed) && <MusicNote kind='unavailable' />}
-
                   {otherInputSources.length > 0 && (
                     <div className='sonos-chips'>
                       {otherInputSources.map(source => (
@@ -1567,52 +1730,65 @@ export function SonosPlayer({
                   )}
                 </>
               ) : !viewingEpisodes ? (
-                // Podcasts: unfinished episodes first, then the library
-                <>
-                  {library.status === 'loading' && <MusicNote kind='loading' />}
-                  {(library.status === 'failed' || startFailed) && <MusicNote kind='unavailable' />}
-                  {library.status === 'ready' && (
-                    <div className='sonos-rows'>
-                      {library.data.resume.map(item => (
-                        <ResumeRow key={item.uri} item={item} starting={starting === item.uri} onPlay={() => handlePlayItem(item.uri)} />
-                      ))}
-                      {library.data.resume.length > 0 && library.data.podcasts.length > 0 && <div className='sonos-rows-rule' />}
-                      {podcastsByName(library.data.podcasts).map(podcast => (
-                        <PodcastRow key={podcast.uri} podcast={podcast} onOpen={() => handleSelectPodcast(podcast.uri)} />
-                      ))}
-                    </div>
-                  )}
-                </>
-              ) : (
-                // Episodes, newest first
-                <>
-                  {episodes.status === 'loading' && <MusicNote kind='loading' />}
-                  {(episodes.status === 'failed' || startFailed) && <MusicNote kind='unavailable' />}
-                  {episodes.status === 'ready' &&
-                    (episodes.data.length === 0 ? (
-                      <div className='sonos-note'>No episodes found</div>
-                    ) : (
-                      <div className='sonos-rows'>
-                        {episodes.data.slice(0, episodeLimit).map(episode => (
-                          <EpisodeRow
-                            key={episode.uri}
-                            episode={episode}
-                            starting={starting === episode.uri}
-                            onPlay={() => handlePlayItem(episode.uri)}
-                          />
-                        ))}
-                        {episodes.data.length > episodeLimit && (
-                          <button
-                            type='button'
-                            className='sonos-more'
-                            onClick={() => setEpisodeLimit(n => n + EPISODE_PAGE)}
-                            aria-label='Older episodes'
-                          >
-                            <Icon icon='mdi:chevron-down' aria-hidden='true' />
-                          </button>
+                // Podcast feed list
+                <div className='sonos-rows'>
+                  {[...PODCAST_FEEDS]
+                    .sort((a, b) => a.title.localeCompare(b.title, 'da'))
+                    .map(feed => (
+                      <button key={feed.id} type='button' className='sonos-row' onClick={() => handleSelectPodcast(feed.id)}>
+                        {feed.cover ? (
+                          <img src={feed.cover} alt='' className='sonos-row-cover' />
+                        ) : (
+                          <span className='sonos-row-cover sonos-row-cover--empty'>
+                            <Icon icon='mdi:podcast' aria-hidden='true' />
+                          </span>
                         )}
-                      </div>
+                        <span className='sonos-row-title'>{feed.title}</span>
+                        <Icon icon='mdi:chevron-right' className='sonos-row-chev' aria-hidden='true' />
+                      </button>
                     ))}
+                </div>
+              ) : (
+                // Episode list
+                <>
+                  {podcastError && <div className='sonos-note error'>{podcastError}</div>}
+                  <div className='sonos-rows'>
+                    {podcastLoading === selectedPodcastId ? (
+                      <div className='sonos-note'>Loading episodes...</div>
+                    ) : selectedPodcastId && podcastEpisodes[selectedPodcastId] && podcastEpisodes[selectedPodcastId].length > 0 ? (
+                      podcastEpisodes[selectedPodcastId].map((ep: { title: string; url: string; pubDate?: string }) => (
+                        <button
+                          key={ep.url}
+                          type='button'
+                          className='sonos-row'
+                          onClick={() => {
+                            if (!callService) return;
+                            // Music Assistant entity of the coordinator: native Sonos rejects audio/mpeg.
+                            callService({
+                              domain: 'media_player',
+                              service: 'play_media',
+                              target: { entity_id: hasGroup ? groupMembers[0] : entityId },
+                              serviceData: {
+                                media_content_id: ep.url,
+                                media_content_type: 'music',
+                              },
+                            });
+                            handleCloseSourceSheet();
+                          }}
+                        >
+                          <span className='sonos-row-cover sonos-row-cover--empty'>
+                            <Icon icon='mdi:play' aria-hidden='true' />
+                          </span>
+                          <span className='sonos-row-text'>
+                            <span className='sonos-row-title'>{ep.title}</span>
+                            {ep.pubDate && <span className='sonos-row-sub'>{ep.pubDate}</span>}
+                          </span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className='sonos-note'>No episodes found</div>
+                    )}
+                  </div>
                 </>
               )}
             </div>
