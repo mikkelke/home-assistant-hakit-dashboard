@@ -91,6 +91,17 @@ export function LayersSheet({
   const counted: Partial<Record<Switch, number>> = { fingerprints, suggestions };
   return (
     <Sheet title='Layers' subtitle={hidden > 0 ? `${hidden} hidden` : undefined} onClose={onClose} className='tall'>
+      <div role='group' aria-label='Display'>
+        <h2 className='sm-h'>Display</h2>
+        {SWITCHES.map(name => (
+          <div key={name}>
+            <SwitchRow label={SWITCH_LABEL[name]} count={counted[name]} checked={layers[name]} onClick={() => onSwitch(name)} />
+            {name === 'fingerprints' && layers.fingerprints && weak > 0 && (
+              <SwitchRow label='Weak only' count={weak} checked={weakOnly} nested onClick={onWeakOnly} />
+            )}
+          </div>
+        ))}
+      </div>
       <div role='group' aria-label='Device types'>
         <div className='sm-lay-head'>
           <h2 className='sm-h'>Device types</h2>
@@ -118,17 +129,6 @@ export function LayersSheet({
             <span className='sm-lay-label'>{type.label}</span>
             <span className='sm-count'>{counts[type.key] ?? 0}</span>
           </Row>
-        ))}
-      </div>
-      <div role='group' aria-label='Display'>
-        <h2 className='sm-h'>Display</h2>
-        {SWITCHES.map(name => (
-          <div key={name}>
-            <SwitchRow label={SWITCH_LABEL[name]} count={counted[name]} checked={layers[name]} onClick={() => onSwitch(name)} />
-            {name === 'fingerprints' && layers.fingerprints && weak > 0 && (
-              <SwitchRow label='Weak only' count={weak} checked={weakOnly} nested onClick={onWeakOnly} />
-            )}
-          </div>
         ))}
       </div>
     </Sheet>
