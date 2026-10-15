@@ -80,6 +80,9 @@ interface SonosCardProps extends SonosPlayerProps {
   dockedEntityId?: string;
 }
 
+const SPOTIFY_ANDROID_INTENT =
+  'intent://open/#Intent;scheme=spotify;package=com.spotify.music;S.browser_fallback_url=https%3A%2F%2Fopen.spotify.com;end';
+
 export function SonosPlayer({
   entityId,
   entities,
@@ -901,29 +904,7 @@ export function SonosPlayer({
       }
     } else {
       e.preventDefault();
-      let appOpened = false;
-      const startTime = Date.now();
-      const handleBlur = () => {
-        appOpened = true;
-        window.removeEventListener('blur', handleBlur);
-      };
-      window.addEventListener('blur', handleBlur);
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = 'spotify://';
-      document.body.appendChild(iframe);
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 100);
-      setTimeout(() => {
-        window.removeEventListener('blur', handleBlur);
-        if (!appOpened && document.hasFocus()) {
-          const elapsed = Date.now() - startTime;
-          if (elapsed > 800 && !isEmbedded) {
-            window.open('https://open.spotify.com', '_blank');
-          }
-        }
-      }, 1200);
+      (window.top ?? window).location.href = SPOTIFY_ANDROID_INTENT;
     }
   };
 
