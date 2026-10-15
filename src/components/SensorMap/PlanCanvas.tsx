@@ -26,6 +26,8 @@ interface PlanCanvasProps {
   phoneAreas: ReadonlySet<string>;
   crosshair: Point | null;
   onActivate: (id: string) => void;
+  onActivateGhost: (id: string) => void;
+  onActivatePrint: (id: string) => void;
 }
 
 interface Placed {
@@ -64,6 +66,8 @@ export const PlanCanvas = memo(function PlanCanvas(props: PlanCanvasProps) {
     phoneAreas,
     crosshair,
     onActivate,
+    onActivateGhost,
+    onActivatePrint,
   } = props;
   const { plan } = doc;
   const yTop = plan.bounds.y1;
@@ -128,7 +132,12 @@ export const PlanCanvas = memo(function PlanCanvas(props: PlanCanvasProps) {
       )}
       <PlanWalls plan={plan} />
       {layers.fingerprints && (
-        <FingerprintMarks items={fingerprints} yTop={yTop} selectedId={selection?.kind === 'fingerprint' ? selection.id : null} />
+        <FingerprintMarks
+          items={fingerprints}
+          yTop={yTop}
+          selectedId={selection?.kind === 'fingerprint' ? selection.id : null}
+          onActivate={onActivatePrint}
+        />
       )}
       <g className='sm-markers'>
         {ordered.map(item => {
@@ -152,7 +161,13 @@ export const PlanCanvas = memo(function PlanCanvas(props: PlanCanvasProps) {
       </g>
       {layers.suggestions &&
         ghosts.map(ghost => (
-          <GhostMarker key={ghost.id} ghost={ghost} yTop={yTop} selected={selection?.kind === 'ghost' && selection.id === ghost.id} />
+          <GhostMarker
+            key={ghost.id}
+            ghost={ghost}
+            yTop={yTop}
+            selected={selection?.kind === 'ghost' && selection.id === ghost.id}
+            onActivate={onActivateGhost}
+          />
         ))}
       {edit && selected && selectedPos && isRadar(selected.device) && (
         <FacingHandle radar={selectedPos} facing={facingOf(selected)} deviceId={selected.key} yTop={yTop} />

@@ -268,6 +268,17 @@ describe('fingerprints on the plan', () => {
     expect(queryAll('.sm-print')).toHaveLength(3);
   });
 
+  it('opens a fingerprint, a ghost and a marker from the keyboard alike', async () => {
+    const prints = makeFingerprintDoc();
+    prints.items = [makeFingerprint('fp-a')];
+    await open(fakeConnection({ ...docs(), sensor_map_fingerprints: prints }));
+    press(query('.sm-print') as Element, 'Enter');
+    expect(query('.sm-sheet')?.textContent).toContain('Fingerprint');
+    act(() => byLabel('Close').click());
+    press(query('.sm-ghost [data-hit="ghost"]') as Element, ' ');
+    expect(query('.sm-sheet')?.textContent).toContain('suggested placement');
+  });
+
   it('offers no weak filter when every fingerprint is strong', async () => {
     const prints = makeFingerprintDoc();
     prints.items = [makeFingerprint('fp-a')];

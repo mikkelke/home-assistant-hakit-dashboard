@@ -386,6 +386,9 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
     [reveal]
   );
 
+  const activateGhost = useCallback((id: string) => setSelection({ kind: 'ghost', id }), []);
+  const activatePrint = useCallback((id: string) => setSelection({ kind: 'fingerprint', id }), []);
+
   const armTray = useCallback((id: string | null) => setSelection(id === null ? null : { kind: 'tray', id }), []);
 
   const startCapture = useCallback(
@@ -652,6 +655,8 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
             phoneAreas={areas}
             crosshair={crosshair}
             onActivate={activate}
+            onActivateGhost={activateGhost}
+            onActivatePrint={activatePrint}
           />
           <div className='sm-zoom'>
             <button type='button' className='sm-icon-btn' onClick={() => zoomBy(1.6)} aria-label='Zoom in'>

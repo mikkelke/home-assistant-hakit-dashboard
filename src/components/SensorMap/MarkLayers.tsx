@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, type KeyboardEvent } from 'react';
 import type { Fingerprint, MapDevice, Point } from '../../sensorMap/mapDoc';
 import { handlePoint } from '../../sensorMap/radarRange';
 import { glyphOf, typeClass } from './glyphs';
@@ -15,14 +15,26 @@ export interface Ghost {
   stale: boolean;
 }
 
+/** Enter or Space on a focused mark, for a keyboard user. */
+function activateOnKey(activate: () => void) {
+  return (event: KeyboardEvent<SVGGElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      event.stopPropagation();
+      activate();
+    }
+  };
+}
+
 interface GhostMarkerProps {
   ghost: Ghost;
   yTop: number;
   selected: boolean;
+  onActivate: (id: string) => void;
 }
 
 /** A suggested placement: a dashed marker in the device's colour, with an arrow from where the device is now. */
-export const GhostMarker = memo(function GhostMarker({ ghost, yTop, selected }: GhostMarkerProps) {
+export const GhostMarker = memo(function GhostMarker({ ghost, yTop, selected, onActivate }: GhostMarkerProps) {
   const [x, y] = ghost.at;
   return (
     <g className={`sm-ghost ${typeClass(ghost.device.type)}${selected ? ' sel' : ''}${ghost.stale ? ' stale' : ''}`}>
@@ -36,6 +48,7 @@ export const GhostMarker = memo(function GhostMarker({ ghost, yTop, selected }: 
         tabIndex={0}
         role='button'
         aria-label={`Suggested place for ${ghost.device.name}`}
+        onKeyDown={activateOnKey(() => onActivate(ghost.id))}
       >
         <title>{`Suggested: ${ghost.device.name}`}</title>
         <g className='sm-mk-hit'>
@@ -61,10 +74,12 @@ export const FingerprintMarks = memo(function FingerprintMarks({
   items,
   yTop,
   selectedId,
+  onActivate,
 }: {
   items: readonly Fingerprint[];
   yTop: number;
   selectedId: string | null;
+  onActivate: (id: string) => void;
 }) {
   return (
     <g className='sm-prints'>
@@ -75,6 +90,10 @@ export const FingerprintMarks = memo(function FingerprintMarks({
           transform={`translate(${item.pos.x} ${yTop - item.pos.y})`}
           data-hit='fingerprint'
           data-id={item.id}
+          tabIndex={0}
+          role='button'
+          aria-label={`Fingerprint ${item.at.slice(0, 16).replace('T', ' ')}${item.weak ? ', weak' : ''}`}
+          onKeyDown={activateOnKey(() => onActivate(item.id))}
         >
           <g className='sm-mk-hit'>
             <circle r={16} />
