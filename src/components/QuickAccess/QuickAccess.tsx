@@ -14,6 +14,7 @@ import { useModalBackButton, useSwipeToClose } from '../../hooks';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { onIdle } from '../../utils/idle';
 import type { OpenNow } from '../../utils/navigation';
+import { trackUiTap } from '../../utils/trackUiTap';
 import { RequestSheet, RequestTile, useRequestAccess } from '../Request';
 import './QuickAccess.css';
 
@@ -154,6 +155,17 @@ function WeatherModalBody({ entityId }: { entityId: string }) {
 // lock STATE display (frontLock/backLock below) are unaffected: only the front command changes.
 const FRONT_DOOR_ABB_BUTTON = 'button.abb_welcome_gateway_outdoor_station_2_1';
 
+// Usage counts (script.dashboard_ui_tap): the bar's own taps are `qa.<control>`; what is used inside the media and
+// access modals goes through these, which the cards call as `onUiTap`.
+const trackMedia = (action: string, detail?: string) => trackUiTap(`qa.media.${action}`, detail);
+const trackAccess = (action: string, detail?: string) => trackUiTap(`qa.access.${action}`, detail);
+const DOOR_UI: Record<string, string> = {
+  'lock.intercomproxy_front_door': 'qa.doors.front',
+  'lock.intercomproxy_back_door': 'qa.doors.back',
+  'lock.yale_bt': 'qa.doors.lock',
+};
+const transitLabel = (line: { station: string; name: string }) => `${line.station} / ${line.name}`;
+
 /** Its own subscription: the speakers and TVs it watches change often while something plays, and only the
  * bar and its modals need them. */
 export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProps) {
@@ -279,6 +291,12 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
     [resetModalState, playingSpeakers, playingTVs]
   );
 
+  // Only the bar's buttons count as Quick Access taps: the home screen's chips open the same modals through the open event.
+  const openFromBar = (type: 'media' | 'transit' | 'weather') => {
+    openQuickAccess(type);
+    trackUiTap(`qa.${type}`);
+  };
+
   const handleClose = useCallback(() => {
     setOpenModal(null);
     resetModalState();
@@ -302,15 +320,20 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
     return () => window.removeEventListener(QUICK_ACCESS_OPEN_EVENT, handleOpenQuickAccess as EventListener);
   }, [openQuickAccess]);
 
-  const toggleLineExpand = (statusEntityId: string) => setExpandedLine(prev => (prev === statusEntityId ? null : statusEntityId));
+  const toggleLineExpand = (line: TransitLine) => {
+    if (expandedLine !== line.statusEntityId) trackUiTap('qa.transit.line', transitLabel(line));
+    setExpandedLine(prev => (prev === line.statusEntityId ? null : line.statusEntityId));
+  };
 
-  const handleTransitToggle = (enabledEntityId: string) => {
-    callService?.({ domain: 'input_boolean', service: 'toggle', target: { entity_id: enabledEntityId } });
+  const handleTransitToggle = (line: TransitLine & { enabled: boolean }) => {
+    callService?.({ domain: 'input_boolean', service: 'toggle', target: { entity_id: line.enabledEntityId } });
+    trackUiTap('qa.transit.route', `${transitLabel(line)} ${line.enabled ? 'off' : 'on'}`);
   };
 
   const handleTransitRefresh = async () => {
     if (!callService || isTransitRefreshing) return;
     setIsTransitRefreshing(true);
+    trackUiTap('qa.transit.refresh');
     try {
       await callService({ domain: 'input_button', service: 'press', target: { entity_id: TRANSIT_REFRESH_BUTTON } });
     } finally {
@@ -453,6 +476,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
         const service = lockToggle ? (aptLocked ? 'unlock' : 'lock') : (supported & 1) !== 0 ? 'open' : 'unlock';
         callService({ domain: 'lock', service, target: { entity_id: entityId } });
       }
+      trackUiTap(DOOR_UI[entityId], lockToggle ? (aptLocked ? 'unlock' : 'lock') : undefined);
       setDoorFired(entityId);
       if (firedTimer.current) clearTimeout(firedTimer.current);
       firedTimer.current = setTimeout(() => setDoorFired(null), 2000);
@@ -500,6 +524,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
               onClick={() => {
                 setDoorsOpen(false);
                 openQuickAccess('intercom');
+                trackUiTap('qa.access.panel');
               }}
               aria-label='Open the access panel'
               title='Access panel'
@@ -508,23 +533,38 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
             </button>
           </div>
         )}
-        <button className={`qa-button ${doorsOpen ? 'is-active' : ''}`} onClick={() => setDoorsOpen(v => !v)} title='Access'>
+        <button
+          className={`qa-button ${doorsOpen ? 'is-active' : ''}`}
+          onClick={() => {
+            setDoorsOpen(v => !v);
+            if (!doorsOpen) trackUiTap('qa.access');
+          }}
+          title='Access'
+        >
           <Icon icon='mdi:door' />
         </button>
-        <button className='qa-button' onClick={() => openQuickAccess('media')} title='Media controls'>
+        <button className='qa-button' onClick={() => openFromBar('media')} title='Media controls'>
           <Icon icon='mdi:cast-audio' />
           {hasPlayingMedia && <span className='qa-badge'>{playingSpeakers.length + playingTVs.length}</span>}
         </button>
-        <button className='qa-button' onClick={() => openQuickAccess('transit')} title='Transit'>
+        <button className='qa-button' onClick={() => openFromBar('transit')} title='Transit'>
           <Icon icon='mdi:train' />
           {hasTransitAlert && <span className='qa-badge qa-badge--alert' />}
         </button>
-        <button className='qa-button' onClick={() => onOpenNow(null)} title='Timeline' aria-label='Open the timeline'>
+        <button
+          className='qa-button'
+          onClick={() => {
+            onOpenNow(null);
+            trackUiTap('qa.timeline');
+          }}
+          title='Timeline'
+          aria-label='Open the timeline'
+        >
           <Icon icon='mdi:timeline-clock-outline' />
         </button>
         <button
           className='qa-button'
-          onClick={() => openQuickAccess('weather')}
+          onClick={() => openFromBar('weather')}
           disabled={!weatherEntityId}
           title={weatherEntityId ? 'Open weather' : 'No weather entity found'}
         >
@@ -569,7 +609,14 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                   </button>
                 )}
                 {openModal === 'media' && mediaTab === 'audio' && !selectedSpeakerForQuickStart && !showSpeakerSelector && (
-                  <button className='qa-add-speaker-icon-btn' onClick={() => setShowSpeakerSelector(true)} title='Start music on a speaker'>
+                  <button
+                    className='qa-add-speaker-icon-btn'
+                    onClick={() => {
+                      setShowSpeakerSelector(true);
+                      trackMedia('add_speaker');
+                    }}
+                    title='Start music on a speaker'
+                  >
                     <Icon icon='mdi:cast-audio' />
                     <Icon icon='mdi:plus' className='qa-plus-icon-small' />
                   </button>
@@ -580,7 +627,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
               </div>
             </div>
             <div className={`qa-modal-body ${openModal ?? ''}`}>
-              {openModal === 'intercom' && <IntercomCard entities={entities} callService={callService} />}
+              {openModal === 'intercom' && <IntercomCard entities={entities} callService={callService} onUiTap={trackAccess} />}
               {openModal === 'media' && (
                 <div className='qa-media-content'>
                   <div className='qa-media-tabs' role='group' aria-label='Media type'>
@@ -589,7 +636,10 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                       className={`qa-media-tab ${mediaTab === 'audio' ? 'is-active' : ''}`}
                       aria-pressed={mediaTab === 'audio'}
                       aria-label={hasPlayingSpeakers ? 'Audio, playing' : 'Audio'}
-                      onClick={() => setMediaTab('audio')}
+                      onClick={() => {
+                        if (mediaTab !== 'audio') trackMedia('tab', 'audio');
+                        setMediaTab('audio');
+                      }}
                     >
                       <span className='qa-media-tab-icon'>
                         <Icon icon='mdi:music-note' />
@@ -601,7 +651,10 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                       className={`qa-media-tab ${mediaTab === 'tv' ? 'is-active' : ''}`}
                       aria-pressed={mediaTab === 'tv'}
                       aria-label={hasPlayingTVs ? 'TV, playing' : 'TV'}
-                      onClick={() => setMediaTab('tv')}
+                      onClick={() => {
+                        if (mediaTab !== 'tv') trackMedia('tab', 'tv');
+                        setMediaTab('tv');
+                      }}
                     >
                       <span className='qa-media-tab-icon'>
                         <Icon icon='mdi:television' />
@@ -612,7 +665,14 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                   {mediaTab === 'tv' ? (
                     <div className='qa-media-section'>
                       <div className='qa-media-list'>
-                        {requestAllowed && <RequestTile onOpen={() => setRequestOpen(true)} />}
+                        {requestAllowed && (
+                          <RequestTile
+                            onOpen={() => {
+                              setRequestOpen(true);
+                              trackMedia('request');
+                            }}
+                          />
+                        )}
                         {allTVs.map(tv => {
                           // Get TV-specific props based on entity ID
                           const isBedroom = tv.entityId === 'media_player.bedroom_tv';
@@ -633,6 +693,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                                   callService={callService}
                                   appleRemoteEntityId='remote.bedroom_apple_tv'
                                   appleMediaPlayerEntityId='media_player.bedroom_apple_tv'
+                                  onUiTap={trackMedia}
                                 />
                               )}
                               {isLivingRoom && (
@@ -647,6 +708,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                                   appleMediaPlayerEntityId='media_player.living_room_apple_tv'
                                   chromecastEntityId='media_player.living_room_cast'
                                   wirelessUsbCSourceName='HDMI4'
+                                  onUiTap={trackMedia}
                                 />
                               )}
                             </div>
@@ -666,6 +728,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                         hassUrl={hassUrl}
                         callService={callService}
                         embedded
+                        onUiTap={trackMedia}
                       />
                     </div>
                   ) : showSpeakerSelector || displayedSpeakers.length === 0 ? (
@@ -676,7 +739,11 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                           <button
                             key={speaker.entityId}
                             className='qa-speaker-line'
-                            onClick={() => speaker.state !== 'unavailable' && setSelectedSpeakerForQuickStart(speaker.entityId)}
+                            onClick={() => {
+                              if (speaker.state === 'unavailable') return;
+                              setSelectedSpeakerForQuickStart(speaker.entityId);
+                              trackMedia('play_room', speaker.entityId);
+                            }}
                             disabled={speaker.state === 'unavailable'}
                           >
                             <Icon icon='mdi:speaker' />
@@ -708,6 +775,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                                 hassUrl={hassUrl}
                                 callService={callService}
                                 embedded
+                                onUiTap={trackMedia}
                               />
                             </div>
                           );
@@ -769,7 +837,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                               >
                                 <button
                                   className='info-transit-header info-transit-row-btn'
-                                  onClick={() => toggleLineExpand(line.statusEntityId)}
+                                  onClick={() => toggleLineExpand(line)}
                                   aria-expanded={isExpanded}
                                 >
                                   <Icon icon={line.icon} className='info-transit-line-icon' />
@@ -795,7 +863,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                                       className={`info-transit-toggle ${line.enabled ? 'on' : 'off'}`}
                                       onClick={e => {
                                         e.stopPropagation();
-                                        handleTransitToggle(line.enabledEntityId);
+                                        handleTransitToggle(line);
                                       }}
                                       aria-label={line.enabled ? 'Disable route' : 'Enable route'}
                                       title={line.enabled ? 'Disable route' : 'Enable route'}

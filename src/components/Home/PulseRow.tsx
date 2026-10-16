@@ -14,6 +14,7 @@ import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { useViewer } from '../../hooks/useViewer';
 import { formatW } from '../../utils/format';
 import type { OpenNow } from '../../utils/navigation';
+import { trackUiTap } from '../../utils/trackUiTap';
 import type { EnergyTab } from '../Energy/energyTab';
 import { PriceAdvisor } from '../PriceAdvisor';
 import './PulseRow.css';
@@ -63,7 +64,10 @@ function NextChip({ onOpenNow }: { onOpenNow: OpenNow }) {
     <button
       type='button'
       className={`pulse-chip pulse-next ${next ? '' : 'is-empty'}`}
-      onClick={() => onOpenNow(next?.focus ?? null, next?.itemId)}
+      onClick={() => {
+        onOpenNow(next?.focus ?? null, next?.itemId);
+        trackUiTap('home.next', next?.focus?.kind);
+      }}
       aria-label={next ? `Next: ${next.name} ${time}, open timeline` : 'Open timeline'}
     >
       <Icon icon='mdi:timeline-clock-outline' className='pulse-rail' aria-hidden='true' />

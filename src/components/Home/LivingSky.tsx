@@ -5,6 +5,7 @@ import { HOUSEHOLD } from '../../home/household';
 import { useMotionSlot } from '../../home/motionBudget';
 import { arcPoint, celestialPosition, windArrowDeg } from '../../home/sky';
 import { formatDecimal } from '../../utils/format';
+import { trackUiTap } from '../../utils/trackUiTap';
 import { getWeatherConditionIcon } from '../Weather/weatherIcons';
 import { PersonAvatar, PersonStatus } from '../StatusBar/PersonStatus';
 import { useSky, type SkyReadings } from './useSky';
@@ -124,7 +125,15 @@ export function LivingSky({ entities, hassUrl, onMenu, ref, children }: LivingSk
           </span>
         )}
       </div>
-      <button type='button' className='sky-menu' onClick={onMenu} aria-label='Open menu'>
+      <button
+        type='button'
+        className='sky-menu'
+        onClick={() => {
+          onMenu();
+          trackUiTap('home.menu', 'sky');
+        }}
+        aria-label='Open menu'
+      >
         <Icon icon='mdi:menu' />
       </button>
       <div className='sky-ground-line'>
@@ -181,7 +190,15 @@ export function SkyStrip({ entities, hassUrl, className = '', onBack, onMenu, in
         )
       )}
       {onMenu && (
-        <button type='button' className='sky-menu sky-strip-menu' onClick={onMenu} aria-label='Open menu'>
+        <button
+          type='button'
+          className='sky-menu sky-strip-menu'
+          onClick={() => {
+            onMenu();
+            trackUiTap('home.menu', 'strip');
+          }}
+          aria-label='Open menu'
+        >
           <Icon icon='mdi:menu' />
         </button>
       )}

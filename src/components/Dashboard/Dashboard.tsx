@@ -3,6 +3,7 @@ import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
+import { useAppOpenTracking } from '../../hooks/useAppOpenTracking';
 import { EXCLUDED_AREAS } from '../../config/dashboard';
 import type { Area, HassEntities } from '../../types';
 import {
@@ -27,6 +28,7 @@ import {
   type NowEntryChange,
 } from '../../utils/nowHistory';
 import { onIdle } from '../../utils/idle';
+import { trackUiTap } from '../../utils/trackUiTap';
 import type { EnergyTab } from '../Energy/energyTab';
 import { HomeHeader } from '../Home/HomeHeader';
 import { MotionConditions } from '../Home/MotionConditions';
@@ -395,6 +397,7 @@ function getFireDemoEntities(mode: string | null): HassEntities {
 }
 
 export function Dashboard() {
+  useAppOpenTracking();
   const areas = useHass(state => state.areas);
   const entities = useTrackedEntities();
   const hassUrl = useHass(state => state.hassUrl);
@@ -755,6 +758,7 @@ export function Dashboard() {
 
     setSelectedRoom(area);
     pushRoomHistory(area.area_id);
+    trackUiTap('home.room', area.area_id);
   };
 
   // Room-card temperature/humidity tap: open the room panel with the climate sheet already open.
@@ -767,6 +771,7 @@ export function Dashboard() {
     } else {
       replaceRoomHistory(area.area_id, true);
     }
+    trackUiTap('home.room.climate', area.area_id);
   };
 
   const handlePulseRoomSelect = (areaId: string) => {

@@ -7,6 +7,7 @@ import { ROBOT_PAUSED_BOOLEAN_ENTITY, ROBOT_PAUSE_REASON_ENTITY } from '../../co
 import { QUICK_ACCESS_OPEN_EVENT } from '../../config/transit';
 import { deriveHomePulseSummary } from '../../utils/homePulse';
 import { FIRE_SAFETY_OPEN_EVENT } from '../../utils/fireSafety';
+import { trackUiTap } from '../../utils/trackUiTap';
 import { useMotionSlot } from '../../home/motionBudget';
 import { readArchiveIndex } from '../../utils/haArchive';
 import { ArchiveImage } from '../Archive/ArchiveMedia';
@@ -37,13 +38,14 @@ function PulseChipButton({ chip, onRoomSelect }: { chip: PulseChip; onRoomSelect
       <button
         type='button'
         className={`home-pulse-chip tone-${chip.tone} ${pulseClass}`}
-        onClick={() =>
+        onClick={() => {
           window.dispatchEvent(
             chip.action === 'fire'
               ? new CustomEvent(FIRE_SAFETY_OPEN_EVENT)
               : new CustomEvent(QUICK_ACCESS_OPEN_EVENT, { detail: { modal: chip.action } })
-          )
-        }
+          );
+          if (chip.action !== 'fire') trackUiTap(`home.chip.${chip.action}`, chip.id);
+        }}
       >
         {content}
       </button>

@@ -8,6 +8,7 @@ import { useMotionSlot } from '../../home/motionBudget';
 import { useNowMs } from '../../hooks/useNowMs';
 import { useViewer } from '../../hooks/useViewer';
 import { nowFocusAt, type OpenNow } from '../../utils/navigation';
+import { trackUiTap } from '../../utils/trackUiTap';
 import './HouseTicker.css';
 
 const TICKER_EPISODES = 3;
@@ -62,7 +63,10 @@ export function HouseTicker({ onOpenNow }: { onOpenNow: OpenNow }) {
             key={episode.id}
             episode={episode}
             isNew={episode.endMs > shownSinceMs && nowMs - episode.endMs < NEW_FOR_MS}
-            onOpen={() => onOpenNow(nowFocusAt('evt', episode.startMs), episode.id)}
+            onOpen={() => {
+              onOpenNow(nowFocusAt('evt', episode.startMs), episode.id);
+              trackUiTap('home.ticker');
+            }}
           />
         ))}
       </div>

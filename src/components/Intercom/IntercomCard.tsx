@@ -18,6 +18,7 @@ interface IntercomCardProps {
   entities: HassEntities;
   callService: CallServiceFunction | undefined;
   showHeader?: boolean; // Show the collapse header (hallway room detail); the modal renders headerless
+  onUiTap?: (action: string, detail?: string) => void; // Reports a control the viewer used, for usage counts
 }
 
 /** How long the apartment may sit unlocked before the card says so out loud. */
@@ -41,7 +42,7 @@ const DOORBELL_BACK = 'binary_sensor.intercomproxy_doorbell_back_door';
 // falls back to the ESP unlock if the door hasn't opened ~2.5s after this press.
 const FRONT_DOOR_ABB_BUTTON = 'button.abb_welcome_gateway_outdoor_station_2_1';
 
-export function IntercomCard({ entities, callService, showHeader = false }: IntercomCardProps) {
+export function IntercomCard({ entities, callService, showHeader = false, onUiTap }: IntercomCardProps) {
   // Now-tick: the unlocked-too-long alert is the only thing here that changes with time
   // (same pattern as TonightCard - lazy initializer for the first render, interval after).
   const [now, setNow] = useState(() => Date.now());
@@ -162,6 +163,7 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
 
   const toggleAutoOpen = () => {
     if (!callService || !autoOpen) return;
+    onUiTap?.('auto_open', autoOpenEnabled ? 'off' : 'on');
     callService({
       domain: 'input_boolean',
       service: autoOpenEnabled ? 'turn_off' : 'turn_on',
@@ -220,6 +222,7 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
           e.stopPropagation();
           pulseUnlock(ringing.id, ringing.lock);
           flashFired(ringing.id);
+          onUiTap?.('let_in', ringing.name);
         }}
       >
         Let them in
@@ -287,7 +290,10 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
             <button
               type='button'
               className='access-ibtn access-ibtn--sm'
-              onClick={handleAptLockToggle}
+              onClick={() => {
+                handleAptLockToggle();
+                onUiTap?.('lock', aptLocked ? 'unlock' : 'lock');
+              }}
               aria-label={aptLocked ? 'Unlock the apartment' : 'Lock the apartment'}
               title={aptLocked ? 'Unlock' : 'Lock'}
             >
@@ -305,7 +311,10 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
                   <button
                     type='button'
                     className='access-ibtn access-ibtn--sm'
-                    onClick={() => pulseUnlock(frontLockId, frontLock)}
+                    onClick={() => {
+                      pulseUnlock(frontLockId, frontLock);
+                      onUiTap?.('front');
+                    }}
                     aria-label='Open the front building door'
                   >
                     <Icon icon='mdi:door-open' aria-hidden='true' />
@@ -318,7 +327,10 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
                   <button
                     type='button'
                     className='access-ibtn access-ibtn--sm'
-                    onClick={() => pulseUnlock(backLockId, backLock)}
+                    onClick={() => {
+                      pulseUnlock(backLockId, backLock);
+                      onUiTap?.('back');
+                    }}
                     aria-label='Open the back building door'
                   >
                     <Icon icon='mdi:door-open' aria-hidden='true' />
@@ -345,6 +357,7 @@ export function IntercomCard({ entities, callService, showHeader = false }: Inte
                 e.stopPropagation();
                 refreshRings();
                 setGalleryOpen(true);
+                onUiTap?.('doorbell');
               }}
               aria-label='Who rang — see the ring snapshots'
               title='Who rang'

@@ -78,6 +78,8 @@ interface SonosCardProps extends SonosPlayerProps {
   keepPlayingEntityId?: string;
   /** Rooftop only: binary_sensor that is on while the speaker sits in its charging dock. */
   dockedEntityId?: string;
+  /** Reports a control the viewer used, for usage counts; the Quick Access modal passes it. */
+  onUiTap?: (action: string, detail?: string) => void;
 }
 
 const SPOTIFY_ANDROID_INTENT =
@@ -97,6 +99,7 @@ export function SonosPlayer({
   embedded = false,
   keepPlayingEntityId,
   dockedEntityId,
+  onUiTap,
 }: SonosCardProps) {
   // Collapsed by default in the room-detail home (same pattern as TonightCard/HeatCard).
   const [collapsed, setCollapsed] = useLocalStorageBoolean('sonoscard-collapsed', true);
@@ -348,6 +351,11 @@ export function SonosPlayer({
     return master ? [master, ...others] : others;
   }, [groupMembers, entities]);
 
+  const openGroupModal = () => {
+    setShowGroupModal(true);
+    onUiTap?.('speakers', entityId);
+  };
+
   // Close group modal
   const closeGroupModal = () => {
     setShowGroupModal(false);
@@ -594,6 +602,7 @@ export function SonosPlayer({
 
   const handlePlayPause = () => {
     if (!callService) return;
+    onUiTap?.('play_pause', entityId);
     setPendingPlay({ playing: !isPlaying, base: state });
     clearTimeout(pendingPlayTimer.current);
     pendingPlayTimer.current = setTimeout(() => setPendingPlay(null), 10000);
@@ -639,11 +648,13 @@ export function SonosPlayer({
 
   const handlePrevious = () => {
     if (!callService) return;
+    onUiTap?.('skip', 'prev');
     callService({ domain: 'media_player', service: 'media_previous_track', target: { entity_id: entityId } });
   };
 
   const handleNext = () => {
     if (!callService) return;
+    onUiTap?.('skip', 'next');
     callService({ domain: 'media_player', service: 'media_next_track', target: { entity_id: entityId } });
   };
 
@@ -653,6 +664,7 @@ export function SonosPlayer({
 
   const handleMoveToPhone = () => {
     if (!callService || !phoneId) return;
+    onUiTap?.('phone');
     callService({
       domain: 'music_assistant',
       service: 'transfer_queue',
@@ -697,6 +709,7 @@ export function SonosPlayer({
   // un-mute a muted speaker downstream, so mute is re-asserted right after it.
   const handleGroupVolumeStep = (direction: 1 | -1) => {
     if (!callService) return;
+    onUiTap?.('volume', 'group');
     const updates: Record<string, SentVolume> = {};
     pickerSpeakers.forEach(sp => {
       const pend = pendingGroup[sp.id];
@@ -781,6 +794,7 @@ export function SonosPlayer({
   } = useSwipeToClose(handlePodcastSwipe);
 
   const handleOpenSourceSheet = () => {
+    onUiTap?.('source', entityId);
     sourceSheetOpenedAt.current = Date.now();
     sourcePendingOpenRef.current = true;
     startAttempt.current += 1;
@@ -960,6 +974,7 @@ export function SonosPlayer({
 
   const handleMuteToggle = () => {
     if (!callService) return;
+    onUiTap?.('mute', entityId);
     callService({
       domain: 'media_player',
       service: 'volume_mute',
@@ -972,6 +987,7 @@ export function SonosPlayer({
    * when given; the sheet closes once Music Assistant has taken it. `starting` names what the viewer tapped. */
   const handlePlayItem = (uri: string, startItem?: string) => {
     if (starting !== null) return;
+    onUiTap?.('source_pick', mediaKindOf(uri) ?? 'item');
     const queueId = connection ? queueIdFor(entities, masterId) : null;
     if (!connection || !queueId) {
       setStartFailed(true);
@@ -996,6 +1012,7 @@ export function SonosPlayer({
 
   const handleSelectSource = (source: string) => {
     if (!callService) return;
+    onUiTap?.('source_pick', 'input');
     callService({
       domain: 'media_player',
       service: 'select_source',
@@ -1011,6 +1028,7 @@ export function SonosPlayer({
   const handleToggleSpeaker = (speakerId: string) => {
     if (!callService) return;
     const isMember = groupMembers.includes(speakerId);
+    onUiTap?.('speaker_toggle', `${isMember ? 'leave' : 'join'} ${speakerId}`);
     setPendingGroup(prev => ({ ...prev, [speakerId]: !isMember }));
     if (isMember) {
       callService({ domain: 'media_player', service: 'unjoin', target: { entity_id: speakerId } });
@@ -1026,6 +1044,7 @@ export function SonosPlayer({
 
   const handleSpeakerMuteToggle = (speakerId: string) => {
     if (!callService) return;
+    onUiTap?.('mute', speakerId);
     const muted = Boolean(entities?.[speakerId]?.attributes?.is_volume_muted);
     callService({
       domain: 'media_player',
@@ -1219,6 +1238,7 @@ export function SonosPlayer({
           onCommit={next => {
             setPendingVolume({ value: next, base: volume });
             writeVolume(entityId, Boolean(isMuted), next);
+            onUiTap?.('volume', entityId);
           }}
         />
       </div>
@@ -1230,7 +1250,7 @@ export function SonosPlayer({
           <button
             type='button'
             className='sonos-groupvol-icon-btn'
-            onClick={() => setShowGroupModal(true)}
+            onClick={openGroupModal}
             aria-label='Speakers'
             title='Speakers'
             {...(familyGroup ? syncPartyHold : {})}
@@ -1262,7 +1282,7 @@ export function SonosPlayer({
 
       {/* Doors */}
       <div className='sonos-doors'>
-        <button type='button' className='sonos-ibtn' onClick={() => setShowGroupModal(true)} aria-label='Speakers' title='Speakers'>
+        <button type='button' className='sonos-ibtn' onClick={openGroupModal} aria-label='Speakers' title='Speakers'>
           <Icon icon='mdi:speaker-multiple' aria-hidden='true' />
           {hasGroup && <span className='sonos-badge'>{groupMembers.length}</span>}
         </button>
@@ -1468,6 +1488,7 @@ export function SonosPlayer({
                           onCommit={next => {
                             setSentVolumes(prev => ({ ...prev, [sp.id]: sendVolume(sentVolumes[sp.id], sp.volume, next) }));
                             writeVolume(sp.id, sp.isMuted, next);
+                            onUiTap?.('volume', sp.id);
                           }}
                         />
                       </div>

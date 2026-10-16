@@ -23,6 +23,7 @@ interface TVCardProps {
   wirelessUsbCSourceName?: string; // HDMI input the wireless USB-C/HDMI dongle is on, e.g. "HDMI4" — it's a
   // source on the main TV, not a separate device, so it's selected via media_player.select_source rather
   // than turn_on on its own entity.
+  onUiTap?: (action: string, detail?: string) => void; // Reports a control the viewer used, for usage counts
 }
 
 const getFiniteNumber = (value: unknown): number | undefined => {
@@ -62,6 +63,7 @@ export function TVCard({
   appleMediaPlayerEntityId,
   chromecastEntityId,
   wirelessUsbCSourceName,
+  onUiTap,
 }: TVCardProps) {
   const [showSourcePicker, setShowSourcePicker] = useState(false);
   const [volumeUi, setVolumeUi] = useState(0);
@@ -294,6 +296,7 @@ export function TVCard({
 
   const handlePlayPause = () => {
     if (!callService) return;
+    onUiTap?.('play_pause', entityId);
     // When showing Apple TV as current source, control the Apple TV entity
     const targetId = currentSource === 'Apple TV' && appleMediaPlayerEntityId ? appleMediaPlayerEntityId : entityId;
     if (displayState === 'playing') {
@@ -313,6 +316,7 @@ export function TVCard({
 
   const handlePowerToggle = () => {
     if (!callService) return;
+    onUiTap?.('tv_power', isOn ? 'off' : 'on');
     if (isOn) {
       callService({
         domain: 'media_player',
@@ -354,6 +358,7 @@ export function TVCard({
 
   const handleMuteToggle = () => {
     if (!callService) return;
+    onUiTap?.('mute', entityId);
     callService({
       domain: 'media_player',
       service: 'volume_mute',
@@ -365,6 +370,7 @@ export function TVCard({
   const clampVolume = (v: number) => Math.max(0, Math.min(100, v));
 
   const handleVolumeStep = (delta: number) => {
+    onUiTap?.('volume', entityId);
     const next = clampVolume(volumeUi + delta);
     setVolumeUi(next);
     handleVolumeChange(next);
@@ -384,6 +390,7 @@ export function TVCard({
 
   const handleSelectSource = (sourceName: string) => {
     if (!callService) return;
+    onUiTap?.('source_pick', sourceName);
 
     const selectedSource = highLevelSources.find(s => s.name === sourceName);
     if (selectedSource?.sourceName) {
@@ -548,7 +555,10 @@ export function TVCard({
               <button
                 type='button'
                 className={`tv-source-toggle ${showSourcePicker ? 'open' : ''}`}
-                onClick={() => setShowSourcePicker(v => !v)}
+                onClick={() => {
+                  if (!showSourcePicker) onUiTap?.('source', entityId);
+                  setShowSourcePicker(v => !v);
+                }}
                 aria-expanded={showSourcePicker}
               >
                 <span className='tv-source-toggle-icon'>
@@ -584,14 +594,15 @@ export function TVCard({
                   key={option}
                   type='button'
                   className={`tv-lift-btn ${tvLiftPosition === option ? 'active' : ''}`}
-                  onClick={() =>
+                  onClick={() => {
+                    onUiTap?.('tv_lift', option);
                     callService({
                       domain: tvLiftDomain,
                       service: 'select_option',
                       target: { entity_id: tvLiftSelectEntityId },
                       serviceData: { option },
-                    })
-                  }
+                    });
+                  }}
                 >
                   <Icon icon={liftOptionIcon(option)} aria-hidden='true' />
                   <span>{option}</span>
@@ -602,7 +613,14 @@ export function TVCard({
 
           {hasAppleRemote && (
             <div className='tv-footer'>
-              <button type='button' className='tv-footer-action' onClick={() => setShowAppleRemote(true)}>
+              <button
+                type='button'
+                className='tv-footer-action'
+                onClick={() => {
+                  setShowAppleRemote(true);
+                  onUiTap?.('tv_remote', entityId);
+                }}
+              >
                 Remote
               </button>
             </div>

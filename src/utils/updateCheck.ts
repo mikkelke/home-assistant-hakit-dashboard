@@ -29,6 +29,21 @@ function rememberReloadFor(version: string) {
   }
 }
 
+/** How long after an update's reload its page still counts as the reload, not someone opening the dashboard. */
+const UPDATE_RELOAD_LOAD_MS = 2 * 60_000;
+
+/** True for the page an update's reload has just brought up. */
+export function loadedByUpdate(): boolean {
+  try {
+    const saved = JSON.parse(window.sessionStorage.getItem(RELOAD_GUARD_KEY) ?? 'null') as { at?: number } | null;
+    if (typeof saved?.at !== 'number') return false;
+    const elapsed = Date.now() - saved.at;
+    return elapsed >= 0 && elapsed < UPDATE_RELOAD_LOAD_MS;
+  } catch {
+    return false;
+  }
+}
+
 function getVersionUrl() {
   return new URL('version.json', window.location.href).toString();
 }
