@@ -13,9 +13,10 @@ import { faceOf, NO_RADIOS, playsRadio } from '../../music/nowPlaying';
 import { useEpisodes, useLibrary, usePlaylists, usePlaylistTracks, useRadios } from '../../music/useLibrary';
 import { favoritesFirst, podcastsByName, radioLabel } from '../../music/view';
 import { Art, EpisodeRow, MusicNote, PlayAllButton, PlaylistRow, PodcastRow, ResumeRow, TrackRow } from './MusicParts';
+import { SeekBar } from './SeekBar';
 import { VolumeStrip } from './VolumeStrip';
-import { isSeekHeld, type SentSeek } from './sentSeek';
 import { isUnsettled, runningVolume, sendVolume, type SentVolume } from './sentVolume';
+import { useSeek } from './useSeek';
 import './SonosPlayer.css';
 
 /** Episodes or tracks listed at first, and added by each tap on the more row. */
@@ -58,6 +59,13 @@ const getMasterFromEntity = (entity: { attributes?: { group_members?: unknown[] 
   return validMembers.length > 0 ? validMembers[0] : fallbackEntityId;
 };
 
+// Helper to check if source is line-in
+const isLineIn = (source: string) => {
+  if (!source) return false;
+  const lower = source.toLowerCase();
+  return lower === 'line_in' || lower === 'line-in' || lower === 'line in' || lower.includes('line');
+};
+
 /** While on, the family-room volume sync stays out of the way. */
 const FAMILY_SYNC_PARTY_ENTITY = 'input_boolean.family_volume_sync_party';
 
@@ -83,9 +91,6 @@ interface SonosCardProps extends SonosPlayerProps {
   /** Reports a control the viewer used, for usage counts; the Quick Access modal passes it. */
   onUiTap?: (action: string, detail?: string) => void;
 }
-
-/** Music Assistant skips ahead when a seek lands on the very end of a track. */
-const SEEK_END_MARGIN_S = 3;
 
 const SPOTIFY_ANDROID_INTENT =
   'intent://open/#Intent;scheme=spotify;package=com.spotify.music;S.browser_fallback_url=https%3A%2F%2Fopen.spotify.com;end';
@@ -156,10 +161,6 @@ export function SonosPlayer({
   const selectedPlaylist = (playlists.status === 'ready' && playlists.data.find(p => p.uri === openedUri)) || null;
   const episodes = useEpisodes(showPodcastModal && viewingItems, selectedPodcast);
   const tracks = usePlaylistTracks(showPodcastModal && viewingItems, selectedPlaylist);
-  const [seekerPreview, setSeekerPreview] = useState<number | null>(null); // position in seconds while dragging
-  // The seek this card sent: shown as sent until HA's player has settled on it, see sentSeek.ts.
-  const [pendingSeek, setPendingSeek] = useState<SentSeek | null>(null);
-  const [, setSeekerTick] = useState(0); // force re-render for live position when playing
   const player = entities?.[entityId];
 
   // Rooftop: docked (charging), follow-me mutes this speaker when the living room is
@@ -232,22 +233,19 @@ export function SonosPlayer({
     : [];
   const currentSource = attributes.source || '';
   const mediaContentId = attributes.media_content_id || '';
-  const mediaDuration = typeof attributes.media_duration === 'number' ? attributes.media_duration : undefined;
-  const mediaPosition = typeof attributes.media_position === 'number' ? attributes.media_position : undefined;
-  const mediaPositionUpdatedAt = attributes.media_position_updated_at;
-  const seekItem = `${entityId}|${mediaContentId}`;
-  const heldSeek =
-    pendingSeek && isSeekHeld(pendingSeek, { item: seekItem, anchor: mediaPositionUpdatedAt, position: mediaPosition }, Date.now())
-      ? pendingSeek
-      : null;
-  if (pendingSeek && !heldSeek) setPendingSeek(null);
-  // Music Assistant stops the old stream before it starts the new one; the card keeps showing what it showed when the seek was sent.
-  const shownState = heldSeek && state === 'idle' ? heldSeek.state : state;
 
   // Music Assistant names what it plays by uri (`library://radio/5`, `dr_podcasts://podcast_episode/...`); its media type is
   // the one reliable mark of radio and podcasts. The station is only known once the library has loaded.
   const mediaKind = mediaKindOf(mediaContentId);
   const isRadio = mediaKind === 'radio';
+  const { shownState, bar: seekBar } = useSeek({
+    entityId,
+    state,
+    attributes,
+    seekable: !isRadio && !isLineIn(currentSource),
+    onScreen: embedded || !collapsed,
+    callService,
+  });
   // The card asks for the stations itself while it shows a radio, so it names the station without the Source sheet having loaded the library.
   const radios = useRadios((embedded || !collapsed) && playsRadio(mediaContentId));
   const stations = library.status === 'ready' ? library.data.radios : radios.status === 'ready' ? radios.data : NO_RADIOS;
@@ -481,13 +479,6 @@ export function SonosPlayer({
     return () => window.removeEventListener('modalBackButton', handleModalBack);
   }, []);
 
-  // Helper to check if source is line-in
-  const isLineIn = (source: string) => {
-    if (!source) return false;
-    const lower = source.toLowerCase();
-    return lower === 'line_in' || lower === 'line-in' || lower === 'line in' || lower.includes('line');
-  };
-
   // Helper to check if current source is AirPlay (cast from iPhone/iPad to Sonos)
   const isAirPlaySource = (source: string) => {
     if (!source) return false;
@@ -562,65 +553,6 @@ export function SonosPlayer({
 
   const displaySource = getDisplaySource();
   const masterSpeakerName = hasGroup ? groupedSpeakers.find(s => s.isMaster)?.name || '' : '';
-
-  // --- Media seeker: only when relevant (not radio, not line-in) ---
-  const showSeeker =
-    !isRadio && !isLineIn(currentSource) && mediaDuration != null && mediaDuration > 0 && mediaPosition != null && mediaPosition >= 0;
-
-  const getCurrentPosition = (): number => {
-    if (seekerPreview != null) return seekerPreview;
-    if (heldSeek) return heldSeek.value;
-    if (mediaPosition == null || mediaDuration == null) return 0;
-    if (state === 'playing' && mediaPositionUpdatedAt) {
-      try {
-        const updatedAt = new Date(mediaPositionUpdatedAt).getTime() / 1000;
-        const now = Date.now() / 1000;
-        const elapsed = now - updatedAt;
-        return Math.min(mediaPosition + elapsed, mediaDuration);
-      } catch {
-        return mediaPosition;
-      }
-    }
-    return mediaPosition;
-  };
-
-  const currentPosition = showSeeker ? getCurrentPosition() : 0;
-  const seekDuration = mediaDuration ?? 0;
-
-  const formatTime = (seconds: number): string => {
-    if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
-    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
-  // The dragged position is the seek: a release without a drag, or a second release event for the same drag, has nothing to send.
-  const handleSeek = () => {
-    if (!callService || seekDuration <= 0 || seekerPreview == null) return;
-    const clamped = Math.max(0, Math.min(seekDuration - SEEK_END_MARGIN_S, seekerPreview));
-    callService({
-      domain: 'media_player',
-      service: 'media_seek',
-      target: { entity_id: entityId },
-      serviceData: { seek_position: clamped },
-    });
-    setPendingSeek({ value: clamped, state: shownState, item: seekItem, anchor: mediaPositionUpdatedAt, at: Date.now() });
-    setSeekerPreview(null);
-  };
-
-  // Update progress bar every second when playing (so position moves without waiting for HA state). Only while the seek bar
-  // is on screen — the face is mounted when embedded or expanded; ticking a collapsed card re-rendered this whole component
-  // every second for a bar nobody could see — and not while the page is hidden.
-  const seekerOnScreen = embedded || !collapsed;
-  useEffect(() => {
-    if (!seekerOnScreen || !showSeeker || state !== 'playing') return;
-    const id = setInterval(() => {
-      if (!document.hidden) setSeekerTick(t => t + 1);
-    }, 1000);
-    return () => clearInterval(id);
-  }, [seekerOnScreen, showSeeker, state]);
 
   // Service calls
   useEffect(() => () => clearTimeout(pendingPlayTimer.current), []);
@@ -1133,7 +1065,6 @@ export function SonosPlayer({
   const subtitleParts = quiet
     ? [shownState === 'paused' ? 'Paused' : isPlaying ? sourceWord || 'Playing' : 'Quiet']
     : [mediaArtist, sourceWord].filter(part => part && part !== displayTitle);
-  const seekPct = seekDuration > 0 ? Math.max(0, Math.min(100, ((seekerPreview ?? currentPosition) / seekDuration) * 100)) : 0;
 
   // The source door wears the CURRENT source's mark - brands as logos, everything else as a glyph.
   const sourceMark = isSpotify ? (
@@ -1229,29 +1160,7 @@ export function SonosPlayer({
       </div>
 
       {/* Seek – only for seekable content (not radio, not line-in) */}
-      {showSeeker && seekDuration > 0 && (
-        <div className='sonos-seek'>
-          <div className='sonos-strip sonos-strip--thin'>
-            <div className='sonos-strip-fill' style={{ width: `${seekPct}%` }} />
-            <input
-              type='range'
-              className='sonos-strip-input'
-              min={0}
-              max={seekDuration}
-              step={1}
-              value={seekerPreview ?? currentPosition}
-              onChange={e => setSeekerPreview(Number(e.target.value))}
-              onMouseUp={handleSeek}
-              onTouchEnd={handleSeek}
-              aria-label='Seek position'
-            />
-          </div>
-          <div className='sonos-seek-times'>
-            <span>{formatTime(currentPosition)}</span>
-            <span>{formatTime(seekDuration)}</span>
-          </div>
-        </div>
-      )}
+      {seekBar && <SeekBar {...seekBar} />}
 
       {/* Volume */}
       <div className='sonos-volume'>

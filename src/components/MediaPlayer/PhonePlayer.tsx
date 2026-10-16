@@ -4,7 +4,9 @@ import type { CallServiceFunction, HassEntities } from '../../types';
 import { faceOf, NO_RADIOS, playsRadio } from '../../music/nowPlaying';
 import { useRadios } from '../../music/useLibrary';
 import { Art } from './MusicParts';
+import { SeekBar } from './SeekBar';
 import { VolumeStrip } from './VolumeStrip';
+import { useSeek } from './useSeek';
 import './SonosPlayer.css';
 
 /** What the viewer's phone is called wherever it is listed. */
@@ -23,6 +25,9 @@ interface PhoneAttributes {
   media_artist?: string;
   media_album_name?: string;
   media_content_id?: string;
+  media_duration?: number;
+  media_position?: number;
+  media_position_updated_at?: string;
   entity_picture?: string;
   entity_picture_local?: string;
   volume_level?: number;
@@ -75,10 +80,22 @@ export function PhonePlayer({ entityId, entities, hassUrl, callService, targets,
     radios.status === 'ready' ? radios.data : NO_RADIOS
   );
 
-  const isPlaying = state === 'playing';
+  const { shownState, bar: seekBar } = useSeek({
+    entityId,
+    state,
+    attributes,
+    seekable: !playsRadio(contentId),
+    onScreen: true,
+    callService,
+  });
+  const isPlaying = shownState === 'playing';
   const quiet = unavailable || nowPlaying.quiet;
   const title = nowPlaying.stationName || (quiet ? PHONE_PLAYER_NAME : attributes.media_title) || PHONE_PLAYER_NAME;
-  const subtitle = unavailable ? 'Unavailable' : quiet ? quietWord(state) : attributes.media_artist || attributes.media_album_name || '';
+  const subtitle = unavailable
+    ? 'Unavailable'
+    : quiet
+      ? quietWord(shownState)
+      : attributes.media_artist || attributes.media_album_name || '';
   const controllable = !unavailable && (contentId !== '' || isPlaying || state === 'paused');
 
   const volume = Math.round((attributes.volume_level ?? 0) * 100);
@@ -161,6 +178,8 @@ export function PhonePlayer({ entityId, entities, hassUrl, callService, targets,
           </button>
         </div>
       )}
+
+      {seekBar && <SeekBar {...seekBar} />}
 
       {typeof attributes.volume_level === 'number' && (
         <div className='sonos-volume'>

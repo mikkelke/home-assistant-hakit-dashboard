@@ -37,11 +37,15 @@ vi.mock('@iconify/react', async () => {
 vi.mock('home-assistant-js-websocket', () => ({ getUser: () => Promise.resolve({ is_admin: true, name: 'Mikkel' }) }));
 
 const { SonosPlayer } = await import('../SonosPlayer');
+const { PhonePlayer } = await import('../PhonePlayer');
 
 const KITCHEN = 'media_player.kitchen';
 const PHONE = 'media_player.mikkels_phone';
 const TRACK = 'spotify://track/strong';
 const NEXT_TRACK = 'spotify://track/snowfall';
+const EPISODE = 'dr_podcasts://podcast_episode/https://podcasts.example/show/feed.xml https://podcasts.example/show/episodes/7';
+const STATION = 'library://radio/5';
+const DR_P3_ADDRESS = 'https://drliveradio2.akamaized.net/hls/live/2118698/p3/playlist-320000.m3u8';
 const START = Date.parse('2026-10-16T10:00:00Z');
 
 type Report = { state?: string; position?: number; anchorMs?: number; item?: string };
@@ -59,6 +63,26 @@ const report = ({ state = 'playing', position = 100, anchorMs = Date.now(), item
       media_duration: 275,
       media_position: position,
       media_position_updated_at: new Date(anchorMs).toISOString(),
+    },
+  },
+});
+
+/** What Home Assistant reports for the phone's player: an episode 5098 s into its 7020 s, anchored at `anchorMs` (now unless given). */
+const phoneReport = (
+  { state = 'playing', position = 5098, anchorMs = Date.now(), item = EPISODE }: Report = {},
+  attributes: Record<string, unknown> = {}
+): HassEntities => ({
+  [PHONE]: {
+    entity_id: PHONE,
+    state,
+    attributes: {
+      group_members: [],
+      media_title: 'Et afsnit',
+      media_content_id: item,
+      media_duration: 7020,
+      media_position: position,
+      media_position_updated_at: new Date(anchorMs).toISOString(),
+      ...attributes,
     },
   },
 });
@@ -84,6 +108,11 @@ const show = (entities: HassEntities) =>
     root.render(createElement(SonosPlayer, { entityId: KITCHEN, entities, hassUrl: 'https://ha.example', callService, embedded: true }));
   });
 
+const showPhone = (entities: HassEntities) =>
+  act(() => {
+    root.render(createElement(PhonePlayer, { entityId: PHONE, entities, hassUrl: 'https://ha.example', callService, targets: [] }));
+  });
+
 const later = (ms: number) => act(() => void vi.advanceTimersByTime(ms));
 
 const seeker = () => document.querySelector<HTMLInputElement>('input[aria-label="Seek position"]') as HTMLInputElement;
@@ -101,6 +130,8 @@ const release = (type: 'mouseup' | 'touchend' = 'mouseup') => act(() => void see
 
 const thumb = () => Number(seeker().value);
 const label = () => document.querySelector('.sonos-seek-times span')?.textContent;
+const length = () => document.querySelector('.sonos-seek-times span:last-child')?.textContent;
+const bar = () => document.querySelector('.sonos-seek');
 const playButton = () => document.querySelector('.sonos-tbtn--main')?.getAttribute('aria-label');
 const seeks = () => callService.mock.calls.map(([call]) => call.serviceData?.seek_position);
 
@@ -216,6 +247,13 @@ describe('a released seek', () => {
     expect(seeks()).toEqual([200]);
   });
 
+  it('stops three seconds before the end of the track', () => {
+    playingFor10s();
+    drag(275);
+    release();
+    expect(seeks()).toEqual([272]);
+  });
+
   it('is not sent when the thumb was not moved', () => {
     playingFor10s();
     release('touchend');
@@ -256,5 +294,85 @@ describe('a released seek', () => {
     later(1500);
     show({ ...report({ state: 'idle', position: 200 }), ...phone });
     expect(document.querySelector('[aria-label="Move to this phone"]')).not.toBeNull();
+  });
+});
+
+describe('the seek bar on the phone card', () => {
+  it('shows how far into the episode the phone is and how long it is, and moves with the clock', () => {
+    showPhone(phoneReport({ anchorMs: START }));
+    expect(thumb()).toBe(5098);
+    expect(seeker().max).toBe('7020');
+    expect(label()).toBe('1:24:58');
+    expect(length()).toBe('1:57:00');
+    later(10_000);
+    expect(thumb()).toBe(5108);
+    expect(label()).toBe('1:25:08');
+  });
+
+  it('sends the seek to the phone and stays where the viewer let go while the phone has not reported it yet', () => {
+    showPhone(phoneReport({ anchorMs: START }));
+    drag(6000);
+    release();
+    expect(callService.mock.calls.map(([call]) => call)).toEqual([
+      { domain: 'media_player', service: 'media_seek', target: { entity_id: PHONE }, serviceData: { seek_position: 6000 } },
+    ]);
+    expect(thumb()).toBe(6000);
+    later(1000);
+    expect(thumb()).toBe(6000);
+  });
+
+  it('hands over to the phone once it reports the position', () => {
+    showPhone(phoneReport({ anchorMs: START }));
+    drag(6000);
+    release();
+    later(3300);
+    showPhone(phoneReport({ position: 6000 }));
+    expect(thumb()).toBe(6000);
+    later(2000);
+    expect(thumb()).toBe(6002);
+  });
+
+  it('stops three seconds before the end of the episode', () => {
+    showPhone(phoneReport({ anchorMs: START }));
+    drag(7020);
+    release();
+    expect(seeks()).toEqual([7017]);
+  });
+
+  it('keeps the pause button while the stream is rebuilt', () => {
+    showPhone(phoneReport({ anchorMs: START }));
+    drag(6000);
+    release();
+    later(1500);
+    showPhone(phoneReport({ state: 'idle', position: 6000 }));
+    expect(playButton()).toBe('Pause');
+    later(200);
+    showPhone(phoneReport({ position: 6000 }));
+    expect(playButton()).toBe('Pause');
+  });
+
+  it('does not make a stopped phone look as if it were playing', () => {
+    showPhone(phoneReport({ state: 'idle' }));
+    expect(playButton()).toBe('Play');
+    drag(6000);
+    release();
+    expect(playButton()).toBe('Play');
+  });
+
+  it('is not shown for a radio station, for a DR stream played as an address, or when the length is not known', () => {
+    showPhone(phoneReport());
+    expect(bar()).not.toBeNull();
+    showPhone(phoneReport({ item: STATION }));
+    expect(bar()).toBeNull();
+    showPhone(phoneReport({ item: DR_P3_ADDRESS }));
+    expect(bar()).toBeNull();
+    showPhone(phoneReport({}, { media_duration: undefined }));
+    expect(bar()).toBeNull();
+    showPhone(phoneReport({}, { media_duration: 0 }));
+    expect(bar()).toBeNull();
+    showPhone(phoneReport({}, { media_position: undefined }));
+    expect(bar()).toBeNull();
+    showPhone(phoneReport());
+    expect(bar()).not.toBeNull();
   });
 });
