@@ -13,6 +13,7 @@ import { useEpisodes, useLibrary, usePlaylists, usePlaylistTracks } from '../../
 import { favoritesFirst, podcastsByName, radioLabel } from '../../music/view';
 import { Art, EpisodeRow, MusicNote, PlayAllButton, PlaylistRow, PodcastRow, ResumeRow, TrackRow } from './MusicParts';
 import { VolumeStrip } from './VolumeStrip';
+import { isSeekHeld, type SentSeek } from './sentSeek';
 import { isUnsettled, runningVolume, sendVolume, type SentVolume } from './sentVolume';
 import './SonosPlayer.css';
 
@@ -152,6 +153,8 @@ export function SonosPlayer({
   const episodes = useEpisodes(showPodcastModal && viewingItems, selectedPodcast);
   const tracks = usePlaylistTracks(showPodcastModal && viewingItems, selectedPlaylist);
   const [seekerPreview, setSeekerPreview] = useState<number | null>(null); // position in seconds while dragging
+  // The seek this card sent: shown as sent until HA's player has settled on it, see sentSeek.ts.
+  const [pendingSeek, setPendingSeek] = useState<SentSeek | null>(null);
   const [, setSeekerTick] = useState(0); // force re-render for live position when playing
   const player = entities?.[entityId];
 
@@ -228,6 +231,14 @@ export function SonosPlayer({
   const mediaDuration = typeof attributes.media_duration === 'number' ? attributes.media_duration : undefined;
   const mediaPosition = typeof attributes.media_position === 'number' ? attributes.media_position : undefined;
   const mediaPositionUpdatedAt = attributes.media_position_updated_at;
+  const seekItem = `${entityId}|${mediaContentId}`;
+  const heldSeek =
+    pendingSeek && isSeekHeld(pendingSeek, { item: seekItem, anchor: mediaPositionUpdatedAt, position: mediaPosition }, Date.now())
+      ? pendingSeek
+      : null;
+  if (pendingSeek && !heldSeek) setPendingSeek(null);
+  // Music Assistant stops the old stream before it starts the new one; the card keeps showing what it showed when the seek was sent.
+  const shownState = heldSeek && state === 'idle' ? heldSeek.state : state;
 
   // Music Assistant names what it plays by uri (`library://radio/5`, `dr_podcasts://podcast_episode/...`); its media type is
   // the one reliable mark of radio and podcasts. The station is only known once the library has loaded.
@@ -329,7 +340,7 @@ export function SonosPlayer({
       : undefined;
   const showImage = safeImage && !imageError;
   if (pendingPlay && pendingPlay.base !== state) setPendingPlay(null);
-  const isPlaying = pendingPlay && pendingPlay.base === state ? pendingPlay.playing : state === 'playing';
+  const isPlaying = pendingPlay && pendingPlay.base === state ? pendingPlay.playing : shownState === 'playing';
   const hasGroup = groupMembers.length > 1;
   const familyGroup = groupMembers.filter(m => FAMILY_ZONE.includes(m)).length >= 2;
 
@@ -541,6 +552,7 @@ export function SonosPlayer({
 
   const getCurrentPosition = (): number => {
     if (seekerPreview != null) return seekerPreview;
+    if (heldSeek) return heldSeek.value;
     if (mediaPosition == null || mediaDuration == null) return 0;
     if (state === 'playing' && mediaPositionUpdatedAt) {
       try {
@@ -567,15 +579,17 @@ export function SonosPlayer({
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleSeek = (positionSeconds: number) => {
-    if (!callService || seekDuration <= 0) return;
-    const clamped = Math.max(0, Math.min(seekDuration, positionSeconds));
+  // The dragged position is the seek: a release without a drag, or a second release event for the same drag, has nothing to send.
+  const handleSeek = () => {
+    if (!callService || seekDuration <= 0 || seekerPreview == null) return;
+    const clamped = Math.max(0, Math.min(seekDuration, seekerPreview));
     callService({
       domain: 'media_player',
       service: 'media_seek',
       target: { entity_id: entityId },
       serviceData: { seek_position: clamped },
     });
+    setPendingSeek({ value: clamped, state: shownState, item: seekItem, anchor: mediaPositionUpdatedAt, at: Date.now() });
     setSeekerPreview(null);
   };
 
@@ -660,7 +674,7 @@ export function SonosPlayer({
 
   const phoneId = phonePlayerOf(viewer.name);
   const phoneState = phoneId ? entities?.[phoneId]?.state : undefined;
-  const canMoveToPhone = phoneState !== undefined && phoneState !== 'unavailable' && (state === 'playing' || state === 'paused');
+  const canMoveToPhone = phoneState !== undefined && phoneState !== 'unavailable' && (shownState === 'playing' || shownState === 'paused');
 
   const handleMoveToPhone = () => {
     if (!callService || !phoneId) return;
@@ -1208,14 +1222,8 @@ export function SonosPlayer({
               step={1}
               value={seekerPreview ?? currentPosition}
               onChange={e => setSeekerPreview(Number(e.target.value))}
-              onMouseUp={() => {
-                const pos = seekerPreview ?? currentPosition;
-                handleSeek(pos);
-              }}
-              onTouchEnd={() => {
-                const pos = seekerPreview ?? currentPosition;
-                handleSeek(pos);
-              }}
+              onMouseUp={handleSeek}
+              onTouchEnd={handleSeek}
               aria-label='Seek position'
             />
           </div>
