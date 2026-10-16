@@ -105,9 +105,10 @@ const pick = (selector: string) => document.querySelector<HTMLElement>(selector)
 const choose = (name: string) => act(async () => row(name)?.click());
 
 describe("the viewer's own phone in the speaker list", () => {
-  it('follows the speakers, with a phone glyph, while its player is reachable', async () => {
-    await openMedia(house({ [PHONE]: player(PHONE, 'playing') }));
+  it('leads the speakers, with a phone glyph, while its player is reachable', async () => {
+    await openMedia(house({ [PHONE]: player(PHONE, 'idle') }));
     expect(rows()).toEqual([
+      'My phone',
       'Bathroom',
       'Bedroom',
       'Claudias room',
@@ -117,7 +118,6 @@ describe("the viewer's own phone in the speaker list", () => {
       'Kristines room',
       'Living Room',
       'Rooftop',
-      'My phone',
     ]);
     expect(row('My phone')?.querySelector('[data-icon="mdi:cellphone"]')).not.toBeNull();
   });
@@ -142,10 +142,16 @@ describe("the viewer's own phone in the speaker list", () => {
     }
   });
 
+  it('shows a playing phone first among what is playing', async () => {
+    await openMedia(house({ [PHONE]: player(PHONE, 'playing') }));
+    expect(pick('.qa-media-list .qa-media-item [data-card="phone"]')?.getAttribute('data-entity')).toBe(PHONE);
+    expect(pick('.qa-media-list .qa-media-item')?.querySelector('[data-card="phone"]')).not.toBeNull();
+  });
+
   it('opens the phone card, named in the Back row, with the reachable speakers to move to', async () => {
     await openMedia(
       house({
-        [PHONE]: player(PHONE, 'playing'),
+        [PHONE]: player(PHONE, 'idle'),
         'media_player.bathroom': player('media_player.bathroom', 'unavailable'),
       })
     );

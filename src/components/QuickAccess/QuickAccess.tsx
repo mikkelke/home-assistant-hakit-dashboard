@@ -383,6 +383,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
   }, [entities]);
 
   const phoneId = availablePhonePlayer(viewer.name, id => entities?.[id]?.state);
+  const phonePlaying = phoneId !== null && phoneId !== undefined && entities?.[phoneId]?.state === 'playing';
   const moveTargets = useMemo<MoveTarget[]>(
     () => allSpeakers.filter(s => s.state !== 'unavailable').map(s => ({ entityId: s.entityId, name: s.name, groupSize: s.groupSize })),
     [allSpeakers]
@@ -767,10 +768,23 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                         />
                       )}
                     </div>
-                  ) : showSpeakerSelector || displayedSpeakers.length === 0 ? (
+                  ) : showSpeakerSelector || (displayedSpeakers.length === 0 && !phonePlaying) ? (
                     // Show speaker list when "add speaker" button is clicked OR when nothing is playing
                     <div className='qa-media-section'>
                       <div className='qa-speaker-list'>
+                        {phoneId && (
+                          <button
+                            className='qa-speaker-line'
+                            onClick={() => {
+                              setSelectedSpeakerForQuickStart(phoneId);
+                              trackMedia('play_room', phoneId);
+                            }}
+                          >
+                            <Icon icon='mdi:cellphone' />
+                            <span className='qa-speaker-name'>{PHONE_PLAYER_NAME}</span>
+                            <Icon icon='mdi:chevron-right' className='qa-chevron' />
+                          </button>
+                        )}
                         {allSpeakers.map(speaker => (
                           <button
                             key={speaker.entityId}
@@ -788,25 +802,30 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                             {speaker.state !== 'unavailable' && <Icon icon='mdi:chevron-right' className='qa-chevron' />}
                           </button>
                         ))}
-                        {phoneId && (
-                          <button
-                            className='qa-speaker-line'
-                            onClick={() => {
-                              setSelectedSpeakerForQuickStart(phoneId);
-                              trackMedia('play_room', phoneId);
-                            }}
-                          >
-                            <Icon icon='mdi:cellphone' />
-                            <span className='qa-speaker-name'>{PHONE_PLAYER_NAME}</span>
-                            <Icon icon='mdi:chevron-right' className='qa-chevron' />
-                          </button>
-                        )}
                       </div>
                     </div>
                   ) : (
                     // Show playing speakers
                     <div className='qa-media-section'>
                       <div className='qa-media-list'>
+                        {phonePlaying && phoneId && (
+                          <div className='qa-media-item'>
+                            <div className='qa-media-identity'>
+                              <div className='qa-media-label'>
+                                <Icon icon='mdi:cellphone' />
+                                <span className='qa-media-label-text'>{PHONE_PLAYER_NAME}</span>
+                              </div>
+                            </div>
+                            <PhonePlayer
+                              entityId={phoneId}
+                              entities={entities}
+                              hassUrl={hassUrl}
+                              callService={callService}
+                              targets={moveTargets}
+                              onUiTap={trackMedia}
+                            />
+                          </div>
+                        )}
                         {displayedSpeakers.map(speaker => {
                           const groupSize = liveGroupSize(speaker.entityId);
                           return (
