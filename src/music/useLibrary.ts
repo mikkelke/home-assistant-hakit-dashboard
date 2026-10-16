@@ -72,6 +72,11 @@ export function useLibrary(active: boolean): Loaded<Library> {
   return useLoaded(active, 'library', loadLibrary);
 }
 
+/** The viewer's radio stations alone, for a card that has to name the station it plays, fetched each time `active` turns on. */
+export function useRadios(active: boolean): Loaded<Radio[]> {
+  return useLoaded(active, 'radios', fetchRadios);
+}
+
 /** The viewer's Spotify playlists, those played through Music Assistant first, fetched each time `active` turns on. Kept apart
  * from the library so a refusal of playlists leaves the stations and podcasts alone. */
 export function usePlaylists(active: boolean): Loaded<Playlist[]> {

@@ -6,10 +6,11 @@ import { FAMILY_ZONE, SONOS_SPEAKERS, rawSonosEntityId } from '../../config/spea
 import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
 import { hapticTick } from '../../utils/haptics';
 import { useLocalStorageBoolean, useLongPress, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard, useViewer } from '../../hooks';
-import { phonePlayerOf } from '../../home/household';
+import { availablePhonePlayer } from '../../home/household';
 import { maImageUrl, mediaKindOf, playMedia } from '../../music/api';
 import { queueIdFor } from '../../music/queue';
-import { useEpisodes, useLibrary, usePlaylists, usePlaylistTracks } from '../../music/useLibrary';
+import { faceOf, NO_RADIOS, playsRadio } from '../../music/nowPlaying';
+import { useEpisodes, useLibrary, usePlaylists, usePlaylistTracks, useRadios } from '../../music/useLibrary';
 import { favoritesFirst, podcastsByName, radioLabel } from '../../music/view';
 import { Art, EpisodeRow, MusicNote, PlayAllButton, PlaylistRow, PodcastRow, ResumeRow, TrackRow } from './MusicParts';
 import { VolumeStrip } from './VolumeStrip';
@@ -247,7 +248,20 @@ export function SonosPlayer({
   // the one reliable mark of radio and podcasts. The station is only known once the library has loaded.
   const mediaKind = mediaKindOf(mediaContentId);
   const isRadio = mediaKind === 'radio';
-  const currentRadio = (library.status === 'ready' && library.data.radios.find(radio => radio.uri === mediaContentId)) || null;
+  // The card asks for the stations itself while it shows a radio, so it names the station without the Source sheet having loaded the library.
+  const radios = useRadios((embedded || !collapsed) && playsRadio(mediaContentId));
+  const stations = library.status === 'ready' ? library.data.radios : radios.status === 'ready' ? radios.data : NO_RADIOS;
+  const nowPlaying = faceOf(
+    {
+      state,
+      title: attributes.media_title || '',
+      artist: mediaArtist,
+      contentId: mediaContentId,
+      hasPicture: Boolean(mediaPictureLocal || mediaPicture),
+    },
+    stations
+  );
+  const currentRadio = nowPlaying.radio;
 
   // Detect Spotify based on media_content_id, app_id, or entity_picture
   const isSpotify = Boolean(
@@ -504,16 +518,16 @@ export function SonosPlayer({
   });
 
   // On line-in HA often leaves media_title empty – show the source name instead of "Not playing"
+  const lineInTitle = isLineIn(currentSource) && (!mediaTitle || mediaTitle === 'Not playing');
+  const quiet = nowPlaying.quiet && !lineInTitle;
   const displayTitle =
-    (currentRadio && radioLabel(currentRadio.name)) ||
-    (isLineIn(currentSource) && (!mediaTitle || mediaTitle === 'Not playing') ? currentSource : mediaTitle) ||
-    'Not playing';
+    nowPlaying.stationName || (lineInTitle ? currentSource : quiet ? speakerNameFor(entityId) : mediaTitle) || 'Not playing';
 
   // Determine source display - check specific sources first, then state
   const getDisplaySource = () => {
     // Check specific sources in priority order (regardless of state)
     if (isSpotify) return 'Spotify';
-    if (currentRadio) return radioLabel(currentRadio.name); // Radio should show even when idle
+    if (nowPlaying.stationName) return nowPlaying.stationName; // Radio should show even when idle
 
     // Check for TV source BEFORE podcast detection (TV should take priority)
     if (currentSource && currentSource.toLowerCase().includes('tv')) {
@@ -675,9 +689,8 @@ export function SonosPlayer({
     callService({ domain: 'media_player', service: 'media_next_track', target: { entity_id: entityId } });
   };
 
-  const phoneId = phonePlayerOf(viewer.name);
-  const phoneState = phoneId ? entities?.[phoneId]?.state : undefined;
-  const canMoveToPhone = phoneState !== undefined && phoneState !== 'unavailable' && (shownState === 'playing' || shownState === 'paused');
+  const phoneId = availablePhonePlayer(viewer.name, id => entities?.[id]?.state);
+  const canMoveToPhone = phoneId !== undefined && (shownState === 'playing' || shownState === 'paused');
 
   const handleMoveToPhone = () => {
     if (!callService || !phoneId) return;
@@ -1116,7 +1129,10 @@ export function SonosPlayer({
   // The state word compresses the whole card; green while something is actually playing.
   const stateWord = isPlaying ? `Playing · ${groupMembers.length}` : state === 'paused' ? 'Paused' : 'Quiet';
   const otherMemberNames = groupedSpeakers.filter(s => !s.isMaster).map(s => s.name);
-  const subtitleParts = [mediaArtist, displaySource !== 'Select source' ? displaySource : ''].filter(Boolean);
+  const sourceWord = displaySource !== 'Select source' ? displaySource : '';
+  const subtitleParts = quiet
+    ? [shownState === 'paused' ? 'Paused' : isPlaying ? sourceWord || 'Playing' : 'Quiet']
+    : [mediaArtist, sourceWord].filter(part => part && part !== displayTitle);
   const seekPct = seekDuration > 0 ? Math.max(0, Math.min(100, ((seekerPreview ?? currentPosition) / seekDuration) * 100)) : 0;
 
   // The source door wears the CURRENT source's mark - brands as logos, everything else as a glyph.
@@ -1169,7 +1185,7 @@ export function SonosPlayer({
             <img src={safeImage || ''} alt='' onError={() => setImageError(true)} />
           ) : (
             <div className='sonos-art-placeholder'>
-              <Icon icon='mdi:music' aria-hidden='true' />
+              <Icon icon={quiet ? 'mdi:speaker' : 'mdi:music'} aria-hidden='true' />
             </div>
           )}
         </div>
@@ -1586,7 +1602,7 @@ export function SonosPlayer({
                             </button>
                             <span>
                               {label}
-                              {radio.uri === mediaContentId ? ' · now' : ''}
+                              {radio.uri === currentRadio?.uri ? ' · now' : ''}
                             </span>
                           </div>
                         );

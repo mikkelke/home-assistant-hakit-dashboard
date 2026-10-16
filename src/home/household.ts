@@ -48,6 +48,19 @@ export function phonePlayerOf(userName: string | null | undefined): string | und
 /** An entity's state string, or undefined when it is missing. */
 export type StateReader = (entityId: string) => string | undefined;
 
+/** The viewer's own phone player while its entity exists and is not unavailable, which is only while the Music Assistant app
+ * runs. Never another member's: a viewer without a phone player of their own gets none. */
+export function availablePhonePlayer(userName: string | null | undefined, readState: StateReader): string | undefined {
+  const entityId = phonePlayerOf(userName);
+  const state = entityId ? readState(entityId) : undefined;
+  return entityId && state !== undefined && state !== 'unavailable' ? entityId : undefined;
+}
+
+/** Whether an entity is some member's phone player. */
+export function isPhonePlayer(entityId: string): boolean {
+  return HOUSEHOLD.some(member => member.phonePlayerEntityId === entityId);
+}
+
 export function asleepMembers(readState: StateReader): HouseholdMember[] {
   return HOUSEHOLD.filter(member => readState(member.sleepModeEntityId) === 'on');
 }

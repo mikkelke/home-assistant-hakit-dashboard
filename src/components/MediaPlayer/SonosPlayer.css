@@ -408,6 +408,10 @@
   width: 17px;
   height: 17px;
 }
+.sonos-ibtn.is-open {
+  background: rgba(34, 197, 94, 0.16);
+  color: #22c55e;
+}
 .sonos-ibtn--bare {
   background: none;
 }
@@ -808,6 +812,11 @@
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+}
+
+/* The speakers a phone's queue can move to, under the door that opens them. */
+.sonos-move {
+  margin-top: 0.85rem;
 }
 
 .sonos-rows-rule {

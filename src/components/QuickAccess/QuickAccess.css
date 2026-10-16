@@ -590,6 +590,23 @@
   }
 }
 
+/* Back, and the name of what the card below it controls */
+.qa-media-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.qa-media-head .qa-back-button {
+  flex-shrink: 0;
+  margin-bottom: 0;
+}
+
+.qa-media-head .qa-media-identity {
+  flex: 1;
+}
+
 .qa-quick-start-header {
   display: flex;
   flex-direction: column;

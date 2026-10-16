@@ -3,14 +3,15 @@ import { Icon } from '@iconify/react';
 import { useHass } from '@hakit/core';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { IntercomCard } from '../Intercom';
-import { SonosPlayer, TVCard } from '../MediaPlayer';
+import { PHONE_PLAYER_NAME, PhonePlayer, SonosPlayer, TVCard, type MoveTarget } from '../MediaPlayer';
 import { getWeatherConditionIcon } from '../Weather/weatherIcons';
 import { LazyBoundary } from '../Lazy/LazyBoundary';
 import { TRANSIT_LAST_UPDATED_SENSOR, TRANSIT_REFRESH_BUTTON, WEATHER_ENTITY } from '../../config/entities';
 import { QUICK_ACCESS_OPEN_EVENT, TRANSIT_LINES, getTransitSeverity, isTransitAlert, type TransitStatus } from '../../config/transit';
 import { getTransitLineDisplayStatus, minsFromNow, TRANSIT_UPCOMING_MIN_MINS } from '../../utils/transitDisplay';
 import { SONOS_SPEAKERS } from '../../config/speakers';
-import { useModalBackButton, useSwipeToClose } from '../../hooks';
+import { useModalBackButton, useSwipeToClose, useViewer } from '../../hooks';
+import { availablePhonePlayer, isPhonePlayer } from '../../home/household';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { onIdle } from '../../utils/idle';
 import type { OpenNow } from '../../utils/navigation';
@@ -170,6 +171,7 @@ const transitLabel = (line: { station: string; name: string }) => `${line.statio
  * bar and its modals need them. */
 export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProps) {
   const entities = useTrackedEntities();
+  const viewer = useViewer();
   const [openModal, setOpenModal] = useState<ModalType>(null);
   // Frozen at media-modal open: joins/unjoins change coordinators and flicker `playing`,
   // which would otherwise unmount a SonosPlayer (and its open speaker picker) mid-operation.
@@ -380,6 +382,12 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
     return speakers.sort((a, b) => a.name.localeCompare(b.name));
   }, [entities]);
 
+  const phoneId = availablePhonePlayer(viewer.name, id => entities?.[id]?.state);
+  const moveTargets = useMemo<MoveTarget[]>(
+    () => allSpeakers.filter(s => s.state !== 'unavailable').map(s => ({ entityId: s.entityId, name: s.name, groupSize: s.groupSize })),
+    [allSpeakers]
+  );
+
   const weatherCondition = useHass(s => s.entities[WEATHER_ENTITY]?.state);
   const weatherEntityId = weatherCondition != null ? WEATHER_ENTITY : null;
   const weatherConditionIcon = getWeatherConditionIcon(weatherCondition);
@@ -442,6 +450,12 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
     const n = Array.isArray(gm) ? gm.filter(m => typeof m === 'string' && m.length > 0).length : 0;
     return n > 0 ? n : 1;
   };
+
+  const selectedIsPhone = selectedSpeakerForQuickStart !== null && isPhonePlayer(selectedSpeakerForQuickStart);
+  const selectedName = selectedIsPhone
+    ? PHONE_PLAYER_NAME
+    : (SONOS_SPEAKERS.find(speaker => speaker.id === selectedSpeakerForQuickStart)?.name ?? '');
+  const selectedGroupSize = selectedSpeakerForQuickStart !== null && !selectedIsPhone ? liveGroupSize(selectedSpeakerForQuickStart) : 1;
 
   // Use standardized swipe-to-close hook
   const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestCloseQuickAccess);
@@ -718,18 +732,40 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                     </div>
                   ) : selectedSpeakerForQuickStart ? (
                     <div className='qa-media-section'>
-                      <button className='qa-back-button' onClick={() => setSelectedSpeakerForQuickStart(null)}>
-                        <Icon icon='mdi:arrow-left' />
-                        <span>Back</span>
-                      </button>
-                      <SonosPlayer
-                        entityId={selectedSpeakerForQuickStart}
-                        entities={entities}
-                        hassUrl={hassUrl}
-                        callService={callService}
-                        embedded
-                        onUiTap={trackMedia}
-                      />
+                      <div className='qa-media-head'>
+                        <button className='qa-back-button' onClick={() => setSelectedSpeakerForQuickStart(null)}>
+                          <Icon icon='mdi:arrow-left' />
+                          <span>Back</span>
+                        </button>
+                        <div className='qa-media-identity'>
+                          <div className='qa-media-label'>
+                            <Icon icon={selectedIsPhone ? 'mdi:cellphone' : 'mdi:speaker'} />
+                            <span className='qa-media-label-text'>{selectedName}</span>
+                          </div>
+                          {selectedGroupSize > 1 && (
+                            <span className='qa-media-badge qa-media-badge--group'>{selectedGroupSize} speakers</span>
+                          )}
+                        </div>
+                      </div>
+                      {selectedIsPhone ? (
+                        <PhonePlayer
+                          entityId={selectedSpeakerForQuickStart}
+                          entities={entities}
+                          hassUrl={hassUrl}
+                          callService={callService}
+                          targets={moveTargets}
+                          onUiTap={trackMedia}
+                        />
+                      ) : (
+                        <SonosPlayer
+                          entityId={selectedSpeakerForQuickStart}
+                          entities={entities}
+                          hassUrl={hassUrl}
+                          callService={callService}
+                          embedded
+                          onUiTap={trackMedia}
+                        />
+                      )}
                     </div>
                   ) : showSpeakerSelector || displayedSpeakers.length === 0 ? (
                     // Show speaker list when "add speaker" button is clicked OR when nothing is playing
@@ -752,6 +788,19 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                             {speaker.state !== 'unavailable' && <Icon icon='mdi:chevron-right' className='qa-chevron' />}
                           </button>
                         ))}
+                        {phoneId && (
+                          <button
+                            className='qa-speaker-line'
+                            onClick={() => {
+                              setSelectedSpeakerForQuickStart(phoneId);
+                              trackMedia('play_room', phoneId);
+                            }}
+                          >
+                            <Icon icon='mdi:cellphone' />
+                            <span className='qa-speaker-name'>{PHONE_PLAYER_NAME}</span>
+                            <Icon icon='mdi:chevron-right' className='qa-chevron' />
+                          </button>
+                        )}
                       </div>
                     </div>
                   ) : (
