@@ -83,6 +83,9 @@ interface SonosCardProps extends SonosPlayerProps {
   onUiTap?: (action: string, detail?: string) => void;
 }
 
+/** Music Assistant skips ahead when a seek lands on the very end of a track. */
+const SEEK_END_MARGIN_S = 3;
+
 const SPOTIFY_ANDROID_INTENT =
   'intent://open/#Intent;scheme=spotify;package=com.spotify.music;S.browser_fallback_url=https%3A%2F%2Fopen.spotify.com;end';
 
@@ -582,7 +585,7 @@ export function SonosPlayer({
   // The dragged position is the seek: a release without a drag, or a second release event for the same drag, has nothing to send.
   const handleSeek = () => {
     if (!callService || seekDuration <= 0 || seekerPreview == null) return;
-    const clamped = Math.max(0, Math.min(seekDuration, seekerPreview));
+    const clamped = Math.max(0, Math.min(seekDuration - SEEK_END_MARGIN_S, seekerPreview));
     callService({
       domain: 'media_player',
       service: 'media_seek',
