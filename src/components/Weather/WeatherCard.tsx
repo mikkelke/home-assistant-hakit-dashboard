@@ -298,7 +298,7 @@ function WeatherItemWithTimeline({
 export function WeatherCard({ entities, hassUrl }: WeatherCardProps) {
   // Key sensors
   const temp = getState(entities, 'sensor.gw2000a_outdoor_temperature');
-  const feelsLike = getState(entities, 'sensor.gw2000a_feels_like_temperature');
+  const feelsLike = getState(entities, 'sensor.ecowitt_feels_like_temp_8351');
   const humidity = getState(entities, 'sensor.gw2000a_humidity');
   const dewpoint = getState(entities, 'sensor.gw2000a_dewpoint');
 
@@ -310,7 +310,7 @@ export function WeatherCard({ entities, hassUrl }: WeatherCardProps) {
 
   const rainRate = getState(entities, 'sensor.gw2000a_rain_rate_piezo');
   const rainDaily = getState(entities, 'sensor.gw2000a_daily_rain_piezo');
-  const rain24h = getState(entities, 'sensor.gw2000a_24h_rain_piezo');
+  const rain24h = getState(entities, 'sensor.ecowitt_24h_rain_8351');
 
   const uv = getState(entities, 'sensor.gw2000a_uv_index');
   const lux = getState(entities, 'sensor.gw2000a_solar_lux');
@@ -365,7 +365,7 @@ export function WeatherCard({ entities, hassUrl }: WeatherCardProps) {
         </WeatherItemWithTimeline>
 
         <WeatherItemWithTimeline
-          entityId='sensor.gw2000a_feels_like_temperature'
+          entityId='sensor.ecowitt_feels_like_temp_8351'
           entities={entities}
           hassUrl={hassUrl}
           icon='mdi:thermometer-low'
@@ -471,7 +471,7 @@ export function WeatherCard({ entities, hassUrl }: WeatherCardProps) {
         />
 
         <WeatherItemWithTimeline
-          entityId='sensor.gw2000a_24h_rain_piezo'
+          entityId='sensor.ecowitt_24h_rain_8351'
           entities={entities}
           hassUrl={hassUrl}
           icon='mdi:clock-time-four-outline'

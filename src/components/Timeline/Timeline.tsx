@@ -633,7 +633,7 @@ export function Timeline({ entityId, entity: _entity, entities, hassUrl, hours =
   const isVacuum = entityDomain === 'vacuum';
 
   // Weather sensor detection (before door/window to avoid "outdoor" matching "door")
-  const isWeatherSensor = entityId.includes('gw2000a') || entityId.includes('weather');
+  const isWeatherSensor = entityId.includes('gw2000a') || entityId.includes('ecowitt') || entityId.includes('weather');
   const isTemperatureSensor = entityId.includes('temperature') || entityId.includes('temp');
   const isHumiditySensor = entityId.includes('humidity');
   const isWindSensor = entityId.includes('wind');
