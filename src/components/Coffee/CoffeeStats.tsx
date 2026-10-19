@@ -369,7 +369,7 @@ export function StatsSheet({
             <h4>
               When
               <span className='coffee-tile-r'>
-                60 days{brews.beansPlannedG60d != null ? ` · ≈${Math.round(brews.beansPlannedG60d)} g beans planned` : ''}
+                60 days{brews.beansPlannedG60d ? ` · ≈${Math.round(brews.beansPlannedG60d)} g beans planned` : ''}
               </span>
             </h4>
             <TimeOfDay hours={brews.hours} />

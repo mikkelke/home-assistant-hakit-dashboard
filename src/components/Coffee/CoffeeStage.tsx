@@ -128,6 +128,7 @@ function Stepper({ mode, state }: { mode: StageMode; state: CoffeeState }) {
 function subtitle(mode: StageMode, state: CoffeeState, usualName: string | null): string {
   if (mode === 'stale') return 'Connection lost';
   if (mode === 'paused') return state.fault ? 'Paused by the machine' : 'Paused';
+  if (mode === 'live' && state.source === 'power') return 'Brewing · seen by the plug';
   if (mode === 'live' || mode === 'ready') return brewSubtitle(state, usualName);
   if (mode === 'stopped') return 'Stopped';
   if (state.phase === 'starting') return 'Starting…';
@@ -191,7 +192,7 @@ function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
   const failure = startFailure(state);
   const brewsLeft = beans?.brewsLeft;
   const total = data.baseline?.status === 'ready' ? data.baseline.totalSMedian : null;
-  const plannedS = total ?? (usual?.planS != null ? usual.planS + 75 : null);
+  const plannedS = total ?? usual?.planS ?? null;
   const share = beans?.remainingG != null ? Math.min(1, beans.remainingG / Math.max(BEANS_TOP_UP_G, beans.remainingG)) : 0;
   return (
     <>
@@ -213,6 +214,20 @@ function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
           {!trial && plannedS != null && <Chip icon='mdi:clock-outline'>≈ {formatMinSec(plannedS)}</Chip>}
         </div>
       </Tile>
+      {beans && beans.remainingG == null && (
+        <button type='button' className='cs-tile cs-beans' onClick={() => setSheet('beans')} aria-label='Beans, added some'>
+          <span className='cs-beans-disc'>
+            <Glyph name='jar' />
+          </span>
+          <span className='cs-beans-tx'>
+            <span className='cs-beans-line'>Beans</span>
+            <span className='cs-beans-hint'>tap when you fill the container</span>
+          </span>
+          <Chip icon='mdi:plus' tone='cof' className='is-mid'>
+            Added
+          </Chip>
+        </button>
+      )}
       {beans && beans.remainingG != null && (
         <button type='button' className='cs-tile cs-beans' onClick={() => setSheet('beans')} aria-label='Beans, added some'>
           <span className='cs-beans-disc'>
@@ -301,9 +316,11 @@ function BrewingSide({
   const inPour = pour != null && started != null && nowS - started < pour.end - pour.start;
   const pourShare = pour && started != null ? Math.min(1, Math.max(0, (nowS - started) / Math.max(1, pour.end - pour.start))) : 0;
   const last = state.poursTotal != null && state.pour === state.poursTotal;
-  const grinding = state.phase === 'grinding' || (state.pour ?? 0) < 1;
-  const cupSeries = live ? series(live.cup, live.stepS) : null;
-  const waterSeries = live ? series(live.water, live.stepS) : null;
+  const power = state.source === 'power';
+  const grinding = state.phase === 'grinding';
+  const beforeBloom = grinding || power || (state.pour ?? 0) < 1;
+  const cupSeries = live && !power ? series(live.cup, live.stepS) : null;
+  const waterSeries = live && !power ? series(live.water, live.stepS) : null;
   const at = staleS ?? lastValidS(cupSeries) ?? nowS;
   const cup = valueAt(cupSeries, at);
   const water = valueAt(waterSeries, at);
@@ -312,6 +329,7 @@ function BrewingSide({
   const stageText = grinding ? 'Grinding' : (stageLabel(state.pour, state.poursTotal) ?? phaseWord(state) ?? 'Brewing');
   const fault = faultView(state.fault);
   const stale = mode === 'stale';
+  const noLink = stale || power;
 
   return (
     <>
@@ -331,15 +349,19 @@ function BrewingSide({
           <div className='cs-sub'>
             {stale
               ? `stale ${formatMinSec(Math.max(0, realNowS - (staleS ?? realNowS)))} · the machine carries on by itself`
-              : grinding
-                ? 'the clock starts at the first bloom'
-                : inPour
-                  ? pourLine(pour)
-                  : last
-                    ? 'drawdown'
-                    : 'pause'}
+              : power
+                ? 'seen by the plug only, so no curve'
+                : grinding
+                  ? 'the clock starts at the first bloom'
+                  : beforeBloom
+                    ? ''
+                    : inPour
+                      ? pourLine(pour)
+                      : last
+                        ? 'drawdown'
+                        : 'pause'}
           </div>
-          {!stale && !grinding && (
+          {!stale && !beforeBloom && (
             <div className='cs-pbar'>
               <i style={{ width: `${Math.round((inPour ? pourShare : 1) * 100)}%` }} />
             </div>
@@ -363,18 +385,20 @@ function BrewingSide({
           <div className='cs-sub'>
             {stale
               ? 'unknown while disconnected'
-              : state.etaMs != null
+              : power && state.etaMs == null
+                ? 'known when it ends'
+                : state.etaMs != null
                 ? `ready ≈ ${formatHomeClock(state.etaMs)}${sinceBloom != null ? ` · ${formatMinSec(sinceBloom)} since bloom` : ''}`
                 : 'known at the first bloom'}
           </div>
         </Tile>
       )}
       <div className='cs-pair'>
-        <Metric label={stale ? 'Cup · stale' : 'Cup'} value={cup} unit='g' className={stale ? 'is-stale' : 'is-cup'} />
-        <Metric label={stale ? 'Water · stale' : 'Water'} value={water} unit='ml' className={stale ? 'is-stale' : 'is-water'} />
+        <Metric label={stale ? 'Cup · stale' : 'Cup'} value={cup} unit='g' className={noLink ? 'is-stale' : 'is-cup'} />
+        <Metric label={stale ? 'Water · stale' : 'Water'} value={water} unit='ml' className={noLink ? 'is-stale' : 'is-water'} />
       </div>
       <div className='cs-ctrls'>
-        {stale ? (
+        {noLink ? (
           <>
             <button type='button' className='cs-wide is-sky' onClick={() => void sendCoffeeCommand('connect', {}).catch(() => {})}>
               <Icon icon='mdi:bluetooth' aria-hidden='true' />
@@ -556,7 +580,8 @@ function StageBody({ data, nowMs, phone }: { data: StageData; nowMs: number; pho
   const glow = useMotionSlot('stage:head', 'appliance', flowing);
   const breathe = useMotionSlot('stage:pour', 'appliance', flowing);
   const plan = planOf(mode === 'idle' ? null : live, baseline, usual);
-  const measuredLive = mode !== 'idle' && live != null && (live.brewId == null || state.brewId == null || live.brewId === state.brewId);
+  const measuredLive =
+    mode !== 'idle' && state.source !== 'power' && live != null && (live.brewId == null || state.brewId == null || live.brewId === state.brewId);
   const cup = measuredLive ? series(live.cup, live.stepS) : null;
   const water = measuredLive ? series(live.water, live.stepS) : null;
   const dataEnd = lastValidS(cup);

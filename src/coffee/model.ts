@@ -474,7 +474,7 @@ export function parseCoffeeRecipes(entity: CoffeeEntity): CoffeeRecipes | null {
   if (!entity || entity.state === 'unavailable') return null;
   const a: Attributes = entity.attributes ?? {};
   return {
-    usualName: text(entity.state) === 'unknown' ? null : text(entity.state),
+    usualName: ['unknown', 'none'].includes(text(entity.state) ?? 'none') ? null : text(entity.state),
     usualId: text(a.usual_id),
     recipes: (Array.isArray(a.recipes) ? a.recipes : []).map(parseRecipe).filter((recipe): recipe is Recipe => recipe != null),
   };

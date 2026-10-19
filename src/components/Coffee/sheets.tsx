@@ -304,7 +304,17 @@ const CONFIDENCE: Record<string, string> = {
 };
 
 /** Why the advisor suggests what it does: the brews it used, how sure it is, and room to answer in words. */
-export function WhySheet({ advice, brews, onClose }: { advice: CoffeeAdvice; brews: BrewRecord[]; onClose: () => void }) {
+export function WhySheet({
+  advice,
+  brews,
+  beanName,
+  onClose,
+}: {
+  advice: CoffeeAdvice;
+  brews: BrewRecord[];
+  beanName: string | null;
+  onClose: () => void;
+}) {
   const { data: recent } = useCoffeeRecent(true, brews[0]?.id ?? null);
   const [reply, setReply] = useState('');
   const [sent, setSent] = useState(false);
@@ -328,7 +338,7 @@ export function WhySheet({ advice, brews, onClose }: { advice: CoffeeAdvice; bre
       icon='mdi:creation'
       tone='advisor'
       title={advice.to ? `Why ${field} ${advice.to}?` : 'Why'}
-      subtitle={undefined}
+      subtitle={beanName ?? undefined}
       historyKey='coffee-why'
       onClose={onClose}
     >

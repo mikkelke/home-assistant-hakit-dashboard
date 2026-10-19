@@ -136,7 +136,8 @@ describe('sensor.coffee_state', () => {
     expect(stageLabel(3, 4)).toBe('Pour 3/4');
     expect(stageLabel(0, 4)).toBeNull();
     expect(stageLabel(2, null)).toBe('Pour 2');
-    expect(phaseWord({ phase: 'brewing', pour: 0, poursTotal: 4 })).toBe('Grinding');
+    expect(phaseWord({ phase: 'grinding', pour: 0, poursTotal: 4 })).toBe('Grinding');
+    expect(phaseWord({ phase: 'brewing', pour: null, poursTotal: null })).toBe('Brewing');
     expect(phaseWord({ phase: 'brewing', pour: 1, poursTotal: 4 })).toBe('Bloom 1/4');
     expect(phaseWord({ phase: 'ready', pour: 4, poursTotal: 4 })).toBe('Ready');
     expect(phaseWord({ phase: 'idle', pour: null, poursTotal: null })).toBeNull();

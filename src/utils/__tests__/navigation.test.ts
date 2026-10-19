@@ -109,3 +109,16 @@ describe('mergeHistoryState', () => {
     expect(mergeHistoryState({ root: true }, {})).toEqual({ root: true });
   });
 });
+
+describe('#coffee link grammar', () => {
+  it('opens the stage for #coffee, and reads the brew a wake link names', () => {
+    expect(parseDashboardHash('#coffee')).toEqual({ kind: 'coffee', takeover: null });
+    expect(parseDashboardHash('#coffee&takeover=c1792991000')).toEqual({ kind: 'coffee', takeover: 'c1792991000' });
+    expect(parseDashboardHash('#coffee&takeover=<script>')).toEqual({ kind: 'coffee', takeover: null });
+  });
+
+  it('takes nothing else for the stage, and focuses a brew on #now', () => {
+    for (const hash of ['#coffeemaker', '#room=coffee']) expect(parseDashboardHash(hash).kind).not.toBe('coffee');
+    expect(parseDashboardHash('#now=coffee-1792991000')).toEqual({ kind: 'now', focus: { kind: 'coffee', epochS: 1792991000 } });
+  });
+});

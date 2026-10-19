@@ -235,11 +235,13 @@
 .cc-wide.hold-btn {
   flex: 1;
   width: auto;
+  min-width: 0;
   height: 48px;
+  padding: 0 10px;
   border-radius: 14px;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
-  gap: 6px;
+  gap: 4px;
 }
 .cc-wide .hold-ring-slot {
   width: 30px;
@@ -466,4 +468,10 @@ a.coffee-rrow {
 }
 .cst-tod {
   margin-top: 8px;
+}
+.cc-history .coffee-hrow {
+  gap: 7px;
+}
+.cc-history .coffee-hrow-w {
+  width: 40px;
 }

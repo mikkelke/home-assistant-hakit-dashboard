@@ -184,3 +184,20 @@ describe('holdMotionSlot', () => {
     expect(budget.granted()).toEqual([]);
   });
 });
+
+describe('the coffee stage', () => {
+  it('has its own cap of 2, day or night, and none under reduced motion', () => {
+    expect(motionCap({ reducedMotion: false, night: true, scope: 'stage' })).toBe(2);
+    expect(motionCap({ reducedMotion: true, night: false, scope: 'stage' })).toBe(0);
+    const budget = createMotionBudget({ scope: 'stage' });
+    budget.acquire('glint:washer', 'appliance', 'grid');
+    budget.acquire('stage:head', 'appliance', 'stage');
+    budget.acquire('stage:pour', 'appliance', 'stage');
+    budget.acquire('stage:extra', 'appliance', 'stage');
+    expect(budget.granted()).toEqual(['stage:head', 'stage:pour']);
+    budget.setConditions({ night: true });
+    expect(budget.granted()).toEqual(['stage:head', 'stage:pour']);
+    budget.setConditions({ hidden: true });
+    expect(budget.granted()).toEqual([]);
+  });
+});

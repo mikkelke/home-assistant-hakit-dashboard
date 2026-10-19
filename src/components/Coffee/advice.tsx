@@ -68,7 +68,7 @@ export function AdviceCard({
             <Icon icon='mdi:close' />
           </button>
         </div>
-        {why && <WhySheet advice={advice} brews={ledger} onClose={() => setWhy(false)} />}
+        {why && <WhySheet advice={advice} brews={ledger} beanName={beanName} onClose={() => setWhy(false)} />}
       </div>
     );
   }

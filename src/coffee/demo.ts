@@ -121,7 +121,7 @@ const USUAL_TOTAL = median(USUAL.map(brew => brew.ready));
 const USUAL_CUP = median(USUAL.map(brew => brew.cup[brew.ready]));
 const USUAL_DRAWDOWN = median(USUAL.map(brew => brew.ready - PLAN_END_S - brew.shift));
 
-function baselineEntity(building: boolean, anchorMs: number): CoffeeEntity {
+function baselineEntity(building: boolean, anchorMs: number, brewIds: string[]): CoffeeEntity {
   if (building) {
     return entity('building', {
       baseline_id: 'bl1',
@@ -132,7 +132,7 @@ function baselineEntity(building: boolean, anchorMs: number): CoffeeEntity {
       step_s: '2',
       plan_water: tenths(planWater),
       plan_pours: PLAN_POURS,
-      plan_total_s: String(PLAN_END_S),
+      plan_total_s: String(PLAN_END_S + 75),
     });
   }
   return entity('ready', {
@@ -141,7 +141,7 @@ function baselineEntity(building: boolean, anchorMs: number): CoffeeEntity {
     recipe_key: 'k4p46',
     bean_id: BEAN.id,
     n: '7',
-    brew_ids: USUAL.map((_, index) => `c17920${index}0000`).join(','),
+    brew_ids: brewIds.join(','),
     step_s: '2',
     total_s_median: String(USUAL_TOTAL),
     total_s_pm: String(Math.round(halfRange(USUAL.map(brew => brew.ready)))),
@@ -155,7 +155,7 @@ function baselineEntity(building: boolean, anchorMs: number): CoffeeEntity {
     water_hi: tenths(WATER_HI, 2),
     plan_water: tenths(planWater),
     plan_pours: PLAN_POURS,
-    plan_total_s: String(PLAN_END_S),
+    plan_total_s: String(PLAN_END_S + 75),
     computed_at: iso(anchorMs - 2 * DAY),
   });
 }
@@ -176,7 +176,7 @@ const RECIPES = entity(RECIPE_NAME, {
       rpm: '100',
       cup: 'xpod',
       total_ml: '255',
-      plan_s: String(PLAN_END_S),
+      plan_s: String(PLAN_END_S + 75),
       pours: '45/93/3.5/circular/15;80/93/3.5/circular/15;65/93/3.5/circular/12;65/93/3.5/centered/5',
     },
     {
@@ -188,7 +188,7 @@ const RECIPES = entity(RECIPE_NAME, {
       rpm: '100',
       cup: 'omni',
       total_ml: '225',
-      plan_s: '108',
+      plan_s: '174',
       pours: '50/92/3.5/spiral/20;95/92/3.5/circular/15;80/92/3.5/circular/0',
     },
     {
@@ -200,7 +200,7 @@ const RECIPES = entity(RECIPE_NAME, {
       rpm: '90',
       cup: 'omni',
       total_ml: '180',
-      plan_s: '74',
+      plan_s: '149',
       pours: '60/90/3/centered/20;120/90/3.5/circular/0',
     },
     {
@@ -212,7 +212,7 @@ const RECIPES = entity(RECIPE_NAME, {
       rpm: '110',
       cup: 'xpod',
       total_ml: '255',
-      plan_s: '126',
+      plan_s: '200',
       pours: '40/94/3/spiral/20;55/94/3.5/circular/10;55/94/3.5/circular/10;55/94/3.5/circular/10;50/94/3.5/centered/0',
     },
   ],
@@ -260,15 +260,19 @@ interface LedgerBrew {
   brew: Brew;
   spec: LedgerSpec;
   record: Record<string, string>;
+  /** One of the seven complete usual brews the band was built from. */
+  inBaseline: boolean;
 }
 
 const brewFor = (spec: LedgerSpec) =>
   spec.seed === 42 ? TODAY : simulate(0.039 + rng(spec.seed)() * 0.008, 36 + rng(spec.seed + 1)() * 4, (spec.seed % 5) - 2, spec.seed);
 
 function ledger(newestAtMs: number, newest: Partial<LedgerSpec> & { brew?: Brew; trial?: string } = {}): LedgerBrew[] {
+  let usualSeen = 0;
   return LEDGER.map((base, index) => {
     const spec = index === 0 ? { ...base, ...newest } : base;
-    const brew = index === 0 && newest.brew ? newest.brew : brewFor(spec);
+    const inBaseline = index > 0 && !spec.recipe && !spec.stopped && usualSeen < USUAL.length;
+    const brew = inBaseline ? USUAL[usualSeen++] : index === 0 && newest.brew ? newest.brew : brewFor(spec);
     const atMs = newestAtMs - spec.hoursAgo * HOUR;
     const stopped = spec.stopped === true;
     const total = stopped ? 58 : brew.ready;
@@ -302,9 +306,11 @@ function ledger(newestAtMs: number, newest: Partial<LedgerSpec> & { brew?: Brew;
     }
     if (spec.rating) record.rating = spec.rating;
     if (newest.trial && index === 0) record.trial = newest.trial;
-    return { id: record.id, atMs, brew, spec, record };
+    return { id: record.id, atMs, brew, spec, record, inBaseline };
   });
 }
+
+const baselineIds = (brews: LedgerBrew[]) => brews.filter(brew => brew.inBaseline).map(brew => brew.id);
 
 function signedText(value: number): string {
   const rounded = Math.round(value);
@@ -485,7 +491,7 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
       nowMs
     ),
     [COFFEE_LIVE_ENTITY]: liveEntity('ended', TODAY, lastAtMs - TODAY.ready * S, TODAY.ready),
-    [COFFEE_BASELINE_ENTITY]: baselineEntity(scenario === 'building', anchorMs),
+    [COFFEE_BASELINE_ENTITY]: baselineEntity(scenario === 'building', anchorMs, baselineIds(quietBrews)),
     [COFFEE_BEANS_ENTITY]: beansEntity(112, 7, anchorMs),
     [COFFEE_BREWS_ENTITY]: brewsEntity(quietBrews),
     [COFFEE_RECIPES_ENTITY]: RECIPES,
@@ -509,6 +515,7 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
     case 'trial': {
       const brews = ledger(anchorMs - 24 * HOUR + 3 * MIN);
       entities[COFFEE_BREWS_ENTITY] = brewsEntity(brews);
+      entities[COFFEE_BASELINE_ENTITY] = baselineEntity(false, anchorMs, baselineIds(brews));
       entities[COFFEE_ADVICE_ENTITY] = adviceEntity('trial_queued', brews);
       recent = recentFor(brews);
       break;
@@ -522,6 +529,7 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
       );
       entities[COFFEE_LIVE_ENTITY] = liveEntity('ended', TRIAL, atMs - TRIAL.ready * S, TRIAL.ready);
       entities[COFFEE_BREWS_ENTITY] = brewsEntity(brews);
+      entities[COFFEE_BASELINE_ENTITY] = baselineEntity(false, anchorMs, baselineIds(brews));
       entities[COFFEE_BEANS_ENTITY] = beansEntity(97, 6, anchorMs);
       entities[COFFEE_ADVICE_ENTITY] = adviceEntity('trial_brewed', brews, brews[0].id);
       recent = recentFor(brews);
@@ -533,6 +541,7 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
       entities[COFFEE_STATE_ENTITY] = readyState(readyMs - TODAY.ready * S, brews[0].id, nowMs);
       entities[COFFEE_LIVE_ENTITY] = liveEntity('ended', TODAY, readyMs - TODAY.ready * S, TODAY.ready);
       entities[COFFEE_BREWS_ENTITY] = brewsEntity(brews);
+      entities[COFFEE_BASELINE_ENTITY] = baselineEntity(false, anchorMs, baselineIds(brews));
       entities[COFFEE_BEANS_ENTITY] = beansEntity(97, 6, anchorMs);
       entities[COFFEE_ADVICE_ENTITY] = adviceEntity('suggested', brews);
       recent = recentFor(brews);

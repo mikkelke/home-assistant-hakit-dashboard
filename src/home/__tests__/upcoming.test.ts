@@ -190,3 +190,31 @@ describe('next chip and live identity', () => {
     expect(upcomingFocus(items[4])).toBeNull();
   });
 });
+
+describe('a brew', () => {
+  const brewing = entity('brewing', {
+    started_at: '2026-10-20T05:40:20+00:00',
+    first_bloom_at: '2026-10-20T05:40:58+00:00',
+    eta: '2026-10-20T05:44:25+00:00',
+    pour: '3',
+    pours_total: '4',
+  });
+  const nowMs = Date.parse('2026-10-20T05:42:26Z');
+
+  it('runs in the Kitchen with the one ETA, and the next chip names it ready', () => {
+    const items = readUpcoming(reader({ 'sensor.coffee_state': brewing }), nowMs, CLAUDIA);
+    const coffee = items.find(item => item.id === 'coffee');
+    expect(coffee?.atMs).toBe(Date.parse('2026-10-20T05:44:25Z'));
+    expect(coffee?.type === 'appliance' && coffee.appliance.areaId).toBe('kitchen');
+    expect(nextUp(items, [], [], CLAUDIA)).toMatchObject({ itemId: 'coffee', name: 'Coffee ready', icon: 'mdi:coffee' });
+    const focus = upcomingFocus(coffee!);
+    expect(focus).toEqual({ kind: 'coffee', epochS: Date.parse('2026-10-20T05:40:20Z') / 1000 });
+    expect(resolveNowFocus(focus, upcomingCandidates(items), true)).toEqual({ status: 'found', id: 'coffee' });
+  });
+
+  it('is not upcoming once ready, nor while the machine only sleeps or wakes', () => {
+    for (const state of ['ready', 'idle', 'asleep', 'starting']) {
+      expect(readUpcoming(reader({ 'sensor.coffee_state': entity(state) }), nowMs, MIKKEL).some(item => item.id === 'coffee')).toBe(false);
+    }
+  });
+});

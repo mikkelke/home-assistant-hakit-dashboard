@@ -164,12 +164,12 @@ interface PlanSource {
 
 /** The plan to draw: the brew's own when it carries one, else the usual's from the baseline, else from the recipe. */
 export function planOf(
-  live: Pick<CoffeeLive, 'planWater' | 'planPours'> | null,
+  live: Pick<CoffeeLive, 'planWater' | 'planPours' | 'stepS'> | null,
   baseline: Pick<CoffeeBaseline, 'planWater' | 'planStepS' | 'planPours'> | null,
   recipe: Pick<Recipe, 'pours'> | null
 ): PlanSource {
   if (live && live.planPours.length > 0) {
-    return { planWater: series(live.planWater, 1) ?? series(planWaterFromPours(live.planPours), 1), planPours: live.planPours };
+    return { planWater: series(live.planWater, live.stepS) ?? series(planWaterFromPours(live.planPours), 1), planPours: live.planPours };
   }
   if (baseline && baseline.planPours.length > 0) {
     return {

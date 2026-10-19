@@ -449,6 +449,12 @@
   font-weight: 500;
   color: var(--cof-t2);
 }
+.cs-beans-hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+  color: var(--cof-t3);
+}
 .cs-bar {
   display: block;
   height: 8px;
@@ -739,4 +745,35 @@
 .is-phone .coffee-trow button {
   height: 44px;
   font-size: 15px;
+}
+.is-phone .cs-side.is-live,
+.is-phone .cs-side.is-paused,
+.is-phone .cs-side.is-stale {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.is-phone .cs-side.is-live > .cs-pair,
+.is-phone .cs-side.is-live > .cs-ctrls,
+.is-phone .cs-side.is-live > .cs-status,
+.is-phone .cs-side.is-paused > .cs-pair,
+.is-phone .cs-side.is-paused > .cs-ctrls,
+.is-phone .cs-side.is-paused > .cs-status,
+.is-phone .cs-side.is-paused > .cs-alert,
+.is-phone .cs-side.is-stale > .cs-pair,
+.is-phone .cs-side.is-stale > .cs-ctrls,
+.is-phone .cs-side.is-stale > .cs-status {
+  grid-column: 1 / -1;
+}
+.is-phone .cs-side.is-live .cs-cue,
+.is-phone .cs-side.is-stale .cs-cue,
+.is-phone .cs-side.is-paused .cs-cue {
+  font-size: 28px;
+}
+.is-phone .cs-side.is-live .cs-sub,
+.is-phone .cs-side.is-stale .cs-sub,
+.is-phone .cs-side.is-paused .cs-sub {
+  font-size: 13px;
+}
+.is-phone .cs-side.is-paused > .cs-tile {
+  grid-column: 1 / -1;
 }

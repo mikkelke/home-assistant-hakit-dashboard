@@ -190,7 +190,7 @@ export function phaseWord(state: Pick<CoffeeState, 'phase' | 'pour' | 'poursTota
   if (state.phase === 'paused') return 'Paused';
   if (state.phase === 'stopped') return 'Stopped';
   if (state.phase === 'start_failed') return "Didn't start";
-  if (state.phase === 'grinding' || (state.phase === 'brewing' && (state.pour ?? 0) < 1)) return 'Grinding';
+  if (state.phase === 'grinding') return 'Grinding';
   if (state.phase === 'brewing') return stageLabel(state.pour, state.poursTotal) ?? 'Brewing';
   return null;
 }

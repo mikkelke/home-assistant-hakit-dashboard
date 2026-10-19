@@ -141,7 +141,7 @@ const START_ERRORS: Record<string, { icon: string; text: string }> = {
 /** "Didn't start · No water", with the machine's reason. */
 export function startFailure(state: Pick<CoffeeState, 'phase' | 'startError' | 'machine'>): { icon: string; label: string } | null {
   if (state.phase !== 'start_failed') return null;
-  if (appHasMachine(state)) return { icon: 'mdi:cellphone-link', label: 'The xBloom app has the machine' };
+  if (appHasMachine(state)) return { icon: 'mdi:cellphone-link', label: 'Held by the xBloom app' };
   const reason = state.startError ? START_ERRORS[state.startError] : undefined;
   return { icon: reason?.icon ?? 'mdi:alert-outline', label: `Didn't start${reason ? ` · ${reason.text}` : ''}` };
 }
@@ -163,8 +163,13 @@ export function pourStartS(live: CoffeeLive | null, pour: number | null): number
 }
 
 /** Fresh data stopped: the second it stopped, while a brew runs without a link. */
-export function staleFromS(live: CoffeeLive | null, state: Pick<CoffeeState, 'phase' | 'link'>, nowMs: number): number | null {
+export function staleFromS(
+  live: CoffeeLive | null,
+  state: Pick<CoffeeState, 'phase' | 'link' | 'brewId' | 'source'>,
+  nowMs: number
+): number | null {
   if (!live || live.t0Ms == null || (state.phase !== 'brewing' && state.phase !== 'paused')) return null;
+  if (state.source === 'power' || (live.brewId != null && state.brewId != null && live.brewId !== state.brewId)) return null;
   const fresh = live.lastFreshAtMs;
   const lost = live.status === 'stale' || state.link !== 'connected' || (fresh != null && nowMs - fresh > 15_000);
   if (!lost) return null;

@@ -419,6 +419,11 @@
   background: var(--cof-amber-bg);
   color: #fde68a;
   box-shadow: inset 0 0 0 1.5px rgba(251, 191, 36, 0.4);
+  white-space: normal;
+  line-height: 1.15;
+}
+.hold-btn--xl.is-failed {
+  font-size: 22px;
 }
 .hold-btn.is-disabled {
   opacity: 0.4;

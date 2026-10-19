@@ -147,8 +147,10 @@ function LastBrewRow({
           {brew.atMs != null ? brewWhen(brew.atMs, nowMs) : 'Last brew'}
           {brew.trial ? ` · grind ${brew.trial.to}` : ''}
           <small>
-            {stopped
-              ? `stopped${brew.doseG != null ? ` · ${brew.doseG} g` : ''}`
+            {brew.outcome === 'unobserved'
+              ? 'seen by the plug only'
+              : stopped
+                ? `stopped${brew.doseG != null ? ` · ${brew.doseG} g` : ''}`
               : [
                   brew.totalS != null ? formatMinSec(brew.totalS) : null,
                   brew.cupG != null ? `${Math.round(brew.cupG)} g` : null,
@@ -272,6 +274,23 @@ function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onS
           onConfirm={() => start({ variant: 'usual' })}
         />
       </div>
+      {beans && beans.remainingG == null && (
+        <>
+          <div className='cc-sep' />
+          <button type='button' className='cc-beans' onClick={() => onSheet('beans')}>
+            <span className='cc-disc'>
+              <Glyph name='jar' />
+            </span>
+            <span className='cc-beans-tx'>
+              <b>Beans</b>
+              <small>tap when you fill the container</small>
+            </span>
+            <Chip icon='mdi:plus' tone='cof'>
+              Added
+            </Chip>
+          </button>
+        </>
+      )}
       {beans?.remainingG != null && (
         <>
           <div className='cc-sep' />
@@ -313,8 +332,10 @@ function LiveBrew({ data, nowMs }: { data: CardData; nowMs: number }) {
   const { state, live, baseline, recipes } = data;
   const stale = staleFromS(live, state, nowMs);
   const paused = state.phase === 'paused';
-  const cup = live ? series(live.cup, live.stepS) : null;
-  const water = live ? series(live.water, live.stepS) : null;
+  const power = state.source === 'power';
+  const ownLive = live != null && !power && (live.brewId == null || state.brewId == null || live.brewId === state.brewId);
+  const cup = ownLive ? series(live.cup, live.stepS) : null;
+  const water = ownLive ? series(live.water, live.stepS) : null;
   const t0 = live?.t0Ms ?? state.firstBloomAtMs;
   const realNowS = t0 != null ? Math.max(0, (nowMs - t0) / 1000) : 0;
   const headS = stale != null ? realNowS : (lastValidS(cup) ?? realNowS);
@@ -371,16 +392,24 @@ function LiveBrew({ data, nowMs }: { data: CardData; nowMs: number }) {
         frozen={paused}
       />
       <div className='coffee-chips cc-chips'>
-        <Chip icon='mdi:cup-outline' tone={stale != null ? 'mute' : 'cof'}>
-          {Math.round(valueAt(cup, at) ?? 0)} g
-        </Chip>
-        <Chip icon='mdi:water-outline' tone={stale != null ? 'mute' : 'sky'}>
-          {Math.round(valueAt(water, at) ?? 0)} ml
-        </Chip>
+        {power ? (
+          <Chip icon='mdi:power-plug-outline' tone='mute'>
+            seen by the plug only
+          </Chip>
+        ) : (
+          <>
+            <Chip icon='mdi:cup-outline' tone={stale != null ? 'mute' : 'cof'}>
+              {Math.round(valueAt(cup, at) ?? 0)} g
+            </Chip>
+            <Chip icon='mdi:water-outline' tone={stale != null ? 'mute' : 'sky'}>
+              {Math.round(valueAt(water, at) ?? 0)} ml
+            </Chip>
+          </>
+        )}
         <NotifyChip state={state} variant='small' />
       </div>
       <div className='cc-ctrls'>
-        {stale != null ? (
+        {stale != null || power ? (
           <button
             type='button'
             className='coffee-btn is-ghost is-grow'
@@ -402,11 +431,7 @@ function LiveBrew({ data, nowMs }: { data: CardData; nowMs: number }) {
             Pause
           </button>
         )}
-        <HoldButton
-          kind='wide-stop'
-          label='Hold to stop'
-          className='cc-wide'
-          disabled={stale != null}
+        <HoldButton kind='wide-stop' label='Hold to stop' className='cc-wide' disabled={stale != null || power}
           onConfirm={() => void sendCoffeeCommand('stop', {}).catch(() => {})}
         />
       </div>
@@ -452,7 +477,7 @@ function ReadyBrew({ data }: { data: CardData }) {
           <span className='coffee-lab'>Ready</span>
           <div className='cc-left is-ok'>{state.readyAtMs != null ? formatHomeClock(state.readyAtMs) : 'Ready'}</div>
         </div>
-        <span className='cc-left-sub'>{state.totalS != null ? `${formatMinSec(state.totalS)} since bloom` : ''}</span>
+        <span className='cc-left-sub' />
         <VerdictPill verdict={bandVerdict(banded ? state.inBand : 'building', baseline?.n ?? null)} />
       </div>
       <ChartBox
@@ -572,7 +597,7 @@ function HistoryTab({ data, nowMs }: { data: CardData; nowMs: number }) {
                 onClick={() => setOpenId(brew.id)}
               >
                 <span className='coffee-hrow-w'>{brew.atMs != null ? formatHomeClock(brew.atMs) : '—'}</span>
-                <Spark cup={c ? series(c.cup, c.stepS) : null} width={60} height={22} />
+                <Spark cup={c ? series(c.cup, c.stepS) : null} width={50} height={22} />
                 <span className='coffee-hrow-nm'>
                   {brew.variant === 'usual' || brew.variant === 'base' || brew.variant === 'trial'
                     ? 'The usual'
@@ -747,7 +772,7 @@ export function CoffeeCard({ onOpenStage }: CoffeeCardProps) {
         collapsed={collapsed}
         onToggleCollapsed={toggle}
         quickButton={
-          collapsed && !brewing && !ready && last ? (
+          collapsed && !brewing && !ready && last && lastBrewCurve(brews, null, last.id) ? (
             <button type='button' className='cc-spark-btn' onClick={toggle} aria-label='Coffee, the last brew'>
               <Spark cup={lastBrewCurve(brews, null, last.id)} width={60} height={24} />
             </button>
