@@ -3,6 +3,7 @@ import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { attrNum, attrStr } from '../../types';
 import { useLocalStorageBoolean, useTouchScrollSlopGuard } from '../../hooks';
+import { setpointLimits, stepSetpoint } from '../../utils/heating';
 import './HeatCard.css';
 
 // Minimal per-room floor-heating card — interim design ahead of winter's full pass (no timeline,
@@ -57,8 +58,7 @@ export function HeatCard({ areaName, entities, callService }: HeatCardProps) {
   const zoneOn = !ZONE_OFF_STATES.has(hvacMode);
 
   const targetTemp = attrNum(thermostat.attributes?.temperature, NaN);
-  const minTemp = attrNum(thermostat.attributes?.min_temp, 15);
-  const maxTemp = attrNum(thermostat.attributes?.max_temp, 25);
+  const limits = setpointLimits(entities, thermostatId);
 
   const stateWord = !zoneOn ? 'Off' : hvacAction === 'heating' ? 'Warming' : 'Holding';
   const stateTone = zoneOn && hvacAction === 'heating' ? 'tint' : 'muted';
@@ -78,7 +78,7 @@ export function HeatCard({ areaName, entities, callService }: HeatCardProps) {
 
   const adjustTarget = (delta: number) => {
     if (!Number.isFinite(targetTemp)) return;
-    const next = Math.min(maxTemp, Math.max(minTemp, Math.round((targetTemp + delta) * 2) / 2));
+    const next = stepSetpoint(targetTemp, delta, limits);
     call('climate', 'set_temperature', thermostatId, { temperature: next });
   };
 

@@ -13,6 +13,7 @@ import {
   roomThermostat,
 } from '../../config/entities';
 import { deriveRoomFeel } from '../../utils/roomFeel';
+import { setpointLimits, stepSetpoint } from '../../utils/heating';
 import { composeClimateStory, comfortTone } from '../../utils/roomClimateStory';
 import { deriveFireSafety, isCooking } from '../../utils/fireSafety';
 import { worstAirBand } from '../../utils/airQuality';
@@ -121,8 +122,7 @@ export function RoomClimateHeader({
   const zoneOn = !!thermostat && !ZONE_OFF_STATES.has(hvacMode);
   const hvacAction = attrStr(thermostat?.attributes?.hvac_action);
   const haTarget = strictNum(thermostat?.attributes?.temperature) ?? NaN;
-  const minTemp = strictNum(thermostat?.attributes?.min_temp) ?? 15;
-  const maxTemp = strictNum(thermostat?.attributes?.max_temp) ?? 25;
+  const limits = thermo ? setpointLimits(entities, thermo.entityId) : { min: 15, max: 25 };
 
   // Optimistic target: {value, base, ts} - shown for up to ACK_TIMEOUT_MS while HA still reports
   // `base`, then reverted to whatever HA actually holds. Kept in this always-mounted header (not
@@ -149,7 +149,7 @@ export function RoomClimateHeader({
 
   const adjustTarget = (delta: number) => {
     if (!thermo || !Number.isFinite(shownTarget)) return;
-    const next = Math.min(maxTemp, Math.max(minTemp, Math.round((shownTarget + delta) * 2) / 2));
+    const next = stepSetpoint(shownTarget, delta, limits);
     setPending({ value: next, base: haTarget });
     if (writeTimer.current) clearTimeout(writeTimer.current);
     if (ackTimer.current) clearTimeout(ackTimer.current);
@@ -322,7 +322,7 @@ export function RoomClimateHeader({
                   type='button'
                   className='climate-step'
                   aria-label='Lower heating target by 0.5 degrees Celsius'
-                  disabled={!canAdjust || shownTarget <= minTemp}
+                  disabled={!canAdjust || shownTarget <= limits.min}
                   onClick={() => adjustTarget(-0.5)}
                 >
                   <Icon icon='mdi:minus' aria-hidden='true' />
@@ -349,7 +349,7 @@ export function RoomClimateHeader({
                   type='button'
                   className='climate-step'
                   aria-label='Raise heating target by 0.5 degrees Celsius'
-                  disabled={!canAdjust || shownTarget >= maxTemp}
+                  disabled={!canAdjust || shownTarget >= limits.max}
                   onClick={() => adjustTarget(0.5)}
                 >
                   <Icon icon='mdi:plus' aria-hidden='true' />
