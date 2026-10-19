@@ -115,3 +115,67 @@
     transform: translateX(-12px);
   }
 }
+
+/* A brew under way: copper with a hairline of how far it got, amber when the machine holds it, green once ready. */
+.ticker-chip.is-coffee {
+  background: rgba(212, 149, 106, 0.16);
+  color: #d4956a;
+}
+.ticker-chip.is-coffee b {
+  color: #f3d3bc;
+}
+.ticker-chip.is-coffee svg,
+.ticker-chip.is-coffee.is-new svg {
+  color: #d4956a;
+}
+.ticker-chip.is-coffee.is-new::after {
+  background: #d4956a;
+}
+.ticker-chip.is-coffee-alert {
+  background: rgba(251, 191, 36, 0.14);
+  color: #fbbf24;
+}
+.ticker-chip.is-coffee-alert b {
+  color: #fde68a;
+}
+.ticker-chip.is-coffee-alert svg,
+.ticker-chip.is-coffee-alert.is-new svg {
+  color: #fbbf24;
+}
+.ticker-chip.is-coffee-alert.is-new::after {
+  background: #fbbf24;
+}
+.ticker-chip.is-coffee-ready {
+  background: rgba(34, 197, 94, 0.16);
+  color: #22c55e;
+}
+.ticker-chip.is-coffee-ready b {
+  color: #bbf7d0;
+}
+.ticker-chip.is-coffee-ready em {
+  color: #86efac;
+}
+.ticker-chip.is-coffee-ready svg,
+.ticker-chip.is-coffee-ready.is-new svg {
+  color: #22c55e;
+}
+.ticker-chip.is-coffee-ready.is-new::after {
+  background: #22c55e;
+}
+.ticker-fill {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 3px;
+  height: 2px;
+  border-radius: 1px;
+  background: rgba(212, 149, 106, 0.25);
+  overflow: hidden;
+}
+.ticker-fill i {
+  display: block;
+  height: 100%;
+  border-radius: 1px;
+  background: currentColor;
+  transition: width 0.6s var(--ease-out);
+}

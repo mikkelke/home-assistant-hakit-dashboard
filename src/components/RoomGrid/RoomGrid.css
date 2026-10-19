@@ -492,6 +492,31 @@ body.modal-open .room-card {
   color: #f59e0b;
 }
 
+/* Coffee: a copper ring while it brews, a green check once ready, and a copper warmth on the Kitchen card. */
+.room-ring.is-coffee {
+  color: #d4956a;
+}
+.room-ring.is-coffee .room-ring-in b {
+  color: #f3d3bc;
+}
+.room-ring.is-coffee.is-ready {
+  color: #22c55e;
+}
+.room-ring.is-coffee.is-ready .room-ring-in svg {
+  width: 20px;
+  height: 20px;
+}
+.room-ring.is-coffee .room-ring-glint {
+  fill: #f3d3bc;
+}
+.room-ring-badge.is-coffee {
+  color: #d4956a;
+}
+.room-card.has-coffee {
+  border-color: rgba(212, 149, 106, 0.28);
+  background: radial-gradient(120% 90% at 85% 90%, rgba(212, 149, 106, 0.16), transparent 60%), #141518;
+}
+
 .room-ring-badge svg {
   position: static;
   width: 13px;

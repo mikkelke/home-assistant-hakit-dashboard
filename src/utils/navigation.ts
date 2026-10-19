@@ -38,7 +38,7 @@ export function replaceHistoryState(targetWindow: Window, patch: Record<string, 
 }
 
 /** What a `#now=<kind>-<epochS>` link can focus. `evt` is an in-app tap on any feed row. */
-export const NOW_FOCUS_KINDS = ['ring', 'washer', 'dryer', 'dish', 'wake', 'evt'] as const;
+export const NOW_FOCUS_KINDS = ['ring', 'washer', 'dryer', 'dish', 'coffee', 'wake', 'evt'] as const;
 export type NowFocusKind = (typeof NOW_FOCUS_KINDS)[number];
 
 /** An event the timeline opens on: its kind and its time in Unix seconds. */
@@ -53,10 +53,14 @@ export type OpenNow = (focus?: NowFocus | null, itemId?: string | null) => void;
 
 export type NowView = { kind: 'now'; focus: NowFocus | null };
 
+/** `#coffee` opens the brew stage; `&takeover=<brew id>`, from the tablet's wake link, arms its return to the grid. */
+export type CoffeeView = { kind: 'coffee'; takeover: string | null };
+
 export type DashboardView =
   | { kind: 'room'; roomId: string; openClimate?: boolean }
   | { kind: 'energy' }
   | { kind: 'map' }
+  | CoffeeView
   | NowView
   | { kind: 'none' };
 
@@ -96,6 +100,19 @@ export function nowFocusAt(kind: NowFocusKind, ms: number): NowFocus {
   return { kind, epochS: Math.floor(ms / 1000) };
 }
 
+export function isCoffeeHash(hash: string): boolean {
+  return hash === '#coffee' || hash.startsWith('#coffee&') || hash.startsWith('#coffee=');
+}
+
+function parseCoffeeView(hash: string): CoffeeView {
+  const takeover = hash
+    .split('&')
+    .slice(1)
+    .find(part => part.startsWith('takeover='))
+    ?.slice(9);
+  return { kind: 'coffee', takeover: takeover && /^[\w-]{1,40}$/.test(takeover) ? takeover : null };
+}
+
 /** `#map` opens the admin sensor map; anything after it is reserved. */
 export function isMapHash(hash: string): boolean {
   return hash === '#map' || hash.startsWith('#map=') || hash.startsWith('#map&');
@@ -104,6 +121,7 @@ export function isMapHash(hash: string): boolean {
 export function parseDashboardHash(hash: string): DashboardView {
   if (hash === '#energy' || hash.startsWith('#energy=')) return { kind: 'energy' };
   if (isMapHash(hash)) return { kind: 'map' };
+  if (isCoffeeHash(hash)) return parseCoffeeView(hash);
   if (isNowHash(hash)) return { kind: 'now', focus: parseNowFocus(hash) };
   if (hash.startsWith('#room=')) {
     const [roomId, ...rest] = hash.slice(6).split('&');

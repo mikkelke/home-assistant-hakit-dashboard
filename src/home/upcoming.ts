@@ -1,5 +1,7 @@
 /** What comes next on the timeline: running appliances, the wake alarm (admin only) and the Rober2
  * queue, which is display only. Pure. */
+import { COFFEE_AREA_ID, COFFEE_STATE_ENTITY } from '../coffee/entities';
+import { coffeeCycle } from '../coffee/state';
 import { formatRoberRoomName } from '../components/Vacuum/rooms';
 import { ROBOT_CLEAN_PREFIX, ROBOT_CLEANING_NARRATIVE_ENTITY, VACUUM_ENTITY } from '../config/entities';
 import { PLAN_APPLIANCES, type PlanApplianceConfig, type PlanApplianceKey } from '../config/plan';
@@ -13,11 +15,18 @@ import type { NowCandidate } from './nowResolve';
 export type UpcomingEntity = { state: string; attributes: Record<string, unknown> };
 export type UpcomingReader = (entityId: string) => UpcomingEntity | undefined;
 
-export type ApplianceKind = 'washer' | 'dryer' | 'dish';
+export type ApplianceKind = 'washer' | 'dryer' | 'dish' | 'coffee';
+
+/** What Home shows of an appliance: its name, icon and state entity. The planned ones carry their Energy plan config. */
+export type HomeApplianceConfig = Pick<PlanApplianceConfig, 'label' | 'icon' | 'stateEntityId'>;
 
 export interface HomeAppliance {
   kind: ApplianceKind;
-  config: PlanApplianceConfig;
+  config: HomeApplianceConfig;
+  /** Its state entity read as a run. */
+  cycle: (entity: UpcomingEntity | undefined, nowMs: number) => ApplianceCycle;
+  /** State entity values while a run or a finished run shows. */
+  activeStates: ReadonlySet<string>;
   /** Speaks the finish while on; null when the appliance has no such switch. */
   announceEntityId: string | null;
   /** HA area id of the room it stands in. */
@@ -26,10 +35,37 @@ export interface HomeAppliance {
 
 const planConfig = (key: PlanApplianceKey) => PLAN_APPLIANCES.find(appliance => appliance.key === key)!;
 
+const MONITOR_ACTIVE_STATES: ReadonlySet<string> = new Set(['Running', 'Paused', 'Unemptied']);
+
+function planned(
+  kind: Exclude<ApplianceKind, 'coffee'>,
+  key: PlanApplianceKey,
+  announceEntityId: string | null,
+  areaId: string
+): HomeAppliance {
+  const config = planConfig(key);
+  return {
+    kind,
+    config,
+    cycle: (entity, nowMs) => readApplianceCycle(entity, config.etaFormat, nowMs),
+    activeStates: MONITOR_ACTIVE_STATES,
+    announceEntityId,
+    areaId,
+  };
+}
+
 export const HOME_APPLIANCES: readonly HomeAppliance[] = [
-  { kind: 'washer', config: planConfig('washer'), announceEntityId: 'input_boolean.washer_announce', areaId: 'guest_bathroom' },
-  { kind: 'dryer', config: planConfig('dryer'), announceEntityId: 'input_boolean.dryer_announce', areaId: 'guest_bathroom' },
-  { kind: 'dish', config: planConfig('dishwasher'), announceEntityId: null, areaId: 'kitchen' },
+  planned('washer', 'washer', 'input_boolean.washer_announce', 'guest_bathroom'),
+  planned('dryer', 'dryer', 'input_boolean.dryer_announce', 'guest_bathroom'),
+  planned('dish', 'dishwasher', null, 'kitchen'),
+  {
+    kind: 'coffee',
+    config: { label: 'Coffee', icon: 'mdi:coffee', stateEntityId: COFFEE_STATE_ENTITY },
+    cycle: coffeeCycle,
+    activeStates: new Set(['grinding', 'brewing', 'paused', 'ready']),
+    announceEntityId: null,
+    areaId: COFFEE_AREA_ID,
+  },
 ];
 
 export const WAKE_ENABLED_ENTITY = 'input_boolean.wakeup_bedroom';
@@ -121,7 +157,7 @@ export function applianceStarter(startedBy: unknown, method: unknown): string | 
 
 function readAppliances(read: UpcomingReader, nowMs: number): UpcomingAppliance[] {
   return HOME_APPLIANCES.flatMap(appliance => {
-    const cycle = readApplianceCycle(read(appliance.config.stateEntityId), appliance.config.etaFormat, nowMs);
+    const cycle = appliance.cycle(read(appliance.config.stateEntityId), nowMs);
     if (cycle.status !== 'running' && cycle.status !== 'paused') return [];
     const announce = appliance.announceEntityId ? switchState(read(appliance.announceEntityId)) : null;
     return [{ type: 'appliance' as const, id: appliance.kind, appliance, cycle, announce, atMs: cycle.etaMs }];

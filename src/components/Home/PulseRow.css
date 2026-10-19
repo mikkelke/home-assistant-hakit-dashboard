@@ -97,3 +97,11 @@
   position: absolute;
   inset: -3px 0;
 }
+
+/* The next thing is a brew: copper, with its ready time. */
+.pulse-next.is-coffee {
+  border-color: rgba(212, 149, 106, 0.4);
+}
+.pulse-next.is-coffee .pulse-next-icon {
+  color: #d4956a;
+}

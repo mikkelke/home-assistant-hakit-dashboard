@@ -75,6 +75,7 @@ const KIND_BY_ICON: ReadonlyMap<string, NowFocusKind> = new Map([
   ['mdi:washing-machine', 'washer'],
   ['mdi:tumble-dryer', 'dryer'],
   ['mdi:dishwasher', 'dish'],
+  ['mdi:coffee', 'coffee'],
   ['mdi:weather-sunset-up', 'wake'],
 ]);
 

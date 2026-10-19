@@ -29,6 +29,9 @@ import {
 } from '../../utils/nowHistory';
 import { onIdle } from '../../utils/idle';
 import { trackUiTap } from '../../utils/trackUiTap';
+import { COFFEE_AREA_ID, COFFEE_TABLET_VIEWER } from '../../coffee/entities';
+import { useViewer } from '../../hooks/useViewer';
+import { useCoffeeTakeover } from '../Coffee/useCoffeeTakeover';
 import type { EnergyTab } from '../Energy/energyTab';
 import { HomeHeader } from '../Home/HomeHeader';
 import { MotionConditions } from '../Home/MotionConditions';
@@ -58,6 +61,12 @@ const SensorMapPage = lazy(() => import('../SensorMap').then(module => ({ defaul
 // with no fetch. `import()` is memoised by the module registry, so the warm-up and the lazy() call
 // share one promise.
 const RoomDetail = lazy(() => import('../RoomDetail').then(module => ({ default: module.RoomDetail })));
+
+// The coffee stage is the wine-fridge tablet's brew screen, behind the Kitchen's Coffee entry or a #coffee hash.
+const CoffeeStage = lazy(() => import('../Coffee/CoffeeStage'));
+
+/** History state of a #coffee entry pushed over the Kitchen, which the stage's back button returns to. */
+const COFFEE_OVER_KITCHEN_KEY = 'coffeeOverKitchen';
 const warmRoomDetail = () => void import('../RoomDetail');
 
 // The #now timeline is warmed on idle like room detail, and fetched at once when the app opens on a
@@ -75,6 +84,9 @@ interface NowRoute {
   /** A link that arrived just now, which this app seeded or adopted, rather than an entry it returned to. */
   linkArrived: boolean;
 }
+
+const historyFlag = (state: unknown, key: string): boolean =>
+  typeof state === 'object' && state !== null && (state as Record<string, unknown>)[key] === true;
 
 const sameFocus = (a: NowFocus | null, b: NowFocus | null) => a?.kind === b?.kind && a?.epochS === b?.epochS;
 const routeKey = (route: NowRoute) => `${route.focus ? `${route.focus.kind}-${route.focus.epochS}` : 'now'}:${route.itemId ?? ''}`;
@@ -409,6 +421,9 @@ export function Dashboard() {
   const [climateAutoOpenAreaId, setClimateAutoOpenAreaId] = useState<string | null>(null);
   const [energyOpen, setEnergyOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const [coffeeOpen, setCoffeeOpen] = useState(false);
+  // A #coffee&takeover=<brew> link, as it arrived; the takeover arms its return to the grid once per arrival.
+  const [coffeeLink, setCoffeeLink] = useState<{ brewId: string; atMs: number } | null>(null);
   const [nowRoute, setNowRoute] = useState<NowRoute | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isMobile = useIsMobile();
@@ -423,6 +438,7 @@ export function Dashboard() {
   // Ref to track energy view open state without causing dependency issues
   const energyOpenRef = useRef(false);
   const mapOpenRef = useRef(false);
+  const coffeeOpenRef = useRef(false);
   const nowRouteRef = useRef<NowRoute | null>(null);
   // The first hash this app instance routes on is an arrival (a cold link or an iframe reload); every later
   // one is a navigation.
@@ -480,7 +496,8 @@ export function Dashboard() {
   useEffect(() => {
     energyOpenRef.current = energyOpen;
     mapOpenRef.current = mapOpen;
-  }, [energyOpen, mapOpen]);
+    coffeeOpenRef.current = coffeeOpen;
+  }, [energyOpen, mapOpen, coffeeOpen]);
 
   const showNow = useCallback((route: NowRoute | null) => {
     nowRouteRef.current = route;
@@ -562,9 +579,10 @@ export function Dashboard() {
     [markHashUpdating]
   );
 
-  // The Energy and map pages are hash routes of the same kind: opening pushes one entry, closing swaps it for the bare URL.
+  // The Energy, map and coffee pages are hash routes of the same kind: opening pushes one entry, closing swaps it for the
+  // bare URL.
   const replaceRouteHistory = useCallback(
-    (route: 'energy' | 'map') => {
+    (route: 'energy' | 'map' | 'coffee') => {
       const targetWindow = getAccessibleHistoryWindow();
       if (!targetWindow) return;
 
@@ -580,13 +598,13 @@ export function Dashboard() {
   );
 
   const pushRouteHistory = useCallback(
-    (route: 'energy' | 'map', hash: string) => {
+    (route: 'energy' | 'map' | 'coffee', hash: string, extra: Record<string, unknown> = {}) => {
       const targetWindow = getAccessibleHistoryWindow();
       if (!targetWindow) return;
 
       try {
         markHashUpdating();
-        targetWindow.history.pushState({ [route]: true }, '', buildHistoryUrlWithHash(targetWindow, hash));
+        targetWindow.history.pushState({ [route]: true, ...extra }, '', buildHistoryUrlWithHash(targetWindow, hash));
       } catch (err) {
         console.debug(`Failed to push ${route} history:`, err);
         isUpdatingHashRef.current = false;
@@ -616,7 +634,9 @@ export function Dashboard() {
     if (view.kind === 'now') {
       // The timeline sits over whatever showed when its link arrived; seeding a cold link puts the grid below it.
       const shownBefore: NowEntryBelow =
-        selectedRoomRef.current || energyOpenRef.current || mapOpenRef.current || nowRouteRef.current ? 'other' : 'grid';
+        selectedRoomRef.current || energyOpenRef.current || mapOpenRef.current || coffeeOpenRef.current || nowRouteRef.current
+          ? 'other'
+          : 'grid';
       let change: NowEntryChange = 'none';
       if (targetWindow) {
         try {
@@ -633,21 +653,24 @@ export function Dashboard() {
       if (selectedRoomRef.current) setSelectedRoom(null);
       if (energyOpenRef.current) setEnergyOpen(false);
       if (mapOpenRef.current) setMapOpen(false);
+      if (coffeeOpenRef.current) setCoffeeOpen(false);
       return;
     }
 
     if (nowRouteRef.current) showNow(null);
 
-    if (view.kind === 'energy' || view.kind === 'map') {
-      const toMap = view.kind === 'map';
-      if (mapOpenRef.current !== toMap) setMapOpen(toMap);
-      if (energyOpenRef.current === toMap) setEnergyOpen(!toMap);
+    if (view.kind === 'energy' || view.kind === 'map' || view.kind === 'coffee') {
+      if (mapOpenRef.current !== (view.kind === 'map')) setMapOpen(view.kind === 'map');
+      if (energyOpenRef.current !== (view.kind === 'energy')) setEnergyOpen(view.kind === 'energy');
+      if (coffeeOpenRef.current !== (view.kind === 'coffee')) setCoffeeOpen(view.kind === 'coffee');
+      if (view.kind === 'coffee' && view.takeover) setCoffeeLink({ brewId: view.takeover, atMs: Date.now() });
       if (selectedRoomRef.current) setSelectedRoom(null);
       return;
     }
 
     if (energyOpenRef.current) setEnergyOpen(false);
     if (mapOpenRef.current) setMapOpen(false);
+    if (coffeeOpenRef.current) setCoffeeOpen(false);
 
     if (view.kind === 'none') {
       // No hash - close room if open
@@ -822,6 +845,58 @@ export function Dashboard() {
     replaceRouteHistory('map');
   }, [replaceRouteHistory]);
 
+  // The stage opens over what shows; from the Kitchen it goes back there, from anywhere else its back button opens it.
+  const openCoffeeStage = useCallback(
+    (fromKitchen: boolean) => {
+      pushRouteHistory('coffee', '#coffee', fromKitchen ? { [COFFEE_OVER_KITCHEN_KEY]: true } : {});
+      setCoffeeOpen(true);
+      setSelectedRoom(null);
+      setEnergyOpen(false);
+      setMapOpen(false);
+      showNow(null);
+    },
+    [pushRouteHistory, showNow]
+  );
+
+  const handleCloseCoffee = useCallback(() => {
+    const targetWindow = getAccessibleHistoryWindow();
+    if (targetWindow && historyFlag(targetWindow.history.state, COFFEE_OVER_KITCHEN_KEY)) {
+      targetWindow.history.back();
+      return;
+    }
+    setCoffeeOpen(false);
+    const kitchen = findRoomById(COFFEE_AREA_ID);
+    if (!kitchen) {
+      replaceRouteHistory('coffee');
+      return;
+    }
+    setSelectedRoom(kitchen);
+    replaceRoomHistory(kitchen.area_id);
+  }, [findRoomById, replaceRoomHistory, replaceRouteHistory]);
+
+  const viewer = useViewer();
+  const isCoffeeTablet = viewer.name === COFFEE_TABLET_VIEWER;
+  // Home's coffee pieces: the stage on the tablet, the Kitchen with its Coffee card on top on a phone.
+  const handleOpenCoffee = () => {
+    if (isCoffeeTablet) openCoffeeStage(false);
+    else handlePulseRoomSelect(COFFEE_AREA_ID);
+    trackUiTap('home.coffee');
+  };
+  const takeOverForCoffee = useCallback(() => openCoffeeStage(false), [openCoffeeStage]);
+  const returnFromCoffee = useCallback(
+    (to: 'back' | 'grid') => {
+      const targetWindow = getAccessibleHistoryWindow();
+      if (to === 'back' && targetWindow) {
+        targetWindow.history.back();
+        return;
+      }
+      setCoffeeOpen(false);
+      replaceRouteHistory('coffee');
+    },
+    [replaceRouteHistory]
+  );
+  useCoffeeTakeover({ enabled: isCoffeeTablet, onStage: coffeeOpen, link: coffeeLink, open: takeOverForCoffee, goBack: returnFromCoffee });
+
   const openNow: OpenNow = useCallback(
     (focus, itemId) => {
       const targetWindow = getAccessibleHistoryWindow();
@@ -832,7 +907,7 @@ export function Dashboard() {
             targetWindow.history,
             targetWindow.location,
             focus ?? null,
-            selectedRoomRef.current || energyOpenRef.current || mapOpenRef.current ? 'other' : 'grid',
+            selectedRoomRef.current || energyOpenRef.current || mapOpenRef.current || coffeeOpenRef.current ? 'other' : 'grid',
             itemId
           );
         } catch (err) {
@@ -844,6 +919,7 @@ export function Dashboard() {
       setSelectedRoom(null);
       setEnergyOpen(false);
       setMapOpen(false);
+      setCoffeeOpen(false);
     },
     [markHashUpdating, showNow]
   );
@@ -872,7 +948,7 @@ export function Dashboard() {
     [findRoomById, pushRoomHistory, showNow]
   );
 
-  const motionScope = nowRoute ? 'timeline' : energyOpen || mapOpen || selectedRoom || isMenuOpen ? null : 'grid';
+  const motionScope = nowRoute ? 'timeline' : coffeeOpen ? 'stage' : energyOpen || mapOpen || selectedRoom || isMenuOpen ? null : 'grid';
 
   return (
     <div className={`dashboard ${selectedRoom ? 'has-detail' : ''} ${nowRoute ? 'is-covered' : ''}`}>
@@ -889,7 +965,13 @@ export function Dashboard() {
       <div className='dashboard-main'>
         <div className='dashboard-content'>
           <main className='rooms-container'>
-            <HomeHeader entities={displayEntities} hassUrl={hassUrl} onMenu={() => setIsMenuOpen(open => !open)} onOpenNow={openNow} />
+            <HomeHeader
+              entities={displayEntities}
+              hassUrl={hassUrl}
+              onMenu={() => setIsMenuOpen(open => !open)}
+              onOpenNow={openNow}
+              onOpenCoffee={handleOpenCoffee}
+            />
             <PulseRow onOpenEnergy={handleOpenEnergy} onOpenNow={openNow} />
             <HomePulse
               areas={areaList}
@@ -906,9 +988,11 @@ export function Dashboard() {
               hassUrl={hassUrl}
             />
           </main>
-          {/* Fixed bar at z-index 1000 — would float above the Energy and map pages (z-index 90) and the
+          {/* Fixed bar at z-index 1000 — would float above the Energy, map and coffee pages (z-index 90) and the
               timeline, so it unmounts while any is open. */}
-          {!energyOpen && !mapOpen && !nowRoute && <QuickAccess hassUrl={hassUrl} callService={callService} onOpenNow={openNow} />}
+          {!energyOpen && !mapOpen && !coffeeOpen && !nowRoute && (
+            <QuickAccess hassUrl={hassUrl} callService={callService} onOpenNow={openNow} />
+          )}
         </div>
 
         {selectedRoom && (
@@ -928,6 +1012,7 @@ export function Dashboard() {
                 isMobile={isMobile}
                 autoOpenClimate={climateAutoOpenAreaId === selectedRoom.area_id}
                 onAutoOpenClimateHandled={() => setClimateAutoOpenAreaId(null)}
+                onOpenCoffee={() => openCoffeeStage(true)}
               />
             </Suspense>
           </>
@@ -943,6 +1028,22 @@ export function Dashboard() {
           <Suspense fallback={<div className='energy-page-loading' />}>
             <SensorMapPage onClose={handleCloseMap} />
           </Suspense>
+        )}
+
+        {coffeeOpen && (
+          <LazyBoundary
+            fallback={<div className='energy-page-loading' />}
+            error={
+              <div className='now-loading now-load-error' role='alert'>
+                <button type='button' className='now-load-back' onClick={handleCloseCoffee} aria-label='Back to the Kitchen'>
+                  <Icon icon='mdi:chevron-left' />
+                </button>
+                <span>Could not load the coffee screen</span>
+              </div>
+            }
+          >
+            <CoffeeStage onClose={handleCloseCoffee} />
+          </LazyBoundary>
         )}
 
         {nowRoute && (

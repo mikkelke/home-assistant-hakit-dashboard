@@ -11,6 +11,8 @@ export interface ApplianceSheetProps {
   accentClassName: string;
   glyphIcon: string;
   title: string;
+  /** A muted line after the title, such as a count. */
+  subtitle?: string;
   historyKey: string;
   onClose: () => void;
   children: ReactNode;
@@ -25,7 +27,7 @@ const FOCUSABLE_SELECTOR =
  * load-bearing: the mobile room-detail panel has a CSS transform that hijacks `position: fixed`
  * descendants, so a non-portaled sheet would render a full viewport off-screen.
  */
-export function ApplianceSheet({ accentClassName, glyphIcon, title, historyKey, onClose, children }: ApplianceSheetProps) {
+export function ApplianceSheet({ accentClassName, glyphIcon, title, subtitle, historyKey, onClose, children }: ApplianceSheetProps) {
   const { requestClose } = useModalBackButton({ isOpen: true, onRequestClose: onClose, historyKey });
   const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestClose);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -81,7 +83,10 @@ export function ApplianceSheet({ accentClassName, glyphIcon, title, historyKey, 
           <span className='appliance-glyph'>
             <Icon icon={glyphIcon} aria-hidden='true' />
           </span>
-          <span className='appliance-title'>{title}</span>
+          <span className='appliance-title'>
+            {title}
+            {subtitle && <span className='appliance-sheet-sub'>{subtitle}</span>}
+          </span>
           <button ref={closeButtonRef} className='appliance-sheet-close modal-close-button' onClick={requestClose} aria-label='Close'>
             <Icon icon='mdi:close' />
           </button>

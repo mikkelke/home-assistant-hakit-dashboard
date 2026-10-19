@@ -22,6 +22,11 @@
   --appliance-accent-bg: rgba(45, 212, 191, 0.16);
   --appliance-accent-gradient: linear-gradient(90deg, #115e54, #2dd4bf);
 }
+.appliance-accent-coffee {
+  --appliance-accent: #d4956a;
+  --appliance-accent-bg: rgba(212, 149, 106, 0.16);
+  --appliance-accent-gradient: linear-gradient(90deg, #7a4a2c, #d4956a);
+}
 
 .appliance-card {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
@@ -90,6 +95,9 @@
 }
 .appliance-word.alert {
   color: #fbbf24;
+}
+.appliance-word.ok {
+  color: #22c55e;
 }
 
 .appliance-chevron {
@@ -442,6 +450,13 @@ button.appliance-chip:active {
   align-items: center;
   gap: 0.6rem;
   flex-shrink: 0;
+}
+
+.appliance-sheet-sub {
+  margin-left: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(235, 235, 245, 0.42);
 }
 
 .appliance-sheet-body {

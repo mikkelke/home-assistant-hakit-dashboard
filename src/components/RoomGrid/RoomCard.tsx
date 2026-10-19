@@ -13,7 +13,9 @@ import {
   resolveKitchenHumiditySensorId,
   roomFeelSensorId,
 } from '../../config/entities';
-import { readApplianceCycle, type ApplianceCycle } from '../../energy/applianceRun';
+import { withCoffeeDemo } from '../../coffee/demoStore';
+import { useCoffeeDemo } from '../../coffee/useCoffeeState';
+import type { ApplianceCycle } from '../../energy/applianceRun';
 import { newestEventMs } from '../../home/houseEvents';
 import { HOUSEHOLD, isNightHour } from '../../home/household';
 import { useMotionSlot } from '../../home/motionBudget';
@@ -45,7 +47,6 @@ const COOKING_DEVICES = [
   { entityId: 'sensor.microwave_plug_power', icon: 'mdi:microwave', name: 'Microwave' },
 ] as const;
 
-const ACTIVE_APPLIANCE_STATES = new Set(['Running', 'Paused', 'Unemptied']);
 const BATH_PRESENCE = 'binary_sensor.bathroom_bath_presence_presence';
 const WAKE_ALARM = 'input_boolean.wakeup_bedroom';
 const WAKE_ALARM_TIME = 'input_datetime.wakeup_bedroom';
@@ -149,10 +150,12 @@ const RING_ORDER: Record<ApplianceCycle['status'], number> = { ready: 0, running
 function ApplianceRing({ appliances, houseAsleep }: { appliances: readonly HomeAppliance[]; houseAsleep: boolean }) {
   const entities = useTrackedEntities();
   const nowMs = useNowMs();
+  useCoffeeDemo();
+  const read = withCoffeeDemo((entityId: string) => entities[entityId]);
   const cycles = appliances
     .map(appliance => {
-      const entity = entities[appliance.config.stateEntityId];
-      return { appliance, entity, cycle: readApplianceCycle(entity, appliance.config.etaFormat, nowMs) };
+      const entity = read(appliance.config.stateEntityId);
+      return { appliance, entity, cycle: appliance.cycle(entity, nowMs) };
     })
     .filter(item => item.cycle.status !== 'idle')
     .sort((a, b) => RING_ORDER[a.cycle.status] - RING_ORDER[b.cycle.status]);
@@ -165,21 +168,27 @@ function ApplianceRing({ appliances, houseAsleep }: { appliances: readonly HomeA
 
   const { cycle, appliance, entity } = main;
   const ready = cycle.status === 'ready';
+  const coffee = appliance.kind === 'coffee';
   const share = ready ? 1 : (cycle.progressPct ?? 0) / 100;
   const night = houseAsleep || isNightHour(nowMs);
   const sinceMs = Date.parse(entity?.last_changed ?? '');
   const text = ready
-    ? elapsedLabel(sinceMs, nowMs)
+    ? coffee
+      ? null
+      : elapsedLabel(sinceMs, nowMs)
     : cycle.status === 'paused'
       ? 'Paused'
       : cycle.etaMs != null
         ? (remainingLabel(cycle.etaMs, nowMs) ?? 'Soon')
-        : `${Math.round(cycle.progressPct ?? 0)} %`;
+        : coffee
+          ? null
+          : `${Math.round(cycle.progressPct ?? 0)} %`;
   const angle = share * 2 * Math.PI;
-  const label = `${appliance.config.label} ${ready ? 'ready to be emptied' : cycle.status === 'paused' ? 'paused' : 'running'}${text ? `, ${text}` : ''}`;
+  const doneWords = coffee ? 'ready' : 'ready to be emptied';
+  const label = `${appliance.config.label} ${ready ? doneWords : cycle.status === 'paused' ? 'paused' : 'running'}${text ? `, ${text}` : ''}`;
   return (
     <span
-      className={`room-ring is-${cycle.status} ${night && !ready ? 'is-night' : ''} ${readyPulse ? 'is-anim' : ''}`}
+      className={`room-ring is-${cycle.status} ${coffee ? 'is-coffee' : ''} ${night && !ready && !coffee ? 'is-night' : ''} ${readyPulse ? 'is-anim' : ''}`}
       role='img'
       aria-label={label}
     >
@@ -193,7 +202,10 @@ function ApplianceRing({ appliances, houseAsleep }: { appliances: readonly HomeA
         {text && <b>{text}</b>}
       </span>
       {second && (
-        <span className={`room-ring-badge is-${second.cycle.status}`} title={second.appliance.config.label}>
+        <span
+          className={`room-ring-badge is-${second.cycle.status} ${second.appliance.kind === 'coffee' ? 'is-coffee' : ''}`}
+          title={second.appliance.config.label}
+        >
           <Icon icon={second.appliance.config.icon} />
         </span>
       )}
@@ -388,9 +400,14 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
   const isMediaPlaying = mediaPlayer?.state === 'playing';
   const isMediaMuted = mediaPlayer?.attributes?.is_volume_muted === true;
   const roomAppliances = HOME_APPLIANCES.filter(appliance => appliance.areaId === area.area_id);
-  const applianceStates = useHass(s => roomAppliances.map(appliance => s.entities[appliance.config.stateEntityId]?.state ?? '').join('|'));
+  useCoffeeDemo();
+  const applianceStates = useHass(s => {
+    const read = withCoffeeDemo((entityId: string) => s.entities[entityId]);
+    return roomAppliances.map(appliance => read(appliance.config.stateEntityId)?.state ?? '').join('|');
+  });
   const states = applianceStates.split('|');
-  const activeAppliances = roomAppliances.filter((_, index) => ACTIVE_APPLIANCE_STATES.has(states[index]));
+  const activeAppliances = roomAppliances.filter((appliance, index) => appliance.activeStates.has(states[index]));
+  const coffeeActive = activeAppliances.some(appliance => appliance.kind === 'coffee');
   const cookingIds = useHass(s =>
     isKitchen
       ? COOKING_DEVICES.filter(device => (readingNumber(s.entities[device.entityId]) ?? 0) >= COOKING_W)
@@ -555,6 +572,7 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
     litKey ? 'is-lit' : 'is-dark',
     asleep ? 'is-asleep' : '',
     frosty ? 'is-frosty' : '',
+    coffeeActive ? 'has-coffee' : '',
     isSelected ? 'selected' : '',
   ]
     .filter(Boolean)

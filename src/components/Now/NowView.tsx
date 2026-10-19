@@ -9,6 +9,10 @@ import {
   QUIET_HOURS_START_ENTITY,
   SUN_ENTITY,
 } from '../../config/entities';
+import { withCoffeeDemo } from '../../coffee/demoStore';
+import { brewProgressPct, phaseWord } from '../../coffee/model';
+import { useCoffeeBrews, useCoffeeDemo, useCoffeeLive, useCoffeeRecipes, useCoffeeState } from '../../coffee/useCoffee';
+import { brewName } from '../../coffee/view';
 import { formatApplianceEta } from '../../energy/applianceRun';
 import { formatHomeClock } from '../../energy/homeTime';
 import {
@@ -31,6 +35,8 @@ import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { useViewer } from '../../hooks/useViewer';
 import { formatKWh } from '../../utils/format';
 import type { NowFocus } from '../../utils/navigation';
+import { series } from '../Coffee/chart';
+import { Spark } from '../Coffee/Spark';
 import { SkyStrip } from '../Home/LivingSky';
 import { LazyBoundary } from '../Lazy/LazyBoundary';
 import type { MapEntry } from '../Vacuum/maps';
@@ -179,6 +185,9 @@ function PastEpisode({
   const effectText = cause ? (houseEventLabel(last) ?? last.effect ?? last.text) : first.text;
   const by = rows.find(event => event.by)?.by;
   const ring = row.episode.kind === 'ring';
+  if (row.episode.kind === 'coffee' && !cause) {
+    return <CoffeePastRow row={row} age={age} focused={focused} onOpenRoom={onOpenRoom} by={by} />;
+  }
   return (
     <RowShell
       id={row.id}
@@ -234,7 +243,104 @@ function ApplianceTitle({ item }: { item: UpcomingAppliance }) {
 }
 
 /** A running or paused appliance, on the NOW line: when it started goes in the card, not on the rail. */
+/** A finished brew in the past: its cup weight and curve when the ledger has it, else the feed's words. */
+function CoffeePastRow({
+  row,
+  age,
+  focused,
+  onOpenRoom,
+  by,
+}: {
+  row: PastRow;
+  age: number;
+  focused: boolean;
+  onOpenRoom: (areaId: string) => void;
+  by: string | undefined;
+}) {
+  const brews = useCoffeeBrews();
+  const first = row.episode.rows[0];
+  const brew = brews?.brews.find(item => item.outcome === 'complete' && item.atMs != null && Math.abs(item.atMs - row.atMs) < 20 * 60_000);
+  const newest = brew != null && brews?.brews.find(item => item.outcome === 'complete')?.id === brew.id;
+  const text = brew?.cupG != null ? `Coffee ${Math.round(brew.cupG)} g` : first.text;
+  return (
+    <RowShell
+      id={row.id}
+      time={formatHomeClock(row.atMs)}
+      tone='copper'
+      focused={focused}
+      className={`is-past age-${Math.min(age, 3)} ${roundClass(row.round)}`}
+    >
+      <RowBody areaId={row.areaId} onOpenRoom={onOpenRoom} className='now-body' label={text}>
+        <span className='now-chip is-tone tone-copper now-coffee-chip'>
+          <Icon icon={first.icon} />
+          {by && <span className='now-mini'>{by.charAt(0).toUpperCase()}</span>}
+          <span className='now-chip-text'>{text}</span>
+          {newest && brews?.lastCurve.length ? <Spark cup={series(brews.lastCurve, 4)} width={40} height={16} /> : null}
+        </span>
+      </RowBody>
+    </RowShell>
+  );
+}
+
+/** A brew on the NOW line: its stage, the one ETA, its live curve. */
+function CoffeeRunningCard({ row, focused, onOpenRoom }: { row: RunningRow; focused: boolean; onOpenRoom: (areaId: string) => void }) {
+  const state = useCoffeeState();
+  const live = useCoffeeLive();
+  const recipes = useCoffeeRecipes();
+  const nowMs = useNowMs();
+  const word = state ? phaseWord(state) : null;
+  const title = `Coffee${word ? ` · ${word}` : ''}`;
+  const sub = [
+    state ? brewName(state, recipes?.usualName ?? null).replace(/^The /, 'the ') : null,
+    state?.phase === 'paused' ? 'ETA after resume' : state?.etaMs != null ? `ready ≈ ${formatHomeClock(state.etaMs)}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const pct = state ? brewProgressPct(state, nowMs) : 0;
+  return (
+    <RowShell id={row.id} time={null} tone='copper' focused={focused} className='is-live'>
+      <RowBody
+        areaId={row.areaId}
+        onOpenRoom={onOpenRoom}
+        className='now-card is-run is-coffee'
+        label={[title, sub].filter(Boolean).join(', ')}
+      >
+        <span className='now-ph'>
+          <span className='now-ico tone-copper'>
+            <Icon icon='mdi:coffee' />
+          </span>
+          <span className='now-pt'>
+            <b>
+              <span className='now-pt-name'>{title}</span>
+            </b>
+            {sub && <small>{sub}</small>}
+          </span>
+          {live && live.cup.length > 1 && <Spark cup={series(live.cup, live.stepS)} width={46} height={22} />}
+        </span>
+        <span className='now-coffee-runbar' aria-hidden='true'>
+          <i style={{ width: `${Math.round(pct)}%` }} />
+        </span>
+      </RowBody>
+    </RowShell>
+  );
+}
+
 function RunningCard({
+  row,
+  quiet,
+  focused,
+  onOpenRoom,
+}: {
+  row: RunningRow;
+  quiet: QuietHours;
+  focused: boolean;
+  onOpenRoom: (areaId: string) => void;
+}) {
+  if (row.item.id === 'coffee') return <CoffeeRunningCard row={row} focused={focused} onOpenRoom={onOpenRoom} />;
+  return <ApplianceRunningCard row={row} quiet={quiet} focused={focused} onOpenRoom={onOpenRoom} />;
+}
+
+function ApplianceRunningCard({
   row,
   quiet,
   focused,
@@ -471,7 +577,17 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
   const nowMs = useNowMs();
   const feed = entities[HOUSE_EVENTS_ENTITY]?.attributes?.events;
   const episodes = useMemo(() => houseEpisodes(visibleHouseEvents(parseHouseEvents(feed), viewer)), [feed, viewer]);
-  const upcoming = useMemo(() => readUpcoming(id => entities[id], nowMs, viewer), [entities, nowMs, viewer]);
+  const coffeeDemo = useCoffeeDemo();
+  const upcoming = useMemo(
+    () =>
+      readUpcoming(
+        withCoffeeDemo(id => entities[id]),
+        nowMs,
+        viewer
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `coffeeDemo` is what a ?coffee_demo= preview changes
+    [entities, nowMs, viewer, coffeeDemo]
+  );
   // Primitive selectors: `sun.sun` changes every few minutes, but these values only a few times a day.
   const nextRising = useHass(s => s.entities[SUN_ENTITY]?.attributes?.next_rising);
   const nextSetting = useHass(s => s.entities[SUN_ENTITY]?.attributes?.next_setting);

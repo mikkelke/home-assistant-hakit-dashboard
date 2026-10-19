@@ -1,0 +1,742 @@
+/* The brew stage: a full-screen route like Energy, sized for the wine-fridge tablet read from the counter. The big
+   cues are the stage and the time left; cup and water come second. On a phone it stacks and scrolls. */
+
+.coffee-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: calc(14px + env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background: #0d0f13;
+  color: var(--cof-t1);
+  font-variant-numeric: tabular-nums;
+  animation: cs-in 220ms var(--ease-out) both;
+}
+@keyframes cs-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .coffee-stage {
+    animation: none;
+  }
+}
+
+/* ---- header: the sky strip, grown to the stage ---- */
+.cs-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 72px;
+  padding: 0 14px 0 12px;
+  border-radius: 22px;
+  border: 1px solid rgba(140, 190, 240, 0.3);
+  color: #fff;
+  background: linear-gradient(90deg, #2f63ad, #4d84c8 60%, #6a9ad6);
+}
+.cs-head.sky--night {
+  border-color: rgba(140, 160, 240, 0.18);
+  background: linear-gradient(90deg, #04060e, #0c1430 60%, #131b3a);
+}
+.cs-head.sky--dusk {
+  border-color: rgba(140, 160, 240, 0.22);
+  background: linear-gradient(90deg, #0a1430, #18264f 60%, #2d2a58);
+}
+.cs-head.sky--dawn {
+  border-color: rgba(180, 160, 240, 0.25);
+  background: linear-gradient(90deg, #121a3c, #2c3464 60%, #5a4f78);
+}
+.cs-head.sky--evening {
+  border-color: rgba(240, 170, 140, 0.28);
+  background: linear-gradient(90deg, #1c2a58, #5b4a78 60%, #a0646c);
+}
+.cs-head.sky--morning {
+  background: linear-gradient(90deg, #3f6ea8, #7f9fc2 60%, #c9a68c);
+}
+.cs-back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 50px;
+  padding: 0 14px 0 10px;
+  border: 0;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 120ms var(--ease-out);
+}
+.cs-back:active {
+  transform: scale(0.97);
+}
+.cs-back svg {
+  font-size: 24px;
+}
+.cs-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+.cs-title b {
+  font-size: 23px;
+  font-weight: 600;
+}
+.cs-title span {
+  font-size: 15px;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cs-sp {
+  flex: 1;
+}
+.cs-clock {
+  padding: 0 6px;
+  font-size: 24px;
+  font-weight: 600;
+}
+.cs-head .coffee-who {
+  height: 50px;
+  padding: 0 14px 0 8px;
+  border-radius: 25px;
+  background: rgba(8, 20, 45, 0.3);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 500;
+}
+.cs-head .coffee-who-chev {
+  color: rgba(255, 255, 255, 0.85);
+}
+.cs-head .coffee-face--md {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+.cs-stepper {
+  display: flex;
+  align-items: center;
+}
+.cs-step {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(8, 20, 45, 0.35);
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 21px;
+}
+.cs-step.is-on {
+  background: #fff;
+  border-color: #fff;
+  color: #1d4f91;
+}
+.cs-step.is-now {
+  background: #fff;
+  border-color: #fff;
+  color: #1d4f91;
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.22);
+}
+.cs-step.is-alert {
+  color: #b45309;
+}
+.cs-step.is-dim {
+  opacity: 0.55;
+}
+.cs-step-bar {
+  position: relative;
+  width: 46px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.22);
+}
+.cs-step-bar i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: #fff;
+  transition: width 0.4s var(--ease-out);
+}
+.cs-step-bar.is-dim i {
+  opacity: 0.55;
+}
+
+/* ---- body ---- */
+.cs-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 14px;
+}
+.cs-chartcard {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 20px 16px;
+  border-radius: 24px;
+  background: var(--cof-card);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-family: var(--cof-font-card);
+}
+.cs-top {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-height: 38px;
+}
+.cs-chartbox {
+  flex: 1;
+  min-height: 0;
+  margin-top: 6px;
+}
+.cs-side {
+  width: 384px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  font-family: var(--cof-font-card);
+}
+.cs-side.is-ready {
+  gap: 10px;
+}
+.cs-tile {
+  padding: 16px 20px;
+  border-radius: 24px;
+  background: var(--cof-card);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.cs-tile .coffee-lab {
+  font-size: 13px;
+}
+.cs-cue {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+.cs-cue.is-stale {
+  color: #71717a;
+}
+.cs-cue.is-ok {
+  color: #86efac;
+}
+.cs-cue.is-alert {
+  color: #fcd34d;
+}
+.cs-sub {
+  margin-top: 4px;
+  font-size: 16px;
+  color: var(--cof-t2);
+}
+.cs-pbar {
+  height: 8px;
+  margin-top: 12px;
+  border-radius: 4px;
+  background: #2c2c2e;
+  overflow: hidden;
+}
+.cs-pbar i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--water);
+  transition: width 0.9s linear;
+}
+.cs-alert {
+  border-color: rgba(251, 191, 36, 0.35);
+  background: linear-gradient(180deg, rgba(251, 191, 36, 0.1), rgba(251, 191, 36, 0.03)), var(--cof-card);
+}
+.cs-alert .coffee-lab {
+  color: #fcd34d;
+}
+
+.cs-pair {
+  display: flex;
+  gap: 12px;
+}
+.cs-pair .cs-tile {
+  flex: 1;
+  padding: 14px 18px;
+}
+.cs-mid {
+  font-size: 46px;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+.cs-mid small {
+  margin-left: 3px;
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--cof-t2);
+}
+.cs-metric.is-cup .cs-mid {
+  font-size: 52px;
+  color: var(--cof-light);
+}
+.cs-metric.is-water .cs-mid {
+  color: #bae6fd;
+}
+.cs-metric.is-stale .cs-mid,
+.cs-metric.is-stale .cs-mid small {
+  color: #71717a;
+}
+
+.cs-ctrls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 20px;
+  margin-top: auto;
+}
+.cs-cwrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.cs-cwrap b {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--cof-t2);
+}
+.cs-pause {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  border: 0;
+  border-radius: 50%;
+  background: #f4f4f5;
+  color: #111;
+  font-size: 38px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 120ms var(--ease-out);
+}
+.cs-pause:active {
+  transform: scale(0.96);
+}
+.cs-wide {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 84px;
+  border: 0;
+  border-radius: 24px;
+  font: inherit;
+  font-size: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 120ms var(--ease-out);
+}
+.cs-wide svg {
+  font-size: 24px;
+}
+.cs-wide:active {
+  transform: scale(0.98);
+}
+.cs-wide.is-sky {
+  background: var(--water);
+  color: #082f49;
+}
+.cs-wide.is-green {
+  height: 56px;
+  border-radius: 18px;
+  font-size: 18px;
+  background: var(--cof-green-bg);
+  color: var(--cof-green);
+}
+.cs-wide-hold {
+  flex: 1;
+  height: 84px;
+  border-radius: 24px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+/* idle */
+.cs-usual {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cs-usual h3 {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.cs-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cs-chips .coffee-chip {
+  height: 40px;
+  padding: 0 15px;
+  border-radius: 20px;
+  font-size: 16px;
+}
+.cs-chips .coffee-chip svg {
+  font-size: 18px;
+}
+.cs-beans {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+.cs-beans:active {
+  transform: scale(0.99);
+}
+.cs-beans-disc {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--cof-bg);
+  color: var(--cof);
+  font-size: 22px;
+}
+.cs-beans-tx {
+  flex: 1;
+  min-width: 0;
+}
+.cs-beans-line {
+  display: block;
+  font-size: 18px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cs-beans-line span {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--cof-t2);
+}
+.cs-bar {
+  display: block;
+  height: 8px;
+  margin-top: 7px;
+  border-radius: 4px;
+  background: #2c2c2e;
+  overflow: hidden;
+}
+.cs-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--cof);
+}
+.cs-beans .coffee-chip.is-mid {
+  height: 36px;
+  padding: 0 13px;
+  font-size: 15px;
+  border-radius: 18px;
+}
+.cs-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cs-status .coffee-who {
+  background: var(--cof-chip);
+}
+.cs-go {
+  margin-top: auto;
+}
+.cs-lowlinks {
+  display: flex;
+  gap: 10px;
+}
+.cs-lowlinks button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 52px;
+  border: 0;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--cof-t1);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 120ms var(--ease-out);
+}
+.cs-lowlinks button:active {
+  transform: scale(0.98);
+}
+.cs-lowlinks svg {
+  font-size: 19px;
+  color: var(--cof-t2);
+}
+.cs-note {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--cof-t3);
+}
+.cs-note.is-center {
+  flex: 1;
+  text-align: center;
+}
+
+/* ready */
+.cs-ready {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+}
+.cs-ready-disc {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--cof-green-bg);
+  color: var(--cof-green);
+  font-size: 28px;
+}
+.cs-vchips {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.cs-vc {
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: #232326;
+}
+.cs-vc .coffee-lab {
+  font-size: 12px;
+}
+.cs-vc-v {
+  margin-top: 2px;
+  font-size: 26px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cs-d {
+  margin-left: 6px;
+  font-size: 17px;
+  font-weight: 600;
+}
+.cs-d.is-ok {
+  color: var(--cof-green);
+}
+.cs-d.is-up {
+  color: var(--cof-amber);
+}
+.cs-d.is-dn {
+  color: #93c5fd;
+}
+.cs-d.is-mute {
+  color: var(--cof-t3);
+}
+.cs-taste {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+}
+.cs-bottom {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.cs-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--cof-t2);
+  font-size: 18px;
+}
+.cs-empty svg {
+  font-size: 48px;
+  color: var(--cof);
+}
+
+/* ---- a smaller tablet or a laptop window ---- */
+@media (max-width: 1100px) and (min-width: 769px) {
+  .cs-side {
+    width: 340px;
+  }
+  .cs-cue {
+    font-size: 38px;
+  }
+  .cs-mid {
+    font-size: 40px;
+  }
+  .cs-metric.is-cup .cs-mid {
+    font-size: 44px;
+  }
+}
+
+/* ---- phone: one column that scrolls ---- */
+.coffee-stage.is-phone {
+  gap: 10px;
+  padding: calc(8px + env(safe-area-inset-top)) 10px max(16px, env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.is-phone .cs-head {
+  gap: 10px;
+  height: 60px;
+  padding: 0 8px;
+  border-radius: 18px;
+}
+.is-phone .cs-back {
+  height: 44px;
+  padding: 0 10px 0 6px;
+  font-size: 15px;
+}
+.is-phone .cs-title b {
+  font-size: 19px;
+}
+.is-phone .cs-title span {
+  font-size: 13px;
+}
+.is-phone .cs-clock {
+  font-size: 19px;
+}
+.is-phone .cs-body {
+  flex: none;
+  flex-direction: column;
+  gap: 10px;
+}
+.is-phone .cs-chartcard {
+  flex: none;
+  padding: 12px 12px 10px;
+  border-radius: 20px;
+}
+.is-phone .cs-top {
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+.is-phone .cs-top .coffee-leg {
+  font-size: 12.5px;
+  gap: 6px;
+}
+.is-phone .cs-top .cs-sp {
+  display: none;
+}
+.is-phone .cs-top .coffee-story {
+  height: 30px;
+  padding: 0 11px;
+  font-size: 13px;
+}
+.is-phone .cs-chartbox {
+  flex: none;
+  height: 260px;
+}
+.is-phone .cs-side {
+  width: auto;
+  gap: 10px;
+}
+.is-phone .cs-tile {
+  padding: 14px 16px;
+  border-radius: 20px;
+}
+.is-phone .cs-usual h3 {
+  font-size: 26px;
+}
+.is-phone .cs-chips .coffee-chip {
+  height: 34px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+.is-phone .cs-cue {
+  font-size: 32px;
+}
+.is-phone .cs-sub {
+  font-size: 14px;
+}
+.is-phone .cs-mid {
+  font-size: 34px;
+}
+.is-phone .cs-metric.is-cup .cs-mid {
+  font-size: 38px;
+}
+.is-phone .cs-mid small {
+  font-size: 16px;
+}
+.is-phone .cs-go {
+  margin-top: 4px;
+}
+.is-phone .hold-btn--xl {
+  height: 72px;
+  border-radius: 22px;
+  font-size: 20px;
+}
+.is-phone .cs-ctrls {
+  margin-top: 4px;
+  justify-content: center;
+}
+.is-phone .cs-pause,
+.is-phone .hold-round-btn {
+  width: 72px;
+  height: 72px;
+}
+.is-phone .cs-wide,
+.is-phone .cs-wide-hold {
+  height: 64px;
+  font-size: 17px;
+}
+.is-phone .cs-vc-v {
+  font-size: 21px;
+}
+.is-phone .cs-d {
+  font-size: 14px;
+}
+.is-phone .coffee-trow button {
+  height: 44px;
+  font-size: 15px;
+}

@@ -13,6 +13,9 @@ import { IntercomCard } from '../Intercom';
 import { WasherCard } from '../Washer';
 import { DishwasherCard } from '../Dishwasher';
 import { DryerCard } from '../Dryer';
+import { CoffeeCard } from '../Coffee/CoffeeCard';
+import { isEventful } from '../../coffee/model';
+import { useCoffeeState } from '../../coffee/useCoffee';
 import { RoomClimateHeader } from './RoomClimateHeader';
 import { ROBOT_CLEAN_PREFIX, VACUUM_ENTITY, roomThermostat } from '../../config/entities';
 import { asleepAreaIds, roomGlow, roomLightIds } from '../../home/roomAmbient';
@@ -32,6 +35,7 @@ export function RoomDetail({
   isMobile,
   autoOpenClimate,
   onAutoOpenClimateHandled,
+  onOpenCoffee,
 }: RoomDetailProps) {
   // The panel's own subscription: what it reads (players, thermostats, the roof station) stops counting
   // for the grid once it closes.
@@ -101,6 +105,9 @@ export function RoomDetail({
   const dryerStateEntity = entities?.['sensor.dryer_state'];
   const dishwasherStateEntity = entities?.['sensor.dishwasher_state'];
   const vacuum = entities?.[VACUUM_ENTITY];
+  // Coffee is the Kitchen's last row on an ordinary day, and its first while a brew runs or waits.
+  const coffee = useCoffeeState();
+  const coffeeFirst = isKitchen && coffee != null && isEventful(coffee.phase);
 
   // Rooftop: keep the Sonos on / exempt from follow-me muting while docked.
   // Rendered as a row inside the Sonos card (user 2026-08-07), not a standalone toggle.
@@ -162,6 +169,8 @@ export function RoomDetail({
       </div>
 
       <div className='room-detail-content'>
+        {coffeeFirst && <CoffeeCard onOpenStage={onOpenCoffee} />}
+
         {/* Building Access (Hallway) */}
         {isHallway && <IntercomCard entities={entities} callService={callService} showHeader={true} />}
 
@@ -235,6 +244,8 @@ export function RoomDetail({
 
         {/* Room Cleaning Toggle - for rooms that have it */}
         {cleaningToggle && <RoomCleaningToggle areaName={area.name} entities={entities} callService={callService} />}
+
+        {isKitchen && !coffeeFirst && <CoffeeCard onOpenStage={onOpenCoffee} />}
 
         {/* Humidity (only when RoomClimateHeader isn't already showing one, incl. via a shared
             thermostat) */}

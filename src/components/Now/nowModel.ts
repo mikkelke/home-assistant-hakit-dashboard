@@ -87,6 +87,7 @@ const AREA_BY_KIND: Partial<Record<NowFocusKind, string>> = {
   washer: 'guest_bathroom',
   dryer: 'guest_bathroom',
   dish: 'kitchen',
+  coffee: 'kitchen',
   wake: 'bedroom',
 };
 
@@ -191,6 +192,7 @@ export function rowTone(row: Pick<HouseEvent, 'icon'>): string {
   const kind = houseEventKind(row);
   if (kind === 'ring') return 'gold';
   if (kind === 'washer' || kind === 'dryer' || kind === 'dish') return 'sky';
+  if (kind === 'coffee') return 'copper';
   if (kind === 'wake') return 'gold';
   const name = row.icon.replace(/^mdi:/, '');
   if (/^(door|lock)/.test(name)) return 'rose';

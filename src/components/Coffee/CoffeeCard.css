@@ -1,0 +1,469 @@
+/* The Kitchen's Coffee card, on the shared appliance card: Brew, History and Recipes tabs, beans and the next
+   maintenance in the footer. Sized for a phone in hand. */
+
+.coffee-card .appliance-card {
+  border-color: rgba(212, 149, 106, 0.22);
+}
+.coffee-card .appliance-content {
+  padding: 0 16px 16px;
+}
+.cc-spark-btn {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cc-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.cc-tabs button {
+  flex: 1;
+  height: 38px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--cof-t2);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.cc-tabs button.is-on {
+  background: rgba(255, 255, 255, 0.12);
+  color: #f4f4f5;
+}
+.cc-body {
+  padding-top: 14px;
+}
+
+.cc-usual-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--cof-t2);
+}
+.cc-chart {
+  margin-top: 6px;
+}
+.cc-chips {
+  margin-top: 8px;
+}
+.cc-go {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.cc-go .coffee-link {
+  height: 48px;
+  border-radius: 15px;
+  padding: 0 12px;
+}
+.cc-hold.hold-btn {
+  flex: 1;
+  width: auto;
+  height: 48px;
+  border-radius: 15px;
+  font-size: 15px;
+  gap: 6px;
+}
+.cc-hold .hold-ring-slot {
+  width: 32px;
+  height: 32px;
+}
+.cc-hold .hold-ring-slot > svg:not(.hold-ring) {
+  font-size: 18px;
+}
+.cc-sep {
+  height: 1px;
+  margin: 12px 0;
+  background: rgba(255, 255, 255, 0.07);
+}
+.cc-beans {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.cc-disc {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--cof-bg);
+  color: var(--cof);
+  font-size: 17px;
+}
+.cc-beans-tx {
+  flex: 1;
+  min-width: 0;
+}
+.cc-beans-tx b {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cc-beans-tx small {
+  display: block;
+  font-size: 12.5px;
+  color: var(--cof-t3);
+}
+.cst-undo {
+  margin-top: 8px;
+  border: 0;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.cc-last-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cc-last-row.is-top {
+  margin-top: 6px;
+}
+.cc-rate {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.cc-rate-q {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.cc-trial {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.cc-trial .coffee-advice {
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.cc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cc-sp {
+  flex: 1;
+}
+.cc-beans-chip {
+  border: 0;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.cc-beans-chip .coffee-glyph {
+  color: var(--cof-t2);
+}
+
+/* live */
+.cc-live-top {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.cc-left {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.cc-left.is-ok {
+  color: #86efac;
+}
+.cc-left-sub {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 4px;
+  font-size: 13px;
+  color: var(--cof-t2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cc-live-top .coffee-story {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 13px;
+  gap: 5px;
+}
+.cc-live-top .coffee-story svg {
+  font-size: 15px;
+}
+.cc-ctrls {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.cc-ctrls .coffee-btn {
+  height: 48px;
+  font-size: 16px;
+}
+.cc-wide.hold-btn {
+  flex: 1;
+  width: auto;
+  height: 48px;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  gap: 6px;
+}
+.cc-wide .hold-ring-slot {
+  width: 30px;
+  height: 30px;
+}
+.cc-wide .hold-ring-slot > svg:not(.hold-ring) {
+  font-size: 16px;
+}
+.cc-d {
+  font-weight: 600;
+}
+.cc-d.is-ok {
+  color: var(--cof-green);
+}
+.cc-d.is-up {
+  color: var(--cof-amber);
+}
+.cc-d.is-dn {
+  color: #93c5fd;
+}
+.cc-picked {
+  width: 100%;
+  margin-top: 12px;
+  height: 50px;
+}
+
+/* history */
+.cc-history {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cst-strip-tick {
+  cursor: pointer;
+}
+.cc-open {
+  margin-top: 6px;
+  padding: 10px 12px;
+}
+.cc-open h4 {
+  margin-bottom: 4px;
+}
+.cc-open .coffee-chips {
+  margin-top: 6px;
+}
+.cc-open-name {
+  font-weight: 500;
+}
+.cc-hday {
+  margin: 12px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cof-t3);
+}
+
+/* recipes */
+.cc-recipes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cc-usual {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 12px 10px;
+  border-radius: 18px;
+  background: #232326;
+  border: 1px solid rgba(212, 149, 106, 0.3);
+}
+.cc-usual-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--cof-t3);
+}
+.cc-usual-h > svg {
+  color: var(--cof);
+  font-size: 18px;
+}
+.cc-usual-h b {
+  font-size: 15px;
+  color: var(--cof-t1);
+}
+.coffee-chip.is-small {
+  height: 26px;
+  font-size: 12px;
+}
+.cc-tweak {
+  border: 0;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.cc-others {
+  margin-top: 6px;
+}
+.cc-recipe-name {
+  font-size: 17px;
+  font-weight: 600;
+}
+a.coffee-rrow {
+  text-decoration: none;
+}
+
+/* footer */
+.cc-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 12.5px;
+  color: var(--cof-t2);
+}
+.cc-foot-it {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.cc-foot-it svg {
+  font-size: 14px;
+}
+.cc-ibtn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--cof-chip);
+  color: var(--cof-t2);
+  font-size: 18px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* stats sheet */
+.cst .coffee-tile {
+  margin: 0;
+}
+.cst-weekrow {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 4px;
+}
+.cst-weeks {
+  flex: 1;
+  min-width: 0;
+}
+.cst-beans {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+.cst-beans-bar {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--cof-t2);
+}
+.cst-beans-bar span {
+  display: block;
+  margin-top: 5px;
+}
+.cst-beans-acts {
+  margin-top: 10px;
+}
+.cst-beans-acts .coffee-btn {
+  height: 40px;
+  font-size: 14px;
+}
+.cst-spread {
+  margin-top: 6px;
+}
+.cst-spread + .coffee-row {
+  margin-top: 8px;
+}
+.cst-taste {
+  display: flex;
+  height: 22px;
+  margin-top: 8px;
+  border-radius: 7px;
+  overflow: hidden;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.cst-taste span {
+  display: grid;
+  place-items: center;
+  white-space: nowrap;
+}
+.cst-taste .is-sour {
+  background: rgba(250, 204, 21, 0.22);
+  color: #fde047;
+}
+.cst-taste .is-balanced {
+  background: rgba(34, 197, 94, 0.22);
+  color: #86efac;
+}
+.cst-taste .is-bitter {
+  background: rgba(251, 113, 133, 0.22);
+  color: #fda4af;
+}
+.cst-suggest {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--cof-t2);
+}
+.cst-suggest svg {
+  color: var(--cof-purple);
+}
+.cst-tod {
+  margin-top: 8px;
+}

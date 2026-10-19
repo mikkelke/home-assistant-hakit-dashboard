@@ -11,7 +11,7 @@ function itemIcon(item: UpcomingItem): string {
 }
 
 function itemName(item: UpcomingItem): string {
-  if (item.type === 'appliance') return `${item.appliance.config.label} done`;
+  if (item.type === 'appliance') return `${item.appliance.config.label} ${item.id === 'coffee' ? 'ready' : 'done'}`;
   return item.type === 'wake' ? 'Wake alarm' : 'Rober2';
 }
 

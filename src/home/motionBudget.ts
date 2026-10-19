@@ -7,7 +7,7 @@ import { createContext, useContext, useLayoutEffect, useSyncExternalStore } from
 export const MOTION_PRIORITIES = ['oneShot', 'appliance', 'equaliser', 'nowPulse', 'breathing', 'clouds'] as const;
 export type MotionPriority = (typeof MOTION_PRIORITIES)[number];
 
-export type MotionScope = 'grid' | 'timeline';
+export type MotionScope = 'grid' | 'timeline' | 'stage';
 
 export interface MotionConditions {
   reducedMotion: boolean;
@@ -21,11 +21,15 @@ export interface MotionConditions {
 
 export const MOTION_CAP = { day: 3, night: 1, reducedMotion: 0 } as const;
 
+/** The coffee stage is a screen of its own, watched while a brew runs: its own cap, day or night. */
+export const STAGE_MOTION_CAP = 2;
+
 /** Never granted at night, even with a slot free. */
 const NIGHT_EXCLUDED: ReadonlySet<MotionPriority> = new Set(['breathing', 'clouds']);
 
-export function motionCap(conditions: Pick<MotionConditions, 'reducedMotion' | 'night'>): number {
+export function motionCap(conditions: Pick<MotionConditions, 'reducedMotion' | 'night'> & { scope?: MotionScope | null }): number {
   if (conditions.reducedMotion) return MOTION_CAP.reducedMotion;
+  if (conditions.scope === 'stage') return STAGE_MOTION_CAP;
   return conditions.night ? MOTION_CAP.night : MOTION_CAP.day;
 }
 

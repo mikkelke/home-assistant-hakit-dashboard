@@ -188,6 +188,9 @@
 .tone-slate {
   --c: #94a3b8;
 }
+.tone-copper {
+  --c: #d4956a;
+}
 
 /* Past rows: cause and effect as chips. */
 .now-body {
@@ -753,4 +756,27 @@
   to {
     transform: translateX(100%);
   }
+}
+
+/* A brew on the NOW line: copper, its live curve beside it, the hairline of how far it got along the bottom. */
+.now-card.is-run.is-coffee {
+  overflow: hidden;
+  border-color: rgba(212, 149, 106, 0.35);
+}
+.now-coffee-runbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: rgba(212, 149, 106, 0.15);
+}
+.now-coffee-runbar i {
+  display: block;
+  height: 100%;
+  background: #d4956a;
+  transition: width 0.6s var(--ease-out);
+}
+.now-coffee-chip .coffee-spark {
+  margin-left: 2px;
 }

@@ -1,9 +1,9 @@
 import { useHass } from '@hakit/core';
 
-/** The doorbell and Rober2 map archives live in HA's media folder, which HA serves at /media/local/ to signed-in users
- * only. Each index.json comes through one of these shell_commands (HA's configuration.yaml), and every file the
- * dashboard shows is signed first. */
-export type ArchiveIndexService = 'doorbell_archive_index' | 'rober2_maps_index';
+/** The doorbell and Rober2 map archives and the coffee curves live in HA's media folder, which HA serves at /media/local/
+ * to signed-in users only. Each index comes through one of these shell_commands (HA's configuration.yaml), and every
+ * file the dashboard shows is signed first. */
+export type ArchiveIndexService = 'doorbell_archive_index' | 'rober2_maps_index' | 'coffee_recent';
 
 /** Seconds a signed URL lives. Short, because Traefik's access log keeps query strings; a view that outlasts it signs
  * once more on the media error (useSignedArchiveUrl). */

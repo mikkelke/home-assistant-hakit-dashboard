@@ -15,7 +15,7 @@ export interface ApplianceCardProps {
    * expanded or when the current state has no quick action. Callers gate this themselves. */
   quickButton?: ReactNode;
   stateWord: string;
-  stateWordClass: 'tint' | 'alert' | 'muted';
+  stateWordClass: 'tint' | 'alert' | 'muted' | 'ok';
   /** Hairline progress strip under the header, shown only while collapsed. */
   showCollapsedStrip: boolean;
   progressPct: number;

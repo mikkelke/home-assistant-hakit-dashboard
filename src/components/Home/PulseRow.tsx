@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
+import { withCoffeeDemo } from '../../coffee/demoStore';
+import { useCoffeeDemo } from '../../coffee/useCoffeeState';
 import { HOUSE_UPCOMING_ENTITY, QUIET_HOURS_END_ENTITY, QUIET_HOURS_START_ENTITY, SUN_ENTITY } from '../../config/entities';
 import { formatHomeClock } from '../../energy/homeTime';
 import { useEnergyConfig } from '../../energy/useEnergyConfig';
@@ -44,6 +46,7 @@ function NextChip({ onOpenNow }: { onOpenNow: OpenNow }) {
   const entities = useTrackedEntities();
   const viewer = useViewer();
   const nowMs = useNowMs();
+  const coffeeDemo = useCoffeeDemo();
   // Primitive selectors: `sun.sun` changes every few minutes, but these values only a few times a day.
   const nextRising = useHass(s => s.entities[SUN_ENTITY]?.attributes?.next_rising);
   const nextSetting = useHass(s => s.entities[SUN_ENTITY]?.attributes?.next_setting);
@@ -52,18 +55,23 @@ function NextChip({ onOpenNow }: { onOpenNow: OpenNow }) {
   const next = useMemo(
     () =>
       nextUp(
-        readUpcoming(id => entities[id], nowMs, viewer),
+        readUpcoming(
+          withCoffeeDemo(id => entities[id]),
+          nowMs,
+          viewer
+        ),
         timelineMarkers(nextRising, nextSetting, readQuietHours(quietStart, quietEnd), nowMs),
         parseHouseUpcoming(entities[HOUSE_UPCOMING_ENTITY]?.attributes, nowMs),
         viewer
       ),
-    [entities, nowMs, viewer, nextRising, nextSetting, quietStart, quietEnd]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `coffeeDemo` is what a ?coffee_demo= preview changes
+    [entities, nowMs, viewer, nextRising, nextSetting, quietStart, quietEnd, coffeeDemo]
   );
   const time = next ? (next.atMs <= nowMs ? 'Soon' : formatHomeClock(next.atMs)) : null;
   return (
     <button
       type='button'
-      className={`pulse-chip pulse-next ${next ? '' : 'is-empty'}`}
+      className={`pulse-chip pulse-next ${next ? '' : 'is-empty'} ${next?.itemId === 'coffee' ? 'is-coffee' : ''}`}
       onClick={() => {
         onOpenNow(next?.focus ?? null, next?.itemId);
         trackUiTap('home.next', next?.focus?.kind);
