@@ -63,20 +63,19 @@ export function normalizeTitle(title: string): string {
 }
 
 /**
- * Which DR shows and Seerr items to show for one search. A show already in Plex through Seerr stays Seerr's,
- * unless it is followed on DR; every other show DR has wins, dropping the Seerr TV item with its title.
- * Unchanged inputs come back as the very same arrays.
+ * Which DR shows and Seerr items to show for one search, matching on either Seerr title. A show already in Plex
+ * through Seerr stays Seerr's, unless it is followed on DR; every other show DR has wins, dropping the Seerr TV
+ * item with its title. Unchanged inputs come back as the very same arrays.
  */
 export function mergeDr(items: Item[], dr: DrResult[]): { items: Item[]; dr: DrResult[] } {
   if (dr.length === 0) return { items, dr };
+  const titlesOf = (item: Item) => [item.title, item.originalTitle ?? ''].map(normalizeTitle);
   const inPlex = new Set(
-    items
-      .filter(item => item.mediaType === 'tv' && (item.status === 'available' || item.status === 'partial'))
-      .map(item => normalizeTitle(item.title))
+    items.filter(item => item.mediaType === 'tv' && (item.status === 'available' || item.status === 'partial')).flatMap(titlesOf)
   );
   const keptDr = dr.filter(show => show.following || !inPlex.has(normalizeTitle(show.title)));
   const titles = new Set(keptDr.map(show => normalizeTitle(show.title)));
-  const keptItems = items.filter(item => item.mediaType !== 'tv' || !titles.has(normalizeTitle(item.title)));
+  const keptItems = items.filter(item => item.mediaType !== 'tv' || !titlesOf(item).some(title => titles.has(title)));
   return {
     items: keptItems.length === items.length ? items : keptItems,
     dr: keptDr.length === dr.length ? dr : keptDr,

@@ -12,6 +12,8 @@ export interface Item {
   mediaType: MediaType;
   tmdbId: number;
   title: string;
+  /** The title in the original language, e.g. a Danish series Seerr shows under its English name. */
+  originalTitle?: string | null;
   year: number | null;
   posterPath: string | null;
   status: Status;

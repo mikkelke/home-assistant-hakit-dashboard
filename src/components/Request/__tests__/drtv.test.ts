@@ -124,6 +124,14 @@ describe('DR and Seerr results for one search', () => {
     }
   });
 
+  it('matches a DR title against the original title too', () => {
+    const inPlex = { ...item('tv', 1, 'Unit One', 'available'), originalTitle: 'Rejseholdet' };
+    const merged = mergeDr([inPlex], [show('1', 'Rejseholdet')]);
+    expect(merged.dr).toEqual([]);
+    const notInPlex = { ...item('tv', 2, 'The Kingdom'), originalTitle: 'Riget' };
+    expect(mergeDr([notInPlex], [show('2', 'Riget')]).items).toEqual([]);
+  });
+
   it('keeps a followed DR show even when Plex has it', () => {
     const items = [item('tv', 1, 'Kontant', 'available'), item('movie', 2, 'Kontant', 'available')];
     const dr = [show('1', 'Kontant', true)];
