@@ -13,11 +13,13 @@ import {
   roomThermostat,
 } from '../../config/entities';
 import { deriveRoomFeel } from '../../utils/roomFeel';
-import { setpointLimits, stepSetpoint } from '../../utils/heating';
+import { setpointLimits, stepSetpoint, zoneForThermostat, zoneHasNudge } from '../../utils/heating';
 import { composeClimateStory, comfortTone } from '../../utils/roomClimateStory';
 import { deriveFireSafety, isCooking } from '../../utils/fireSafety';
 import { worstAirBand } from '../../utils/airQuality';
 import { ApplianceSheet } from '../Appliance';
+import { HeatDial, NudgeStepper } from '../Heating/ResidentHeat';
+import { useResidentHeat } from '../Heating/useResidentHeat';
 import { TemperatureHistoryChart } from './TemperatureHistoryChart';
 import '../Appliance/Appliance.css';
 import './RoomClimateHeader.css';
@@ -123,6 +125,8 @@ export function RoomClimateHeader({
   const hvacAction = attrStr(thermostat?.attributes?.hvac_action);
   const haTarget = strictNum(thermostat?.attributes?.temperature) ?? NaN;
   const limits = thermo ? setpointLimits(entities, thermo.entityId) : { min: 15, max: 25 };
+  const zone = thermo ? zoneForThermostat(thermo.entityId) : null;
+  const residentHeat = useResidentHeat(entities, zone && zoneHasNudge(entities, zone) ? zone : null, callService);
 
   // Optimistic target: {value, base, ts} - shown for up to ACK_TIMEOUT_MS while HA still reports
   // `base`, then reverted to whatever HA actually holds. Kept in this always-mounted header (not
@@ -263,6 +267,7 @@ export function RoomClimateHeader({
           onClose={closeSheet}
         >
           <div className='climate-scroll' tabIndex={0} role='region' aria-label='Climate details'>
+            {residentHeat && <HeatDial tempC={tempC} heat={residentHeat} />}
             <TemperatureHistoryChart
               roomSensorId={temperatureHistorySensorId}
               outdoorSensorId={entities[OUTDOOR_TEMP_SENSOR] ? OUTDOOR_TEMP_SENSOR : null}
@@ -308,7 +313,12 @@ export function RoomClimateHeader({
             {tempC == null && <p className='climate-detail-note'>Room temperature is unavailable.</p>}
           </div>
 
-          {showHeating && (
+          {residentHeat?.seasonOn && (
+            <footer className='climate-controls'>
+              <NudgeStepper heat={residentHeat} disabled={!callService} />
+            </footer>
+          )}
+          {showHeating && !residentHeat && (
             <footer className='climate-controls'>
               <div className='climate-control-heading'>
                 <strong>Heating target</strong>

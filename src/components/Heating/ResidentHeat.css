@@ -1,0 +1,134 @@
+/* Resident heating in the room climate sheet: the dial above the history chart and the nudge
+   stepper pinned in the footer. Colours come from the sheet's comfort --tone. */
+
+.heat-dial {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin: 0 0 8px;
+}
+.heat-dial-svg {
+  width: 216px;
+  height: 196px;
+  overflow: visible;
+}
+.heat-dial-track {
+  fill: none;
+  stroke: #2c2c2e;
+  stroke-width: 12;
+  stroke-linecap: round;
+}
+.heat-dial-arc {
+  fill: none;
+  stroke: #ff9f0a;
+  stroke-width: 12;
+  stroke-linecap: round;
+  opacity: 0.9;
+}
+.heat-dial-tick-shadow {
+  stroke: #1c1c1e;
+  stroke-width: 7;
+  stroke-linecap: round;
+}
+.heat-dial-tick {
+  stroke: #fff;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.heat-dial-now {
+  fill: var(--tone);
+  stroke: #1c1c1e;
+  stroke-width: 3;
+}
+.heat-dial-center {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 62px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  pointer-events: none;
+}
+.heat-dial-temp {
+  font-size: 44px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--tone);
+}
+.heat-dial-state {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  font-size: 26px;
+}
+.heat-dial-state.is-heating {
+  color: #ff9f0a;
+  animation: heat-flame-breathe 2.8s ease-in-out infinite;
+}
+.heat-dial-state.is-off {
+  color: #8a8a93;
+}
+
+.nudge-target {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.nudge-target svg {
+  font-size: 20px;
+  color: rgba(235, 235, 245, 0.6);
+}
+.nudge-pips {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 14px;
+}
+.nudge-pips i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #3a3a3c;
+  transition: background 0.2s ease;
+}
+.nudge-pips i.is-zero {
+  width: 5px;
+  height: 5px;
+  background: #6b6b73;
+}
+.nudge-pips i.is-up {
+  background: #ff9f0a;
+}
+.nudge-pips i.is-down {
+  background: #64d2ff;
+}
+.climate-step.nudge-warmer {
+  color: #ff9f0a;
+}
+.climate-step.nudge-colder {
+  color: #64d2ff;
+}
+
+@keyframes heat-flame-breathe {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .heat-dial-state.is-heating {
+    animation: none;
+  }
+  .nudge-pips i {
+    transition: none;
+  }
+}
