@@ -61,13 +61,13 @@ const SensorMapPage = lazy(() => import('../SensorMap').then(module => ({ defaul
 // with no fetch. `import()` is memoised by the module registry, so the warm-up and the lazy() call
 // share one promise.
 const RoomDetail = lazy(() => import('../RoomDetail').then(module => ({ default: module.RoomDetail })));
+const warmRoomDetail = () => void import('../RoomDetail');
 
 // The coffee stage is the wine-fridge tablet's brew screen, behind the Kitchen's Coffee entry or a #coffee hash.
 const CoffeeStage = lazy(() => import('../Coffee/CoffeeStage'));
 
 /** History state of a #coffee entry pushed over the Kitchen, which the stage's back button returns to. */
 const COFFEE_OVER_KITCHEN_KEY = 'coffeeOverKitchen';
-const warmRoomDetail = () => void import('../RoomDetail');
 
 // The #now timeline is warmed on idle like room detail, and fetched at once when the app opens on a
 // #now link (a tapped push), so the timeline is the first thing that renders.

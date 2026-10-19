@@ -151,13 +151,13 @@ function LastBrewRow({
               ? 'seen by the plug only'
               : stopped
                 ? `stopped${brew.doseG != null ? ` · ${brew.doseG} g` : ''}`
-              : [
-                  brew.totalS != null ? formatMinSec(brew.totalS) : null,
-                  brew.cupG != null ? `${Math.round(brew.cupG)} g` : null,
-                  brew.inBand === 'inside' && brew.trial ? 'inside your usual' : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
+                : [
+                    brew.totalS != null ? formatMinSec(brew.totalS) : null,
+                    brew.cupG != null ? `${Math.round(brew.cupG)} g` : null,
+                    brew.inBand === 'inside' && brew.trial ? 'inside your usual' : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
           </small>
         </span>
         {brew.rating && <TasteDot taste={brew.rating} long />}
@@ -431,7 +431,11 @@ function LiveBrew({ data, nowMs }: { data: CardData; nowMs: number }) {
             Pause
           </button>
         )}
-        <HoldButton kind='wide-stop' label='Hold to stop' className='cc-wide' disabled={stale != null || power}
+        <HoldButton
+          kind='wide-stop'
+          label='Hold to stop'
+          className='cc-wide'
+          disabled={stale != null || power}
           onConfirm={() => void sendCoffeeCommand('stop', {}).catch(() => {})}
         />
       </div>

@@ -97,7 +97,7 @@ function useStart(state: CoffeeState, nowMs: number) {
 
 function Stepper({ mode, state }: { mode: StageMode; state: CoffeeState }) {
   const brewing = mode === 'live' || mode === 'paused' || mode === 'stale';
-  const grinding = state.phase === 'grinding' || (state.phase === 'brewing' && (state.pour ?? 0) < 1);
+  const grinding = state.phase === 'grinding' || (state.phase === 'brewing' && state.source !== 'power' && (state.pour ?? 0) < 1);
   const ready = mode === 'ready';
   const share = state.pour != null && state.poursTotal ? Math.min(1, state.pour / state.poursTotal) : 0;
   const step = (glyph: 'grinder' | 'brewer' | 'cup', on: boolean, now: boolean, extra = '') => (
@@ -388,8 +388,8 @@ function BrewingSide({
               : power && state.etaMs == null
                 ? 'known when it ends'
                 : state.etaMs != null
-                ? `ready ≈ ${formatHomeClock(state.etaMs)}${sinceBloom != null ? ` · ${formatMinSec(sinceBloom)} since bloom` : ''}`
-                : 'known at the first bloom'}
+                  ? `ready ≈ ${formatHomeClock(state.etaMs)}${sinceBloom != null ? ` · ${formatMinSec(sinceBloom)} since bloom` : ''}`
+                  : 'known at the first bloom'}
           </div>
         </Tile>
       )}
@@ -581,13 +581,20 @@ function StageBody({ data, nowMs, phone }: { data: StageData; nowMs: number; pho
   const breathe = useMotionSlot('stage:pour', 'appliance', flowing);
   const plan = planOf(mode === 'idle' ? null : live, baseline, usual);
   const measuredLive =
-    mode !== 'idle' && state.source !== 'power' && live != null && (live.brewId == null || state.brewId == null || live.brewId === state.brewId);
+    mode !== 'idle' &&
+    state.source !== 'power' &&
+    live != null &&
+    (live.brewId == null || state.brewId == null || live.brewId === state.brewId);
   const cup = measuredLive ? series(live.cup, live.stepS) : null;
   const water = measuredLive ? series(live.water, live.stepS) : null;
   const dataEnd = lastValidS(cup);
   const headS = mode === 'stale' ? realNowS : (dataEnd ?? realNowS);
   const laneAtS =
-    mode === 'stale' ? stale : mode === 'paused' && state.pausedSinceMs != null && t0 != null ? Math.max(0, (state.pausedSinceMs - t0) / 1000) : headS;
+    mode === 'stale'
+      ? stale
+      : mode === 'paused' && state.pausedSinceMs != null && t0 != null
+        ? Math.max(0, (state.pausedSinceMs - t0) / 1000)
+        : headS;
   const readyS = mode === 'ready' ? (live?.endS ?? state.totalS ?? dataEnd) : null;
   const inputs = chartInputs({
     plan,
@@ -652,7 +659,14 @@ function StageBody({ data, nowMs, phone }: { data: StageData; nowMs: number; pho
       <aside className={`cs-side is-${mode}`}>
         {mode === 'idle' && <IdleSide data={data} nowMs={nowMs} />}
         {(mode === 'live' || mode === 'paused' || mode === 'stale') && (
-          <BrewingSide data={data} mode={mode} nowMs={nowMs} nowS={laneAtS ?? headS} realNowS={realNowS} staleS={mode === 'stale' ? stale : null} />
+          <BrewingSide
+            data={data}
+            mode={mode}
+            nowMs={nowMs}
+            nowS={laneAtS ?? headS}
+            realNowS={realNowS}
+            staleS={mode === 'stale' ? stale : null}
+          />
         )}
         {mode === 'ready' && <ReadySide data={data} nowMs={nowMs} />}
         {mode === 'stopped' && <StoppedSide data={data} />}
@@ -680,7 +694,8 @@ export default function CoffeeStage({ onClose }: CoffeeStageProps) {
   const brews = useCoffeeBrews();
   const recipes = useCoffeeRecipes();
   const advice = useCoffeeAdvice();
-  const nowMs = useClock(1000);
+  const busy = state != null && state.phase !== 'idle' && state.phase !== 'asleep';
+  const nowMs = useClock(busy ? 1000 : 15_000);
   const sky = useSky();
   const phone = useIsMobile();
 

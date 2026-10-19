@@ -162,8 +162,6 @@ export function parseTrial(value: unknown): TrialChange | null {
   return match ? { field: match[1], from: match[2].trim(), to: match[3].trim() } : null;
 }
 
-// ---------------------------------------------------------------- sensor.coffee_live
-
 export interface CoffeeLive {
   status: 'idle' | 'live' | 'stale' | 'ended';
   brewId: string | null;
@@ -203,8 +201,6 @@ export function parseCoffeeLive(entity: CoffeeEntity): CoffeeLive | null {
     planPours: parsePlanPours(a.plan_pours),
   };
 }
-
-// ---------------------------------------------------------------- sensor.coffee_baseline
 
 export interface CoffeeBaseline {
   status: 'ready' | 'building' | 'none';
@@ -288,8 +284,6 @@ export function parseCoffeeBaseline(entity: CoffeeEntity): CoffeeBaseline | null
 export const hasBand = (baseline: CoffeeBaseline | null): boolean =>
   baseline != null && baseline.status === 'ready' && baseline.cupLo.length > 1 && baseline.cupHi.length > 1;
 
-// ---------------------------------------------------------------- sensor.coffee_beans
-
 export interface CoffeeBeans {
   /** null until the first top-up. Never below 0. */
   remainingG: number | null;
@@ -328,8 +322,6 @@ export function parseCoffeeBeans(entity: CoffeeEntity): CoffeeBeans | null {
     }),
   };
 }
-
-// ---------------------------------------------------------------- sensor.coffee_brews
 
 export type BrewOutcome = 'complete' | 'stopped' | 'failed' | 'unobserved';
 
@@ -420,8 +412,6 @@ export function parseCoffeeBrews(entity: CoffeeEntity): CoffeeBrews | null {
   };
 }
 
-// ---------------------------------------------------------------- sensor.coffee_recipes
-
 export interface Recipe {
   id: string;
   name: string;
@@ -484,8 +474,6 @@ export function usualRecipe(recipes: CoffeeRecipes | null): Recipe | null {
   if (!recipes) return null;
   return recipes.recipes.find(recipe => recipe.id === recipes.usualId) ?? null;
 }
-
-// ---------------------------------------------------------------- sensor.coffee_advice
 
 export const ADVICE_STATES = ['no_agent', 'none', 'thinking', 'suggested', 'trial_queued', 'trial_brewed', 'dismissed', 'error'] as const;
 export type AdviceState = (typeof ADVICE_STATES)[number];

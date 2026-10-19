@@ -37,8 +37,6 @@ export const fields = (value: unknown, separator: string): string[] => {
   return raw == null ? [] : raw.split(separator).map(field => field.trim());
 };
 
-// ---------------------------------------------------------------- enums
-
 export const COFFEE_PHASES = [
   'asleep',
   'idle',
@@ -73,8 +71,6 @@ export const person = (value: unknown): PersonKey | null => oneOf(value, PERSON_
 export function personName(key: PersonKey | null | undefined): string | null {
   return HOUSEHOLD.find(member => member.key === key)?.name ?? null;
 }
-
-// ---------------------------------------------------------------- sensor.coffee_state
 
 export interface CoffeeState {
   phase: CoffeePhase;
@@ -166,7 +162,7 @@ export function parseCoffeeState(entity: CoffeeEntity): CoffeeState | null {
   };
 }
 
-/** A brew is under way: the Home pieces show it, the Kitchen card moves to the top. */
+/** A brew is under way: grinding, brewing or paused. */
 export const isBrewing = (phase: CoffeePhase | null | undefined): boolean =>
   phase === 'grinding' || phase === 'brewing' || phase === 'paused';
 
@@ -244,12 +240,12 @@ export function coffeeCycle(entity: CoffeeEntity, nowMs: number): ApplianceCycle
   };
 }
 
-/** How far a brew is, 0 to 100: from the first bloom to the ETA, else by its pours; 0 while grinding. */
+/** How far a brew is, 0 to 100: from the first bloom (or, seen by power only, the start) to the ETA, else by its pours. */
 export function brewProgressPct(
-  state: Pick<CoffeeState, 'phase' | 'etaMs' | 'firstBloomAtMs' | 'pour' | 'poursTotal'>,
+  state: Pick<CoffeeState, 'phase' | 'etaMs' | 'firstBloomAtMs' | 'startedAtMs' | 'source' | 'pour' | 'poursTotal'>,
   nowMs: number
 ): number {
-  const bloom = state.firstBloomAtMs;
+  const bloom = state.firstBloomAtMs ?? (state.source === 'power' ? state.startedAtMs : null);
   const eta = state.phase === 'paused' ? null : state.etaMs;
   let pct = 0;
   if (eta != null && bloom != null && eta > bloom) pct = ((nowMs - bloom) / (eta - bloom)) * 100;

@@ -43,7 +43,11 @@ vi.mock('../../FireSafety', () => ({ FireAlarmTakeover: () => null }));
 vi.mock('../../QuickAccess/QuickAccess', () => ({ QuickAccess: () => createElement('div', { id: 'quick-access' }) }));
 vi.mock('../../RoomDetail', () => ({
   RoomDetail: ({ area, onOpenCoffee }: { area: { area_id: string }; onOpenCoffee?: () => void }) =>
-    createElement('div', { id: 'room-detail', 'data-area': area.area_id }, createElement('button', { id: 'open-coffee', onClick: onOpenCoffee })),
+    createElement(
+      'div',
+      { id: 'room-detail', 'data-area': area.area_id },
+      createElement('button', { id: 'open-coffee', onClick: onOpenCoffee })
+    ),
 }));
 vi.mock('../../Now', () => ({ NowView: () => null }));
 vi.mock('../../Energy', () => ({ EnergyPage: () => createElement('div', { id: 'energy-page' }) }));

@@ -35,7 +35,11 @@ vi.mock('../../../hooks/useViewer', () => ({ useViewer: () => viewer }));
 const { CoffeeCard } = await import('../CoffeeCard');
 
 const IDLE = {
-  'sensor.coffee_state': { entity_id: 'sensor.coffee_state', state: 'idle', attributes: { v: '1', machine: 'asleep', link: 'not_connected' } },
+  'sensor.coffee_state': {
+    entity_id: 'sensor.coffee_state',
+    state: 'idle',
+    attributes: { v: '1', machine: 'asleep', link: 'not_connected' },
+  },
 };
 
 let root: Root;

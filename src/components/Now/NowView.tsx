@@ -242,7 +242,6 @@ function ApplianceTitle({ item }: { item: UpcomingAppliance }) {
   );
 }
 
-/** A running or paused appliance, on the NOW line: when it started goes in the card, not on the rail. */
 /** A finished brew in the past: its cup weight and curve when the ledger has it, else the feed's words. */
 function CoffeePastRow({
   row,
@@ -340,6 +339,7 @@ function RunningCard({
   return <ApplianceRunningCard row={row} quiet={quiet} focused={focused} onOpenRoom={onOpenRoom} />;
 }
 
+/** A running or paused appliance, on the NOW line: when it started goes in the card, not on the rail. */
 function ApplianceRunningCard({
   row,
   quiet,
