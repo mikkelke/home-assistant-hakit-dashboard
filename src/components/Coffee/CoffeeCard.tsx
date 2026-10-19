@@ -36,6 +36,7 @@ import {
 import {
   bandVerdict,
   brewDayWord,
+  maintenanceWord,
   brewName,
   brewWhen,
   canStart,
@@ -50,7 +51,7 @@ import {
 } from '../../coffee/view';
 import { HOUSE_UPCOMING_ENTITY } from '../../config/entities';
 import { formatHomeClock } from '../../energy/homeTime';
-import { canViewerSeeUpcoming, parseHouseUpcoming, type HouseUpcomingRow } from '../../home/houseUpcoming';
+import { canViewerSeeUpcoming, parseHouseUpcoming } from '../../home/houseUpcoming';
 import { dayLabel } from '../Now/nowModel';
 import { useLocalStorageBoolean } from '../../hooks';
 import { useNowMs } from '../../hooks/useNowMs';
@@ -74,24 +75,6 @@ import './CoffeeCard.css';
 
 type Tab = 'brew' | 'history' | 'recipes';
 type Sheet = 'stats' | 'beans' | 'tweak' | null;
-
-const MAINT_NAMES: Record<string, string> = {
-  'coffee:rinse': 'Rinse',
-  'coffee:tank': 'Tank',
-  'coffee:burrs': 'Burrs',
-  'coffee:descale': 'Descale',
-};
-
-/** The next coffee maintenance row an admin sees, in a word and a count: "Rinse in 2". */
-function maintenanceWord(rows: HouseUpcomingRow[]): string | null {
-  const coffee = rows.filter(row => row.id.startsWith('coffee:'));
-  if (coffee.length === 0) return null;
-  const next = [...coffee].sort((a, b) => (a.atMs ?? -Infinity) - (b.atMs ?? -Infinity))[0];
-  const name = MAINT_NAMES[next.id] ?? next.title.replace(/^xBloom\s+/i, '');
-  const left = /(\d+)\s+brews?\s+left/i.exec(next.detail ?? '')?.[1];
-  if (next.atMs == null || /\bdue\b/i.test(next.detail ?? '')) return `${name} due`;
-  return left ? `${name} in ${left}` : name;
-}
 
 function headerWord(
   state: CoffeeState,
@@ -607,7 +590,7 @@ function HistoryTab({ data, nowMs }: { data: CardData; nowMs: number }) {
                     ? 'The usual'
                     : (brew.recipeName ?? 'Coffee')}
                   {stopped && <small>stopped{brew.doseG != null ? ` · ${brew.doseG} g` : ''}</small>}
-                  {brew.outcome === 'unobserved' && <small>seen by power only</small>}
+                  {brew.outcome === 'unobserved' && <small>seen by the plug only</small>}
                 </span>
                 <TasteDot taste={brew.rating} />
                 <PersonFace person={brew.who} size='xs' />

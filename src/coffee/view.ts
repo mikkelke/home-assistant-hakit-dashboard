@@ -1,6 +1,7 @@
 /** Words and choices the coffee views share: what a brew is called, how its verdict reads, why a start failed. Pure. */
 import { HOME_TIME_ZONE } from '../config/plan';
 import { formatHomeClock, homeDayKey, homeDayStartMs, homeWallTime } from '../energy/homeTime';
+import type { HouseUpcomingRow } from '../home/houseUpcoming';
 import type { BandVerdict, CoffeeBeans, CoffeeLive, CoffeeState, LiveVerdict, PlanPour, PersonKey, Recipe } from './model';
 
 export type Tone = 'ok' | 'up' | 'dn' | 'mute' | 'warn';
@@ -209,4 +210,23 @@ export function recipeLine(recipe: Pick<Recipe, 'pours' | 'ratio' | 'totalMl'>):
   ]
     .filter(Boolean)
     .join(' · ');
+}
+
+const MAINT_NAMES: Record<string, string> = {
+  rinse: 'Rinse',
+  tank: 'Tank',
+  burrs: 'Burrs',
+  descale: 'Descale',
+};
+
+/** The next coffee maintenance row an admin sees, in a word and a count: "Rinse in 2", "Tank due". */
+export function maintenanceWord(rows: readonly Pick<HouseUpcomingRow, 'id' | 'title' | 'detail' | 'atMs'>[]): string | null {
+  const coffee = rows.filter(row => /(^|:)coffee:/.test(row.id));
+  if (coffee.length === 0) return null;
+  const next = [...coffee].sort((a, b) => (a.atMs ?? -Infinity) - (b.atMs ?? -Infinity))[0];
+  const task = next.id.slice(next.id.lastIndexOf(':') + 1);
+  const name = MAINT_NAMES[task] ?? next.title.replace(/^xBloom\s+/i, '');
+  if (next.atMs == null || /\bdue\b/i.test(next.detail ?? '')) return `${name} due`;
+  const left = /(\d+)\s+brews?\s+left/i.exec(next.detail ?? '')?.[1];
+  return left ? `${name} in ${left}` : name;
 }
