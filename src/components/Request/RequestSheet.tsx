@@ -3,7 +3,7 @@ import { Icon } from '@iconify/react';
 import { useModalBackButton, useSwipeToClose } from '../../hooks';
 import { DrDetail } from './DrDetail';
 import { DrFollowedRow, DrResultsRow } from './DrParts';
-import { withoutDrTitles, type DrFollowed, type DrOpen, type DrResult } from './drtv';
+import { mergeDr, type DrFollowed, type DrOpen, type DrResult } from './drtv';
 import { itemKey, STATUS_LABEL } from './display';
 import { Poster, StateBlock, StatusIcon } from './parts';
 import { Sheet } from './Sheet';
@@ -93,7 +93,9 @@ export function RequestSheet({ drtv, onClose }: RequestSheetProps) {
   const mediaFilter = filter === 'movie' || filter === 'tv' ? filter : null;
   const byMedia =
     catalog.items === null ? null : mediaFilter ? catalog.items.filter(item => item.mediaType === mediaFilter) : catalog.items;
-  const visible = byMedia && withoutDrTitles(byMedia, dr.results);
+  const merged = byMedia && mergeDr(byMedia, dr.results);
+  const visible = merged && merged.items;
+  const drShown = merged ? merged.dr : dr.results;
 
   const renderCell = (item: Item) => {
     const { status } = item;
@@ -183,7 +185,7 @@ export function RequestSheet({ drtv, onClose }: RequestSheetProps) {
         ))}
       </div>
     );
-  } else if (visible.length === 0 && catalog.exhausted && dr.results.length === 0) {
+  } else if (visible.length === 0 && catalog.exhausted && drShown.length === 0) {
     body = <StateBlock icon='mdi:movie-search-outline' onRetry={catalog.retry} />;
   } else {
     body = (
@@ -262,7 +264,7 @@ export function RequestSheet({ drtv, onClose }: RequestSheetProps) {
         </div>
 
         <div ref={bodyRef} className='rq-body'>
-          {dr.results.length > 0 && <DrResultsRow results={dr.results} stale={dr.stale} onOpen={openDrResult} />}
+          {drShown.length > 0 && <DrResultsRow results={drShown} stale={dr.stale} onOpen={openDrResult} />}
           {body}
         </div>
       </Sheet>

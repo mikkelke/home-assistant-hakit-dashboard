@@ -6,14 +6,14 @@ import {
   drStatus,
   fetchDrFollowing,
   followDr,
+  mergeDr,
   normalizeTitle,
   progressText,
   searchDr,
   unfollowDr,
-  withoutDrTitles,
-  type DrShow,
+  type DrResult,
 } from '../drtv';
-import type { Item } from '../types';
+import type { Item, Status } from '../types';
 
 /** A connection that answers every command with `reply`, or rejects with it when it is an Error or `{ code }`. */
 function answering(reply: unknown) {
@@ -93,16 +93,16 @@ describe('the DR commands', () => {
   });
 });
 
-describe('DR wins for shows DR has', () => {
-  const item = (mediaType: Item['mediaType'], tmdbId: number, title: string): Item => ({
+describe('DR and Seerr results for one search', () => {
+  const item = (mediaType: Item['mediaType'], tmdbId: number, title: string, status: Status = 'none'): Item => ({
     mediaType,
     tmdbId,
     title,
     year: null,
     posterPath: null,
-    status: 'none',
+    status,
   });
-  const dr = [{ title: 'Kontant' }] as DrShow[];
+  const show = (id: string, title: string, following = false) => ({ id, title, following }) as DrResult;
 
   it('normalises titles by case, edges and inner whitespace', () => {
     expect(normalizeTitle('  Gift   ved\tførste  Blik ')).toBe('gift ved første blik');
@@ -110,13 +110,35 @@ describe('DR wins for shows DR has', () => {
 
   it('drops TV items with the title of a DR result and keeps everything else', () => {
     const items = [item('tv', 1, ' KONTANT '), item('movie', 2, 'Kontant'), item('tv', 3, 'Kontant 2'), item('tv', 4, 'Other')];
-    expect(withoutDrTitles(items, dr).map(entry => entry.tmdbId)).toEqual([2, 3, 4]);
+    const merged = mergeDr(items, [show('1', 'Kontant')]);
+    expect(merged.items.map(entry => entry.tmdbId)).toEqual([2, 3, 4]);
+    expect(merged.dr.map(entry => entry.id)).toEqual(['1']);
   });
 
-  it('returns the very same array when nothing is dropped', () => {
+  it('keeps a show already in Plex with Seerr and drops it from DR', () => {
+    for (const status of ['available', 'partial'] as const) {
+      const items = [item('tv', 1, 'Matador', status), item('tv', 2, 'Matador')];
+      const merged = mergeDr(items, [show('1', 'Matador'), show('2', 'Borgen')]);
+      expect(merged.items).toBe(items);
+      expect(merged.dr.map(entry => entry.id)).toEqual(['2']);
+    }
+  });
+
+  it('keeps a followed DR show even when Plex has it', () => {
+    const items = [item('tv', 1, 'Kontant', 'available'), item('movie', 2, 'Kontant', 'available')];
+    const dr = [show('1', 'Kontant', true)];
+    const merged = mergeDr(items, dr);
+    expect(merged.items.map(entry => entry.tmdbId)).toEqual([2]);
+    expect(merged.dr).toBe(dr);
+  });
+
+  it('returns the very same arrays when nothing is dropped', () => {
     const items = [item('tv', 3, 'Kontant 2')];
-    expect(withoutDrTitles(items, dr)).toBe(items);
-    expect(withoutDrTitles(items, [])).toBe(items);
+    const dr = [show('1', 'Kontant')];
+    expect(mergeDr(items, dr)).toEqual({ items, dr });
+    expect(mergeDr(items, dr).items).toBe(items);
+    expect(mergeDr(items, dr).dr).toBe(dr);
+    expect(mergeDr(items, []).items).toBe(items);
   });
 });
 

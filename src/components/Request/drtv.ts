@@ -62,12 +62,25 @@ export function normalizeTitle(title: string): string {
   return title.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-/** DR wins for shows DR has: Seerr TV items titled like one of `dr` are dropped. The very same array when none are. */
-export function withoutDrTitles(items: Item[], dr: ReadonlyArray<DrShow>): Item[] {
-  if (dr.length === 0) return items;
-  const titles = new Set(dr.map(show => normalizeTitle(show.title)));
-  const kept = items.filter(item => item.mediaType !== 'tv' || !titles.has(normalizeTitle(item.title)));
-  return kept.length === items.length ? items : kept;
+/**
+ * Which DR shows and Seerr items to show for one search. A show already in Plex through Seerr stays Seerr's,
+ * unless it is followed on DR; every other show DR has wins, dropping the Seerr TV item with its title.
+ * Unchanged inputs come back as the very same arrays.
+ */
+export function mergeDr(items: Item[], dr: DrResult[]): { items: Item[]; dr: DrResult[] } {
+  if (dr.length === 0) return { items, dr };
+  const inPlex = new Set(
+    items
+      .filter(item => item.mediaType === 'tv' && (item.status === 'available' || item.status === 'partial'))
+      .map(item => normalizeTitle(item.title))
+  );
+  const keptDr = dr.filter(show => show.following || !inPlex.has(normalizeTitle(show.title)));
+  const titles = new Set(keptDr.map(show => normalizeTitle(show.title)));
+  const keptItems = items.filter(item => item.mediaType !== 'tv' || !titles.has(normalizeTitle(item.title)));
+  return {
+    items: keptItems.length === items.length ? items : keptItems,
+    dr: keptDr.length === dr.length ? dr : keptDr,
+  };
 }
 
 /** How far a followed series is, in the Seerr status vocabulary, so the same icons and tones apply. */
