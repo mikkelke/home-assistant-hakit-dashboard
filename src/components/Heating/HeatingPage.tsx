@@ -60,7 +60,7 @@ function SeasonAdvisor({ entities, seasonOn }: { entities: HassEntities; seasonO
       ? { icon: 'mdi:radiator', title: 'Heating on?', tone: 'is-start' }
       : advice === 'stop'
         ? { icon: 'mdi:radiator-off', title: 'Heating off?', tone: 'is-stop' }
-        : { icon: seasonOn ? 'mdi:radiator' : 'mdi:leaf', title: seasonOn ? 'Keep on' : 'Not yet', tone: 'is-none' };
+        : { icon: 'mdi:leaf', title: 'Not yet', tone: 'is-none' };
   const reasonCode = typeof attrs.season_advice_reason === 'string' ? attrs.season_advice_reason : '';
   const reason =
     SEASON_REASONS[reasonCode] ?? (reasonCode ? { icon: 'mdi:information-outline', text: reasonCode.replace(/_/g, ' ') } : null);
