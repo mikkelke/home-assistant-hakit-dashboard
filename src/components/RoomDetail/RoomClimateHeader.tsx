@@ -13,7 +13,7 @@ import {
   roomThermostat,
 } from '../../config/entities';
 import { deriveRoomFeel } from '../../utils/roomFeel';
-import { setpointLimits, stepSetpoint, zoneForThermostat, zoneHasNudge } from '../../utils/heating';
+import { heatBool, setpointLimits, stepSetpoint, zoneForThermostat, zoneHasNudge, zoneSensorId } from '../../utils/heating';
 import { composeClimateStory, comfortTone } from '../../utils/roomClimateStory';
 import { deriveFireSafety, isCooking } from '../../utils/fireSafety';
 import { worstAirBand } from '../../utils/airQuality';
@@ -126,7 +126,9 @@ export function RoomClimateHeader({
   const haTarget = strictNum(thermostat?.attributes?.temperature) ?? NaN;
   const limits = thermo ? setpointLimits(entities, thermo.entityId) : { min: 15, max: 25 };
   const zone = thermo ? zoneForThermostat(thermo.entityId) : null;
-  const residentHeat = useResidentHeat(entities, zone && zoneHasNudge(entities, zone) ? zone : null, callService);
+  // A nudge only reaches the thermostat once the controller writes the zone; until then the room keeps the direct stepper.
+  const residentZone = zone && zoneHasNudge(entities, zone) && heatBool(entities[zoneSensorId(zone)]?.attributes?.live) ? zone : null;
+  const residentHeat = useResidentHeat(entities, residentZone, callService);
 
   // Optimistic target: {value, base, ts} - shown for up to ACK_TIMEOUT_MS while HA still reports
   // `base`, then reverted to whatever HA actually holds. Kept in this always-mounted header (not
