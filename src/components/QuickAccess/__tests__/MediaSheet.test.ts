@@ -37,7 +37,11 @@ vi.mock('@iconify/react', async () => {
 });
 vi.mock('home-assistant-js-websocket', () => ({ getUser: () => Promise.resolve({ is_admin: false, name: viewer.name }) }));
 vi.mock('../../Intercom', () => ({ IntercomCard: () => null }));
-vi.mock('../../Request', () => ({ RequestSheet: () => null, RequestTile: () => null, useRequestAccess: () => false }));
+vi.mock('../../Request', () => ({
+  RequestSheet: () => null,
+  RequestTile: () => null,
+  useRequestAccess: () => ({ allowed: false, drtv: false }),
+}));
 vi.mock('../../Weather/QuickWeatherCard', () => ({ QuickWeatherCard: () => null }));
 vi.mock('../../MediaPlayer', async () => {
   const { createElement: h } = await import('react');

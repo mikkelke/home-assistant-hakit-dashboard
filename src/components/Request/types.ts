@@ -1,3 +1,9 @@
+export interface RequestAccess {
+  allowed: boolean;
+  /** The backend can follow DR series; never true without `allowed`. */
+  drtv: boolean;
+}
+
 export type MediaType = 'movie' | 'tv';
 
 export type Status = 'none' | 'pending' | 'processing' | 'partial' | 'available';

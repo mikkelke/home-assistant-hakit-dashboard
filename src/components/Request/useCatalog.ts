@@ -4,7 +4,7 @@ import { fetchCatalogPage } from './api';
 import { itemKey, withStatus } from './display';
 import type { Item, Status } from './types';
 
-const SEARCH_DEBOUNCE_MS = 300;
+export const SEARCH_DEBOUNCE_MS = 300;
 // Paging stops here however many pages the backend reports, so a filter that matches nothing cannot walk them all.
 const MAX_PAGES = 10;
 

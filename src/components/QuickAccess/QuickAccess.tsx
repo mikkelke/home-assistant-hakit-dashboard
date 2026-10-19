@@ -180,7 +180,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
   const [showSpeakerSelector, setShowSpeakerSelector] = useState(false);
   const [mediaTab, setMediaTab] = useState<MediaTab>('audio');
   const [requestOpen, setRequestOpen] = useState(false);
-  const requestAllowed = useRequestAccess();
+  const { allowed: requestAllowed, drtv: requestDrtv } = useRequestAccess();
   const [expandedLine, setExpandedLine] = useState<string | null>(null);
   const [isTransitRefreshing, setIsTransitRefreshing] = useState(false);
   const [now, setNow] = useState(() => new Date());
@@ -1021,7 +1021,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
 
       {/* A sibling of the media modal, not a child: React bubbles the sheet's touch events up the component
           tree, which would otherwise feed its swipes into the media modal's own swipe-to-close. */}
-      {openModal === 'media' && requestAllowed && requestOpen && <RequestSheet onClose={() => setRequestOpen(false)} />}
+      {openModal === 'media' && requestAllowed && requestOpen && <RequestSheet drtv={requestDrtv} onClose={() => setRequestOpen(false)} />}
     </>
   );
 }

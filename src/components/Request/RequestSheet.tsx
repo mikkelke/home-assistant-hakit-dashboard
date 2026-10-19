@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '@iconify/react';
 import { useModalBackButton, useSwipeToClose } from '../../hooks';
+import { DrDetail } from './DrDetail';
+import { DrFollowedRow, DrResultsRow } from './DrParts';
+import { withoutDrTitles, type DrFollowed, type DrOpen, type DrResult } from './drtv';
 import { itemKey, STATUS_LABEL } from './display';
 import { Poster, StateBlock, StatusIcon } from './parts';
 import { Sheet } from './Sheet';
 import { TitleDetail } from './TitleDetail';
 import { useCatalog } from './useCatalog';
+import { useDrtvFollowing, useDrtvSearch } from './useDrtv';
 import { useMine } from './useMine';
 import type { Item, MineItem, Status } from './types';
 import './Request.css';
@@ -27,21 +31,28 @@ function cellLabel(title: string, year: number | null, status: Status): string {
 }
 
 interface RequestSheetProps {
+  /** DR series can be followed from here. */
+  drtv: boolean;
   onClose: () => void;
 }
 
-export function RequestSheet({ onClose }: RequestSheetProps) {
+export function RequestSheet({ drtv, onClose }: RequestSheetProps) {
   const { requestClose } = useModalBackButton({ isOpen: true, onRequestClose: onClose, historyKey: 'request-sheet' });
   const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestClose);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [opened, setOpened] = useState<Item | null>(null);
+  const [openedDr, setOpenedDr] = useState<DrOpen | null>(null);
   const catalog = useCatalog(query);
   const mine = useMine(filter === 'mine');
+  const dr = useDrtvSearch(query, drtv && (filter === 'all' || filter === 'tv'));
+  const following = useDrtvFollowing(drtv && filter === 'mine');
   const bodyRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const { canLoadMore, loadMore, setStatus: setCatalogStatus } = catalog;
   const { setStatus: setMineStatus } = mine;
+  const { setFollowing: setDrFollowing } = dr;
+  const { drop: dropFollowing } = following;
   const watchEnd = filter !== 'mine' && canLoadMore;
 
   useEffect(() => {
@@ -68,9 +79,21 @@ export function RequestSheet({ onClose }: RequestSheetProps) {
     [setCatalogStatus, setMineStatus]
   );
 
+  const handleDrFollowing = useCallback(
+    (id: string, isFollowing: boolean) => {
+      setDrFollowing(id, isFollowing);
+      if (!isFollowing) dropFollowing(id);
+    },
+    [setDrFollowing, dropFollowing]
+  );
+
+  const openDrResult = (result: DrResult) => setOpenedDr({ show: result, following: result.following, entry: null });
+  const openDrFollowed = (entry: DrFollowed) => setOpenedDr({ show: entry, following: true, entry });
+
   const mediaFilter = filter === 'movie' || filter === 'tv' ? filter : null;
-  const visible =
+  const byMedia =
     catalog.items === null ? null : mediaFilter ? catalog.items.filter(item => item.mediaType === mediaFilter) : catalog.items;
+  const visible = byMedia && withoutDrTitles(byMedia, dr.results);
 
   const renderCell = (item: Item) => {
     const { status } = item;
@@ -116,19 +139,40 @@ export function RequestSheet({ onClose }: RequestSheetProps) {
 
   let body: ReactNode;
   if (filter === 'mine') {
-    if (mine.items === null) {
-      body = mine.failed ? (
-        <StateBlock icon='mdi:cloud-off-outline' onRetry={mine.retry} />
-      ) : (
+    const seerrRows = mine.items ?? [];
+    const drRows = following.items ?? [];
+    const empty = seerrRows.length + drRows.length === 0;
+    const failed = (mine.items === null && mine.failed) || (following.items === null && following.failed);
+    const loading = (mine.items === null && !mine.failed) || (drtv && following.items === null && !following.failed);
+    const retry = () => {
+      mine.retry();
+      following.retry();
+    };
+    let note: ReactNode = null;
+    if (failed) {
+      note = <StateBlock icon='mdi:cloud-off-outline' onRetry={retry} />;
+    } else if (empty && loading) {
+      note = (
         <div className='rq-state'>
           <Icon icon='mdi:loading' className='rq-spin' aria-hidden='true' />
         </div>
       );
-    } else if (mine.items.length === 0) {
-      body = <StateBlock icon='mdi:inbox-outline' onRetry={mine.retry} />;
-    } else {
-      body = <div className='rq-rows'>{mine.items.map(renderRow)}</div>;
+    } else if (empty) {
+      note = <StateBlock icon='mdi:inbox-outline' onRetry={retry} />;
     }
+    body = (
+      <>
+        {!empty && (
+          <div className='rq-rows'>
+            {seerrRows.map(renderRow)}
+            {drRows.map(entry => (
+              <DrFollowedRow key={entry.id} entry={entry} onOpen={openDrFollowed} />
+            ))}
+          </div>
+        )}
+        {note}
+      </>
+    );
   } else if (catalog.failed) {
     body = <StateBlock icon='mdi:cloud-off-outline' onRetry={catalog.retry} />;
   } else if (visible === null) {
@@ -139,7 +183,7 @@ export function RequestSheet({ onClose }: RequestSheetProps) {
         ))}
       </div>
     );
-  } else if (visible.length === 0 && catalog.exhausted) {
+  } else if (visible.length === 0 && catalog.exhausted && dr.results.length === 0) {
     body = <StateBlock icon='mdi:movie-search-outline' onRetry={catalog.retry} />;
   } else {
     body = (
@@ -218,11 +262,13 @@ export function RequestSheet({ onClose }: RequestSheetProps) {
         </div>
 
         <div ref={bodyRef} className='rq-body'>
+          {dr.results.length > 0 && <DrResultsRow results={dr.results} stale={dr.stale} onOpen={openDrResult} />}
           {body}
         </div>
       </Sheet>
 
       {opened && <TitleDetail item={opened} onClose={() => setOpened(null)} onStatus={handleStatus} />}
+      {openedDr && <DrDetail open={openedDr} onClose={() => setOpenedDr(null)} onFollowing={handleDrFollowing} />}
     </>
   );
 }

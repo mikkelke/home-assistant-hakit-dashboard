@@ -628,3 +628,88 @@
   background: rgba(239, 68, 68, 0.16);
   color: #f87171;
 }
+
+/* ---- DR series ---- */
+.rq-dr {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  transition: opacity 0.2s;
+}
+.rq-dr::-webkit-scrollbar {
+  display: none;
+}
+.rq-dr.is-stale {
+  opacity: 0.45;
+}
+/* Three cells and a third of the next one, so the row reads as scrollable. */
+.rq-dr .rq-cell {
+  flex: 0 0 calc((100% - 1.8rem) / 3.3);
+}
+
+.rq-mark {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+}
+.rq-mark--inline {
+  position: static;
+  display: inline-block;
+  margin-right: 0.4rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: #a1a1aa;
+}
+
+.rq-chip--tone {
+  background: var(--rq-tone-bg);
+}
+.rq-chip--tone svg {
+  color: var(--rq-tone);
+}
+
+.rq-foot--stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.rq-stop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: 44px;
+  background: none;
+  border: none;
+  border-radius: 0.75rem;
+  color: #a1a1aa;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.2s, opacity 0.2s, transform 120ms var(--ease-out);
+}
+.rq-stop:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.rq-stop:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.rq-stop svg {
+  font-size: 1.1rem;
+}
+.rq-stop.is-error {
+  color: #f87171;
+}

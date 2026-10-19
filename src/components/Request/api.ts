@@ -1,19 +1,22 @@
 import type { Connection } from 'home-assistant-js-websocket';
-import type { CreateParams, CreateResult, Detail, MediaType, MineItem, ResultPage } from './types';
+import type { CreateParams, CreateResult, Detail, MediaType, MineItem, RequestAccess, ResultPage } from './types';
 
 // Connection.sendMessagePromise assigns the message id itself — never set `id` here.
 
-function list<T>(value: unknown): T[] {
+export function list<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
 
-/** The backend refuses a viewer it does not know with `forbidden`: that is an answer (false). Any other failure rejects. */
-export async function fetchAccess(conn: Connection): Promise<boolean> {
+export const NO_ACCESS: RequestAccess = { allowed: false, drtv: false };
+
+/** The backend refuses a viewer it does not know with `forbidden`: that is an answer (no access). Any other failure rejects. */
+export async function fetchAccess(conn: Connection): Promise<RequestAccess> {
   try {
-    const reply = await conn.sendMessagePromise<{ allowed?: unknown } | null>({ type: 'media_requests/me' });
-    return reply?.allowed === true;
+    const reply = await conn.sendMessagePromise<{ allowed?: unknown; drtv?: unknown } | null>({ type: 'media_requests/me' });
+    const allowed = reply?.allowed === true;
+    return { allowed, drtv: allowed && reply?.drtv === true };
   } catch (error) {
-    if (requestErrorCode(error) === 'forbidden') return false;
+    if (requestErrorCode(error) === 'forbidden') return NO_ACCESS;
     throw error;
   }
 }
