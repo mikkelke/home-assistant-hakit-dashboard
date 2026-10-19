@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildNowHash,
   getViewFromHistoryHash,
+  isHeatingHash,
   isMapHash,
   mergeHistoryState,
   NOW_FOCUS_KINDS,
@@ -90,6 +91,20 @@ describe('#map link grammar', () => {
 
   it('is a view of the grid, unlike #now', () => {
     expect(getViewFromHistoryHash(windowWithHash('#map'))).toEqual({ kind: 'map' });
+  });
+});
+
+describe('#heating link grammar', () => {
+  it('opens the heating overview for #heating, with or without a parameter after it', () => {
+    for (const hash of ['#heating', '#heating=family', '#heating&zone=1']) expect(parseDashboardHash(hash)).toEqual({ kind: 'heating' });
+    expect(getViewFromHistoryHash(windowWithHash('#heating'))).toEqual({ kind: 'heating' });
+  });
+
+  it('does not take anything else for the heating page', () => {
+    for (const hash of ['', '#heat', '#heatings', '#HEATING', '#room=heating', '#energy', '#map'])
+      expect(parseDashboardHash(hash).kind).not.toBe('heating');
+    expect(isHeatingHash('#heating')).toBe(true);
+    expect(isHeatingHash('#heatingx')).toBe(false);
   });
 });
 

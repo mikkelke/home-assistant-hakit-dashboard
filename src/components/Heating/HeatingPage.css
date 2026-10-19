@@ -1,0 +1,572 @@
+/* Admin heating overview (#heating): a full-screen page in the Energy page's shell, one card per
+   concern, one row per controller zone. Mode colours: hold orange, sun cut yellow, window and
+   settle cyan, party violet, guard indigo, fallback grey. */
+
+.heating-page {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: #0d0f13;
+  display: flex;
+  flex-direction: column;
+  color: rgba(255, 255, 255, 0.92);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  --heat: #ff9f0a;
+  --cool: #64d2ff;
+  --mode-hold: #ff9f0a;
+  --mode-sun_cut: #fde047;
+  --mode-window: #64d2ff;
+  --mode-settle: #64d2ff;
+  --mode-party: #c084fc;
+  --mode-guard: #818cf8;
+  --mode-fallback: #a1a1aa;
+}
+.heat-zone-sheet {
+  --heat: #ff9f0a;
+  --mode-hold: #ff9f0a;
+  --mode-sun_cut: #fde047;
+  --mode-window: #64d2ff;
+  --mode-settle: #64d2ff;
+  --mode-party: #c084fc;
+  --mode-guard: #818cf8;
+  --mode-fallback: #a1a1aa;
+}
+.mode-hold {
+  --mode: var(--mode-hold);
+}
+.mode-sun_cut {
+  --mode: var(--mode-sun_cut);
+}
+.mode-window {
+  --mode: var(--mode-window);
+}
+.mode-settle {
+  --mode: var(--mode-settle);
+}
+.mode-party {
+  --mode: var(--mode-party);
+}
+.mode-guard {
+  --mode: var(--mode-guard);
+}
+.mode-fallback {
+  --mode: var(--mode-fallback);
+}
+
+.heating-page-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: calc(0.75rem + env(safe-area-inset-top)) 16px 12px;
+  background: rgba(18, 19, 22, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.heat-page-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 159, 10, 0.16);
+  color: var(--heat);
+  font-size: 19px;
+}
+.heat-page-glyph.is-off {
+  background: rgba(255, 255, 255, 0.07);
+  color: #a1a1aa;
+}
+.heating-page-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.heat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #d4d4d8;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.heat-pill svg {
+  font-size: 16px;
+}
+.heat-pill.is-live {
+  background: rgba(52, 211, 153, 0.14);
+  color: #34d399;
+}
+.heat-pill.is-alert {
+  background: rgba(251, 113, 133, 0.14);
+  color: #fb7185;
+}
+
+.heating-page-content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 12px 12px calc(5.5rem + env(safe-area-inset-bottom));
+}
+.heating-page-empty {
+  padding: 24px 8px;
+  text-align: center;
+  color: rgba(235, 235, 245, 0.6);
+  font-size: 14px;
+}
+.heat-card {
+  background: #1c1c1e;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+}
+
+/* ---- Season advisor ---- */
+.heat-advisor {
+  padding: 6px 14px 14px;
+}
+.heat-advisor-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.heat-advisor-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  font-size: 22px;
+  background: rgba(52, 211, 153, 0.14);
+  color: #34d399;
+}
+.heat-advisor.is-start .heat-advisor-glyph {
+  background: rgba(255, 159, 10, 0.16);
+  color: var(--heat);
+}
+.heat-advisor.is-stop .heat-advisor-glyph {
+  background: rgba(100, 210, 255, 0.16);
+  color: var(--cool);
+}
+.heat-advisor-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.heat-advisor-text {
+  margin: 4px 0 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #b3b3bd;
+}
+.heat-advisor-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.heat-scale {
+  display: grid;
+  grid-template-columns: 30px 1fr 44px;
+  gap: 8px;
+  align-items: center;
+}
+.heat-scale-bar {
+  position: relative;
+  height: 22px;
+}
+.heat-scale-bar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 10px;
+  height: 2px;
+  border-radius: 1px;
+  background: #3a3a40;
+}
+.heat-scale-line {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: #fff;
+  opacity: 0.8;
+}
+.heat-scale-dot {
+  position: absolute;
+  top: 5px;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-radius: 50%;
+  border: 2px solid #1c1c1e;
+  background: #34d399;
+}
+.heat-scale-dot.is-low {
+  background: var(--cool);
+}
+.heat-scale-value {
+  text-align: right;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #d4d4d8;
+}
+
+/* ---- Zone rows ---- */
+.heat-zones {
+  padding: 4px 0;
+}
+.heat-zone-row {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: 0 12px;
+  width: 100%;
+  min-height: 68px;
+  padding: 10px 14px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
+}
+.heat-zone-row + .heat-zone-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+.heat-zone-row:active:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+}
+.heat-zone-row:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.heat-zone-row:focus-visible,
+.heat-advisor-top:focus-visible,
+.heating-page-exit:focus-visible {
+  outline: 2px solid #b8dfff;
+  outline-offset: -2px;
+}
+.heat-zone-glyph {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  color: #c4c4cc;
+  font-size: 19px;
+}
+.heat-zone-glyph.is-shadow::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(255, 255, 255, 0.22);
+}
+.heat-zone-glyph.is-small {
+  width: 28px;
+  height: 28px;
+  font-size: 15px;
+}
+.heat-zone-glyph.is-small::after {
+  display: none;
+}
+.heat-zone-letter {
+  font-size: 15px;
+  font-weight: 700;
+}
+.heat-zone-mid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.heat-zone-name {
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.heat-zone-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+}
+.heat-zone-flame {
+  font-size: 18px;
+  color: var(--heat);
+}
+.heat-zone-mode {
+  font-size: 18px;
+  color: var(--mode);
+}
+.heat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #d4d4d8;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.heat-badge svg {
+  font-size: 13px;
+}
+.heat-badge.is-up {
+  background: rgba(255, 159, 10, 0.16);
+  color: var(--heat);
+}
+.heat-badge.is-down {
+  background: rgba(100, 210, 255, 0.16);
+  color: var(--cool);
+}
+.heat-zone-temps {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.heat-zone-air {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--tone, #c5c5cc);
+}
+.heat-zone-target {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(235, 235, 245, 0.6);
+}
+.heat-zone-target svg {
+  font-size: 14px;
+}
+
+.heating-page-exit {
+  position: absolute;
+  left: max(1rem, env(safe-area-inset-left));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(24, 25, 28, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e4e4e7;
+  font-size: 1.5rem;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  transition: transform 120ms var(--ease-out);
+}
+.heating-page-exit:active {
+  transform: scale(0.97);
+}
+
+/* ---- Zone sheet ---- */
+.heat-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.heat-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 2px;
+  border-radius: 14px;
+  background: #2c2c2e;
+}
+.heat-tile-value {
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.heat-tile-value.is-tone {
+  color: var(--tone);
+}
+.heat-tile-value.is-heat {
+  color: var(--heat);
+}
+.heat-tile-icon {
+  font-size: 16px;
+  color: rgba(235, 235, 245, 0.5);
+}
+.heat-sheet-section {
+  margin-top: 14px;
+}
+.heat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.climate-chip.chip-sun {
+  background: rgba(253, 224, 71, 0.13);
+  color: #fde047;
+}
+.heat-reasons {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #b3b3bd;
+}
+.heat-reasons li.is-stale {
+  color: #fbbf24;
+}
+.heat-base-label {
+  display: inline-flex;
+  font-size: 16px;
+}
+
+.heat-day {
+  position: relative;
+  padding-top: 24px;
+}
+.heat-day-icons {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+}
+.heat-day-icon {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 17px;
+  line-height: 1;
+  color: var(--mode);
+}
+.heat-day-bar {
+  position: relative;
+  height: 26px;
+  border-radius: 6px;
+  background: #26262b;
+}
+.heat-day-block {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--mode, #5a5a62) 55%, #1c1c1e);
+  border-right: 1px solid #1c1c1e;
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.heat-day-block:first-child {
+  border-radius: 6px 0 0 6px;
+}
+.heat-day-now {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: #fff;
+  box-shadow: 0 0 0 2px #1c1c1e;
+}
+.heat-day-ticks {
+  position: relative;
+  height: 18px;
+  margin-top: 2px;
+}
+.heat-day-ticks span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 10.5px;
+  color: rgba(235, 235, 245, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+.heat-day-ticks span::before {
+  content: '';
+  display: block;
+  width: 1px;
+  height: 4px;
+  margin: 0 auto 1px;
+  background: rgba(235, 235, 245, 0.3);
+}
+.heat-day-ticks span:first-child {
+  transform: none;
+}
+.heat-day-ticks span:first-child::before {
+  margin-left: 0;
+}
+.heat-day-ticks span:last-child {
+  transform: translateX(-100%);
+}
+.heat-day-ticks span:last-child::before {
+  margin-right: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heat-zone-row,
+  .heating-page-exit {
+    transition: none;
+  }
+}

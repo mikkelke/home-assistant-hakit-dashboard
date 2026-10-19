@@ -149,6 +149,19 @@ export function parseDayBlocks(raw: unknown): DayBlock[] {
   return blocks;
 }
 
+/** Mode icons centred on their blocks, dropping any closer than `minGapMin` to one already placed.
+ * Blocks other than hold are placed first, then wider before narrower. */
+export function blockIcons(blocks: DayBlock[], minGapMin: number): { centre: number; mode: string }[] {
+  const candidates = blocks
+    .map(block => ({ centre: (block.startMin + block.endMin) / 2, mode: block.mode, width: block.endMin - block.startMin }))
+    .sort((a, b) => Number(a.mode === 'hold') - Number(b.mode === 'hold') || b.width - a.width);
+  const placed: { centre: number; mode: string }[] = [];
+  for (const { centre, mode } of candidates) {
+    if (placed.every(icon => Math.abs(icon.centre - centre) >= minGapMin)) placed.push({ centre, mode });
+  }
+  return placed.sort((a, b) => a.centre - b.centre);
+}
+
 export interface PlanModeMeta {
   icon: string;
   label: string;

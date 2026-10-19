@@ -22,12 +22,13 @@ interface MenuProps {
   }) => Promise<unknown>;
   onOpenEnergy?: () => void;
   onOpenMap?: () => void;
+  onOpenHeating?: () => void;
 }
 
 const KIOSK_TOGGLE_ENTITY = 'input_boolean.kiosk_mode';
 const BUILD_VERSION = __APP_BUILD_VERSION__;
 
-export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy, onOpenMap }: MenuProps) {
+export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy, onOpenMap, onOpenHeating }: MenuProps) {
   const [isKioskActive, setIsKioskActive] = useState(false);
   const [isBatteryOverviewOpen, setIsBatteryOverviewOpen] = useState(false);
   const [isSmokeAlarmOpen, setIsSmokeAlarmOpen] = useState(false);
@@ -99,6 +100,11 @@ export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy, onO
     onOpenMap?.();
   };
 
+  const handleOpenHeating = () => {
+    onClose();
+    onOpenHeating?.();
+  };
+
   const handleOpenSmokeAlarm = () => {
     onClose();
     setIsSmokeAlarmOpen(true);
@@ -130,6 +136,10 @@ export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy, onO
               <button className='menu-item' onClick={handleOpenMap}>
                 <Icon icon='mdi:map-marker-radius-outline' />
                 <span>Map</span>
+              </button>
+              <button className='menu-item' onClick={handleOpenHeating}>
+                <Icon icon='mdi:radiator' />
+                <span>Heating</span>
               </button>
             </>
           )}

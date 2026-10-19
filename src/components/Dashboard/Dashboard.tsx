@@ -53,6 +53,8 @@ const EnergyPage = lazy(() => import('../Energy').then(module => ({ default: mod
 // The admin-only sensor map is a chunk of its own too, behind Menu → Map (or a #map hash). The page checks the
 // viewer itself, so the grid carries nothing but the route.
 const SensorMapPage = lazy(() => import('../SensorMap').then(module => ({ default: module.SensorMapPage })));
+// The admin-only heating overview, behind Menu → Heating or a #heating link from a push.
+const HeatingPage = lazy(() => import('../Heating/HeatingPage').then(module => ({ default: module.HeatingPage })));
 
 // Room detail is the app's other big subtree (every card lives in it) and only mounts on a room tap,
 // so it is split out too — phones are the main client (see the audience memory) and cold loads are
@@ -421,6 +423,7 @@ export function Dashboard() {
   const [climateAutoOpenAreaId, setClimateAutoOpenAreaId] = useState<string | null>(null);
   const [energyOpen, setEnergyOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const [heatingOpen, setHeatingOpen] = useState(false);
   const [coffeeOpen, setCoffeeOpen] = useState(false);
   // A #coffee&takeover=<brew> link, as it arrived; the takeover arms its return to the grid once per arrival.
   const [coffeeLink, setCoffeeLink] = useState<{ brewId: string; atMs: number } | null>(null);
@@ -438,6 +441,7 @@ export function Dashboard() {
   // Ref to track energy view open state without causing dependency issues
   const energyOpenRef = useRef(false);
   const mapOpenRef = useRef(false);
+  const heatingOpenRef = useRef(false);
   const coffeeOpenRef = useRef(false);
   const nowRouteRef = useRef<NowRoute | null>(null);
   // The first hash this app instance routes on is an arrival (a cold link or an iframe reload); every later
@@ -496,8 +500,9 @@ export function Dashboard() {
   useEffect(() => {
     energyOpenRef.current = energyOpen;
     mapOpenRef.current = mapOpen;
+    heatingOpenRef.current = heatingOpen;
     coffeeOpenRef.current = coffeeOpen;
-  }, [energyOpen, mapOpen, coffeeOpen]);
+  }, [energyOpen, mapOpen, heatingOpen, coffeeOpen]);
 
   const showNow = useCallback((route: NowRoute | null) => {
     nowRouteRef.current = route;
@@ -579,10 +584,10 @@ export function Dashboard() {
     [markHashUpdating]
   );
 
-  // The Energy, map and coffee pages are hash routes of the same kind: opening pushes one entry, closing swaps it for the
-  // bare URL.
+  // The Energy, map, heating and coffee pages are hash routes of the same kind: opening pushes one entry, closing swaps
+  // it for the bare URL.
   const replaceRouteHistory = useCallback(
-    (route: 'energy' | 'map' | 'coffee') => {
+    (route: 'energy' | 'map' | 'heating' | 'coffee') => {
       const targetWindow = getAccessibleHistoryWindow();
       if (!targetWindow) return;
 
@@ -598,7 +603,7 @@ export function Dashboard() {
   );
 
   const pushRouteHistory = useCallback(
-    (route: 'energy' | 'map' | 'coffee', hash: string, extra: Record<string, unknown> = {}) => {
+    (route: 'energy' | 'map' | 'heating' | 'coffee', hash: string, extra: Record<string, unknown> = {}) => {
       const targetWindow = getAccessibleHistoryWindow();
       if (!targetWindow) return;
 
@@ -634,7 +639,12 @@ export function Dashboard() {
     if (view.kind === 'now') {
       // The timeline sits over whatever showed when its link arrived; seeding a cold link puts the grid below it.
       const shownBefore: NowEntryBelow =
-        selectedRoomRef.current || energyOpenRef.current || mapOpenRef.current || coffeeOpenRef.current || nowRouteRef.current
+        selectedRoomRef.current ||
+        energyOpenRef.current ||
+        mapOpenRef.current ||
+        heatingOpenRef.current ||
+        coffeeOpenRef.current ||
+        nowRouteRef.current
           ? 'other'
           : 'grid';
       let change: NowEntryChange = 'none';
@@ -653,14 +663,16 @@ export function Dashboard() {
       if (selectedRoomRef.current) setSelectedRoom(null);
       if (energyOpenRef.current) setEnergyOpen(false);
       if (mapOpenRef.current) setMapOpen(false);
+      if (heatingOpenRef.current) setHeatingOpen(false);
       if (coffeeOpenRef.current) setCoffeeOpen(false);
       return;
     }
 
     if (nowRouteRef.current) showNow(null);
 
-    if (view.kind === 'energy' || view.kind === 'map' || view.kind === 'coffee') {
+    if (view.kind === 'energy' || view.kind === 'map' || view.kind === 'heating' || view.kind === 'coffee') {
       if (mapOpenRef.current !== (view.kind === 'map')) setMapOpen(view.kind === 'map');
+      if (heatingOpenRef.current !== (view.kind === 'heating')) setHeatingOpen(view.kind === 'heating');
       if (energyOpenRef.current !== (view.kind === 'energy')) setEnergyOpen(view.kind === 'energy');
       if (coffeeOpenRef.current !== (view.kind === 'coffee')) setCoffeeOpen(view.kind === 'coffee');
       if (view.kind === 'coffee' && view.takeover) setCoffeeLink({ brewId: view.takeover, atMs: Date.now() });
@@ -670,6 +682,7 @@ export function Dashboard() {
 
     if (energyOpenRef.current) setEnergyOpen(false);
     if (mapOpenRef.current) setMapOpen(false);
+    if (heatingOpenRef.current) setHeatingOpen(false);
     if (coffeeOpenRef.current) setCoffeeOpen(false);
 
     if (view.kind === 'none') {
@@ -845,6 +858,17 @@ export function Dashboard() {
     replaceRouteHistory('map');
   }, [replaceRouteHistory]);
 
+  const handleOpenHeating = () => {
+    pushRouteHistory('heating', '#heating');
+    setHeatingOpen(true);
+    setSelectedRoom(null);
+  };
+
+  const handleCloseHeating = useCallback(() => {
+    setHeatingOpen(false);
+    replaceRouteHistory('heating');
+  }, [replaceRouteHistory]);
+
   // The stage opens over what shows; from the Kitchen it goes back there, from anywhere else its back button opens it.
   const openCoffeeStage = useCallback(
     (fromKitchen: boolean) => {
@@ -853,6 +877,7 @@ export function Dashboard() {
       setSelectedRoom(null);
       setEnergyOpen(false);
       setMapOpen(false);
+      setHeatingOpen(false);
       showNow(null);
     },
     [pushRouteHistory, showNow]
@@ -907,7 +932,9 @@ export function Dashboard() {
             targetWindow.history,
             targetWindow.location,
             focus ?? null,
-            selectedRoomRef.current || energyOpenRef.current || mapOpenRef.current || coffeeOpenRef.current ? 'other' : 'grid',
+            selectedRoomRef.current || energyOpenRef.current || mapOpenRef.current || heatingOpenRef.current || coffeeOpenRef.current
+              ? 'other'
+              : 'grid',
             itemId
           );
         } catch (err) {
@@ -919,6 +946,7 @@ export function Dashboard() {
       setSelectedRoom(null);
       setEnergyOpen(false);
       setMapOpen(false);
+      setHeatingOpen(false);
       setCoffeeOpen(false);
     },
     [markHashUpdating, showNow]
@@ -948,7 +976,13 @@ export function Dashboard() {
     [findRoomById, pushRoomHistory, showNow]
   );
 
-  const motionScope = nowRoute ? 'timeline' : coffeeOpen ? 'stage' : energyOpen || mapOpen || selectedRoom || isMenuOpen ? null : 'grid';
+  const motionScope = nowRoute
+    ? 'timeline'
+    : coffeeOpen
+      ? 'stage'
+      : energyOpen || mapOpen || heatingOpen || selectedRoom || isMenuOpen
+        ? null
+        : 'grid';
 
   return (
     <div className={`dashboard ${selectedRoom ? 'has-detail' : ''} ${nowRoute ? 'is-covered' : ''}`}>
@@ -960,6 +994,7 @@ export function Dashboard() {
         callService={callService}
         onOpenEnergy={() => handleOpenEnergy()}
         onOpenMap={handleOpenMap}
+        onOpenHeating={handleOpenHeating}
       />
       <FireAlarmTakeover entities={displayEntities} callService={callService} />
       <div className='dashboard-main'>
@@ -988,9 +1023,9 @@ export function Dashboard() {
               hassUrl={hassUrl}
             />
           </main>
-          {/* Fixed bar at z-index 1000 — would float above the Energy, map and coffee pages (z-index 90) and the
+          {/* Fixed bar at z-index 1000 — would float above the Energy, map, heating and coffee pages (z-index 90) and the
               timeline, so it unmounts while any is open. */}
-          {!energyOpen && !mapOpen && !coffeeOpen && !nowRoute && (
+          {!energyOpen && !mapOpen && !heatingOpen && !coffeeOpen && !nowRoute && (
             <QuickAccess hassUrl={hassUrl} callService={callService} onOpenNow={openNow} />
           )}
         </div>
@@ -1027,6 +1062,12 @@ export function Dashboard() {
         {mapOpen && (
           <Suspense fallback={<div className='energy-page-loading' />}>
             <SensorMapPage onClose={handleCloseMap} />
+          </Suspense>
+        )}
+
+        {heatingOpen && (
+          <Suspense fallback={<div className='energy-page-loading' />}>
+            <HeatingPage onClose={handleCloseHeating} />
           </Suspense>
         )}
 

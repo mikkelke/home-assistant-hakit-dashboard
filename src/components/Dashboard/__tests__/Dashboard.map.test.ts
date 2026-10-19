@@ -45,12 +45,13 @@ vi.mock('../../RoomDetail', () => ({ RoomDetail: () => null }));
 vi.mock('../../Now', () => ({ NowView: () => null }));
 vi.mock('../../Energy', () => ({ EnergyPage: () => createElement('div', { id: 'energy-page' }) }));
 vi.mock('../../Menu', () => ({
-  Menu: ({ onOpenMap, onOpenEnergy }: { onOpenMap?: () => void; onOpenEnergy?: () => void }) =>
+  Menu: ({ onOpenMap, onOpenEnergy, onOpenHeating }: { onOpenMap?: () => void; onOpenEnergy?: () => void; onOpenHeating?: () => void }) =>
     createElement(
       'div',
       null,
       createElement('button', { id: 'open-map', onClick: onOpenMap }),
-      createElement('button', { id: 'open-energy', onClick: onOpenEnergy })
+      createElement('button', { id: 'open-energy', onClick: onOpenEnergy }),
+      createElement('button', { id: 'open-heating', onClick: onOpenHeating })
     ),
 }));
 
@@ -59,6 +60,14 @@ vi.mock('../../SensorMap', () => ({
   SensorMapPage: (props: { onClose: () => void }): ReactNode => {
     page.props = props;
     return createElement('div', { id: 'sensor-map' });
+  },
+}));
+
+const heating = vi.hoisted(() => ({ props: null as { onClose: () => void } | null }));
+vi.mock('../../Heating/HeatingPage', () => ({
+  HeatingPage: (props: { onClose: () => void }): ReactNode => {
+    heating.props = props;
+    return createElement('div', { id: 'heating-page' });
   },
 }));
 
@@ -165,5 +174,38 @@ describe('the #map route', () => {
     expect(push).toHaveBeenCalledTimes(1);
     expect(window.location.hash).toBe('#energy');
     expect(window.history.state).toMatchObject({ energy: true });
+  });
+});
+
+describe('the #heating route', () => {
+  it('opens the page for a cold #heating link, as a push would', async () => {
+    window.history.replaceState(null, '', '/dashboard#heating');
+    await mount();
+    expect(has('#heating-page')).toBe(true);
+    expect(has('#quick-access')).toBe(false);
+  });
+
+  it('pushes one entry from the menu and closes by replacing it', async () => {
+    const push = vi.spyOn(window.history, 'pushState');
+    await mount();
+    act(() => (document.querySelector('#open-heating') as HTMLElement).click());
+    await settle();
+    expect(has('#heating-page')).toBe(true);
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(window.location.hash).toBe('#heating');
+    act(() => heating.props?.onClose());
+    await settle();
+    expect(has('#heating-page')).toBe(false);
+    expect(window.location.hash).toBe('');
+    expect(has('#quick-access')).toBe(true);
+  });
+
+  it('swaps with the map rather than stacking on it', async () => {
+    window.history.replaceState(null, '', '/dashboard#heating');
+    await mount();
+    window.history.replaceState(null, '', '/dashboard#map');
+    await settle();
+    expect(has('#heating-page')).toBe(false);
+    expect(has('#sensor-map')).toBe(true);
   });
 });

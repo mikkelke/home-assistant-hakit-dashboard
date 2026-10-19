@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { HassEntities } from '../../types';
-import { heatingSeasonOn, heatNum, nudgeControl, parseDayBlocks, setpointLimits, stepSetpoint, zoneHasNudge } from '../heating';
+import { blockIcons, heatingSeasonOn, heatNum, nudgeControl, parseDayBlocks, setpointLimits, stepSetpoint, zoneHasNudge } from '../heating';
 
 const entity = (entity_id: string, state: string, attributes: Record<string, unknown> = {}) => ({ entity_id, state, attributes });
 
@@ -144,5 +144,19 @@ describe('zone helpers', () => {
       { startMin: 923, endMin: 1440, mode: 'sun_cut', setpoint: 21 },
     ]);
     expect(parseDayBlocks(['<none>'])).toEqual([]);
+  });
+
+  it('spaces the strip icons so none overlap', () => {
+    const blocks = parseDayBlocks([
+      { start: '00:00', end: '06:00', mode: 'hold' },
+      { start: '06:00', end: '06:30', mode: 'window' },
+      { start: '06:30', end: '24:00', mode: 'hold' },
+    ]);
+    expect(blockIcons(blocks, 86)).toEqual([
+      { centre: 180, mode: 'hold' },
+      { centre: 375, mode: 'window' },
+      { centre: 915, mode: 'hold' },
+    ]);
+    expect(blockIcons(blocks, 200).map(icon => icon.mode)).toEqual(['window', 'hold']);
   });
 });

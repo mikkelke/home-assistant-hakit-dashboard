@@ -61,6 +61,7 @@ export type DashboardView =
   | { kind: 'energy' }
   | { kind: 'map' }
   | CoffeeView
+  | { kind: 'heating' }
   | NowView
   | { kind: 'none' };
 
@@ -118,10 +119,16 @@ export function isMapHash(hash: string): boolean {
   return hash === '#map' || hash.startsWith('#map=') || hash.startsWith('#map&');
 }
 
+/** `#heating` opens the admin heating overview; anything after it is reserved. */
+export function isHeatingHash(hash: string): boolean {
+  return hash === '#heating' || hash.startsWith('#heating=') || hash.startsWith('#heating&');
+}
+
 export function parseDashboardHash(hash: string): DashboardView {
   if (hash === '#energy' || hash.startsWith('#energy=')) return { kind: 'energy' };
   if (isMapHash(hash)) return { kind: 'map' };
   if (isCoffeeHash(hash)) return parseCoffeeView(hash);
+  if (isHeatingHash(hash)) return { kind: 'heating' };
   if (isNowHash(hash)) return { kind: 'now', focus: parseNowFocus(hash) };
   if (hash.startsWith('#room=')) {
     const [roomId, ...rest] = hash.slice(6).split('&');

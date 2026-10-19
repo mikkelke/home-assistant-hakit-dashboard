@@ -116,3 +116,26 @@ describe('the sensor map entry', () => {
     expect(onOpenMap).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('the heating entry', () => {
+  it('is in the menu for an admin only', async () => {
+    await openMenu(Promise.resolve({ is_admin: true, name: 'Mikkel' }));
+    expect(entries()).toContain('Heating');
+    await openMenu(Promise.resolve({ is_admin: false, name: 'Claudia' }));
+    expect(entries()).not.toContain('Heating');
+  });
+
+  it('closes the menu and opens the heating page when tapped', async () => {
+    const onClose = vi.fn();
+    const onOpenHeating = vi.fn();
+    lookup.current = Promise.resolve({ is_admin: true, name: 'Mikkel' });
+    store.setState({ connection: {} });
+    await act(async () => {
+      root.render(createElement(Menu, { isOpen: true, onClose, entities: {}, onOpenHeating }));
+    });
+    const item = [...document.querySelectorAll('.menu-item')].find(node => node.textContent === 'Heating') as HTMLElement;
+    act(() => item.click());
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onOpenHeating).toHaveBeenCalledTimes(1);
+  });
+});
