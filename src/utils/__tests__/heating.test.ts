@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import type { HassEntities } from '../../types';
-import { blockIcons, heatingSeasonOn, heatNum, nudgeControl, parseDayBlocks, setpointLimits, stepSetpoint, zoneHasNudge } from '../heating';
+import {
+  blockIcons,
+  canAdjustRoom,
+  heatingSeasonOn,
+  heatNum,
+  nudgeControl,
+  parseDayBlocks,
+  setpointLimits,
+  stepSetpoint,
+  zoneHasNudge,
+} from '../heating';
 
 const entity = (entity_id: string, state: string, attributes: Record<string, unknown> = {}) => ({ entity_id, state, attributes });
 
@@ -158,5 +168,27 @@ describe('zone helpers', () => {
       { centre: 915, mode: 'hold' },
     ]);
     expect(blockIcons(blocks, 200).map(icon => icon.mode)).toEqual(['window', 'hold']);
+  });
+});
+
+describe('canAdjustRoom', () => {
+  const people = {
+    'person.kristine': { entity_id: 'person.kristine', state: 'home', attributes: { user_id: 'u-kristine' } },
+    'person.claudia': { entity_id: 'person.claudia', state: 'home', attributes: { user_id: 'u-claudia' } },
+  } as unknown as HassEntities;
+
+  it('lets an administrator adjust every room', () => {
+    expect(canAdjustRoom(people, { isAdmin: true, id: 'u-admin' }, 'family')).toBe(true);
+    expect(canAdjustRoom(people, { isAdmin: true, id: 'u-admin' }, null)).toBe(true);
+  });
+
+  it('lets a resident adjust their own room and no other', () => {
+    expect(canAdjustRoom(people, { isAdmin: false, id: 'u-kristine' }, 'kristines_room')).toBe(true);
+    expect(canAdjustRoom(people, { isAdmin: false, id: 'u-kristine' }, 'claudias_room')).toBe(false);
+    expect(canAdjustRoom(people, { isAdmin: false, id: 'u-claudia' }, 'family')).toBe(false);
+  });
+
+  it('adjusts nothing while the viewer is unresolved', () => {
+    expect(canAdjustRoom(people, { isAdmin: null, id: null }, 'kristines_room')).toBe(false);
   });
 });

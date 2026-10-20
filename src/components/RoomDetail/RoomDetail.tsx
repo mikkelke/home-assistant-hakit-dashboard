@@ -24,7 +24,6 @@ import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import './RoomDetail.css';
 
 /** hvac_mode values that mean the whole-apartment thermostat isn't calling for heat at all. */
-const HEATING_SEASON_OFF_STATES = new Set(['off', 'unavailable', 'unknown']);
 
 export function RoomDetail({
   area,
@@ -94,8 +93,6 @@ export function RoomDetail({
   // Winter/summer gate for the bedroom's climate-card slot: the whole-apartment thermostat
   // calling for heat means floor heating (HeatCard); otherwise it's AC-advisory season
   // (TonightCard, which self-gates further) — the bedroom never shows both.
-  const familyRoomThermostatState = entities?.['climate.family_room_thermostat']?.state;
-  const heatingSeason = !!familyRoomThermostatState && !HEATING_SEASON_OFF_STATES.has(familyRoomThermostatState);
   const isHallway = area.name.toLowerCase() === 'hallway';
   const isRooftop = area.area_id === 'rooftop' || area.name.toLowerCase().replace(/\s+/g, '_') === 'rooftop';
   const isLivingRoom = area.name.toLowerCase() === 'living room' || area.name.toLowerCase() === 'living_room';
@@ -156,7 +153,6 @@ export function RoomDetail({
           entities={entities}
           areaId={area.area_id}
           callService={callService}
-          heatingSeason={heatingSeason}
           autoOpen={autoOpenClimate}
           onAutoOpenHandled={onAutoOpenClimateHandled}
         />

@@ -13,13 +13,23 @@ import {
   roomThermostat,
 } from '../../config/entities';
 import { deriveRoomFeel } from '../../utils/roomFeel';
-import { heatBool, setpointLimits, stepSetpoint, zoneForThermostat, zoneHasNudge, zoneSensorId } from '../../utils/heating';
+import {
+  canAdjustRoom,
+  heatBool,
+  heatingSeasonOn,
+  setpointLimits,
+  stepSetpoint,
+  zoneForThermostat,
+  zoneHasNudge,
+  zoneSensorId,
+} from '../../utils/heating';
 import { composeClimateStory, comfortTone } from '../../utils/roomClimateStory';
 import { deriveFireSafety, isCooking } from '../../utils/fireSafety';
 import { worstAirBand } from '../../utils/airQuality';
 import { ApplianceSheet } from '../Appliance';
 import { HeatDial, NudgeStepper } from '../Heating/ResidentHeat';
 import { useResidentHeat } from '../Heating/useResidentHeat';
+import { useViewer } from '../../hooks/useViewer';
 import { TemperatureHistoryChart } from './TemperatureHistoryChart';
 import '../Appliance/Appliance.css';
 import './RoomClimateHeader.css';
@@ -37,7 +47,6 @@ interface RoomClimateHeaderProps {
   /** Whole-apartment heating season (the Salus master out of "off"). Off-season the stepper stays
    * hidden unless this room's own zone is on or actually heating - a header must never hide
    * running heat. */
-  heatingSeason: boolean;
   /** True for the render where the sheet should open itself (room-card temperature/humidity tap,
    * or a `#room=<id>&climate=1` deep link) - see RoomDetail/Dashboard. */
   autoOpen?: boolean;
@@ -85,15 +94,7 @@ function Stat({ label, value, unit, digits = 0 }: { label: string; value: number
   );
 }
 
-export function RoomClimateHeader({
-  roomName,
-  entities,
-  areaId,
-  callService,
-  heatingSeason,
-  autoOpen,
-  onAutoOpenHandled,
-}: RoomClimateHeaderProps) {
+export function RoomClimateHeader({ roomName, entities, areaId, callService, autoOpen, onAutoOpenHandled }: RoomClimateHeaderProps) {
   const normalizedArea = areaId.toLowerCase().replace(/\s+/g, '_');
   const isBedroom = normalizedArea === 'bedroom';
   const isKitchen = normalizedArea === 'kitchen';
@@ -131,6 +132,8 @@ export function RoomClimateHeader({
   // A nudge only reaches the thermostat once the controller writes the zone; until then the room keeps the direct stepper.
   const nudgeLive = !!dialZone && zoneLive && zoneHasNudge(entities, dialZone);
   const residentHeat = useResidentHeat(entities, dialZone, callService);
+  const viewer = useViewer();
+  const mayAdjust = canAdjustRoom(entities, viewer, zone);
 
   // Optimistic target: {value, base, ts} - shown for up to ACK_TIMEOUT_MS while HA still reports
   // `base`, then reverted to whatever HA actually holds. Kept in this always-mounted header (not
@@ -223,7 +226,8 @@ export function RoomClimateHeader({
 
   const knownZone = !!thermostat && !['unknown', 'unavailable', ''].includes(hvacMode);
   const canAdjust = !!callService && knownZone && Number.isFinite(shownTarget);
-  const showHeating = !!thermostat && (heatingSeason || zoneOn || hvacAction === 'heating');
+  // Off season the heating stays off: no target control unless something is heating anyway.
+  const showHeating = !!thermostat && (heatingSeasonOn(entities) || hvacAction === 'heating');
   const rhShown = feel.available ? feel.rh : strictNum(thermostat?.attributes?.current_humidity);
   const rh = rhShown ?? null;
   const tone = comfortTone(feel.comfortWord);
@@ -320,12 +324,12 @@ export function RoomClimateHeader({
             {tempC == null && <p className='climate-detail-note'>Room temperature is unavailable.</p>}
           </div>
 
-          {nudgeLive && residentHeat?.seasonOn && (
+          {mayAdjust && nudgeLive && residentHeat?.seasonOn && (
             <footer className='climate-controls'>
               <NudgeStepper heat={residentHeat} disabled={!callService} />
             </footer>
           )}
-          {showHeating && !nudgeLive && (
+          {mayAdjust && showHeating && !nudgeLive && (
             <footer className='climate-controls'>
               <div className='climate-control-heading'>
                 <strong>Heating target</strong>

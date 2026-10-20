@@ -197,3 +197,21 @@ export function clockOf(raw: unknown): string | null {
   if (Number.isNaN(d.getTime())) return null;
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
+
+/** The person whose room a zone is; nobody else but an administrator adjusts it. */
+const ZONE_OWNERS: Partial<Record<HeatingZone, string>> = {
+  kristines_room: 'person.kristine',
+  claudias_room: 'person.claudia',
+};
+
+/** Whether the viewer may change a room's heating: an administrator everywhere, a resident only in their own room. */
+export function canAdjustRoom(
+  entities: HassEntities,
+  viewer: { isAdmin: boolean | null; id: string | null },
+  zone: HeatingZone | null
+): boolean {
+  if (viewer.isAdmin === true) return true;
+  const owner = zone ? ZONE_OWNERS[zone] : undefined;
+  if (!owner || !viewer.id) return false;
+  return entities[owner]?.attributes?.user_id === viewer.id;
+}
