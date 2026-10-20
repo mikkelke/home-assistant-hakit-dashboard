@@ -935,12 +935,14 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                                   <Icon icon={row.icon} className='info-transit-line-icon' />
                                   <div className='info-transit-name-group'>
                                     <span className='info-transit-name'>{row.name}</span>
-                                    <span className='info-transit-direction'>
-                                      <Icon icon='mdi:arrow-right' />
-                                      {row.destination}
-                                    </span>
+                                    {!merged && (
+                                      <span className='info-transit-direction'>
+                                        <Icon icon='mdi:arrow-right' />
+                                        {row.destination}
+                                      </span>
+                                    )}
                                   </div>
-                                  {row.enabled && (
+                                  {row.enabled && !merged && (
                                     <span className='info-transit-status' style={{ color: getTransitStatusColor(row.displayStatus) }}>
                                       <Icon icon={getTransitStatusIcon(row.displayStatus)} />
                                       {row.displayStatus}
@@ -981,6 +983,21 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                                     const emptyMessage = allDepartedOver2Min && noIssues ? 'Please refresh data' : 'No data';
                                     return (
                                       <div key={line.statusEntityId} className='info-transit-departures'>
+                                        {merged && (
+                                          <div className='info-transit-subhead'>
+                                            <span className='info-transit-direction'>
+                                              <Icon icon='mdi:arrow-right' />
+                                              {line.destination}
+                                            </span>
+                                            <span
+                                              className='info-transit-status'
+                                              style={{ color: getTransitStatusColor(line.displayStatus) }}
+                                            >
+                                              <Icon icon={getTransitStatusIcon(line.displayStatus)} />
+                                              {line.displayStatus}
+                                            </span>
+                                          </div>
+                                        )}
                                         {deps.length > 0 ? (
                                           <div className='info-transit-dep-chips'>
                                             {deps.map(d => {
@@ -1019,9 +1036,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                                             })}
                                           </div>
                                         ) : (
-                                          <span className='info-transit-no-dep'>
-                                            {merged ? `${line.destination}: ${emptyMessage}` : emptyMessage}
-                                          </span>
+                                          <span className='info-transit-no-dep'>{emptyMessage}</span>
                                         )}
                                       </div>
                                     );

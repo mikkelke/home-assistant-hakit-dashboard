@@ -1032,6 +1032,14 @@
   font-size: 0.7rem;
 }
 
+.info-transit-subhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-right: 1.5rem;
+}
+
 .info-transit-status {
   display: flex;
   align-items: center;
