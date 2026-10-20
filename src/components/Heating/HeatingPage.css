@@ -1,6 +1,6 @@
 /* Admin heating overview (#heating): a full-screen page in the Energy page's shell, one card per
-   concern, one row per controller zone. Mode colours: hold orange, sun cut yellow, window and
-   settle cyan, party violet, guard indigo, fallback grey. */
+   concern, one row per controller zone and a monitor-only row for the bedroom. Mode colours: hold
+   orange, sun cut yellow, window and settle cyan, party violet, guard indigo, fallback grey. */
 
 .heating-page {
   position: fixed;
@@ -56,6 +56,7 @@
 .heating-page-header {
   flex-shrink: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: calc(0.75rem + env(safe-area-inset-top)) 16px 12px;
@@ -79,7 +80,7 @@
   color: #a1a1aa;
 }
 .heating-page-title {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   margin: 0;
   overflow: hidden;
@@ -113,6 +114,11 @@
 .heat-pill.is-alert {
   background: rgba(251, 113, 133, 0.14);
   color: #fb7185;
+}
+.heat-probes {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .heating-page-content {
@@ -278,6 +284,12 @@
   cursor: default;
   opacity: 0.5;
 }
+.heat-zone-row.is-monitor {
+  cursor: default;
+}
+.heat-zone-row.is-monitor:active {
+  background: none;
+}
 .heat-zone-row:focus-visible,
 .heat-advisor-top:focus-visible,
 .heating-page-exit:focus-visible {
@@ -342,6 +354,14 @@
 .heat-zone-mode {
   font-size: 18px;
   color: var(--mode);
+}
+.heat-zone-noheat {
+  font-size: 18px;
+  color: #a1a1aa;
+}
+.heat-zone-cooling {
+  font-size: 18px;
+  color: var(--cool);
 }
 .heat-badge {
   display: inline-flex;

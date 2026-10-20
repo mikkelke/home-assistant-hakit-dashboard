@@ -103,8 +103,7 @@ describe('the heating page', () => {
     expect(document.querySelector('.heat-advisor-title')?.textContent).toBe('Not yet');
     expect(document.querySelectorAll('.heat-scale')).toHaveLength(3);
     expect(document.querySelectorAll('.heat-scale-dot')).toHaveLength(1);
-    expect(document.querySelectorAll('.heat-zone-row')).toHaveLength(5);
-    expect(document.body.textContent).not.toContain('Bedroom');
+    expect(document.querySelectorAll('button.heat-zone-row')).toHaveLength(5);
     const family = document.querySelector('.heat-zone-row') as HTMLElement;
     expect(icons(family)).toContain('mdi:white-balance-sunny');
     expect(family.textContent).toMatch(/22\.0 \d\d:00/);
@@ -129,6 +128,96 @@ describe('the heating page', () => {
       target: { entity_id: 'input_number.heating_target_family' },
       serviceData: { value: 22 },
     });
+  });
+});
+
+type Published = ReturnType<typeof entity>;
+
+/** The page over the off-season fixture with `extra` entities added (or replaced). */
+function renderPage(...extra: Published[]) {
+  const entities = offSeason();
+  for (const e of extra) entities[e.entity_id] = e;
+  hass.entities = entities;
+  act(() => root.render(createElement(HeatingPage, { onClose: () => {} })));
+}
+
+describe('the pipe probes', () => {
+  const SUPPLY = 'sensor.heating_room_floor_heating_supply';
+  const RETURN = 'sensor.heating_room_floor_heating_return';
+  const header = () => document.querySelector('.heating-page-header') as HTMLElement;
+  const probeIcons = () => icons(header()).filter(icon => icon?.startsWith('mdi:thermometer-chevron'));
+
+  it('shows supply and return in the header with one decimal', () => {
+    renderPage(entity(SUPPLY, '28.34'), entity(RETURN, '24.06'));
+    expect(header().querySelector('[aria-label="Supply pipe 28.3 °C"]')?.textContent).toBe('28.3°');
+    expect(header().querySelector('[aria-label="Return pipe 24.1 °C"]')?.textContent).toBe('24.1°');
+    expect(probeIcons()).toEqual(['mdi:thermometer-chevron-up', 'mdi:thermometer-chevron-down']);
+    expect(header().textContent).toContain('Shadow');
+  });
+
+  const hidden: [string, Published[], string[]][] = [
+    ['an unavailable supply', [entity(SUPPLY, 'unavailable'), entity(RETURN, '24.1')], ['mdi:thermometer-chevron-down']],
+    ['an unknown return', [entity(SUPPLY, '28.3'), entity(RETURN, 'unknown')], ['mdi:thermometer-chevron-up']],
+    ['a missing supply', [entity(RETURN, '24.1')], ['mdi:thermometer-chevron-down']],
+    ['a missing return', [entity(SUPPLY, '28.3')], ['mdi:thermometer-chevron-up']],
+    ['both probes when neither exists', [], []],
+  ];
+  it.each(hidden)('hides %s', (_name, probes, shown) => {
+    renderPage(...probes);
+    expect(probeIcons()).toEqual(shown);
+    expect(header().querySelector('.heat-probes') !== null).toBe(shown.length > 0);
+  });
+});
+
+describe('the bedroom row', () => {
+  const AC = 'climate.air_conditioner_thermostat';
+  const feel = entity('sensor.bedroom_feel', '21.34', { headline: '21.3 °C · comfortable' });
+  const thermostat = entity('climate.bedroom_thermostat', 'off', { current_temperature: 22.9, hvac_action: 'off' });
+  const row = () => document.querySelector('.heat-zone-row.is-monitor') as HTMLElement;
+  const air = () => row().querySelector('.heat-zone-air')?.textContent;
+
+  it('closes the zone list as a read-only row with the room temperature and a no-heat icon', () => {
+    renderPage(feel, thermostat);
+    const rows = [...document.querySelectorAll('.heat-zones > .heat-zone-row')];
+    expect(rows).toHaveLength(6);
+    expect(rows[5]).toBe(row());
+    expect(row().tagName).toBe('DIV');
+    expect(row().querySelector('.heat-zone-name')?.textContent).toBe('Bedroom');
+    expect(air()).toBe('21.3°');
+    expect(row().querySelector('.heat-zone-temps')?.classList.contains('tone-fresh')).toBe(true);
+    expect(icons(row())).toEqual(['mdi:bed-outline', 'mdi:radiator-off']);
+    expect(row().querySelector('.heat-zone-target, .heat-badge')).toBeNull();
+    expect(row().getAttribute('aria-label')).toBe('Bedroom, air 21.3 °C, not heated');
+  });
+
+  it('reads the thermostat when the feel sensor has no reading', () => {
+    renderPage(entity('sensor.bedroom_feel', 'unavailable'), thermostat);
+    expect(air()).toBe('22.9°');
+    renderPage(thermostat);
+    expect(air()).toBe('22.9°');
+    renderPage();
+    expect(air()).toBe('—');
+    expect(row().getAttribute('aria-label')).toBe('Bedroom, air unknown, not heated');
+  });
+
+  it('adds a snowflake only while the A/C is cooling', () => {
+    renderPage(feel, entity(AC, 'cool', { hvac_action: 'cooling' }));
+    expect(icons(row())).toEqual(['mdi:bed-outline', 'mdi:radiator-off', 'mdi:snowflake']);
+    expect(row().getAttribute('aria-label')).toBe('Bedroom, air 21.3 °C, not heated, A/C cooling');
+    renderPage(feel, entity(AC, 'cool', { hvac_action: 'idle' }));
+    expect(icons(row())).not.toContain('mdi:snowflake');
+    renderPage(feel, entity(AC, 'unavailable'));
+    expect(icons(row())).not.toContain('mdi:snowflake');
+    renderPage(feel);
+    expect(icons(row())).not.toContain('mdi:snowflake');
+  });
+
+  it('does nothing when tapped, unlike a zone row', () => {
+    renderPage(feel);
+    act(() => row().click());
+    expect(document.querySelector('.heat-zone-sheet')).toBeNull();
+    act(() => (document.querySelector('button.heat-zone-row') as HTMLElement).click());
+    expect(document.querySelector('.heat-zone-sheet')).not.toBeNull();
   });
 });
 

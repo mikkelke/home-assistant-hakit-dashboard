@@ -1,7 +1,7 @@
 import type { HassEntities } from '../../types';
 import { comfortTone } from '../../utils/roomClimateStory';
 import { deriveRoomFeel } from '../../utils/roomFeel';
-import { heatNum, zoneSensorId, type HeatingZone } from '../../utils/heating';
+import { BEDROOM_THERMOSTAT, heatNum, zoneSensorId, type HeatingZone } from '../../utils/heating';
 
 export interface ZoneMeta {
   name: string;
@@ -19,6 +19,9 @@ export const ZONE_META: Record<HeatingZone, ZoneMeta> = {
   guest_bathroom: { name: 'Guest bathroom', icon: 'mdi:toilet', areaId: 'guest_bathroom' },
 };
 
+/** The bedroom row's room, kept apart from ZONE_META because the controller has no zone for it. */
+export const BEDROOM_META = { name: 'Bedroom', icon: 'mdi:bed-outline', areaId: 'bedroom' } satisfies ZoneMeta;
+
 /** The zone's air temperature (the controller's control air, else the thermostat's reading) and
  * the comfort tone the room's climate chip uses. */
 export function zoneAir(entities: HassEntities, zone: HeatingZone) {
@@ -26,6 +29,15 @@ export function zoneAir(entities: HassEntities, zone: HeatingZone) {
   const feel = deriveRoomFeel(entities, ZONE_META[zone].areaId);
   return {
     airC: heatNum(attrs?.control_air) ?? heatNum(attrs?.thermostat_temp),
+    tone: feel.available && !feel.stale ? comfortTone(feel.comfortWord) : 'neutral',
+  };
+}
+
+/** The bedroom's air temperature (its feel sensor, else its thermostat's reading) and the comfort tone of the feel. */
+export function bedroomAir(entities: HassEntities) {
+  const feel = deriveRoomFeel(entities, BEDROOM_META.areaId);
+  return {
+    airC: feel.tempC ?? heatNum(entities[BEDROOM_THERMOSTAT]?.attributes?.current_temperature),
     tone: feel.available && !feel.stale ? comfortTone(feel.comfortWord) : 'neutral',
   };
 }

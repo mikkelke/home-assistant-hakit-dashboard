@@ -4,8 +4,11 @@ import { useHass } from '@hakit/core';
 import type { CallServiceFunction, HassEntities } from '../../types';
 import { useSwipeToClose, useViewer } from '../../hooks';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
+import { AC_THERMOSTAT_ENTITY } from '../../config/entities';
 import {
   HEATING_CONTROLLER_SENSOR,
+  HEATING_RETURN_TEMP_SENSOR,
+  HEATING_SUPPLY_TEMP_SENSOR,
   HEATING_ZONES,
   clockOf,
   heatBool,
@@ -19,7 +22,7 @@ import {
   type HeatingZone,
 } from '../../utils/heating';
 import { HeatZoneSheet } from './HeatZoneSheet';
-import { ZONE_META, zoneAir } from './zoneMeta';
+import { BEDROOM_META, ZONE_META, bedroomAir, zoneAir } from './zoneMeta';
 import '../Appliance/Appliance.css';
 import '../RoomDetail/RoomClimateHeader.css';
 import './HeatingPage.css';
@@ -186,6 +189,48 @@ function ZoneRow({ zone, entities, onOpen }: { zone: HeatingZone; entities: Hass
   );
 }
 
+/** The bedroom beside the zones: never heated (the A/C cools it in summer), so it has no target, no plan and no sheet. */
+function BedroomRow({ entities }: { entities: HassEntities }) {
+  const { airC, tone } = bedroomAir(entities);
+  const cooling = entities[AC_THERMOSTAT_ENTITY]?.attributes?.hvac_action === 'cooling';
+
+  const label = [
+    BEDROOM_META.name,
+    airC == null ? 'air unknown' : `air ${airC.toFixed(1)} °C`,
+    'not heated',
+    cooling ? 'A/C cooling' : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  return (
+    <div className='heat-zone-row is-monitor' role='img' aria-label={label}>
+      <span className='heat-zone-glyph' aria-hidden='true'>
+        <Icon icon={BEDROOM_META.icon} />
+      </span>
+      <span className='heat-zone-mid'>
+        <span className='heat-zone-name'>{BEDROOM_META.name}</span>
+        <span className='heat-zone-chips' aria-hidden='true'>
+          <Icon className='heat-zone-noheat' icon='mdi:radiator-off' />
+          {cooling && <Icon className='heat-zone-cooling' icon='mdi:snowflake' />}
+        </span>
+      </span>
+      <span className={`heat-zone-temps tone-${tone}`} aria-hidden='true'>
+        <span className='heat-zone-air'>{airC == null ? '—' : `${airC.toFixed(1)}°`}</span>
+      </span>
+    </div>
+  );
+}
+
+function PipeProbe({ icon, label, tempC }: { icon: string; label: string; tempC: number }) {
+  return (
+    <span className='heat-pill' role='img' aria-label={`${label} ${tempC.toFixed(1)} °C`}>
+      <Icon icon={icon} aria-hidden='true' />
+      {tempC.toFixed(1)}°
+    </span>
+  );
+}
+
 function HeatingOverview({ onClose }: HeatingPageProps) {
   const entities = useTrackedEntities();
   const callService = useHass(state => state.helpers?.callService) as CallServiceFunction | undefined;
@@ -201,6 +246,8 @@ function HeatingOverview({ onClose }: HeatingPageProps) {
   const live = zones.filter(zone => heatBool(entities[zoneSensorId(zone)]?.attributes?.live)).length;
   const writes = heatNum(ctl.would_writes_today);
   const alerts = heatList(ctl.alerts_active).length;
+  const supplyC = heatNum(entities[HEATING_SUPPLY_TEMP_SENSOR]?.state);
+  const returnC = heatNum(entities[HEATING_RETURN_TEMP_SENSOR]?.state);
 
   return (
     <div
@@ -233,6 +280,12 @@ function HeatingOverview({ onClose }: HeatingPageProps) {
             {alerts}
           </span>
         )}
+        {(supplyC != null || returnC != null) && (
+          <div className='heat-probes'>
+            {supplyC != null && <PipeProbe icon='mdi:thermometer-chevron-up' label='Supply pipe' tempC={supplyC} />}
+            {returnC != null && <PipeProbe icon='mdi:thermometer-chevron-down' label='Return pipe' tempC={returnC} />}
+          </div>
+        )}
       </header>
 
       <div className='heating-page-content'>
@@ -242,6 +295,7 @@ function HeatingOverview({ onClose }: HeatingPageProps) {
             {zones.map(zone => (
               <ZoneRow key={zone} zone={zone} entities={entities} onOpen={() => setOpenZone(zone)} />
             ))}
+            <BedroomRow entities={entities} />
           </section>
         ) : (
           <p className='heating-page-empty'>The heating controller publishes nothing yet.</p>

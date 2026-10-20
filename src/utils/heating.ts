@@ -7,6 +7,13 @@ export type HeatingZone = (typeof HEATING_ZONES)[number];
 export const HEATING_CONTROLLER_SENSOR = 'sensor.heating_controller';
 export const HEATING_SEASON_SWITCH = 'input_boolean.heating_season';
 
+/** Pipe clamps on the building's supply and return, in °C. */
+export const HEATING_SUPPLY_TEMP_SENSOR = 'sensor.heating_room_floor_heating_supply';
+export const HEATING_RETURN_TEMP_SENSOR = 'sensor.heating_room_floor_heating_return';
+
+/** The bedroom is never heated and the controller has no zone for it, so it stays out of HEATING_ZONES. */
+export const BEDROOM_THERMOSTAT = 'climate.bedroom_thermostat';
+
 /** One press of a nudge button moves the nudge this far (the controller's nudge step). */
 export const NUDGE_STEP_C = 0.5;
 
