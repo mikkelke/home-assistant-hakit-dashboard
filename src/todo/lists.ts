@@ -10,11 +10,9 @@ const DEFAULT_ICON = 'mdi:format-list-checkbox';
 
 const KNOWN_ICONS: Record<string, string> = {
   'todo.indkob': 'mdi:cart-outline',
-  'todo.firma_indkob': 'mdi:storefront-outline',
   'todo.husk_hjemme': 'mdi:home-outline',
   'todo.husk_kontor': 'mdi:office-building-outline',
   'todo.net_kob': 'mdi:package-variant-closed',
-  'todo.todo': 'mdi:format-list-checks',
 };
 
 export const isTodoEntityId = (entityId: string) => entityId.startsWith('todo.');
