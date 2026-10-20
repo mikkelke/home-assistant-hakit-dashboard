@@ -1,4 +1,4 @@
-import type { TransitAggregateAlertThresholds, TransitStatus } from '../config/transit';
+import type { TransitAggregateAlertThresholds, TransitLineConfig, TransitStatus } from '../config/transit';
 import { TRANSIT_AGGREGATE_HEAVY_DEFAULT, TRANSIT_DENSE_DEPARTURE_COUNT_MIN, TRANSIT_DENSITY_WINDOW_MINUTES } from '../config/transit';
 import type { HassEntities } from '../types';
 
@@ -58,6 +58,13 @@ export function formatTravelTime(minutes: number): string {
   const total = Math.round(minutes);
   if (total < 60) return `${total}m`;
   return `${Math.floor(total / 60)}h${String(total % 60).padStart(2, '0')}`;
+}
+
+/** The badge on a departure chip: the line letter or the train category, as the route is configured; empty for a route without one. */
+export function transitBadgeLabel(badge: TransitLineConfig['badge'], departure: { line: string; category?: string }): string {
+  if (badge === 'line') return departure.line;
+  if (badge === 'category') return departure.category ?? '';
+  return '';
 }
 
 /** Soonest first; at the same clock minute, non-cancelled before cancelled (viable train first). */

@@ -28,6 +28,16 @@ html, body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --text-1: #e4e4e7;
+  --text-2: #a1a1aa;
+  --text-3: #8b8b94;
+  --surface-card: #15161a;
+  --surface-chip: rgba(255, 255, 255, 0.06);
+  --line: rgba(255, 255, 255, 0.07);
+  --accent-sky: #38bdf8;
+  --accent-gold: #fbbf24;
+  --accent-rose: #fb7185;
+  --radius-chip: 12px;
   /* Relative price bands: each day's hours ranked into quarters. One palette on every chart. */
   --band-cheap: #34d399;
   --band-normal: #94a3b8;

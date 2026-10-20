@@ -41,6 +41,8 @@ export interface TransitLineConfig {
   enabledEntityId: string;
   /** Matches AppDaemon `high_frequency`: ignore per-train delays; Disrupted only if ≥2 cancellations. */
   highFrequency?: boolean;
+  /** What a departure chip names beside its minutes: the departure's `line` or its train `category`. */
+  badge?: 'line' | 'category';
 }
 
 export const QUICK_ACCESS_OPEN_EVENT = 'openQuickAccess';
@@ -54,6 +56,7 @@ export const TRANSIT_LINES: TransitLineConfig[] = [
     statusEntityId: 'input_select.transit_kbh_ic_odense_status',
     sensorEntityId: 'sensor.transit_kbh_ic_odense',
     enabledEntityId: 'input_boolean.transit_kbh_ic_odense_enabled',
+    badge: 'category',
   },
   {
     name: 'S-tog',
@@ -63,6 +66,7 @@ export const TRANSIT_LINES: TransitLineConfig[] = [
     statusEntityId: 'input_select.transit_carlsberg_stog_kbh_status',
     sensorEntityId: 'sensor.transit_carlsberg_stog_kbh',
     enabledEntityId: 'input_boolean.transit_carlsberg_stog_kbh_enabled',
+    badge: 'line',
   },
   {
     name: 'Metro M3',

@@ -7,8 +7,21 @@ import { PHONE_PLAYER_NAME, PhonePlayer, SonosPlayer, TVCard, type MoveTarget } 
 import { getWeatherConditionIcon } from '../Weather/weatherIcons';
 import { LazyBoundary } from '../Lazy/LazyBoundary';
 import { TRANSIT_LAST_UPDATED_SENSOR, TRANSIT_REFRESH_BUTTON, WEATHER_ENTITY } from '../../config/entities';
-import { QUICK_ACCESS_OPEN_EVENT, TRANSIT_LINES, getTransitSeverity, isTransitAlert, type TransitStatus } from '../../config/transit';
-import { formatTravelTime, getTransitLineDisplayStatus, minsFromNow, TRANSIT_UPCOMING_MIN_MINS } from '../../utils/transitDisplay';
+import {
+  QUICK_ACCESS_OPEN_EVENT,
+  TRANSIT_LINES,
+  getTransitSeverity,
+  isTransitAlert,
+  type TransitLineConfig,
+  type TransitStatus,
+} from '../../config/transit';
+import {
+  formatTravelTime,
+  getTransitLineDisplayStatus,
+  minsFromNow,
+  transitBadgeLabel,
+  TRANSIT_UPCOMING_MIN_MINS,
+} from '../../utils/transitDisplay';
 import { SONOS_SPEAKERS } from '../../config/speakers';
 import { useModalBackButton, useSwipeToClose, useViewer } from '../../hooks';
 import { availablePhonePlayer, isPhonePlayer } from '../../home/household';
@@ -37,6 +50,7 @@ interface TransitLine {
   statusEntityId: string;
   sensorEntityId: string;
   enabledEntityId: string;
+  badge?: TransitLineConfig['badge'];
 }
 
 interface Departure {
@@ -947,8 +961,6 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                                       .map(d => ({ ...d, mins: minsFromNow(d.time, now) }))
                                       .filter(d => d.mins >= TRANSIT_UPCOMING_MIN_MINS)
                                       .slice(0, 4);
-                                    // The badge follows travel times (long-distance route only), so S-tog and Metro chips stay plain.
-                                    const showCategory = deps.some(d => d.travel_min);
                                     const allDepartedOver2Min =
                                       line.departures.length > 0 && line.departures.every(d => minsFromNow(d.time, now) < -2);
                                     const noIssues = !isTransitAlert(line.displayStatus);
@@ -966,13 +978,12 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                                               ]
                                                 .filter(Boolean)
                                                 .join(' ');
+                                              const badge = d.cancelled ? '' : transitBadgeLabel(line.badge, d);
                                               return (
                                                 <span key={`${d.line}-${d.time}`} className={cls}>
                                                   <span className='info-transit-dep-mins'>
                                                     {d.cancelled ? 'Cancelled' : d.mins <= 0 ? 'Now' : `${d.mins} min`}
-                                                    {showCategory && d.category && (
-                                                      <span className='info-transit-dep-cat'>{d.category}</span>
-                                                    )}
+                                                    {badge && <span className='info-transit-dep-badge'>{badge}</span>}
                                                   </span>
                                                   <span className='info-transit-dep-time'>
                                                     {d.cancelled ? (
