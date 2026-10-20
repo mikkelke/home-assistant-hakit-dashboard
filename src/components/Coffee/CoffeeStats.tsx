@@ -309,22 +309,9 @@ export function StatsSheet({
               </div>
             </div>
             <div className='coffee-row cst-beans-acts'>
-              <button
-                type='button'
-                className='coffee-btn is-ghost is-grow'
-                onClick={() =>
-                  void sendCoffeeCommand(
-                    'beans_add',
-                    beans.beanId ? { grams: BEANS_TOP_UP_G, bean_id: beans.beanId } : { grams: BEANS_TOP_UP_G }
-                  ).catch(() => {})
-                }
-              >
+              <button type='button' className='coffee-btn is-ghost is-grow' onClick={onBeans}>
                 <Icon icon='mdi:plus' aria-hidden='true' />
-                Added {BEANS_TOP_UP_G} g
-              </button>
-              <button type='button' className='coffee-btn is-ghost' onClick={onBeans}>
-                <Glyph name='bean' />
-                Beans
+                Added beans
               </button>
             </div>
             <BeansUndo beans={beans} nowMs={nowMs} />

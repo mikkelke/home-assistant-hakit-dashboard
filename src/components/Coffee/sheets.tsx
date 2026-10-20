@@ -208,11 +208,11 @@ export function RecipesSheet({
 
 const TOP_UPS = [100, BEANS_TOP_UP_G, 500, 1000];
 
-/** Beans went into the container: how much, and which. Other beans switch the container; what was left counts into the
- * new beans. */
+/** Beans went into the container: how much, and which. The household nearly always refills with new beans, so naming
+ * them is the default. Other beans switch the container; what was left counts into the new beans. */
 export function BeansSheet({ beans, onClose }: { beans: CoffeeBeans | null; onClose: () => void }) {
   const [grams, setGrams] = useState(BEANS_TOP_UP_G);
-  const [beanId, setBeanId] = useState<string | null>(beans?.beanId ?? null);
+  const [beanId, setBeanId] = useState<string | null>('new');
   const [newName, setNewName] = useState('');
   const naming = beanId === 'new';
   const name = naming ? newName.trim() : (beans?.knownBeans.find(bean => bean.id === beanId)?.name ?? beans?.beanName ?? null);
@@ -252,22 +252,6 @@ export function BeansSheet({ beans, onClose }: { beans: CoffeeBeans | null; onCl
           ))}
         </div>
         <div className='coffee-sheet-list' role='radiogroup' aria-label='Which beans'>
-          {(beans?.knownBeans ?? []).map(bean => (
-            <button
-              key={bean.id}
-              type='button'
-              role='radio'
-              aria-checked={beanId === bean.id}
-              className='coffee-pick-row'
-              onClick={() => setBeanId(bean.id)}
-            >
-              <span className='coffee-face coffee-face--md is-bean'>
-                <Glyph name='bean' />
-              </span>
-              <span>{bean.name}</span>
-              {beanId === bean.id && <Icon icon='mdi:check' className='coffee-pick-check' aria-hidden='true' />}
-            </button>
-          ))}
           <button type='button' role='radio' aria-checked={naming} className='coffee-pick-row' onClick={() => setBeanId('new')}>
             <span className='coffee-face coffee-face--md is-bean'>
               <Icon icon='mdi:plus' aria-hidden='true' />
@@ -286,6 +270,22 @@ export function BeansSheet({ beans, onClose }: { beans: CoffeeBeans | null; onCl
               <span>New beans…</span>
             )}
           </button>
+          {(beans?.knownBeans ?? []).map(bean => (
+            <button
+              key={bean.id}
+              type='button'
+              role='radio'
+              aria-checked={beanId === bean.id}
+              className='coffee-pick-row'
+              onClick={() => setBeanId(bean.id)}
+            >
+              <span className='coffee-face coffee-face--md is-bean'>
+                <Glyph name='bean' />
+              </span>
+              <span>{bean.name}</span>
+              {beanId === bean.id && <Icon icon='mdi:check' className='coffee-pick-check' aria-hidden='true' />}
+            </button>
+          ))}
         </div>
         <button type='button' className='coffee-btn is-copper' onClick={add} disabled={naming && !newName.trim()}>
           <Icon icon='mdi:plus' aria-hidden='true' />
