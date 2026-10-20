@@ -50,8 +50,10 @@ export function assembleAppliancePlan(input: AppliancePlanInput): AppliancePlan 
   // The next such clock time from now, not from when the machine frees up: a cycle that runs past
   // the deadline makes it impossible rather than moving it to tomorrow.
   const doneByMs = input.doneBy == null || priced?.completionMin == null ? null : nextHomeClockMs(nowMs, input.doneBy);
+  // Start advice rests on published prices only; forecast hours never choose a start.
+  const published = timeline.filter(point => !point.estimated);
   const plan =
-    priced && !blocked ? planStart(priced, timeline, { nowMs, earliestPressMs, knobStepsMin: config.knobStepsMin, doneByMs }) : null;
+    priced && !blocked ? planStart(priced, published, { nowMs, earliestPressMs, knobStepsMin: config.knobStepsMin, doneByMs }) : null;
   return { config, run, programmes, programme, dryer, withDryer, priced, doneByMs, plan };
 }
 

@@ -45,6 +45,15 @@ describe('assembleAppliancePlan', () => {
     expect(result.plan?.plan?.doneMs).toBeNull();
   });
 
+  it('never picks a start from forecast hours', () => {
+    const start = home(2026, 10, 9, 19);
+    const prices = [...hourly(start, Array(20).fill(2)), ...hourly(start + 20 * 3_600_000, Array(30).fill(0.5), true)];
+    const idle = readApplianceRun(undefined, 'hhmm', nowMs);
+    const result = assembleAppliancePlan({ config: dishwasher, run: idle, programmes, timeline: prices, nowMs });
+    expect(result.plan?.plan?.estimated).toBe(false);
+    expect(result.plan?.plan?.knobMin).toBe(0);
+  });
+
   it('gives no next-run advice while paused or when the ETA is unknown', () => {
     const paused = readApplianceRun({ state: 'Paused', attributes: { estimated_end_time: '2026-10-09T19:40:00Z' } }, 'iso', nowMs);
     expect(assembleAppliancePlan({ config: dishwasher, run: paused, programmes, timeline, nowMs }).plan).toBeNull();

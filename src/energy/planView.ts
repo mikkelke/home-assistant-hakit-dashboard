@@ -135,6 +135,12 @@ export function programmeLabelInferred(programme: { key: string; labelConfirmed:
   return !programme.labelConfirmed && programme.key !== 'typical';
 }
 
+/** "tomorrow " or "Thu " before a start clock that does not fall today or tonight. */
+function startDay(startMs: number, pressMs: number): string {
+  const word = relativeDayWord(startMs, pressMs);
+  return word === 'today' || word === 'tonight' ? '' : `${word} `;
+}
+
 export interface PressChips {
   /** When the cycle starts, unless that is right away. */
   start: string | null;
@@ -161,7 +167,7 @@ export function pressChips(
   if (plan.kind === 'wait') press = plan.showPressBy && until !== from ? `press ${from}–${until}` : `press from ${from}`;
   else if (plan.showPressBy) press = `press by ${until}`;
   return {
-    start: plan.kind === 'now' ? null : `start ${clock(plan.startMs)}`,
+    start: plan.kind === 'now' ? null : `start ${startDay(plan.startMs, plan.pressFromMs)}${clock(plan.startMs)}`,
     knob: plan.knobMin > 0 ? `set knob ${knobLabel(plan.knobMin)}` : null,
     press,
   };

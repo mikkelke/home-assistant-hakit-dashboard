@@ -138,6 +138,12 @@ describe('labels', () => {
       knob: 'set knob 6 h',
       press: null,
     });
+    expect(pressChips({ ...base, kind: 'knob', knobMin: 1440, startMs: base.pressFromMs + 24 * HOUR_MS }, clock).start).toBe(
+      'start tomorrow 20:05'
+    );
+    expect(pressChips({ ...base, kind: 'knob', knobMin: 1440, startMs: base.pressFromMs + 48 * HOUR_MS }, clock).start).toBe(
+      'start Thu 20:05'
+    );
     expect(pressChips({ ...base, kind: 'wait', startMs: base.pressFromMs, showPressBy: true }, clock).press).toBe('press 20:05–20:30');
     expect(pressChips({ ...base, kind: 'wait', startMs: base.pressFromMs }, clock).press).toBe('press from 20:05');
   });
