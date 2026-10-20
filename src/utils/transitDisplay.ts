@@ -53,6 +53,13 @@ export function minsFromNow(hhmm: string, now: Date): number {
   return diff;
 }
 
+/** Trip length on a departure chip: "55m" under an hour, else hours and two-digit minutes ("1h11"). */
+export function formatTravelTime(minutes: number): string {
+  const total = Math.round(minutes);
+  if (total < 60) return `${total}m`;
+  return `${Math.floor(total / 60)}h${String(total % 60).padStart(2, '0')}`;
+}
+
 /** Soonest first; at the same clock minute, non-cancelled before cancelled (viable train first). */
 function sortUpcomingForNextViableTrain(upcoming: readonly TransitDepartureForDisplay[], now: Date): TransitDepartureForDisplay[] {
   return [...upcoming].sort((a, b) => {

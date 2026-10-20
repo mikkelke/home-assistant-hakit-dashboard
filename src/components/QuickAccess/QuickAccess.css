@@ -1088,9 +1088,23 @@
 }
 
 .info-transit-dep-mins {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
   font-size: 0.8rem;
   font-weight: 600;
   color: #e4e4e7;
+}
+
+.info-transit-dep-cat {
+  padding: 0.1rem 0.25rem;
+  border-radius: 0.25rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: #a1a1aa;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
 }
 
 .info-transit-dep-time {
@@ -1105,6 +1119,10 @@
   font-size: 0.6rem;
   color: #fbbf24;
   font-weight: 600;
+}
+
+.info-transit-dep-travel {
+  color: #71717a;
 }
 
 .info-transit-no-dep {

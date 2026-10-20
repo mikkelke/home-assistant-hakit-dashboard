@@ -47,7 +47,7 @@ export const QUICK_ACCESS_OPEN_EVENT = 'openQuickAccess';
 
 export const TRANSIT_LINES: TransitLineConfig[] = [
   {
-    name: 'IC/Re',
+    name: 'ECE/IC/ICL/Re',
     icon: 'mdi:train',
     station: 'København H',
     destination: 'Odense',
