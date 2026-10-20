@@ -227,6 +227,7 @@ function buildLockChip(entities: HassEntities, homePeopleCount: number): ChipCan
 function buildTransitAlertChip(entities: HassEntities): ChipCandidate | null {
   const now = new Date();
   const alertLines = TRANSIT_LINES.filter(line => {
+    if (line.homePulse === false) return false;
     const enabled = entities?.[line.enabledEntityId]?.state !== 'off';
     if (!enabled) return false;
     const displayStatus = getTransitLineDisplayStatus(line, entities, now);

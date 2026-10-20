@@ -37,4 +37,9 @@ describe('transitBadgeLabel', () => {
     expect(badgeOf('ECE/IC/ICL/Re')).toBe('category');
     expect(badgeOf('Metro')).toBe('line');
   });
+
+  it('keeps only the Frederiksberg metro out of Home Pulse', () => {
+    const outOfPulse = TRANSIT_LINES.filter(line => line.homePulse === false).map(line => line.destination);
+    expect(outOfPulse).toEqual(['Frederiksberg']);
+  });
 });

@@ -41,6 +41,8 @@ export interface TransitLineConfig {
   enabledEntityId: string;
   /** Matches AppDaemon `high_frequency`: ignore per-train delays; Disrupted only if ≥2 cancellations. */
   highFrequency?: boolean;
+  /** False keeps the route on the Transit card only, out of the Home Pulse alert chip. */
+  homePulse?: boolean;
   /** What a departure chip names beside its minutes: the departure's `line` or its train `category`. */
   badge?: 'line' | 'category';
 }
@@ -89,6 +91,7 @@ export const TRANSIT_LINES: TransitLineConfig[] = [
     enabledEntityId: 'input_boolean.transit_enghave_metro_frb_enabled',
     highFrequency: true,
     badge: 'line',
+    homePulse: false,
   },
 ];
 
