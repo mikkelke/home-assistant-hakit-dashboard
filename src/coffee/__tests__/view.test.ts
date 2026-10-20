@@ -11,7 +11,7 @@ describe('the Kitchen card footer', () => {
         row('maint:coffee:rinse', 'dripper + shower screen, 10 brews left, ~08.11', Date.parse('2026-11-08T08:00:00Z')),
         row('maint:washer:drum', 'Bomuld 90, 2 runs left', Date.parse('2026-10-21T08:00:00Z')),
       ])
-    ).toBe('Rinse in 10');
+    ).toBe('Brew head in 10');
   });
 
   it('says due for an untimed row, and nothing without coffee rows', () => {

@@ -218,13 +218,13 @@ export function recipeLine(recipe: Pick<Recipe, 'pours' | 'ratio' | 'totalMl'>):
 }
 
 const MAINT_NAMES: Record<string, string> = {
-  rinse: 'Rinse',
+  rinse: 'Brew head',
   tank: 'Tank',
   burrs: 'Burrs',
   descale: 'Descale',
 };
 
-/** The next coffee maintenance row an admin sees, in a word and a count: "Rinse in 2", "Tank due". */
+/** The next coffee maintenance row an admin sees, in a word and a count: "Brew head in 2", "Tank due". */
 export function maintenanceWord(rows: readonly Pick<HouseUpcomingRow, 'id' | 'title' | 'detail' | 'atMs'>[]): string | null {
   const coffee = rows.filter(row => /(^|:)coffee:/.test(row.id));
   if (coffee.length === 0) return null;
