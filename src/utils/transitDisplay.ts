@@ -1,5 +1,10 @@
 import type { TransitAggregateAlertThresholds, TransitLineConfig, TransitStatus } from '../config/transit';
-import { TRANSIT_AGGREGATE_HEAVY_DEFAULT, TRANSIT_DENSE_DEPARTURE_COUNT_MIN, TRANSIT_DENSITY_WINDOW_MINUTES } from '../config/transit';
+import {
+  TRANSIT_AGGREGATE_HEAVY_DEFAULT,
+  TRANSIT_DENSE_DEPARTURE_COUNT_MIN,
+  TRANSIT_DENSITY_WINDOW_MINUTES,
+  getTransitSeverity,
+} from '../config/transit';
 import type { HassEntities } from '../types';
 
 /** Matches QuickAccess departure chips: include “Now” grace for deps just past scheduled time. */
@@ -60,11 +65,73 @@ export function formatTravelTime(minutes: number): string {
   return `${Math.floor(total / 60)}h${String(total % 60).padStart(2, '0')}`;
 }
 
-/** The badge on a departure chip: the line letter or the train category, as the route is configured; empty for a route without one. */
-export function transitBadgeLabel(badge: TransitLineConfig['badge'], departure: { line: string; category?: string }): string {
-  if (badge === 'line') return departure.line;
-  if (badge === 'category') return departure.category ?? '';
+/** The badge on a departure chip, as the route is configured: its line, its train category or its direction; empty without one. */
+export function transitBadgeLabel(
+  route: Pick<TransitLineConfig, 'badge' | 'directionBadge'>,
+  departure: { line: string; category?: string }
+): string {
+  if (route.badge === 'line') return departure.line;
+  if (route.badge === 'category') return departure.category ?? '';
+  if (route.badge === 'direction') return route.directionBadge ?? '';
   return '';
+}
+
+/** What `groupTransitRows` reads from a route: its config plus its live state. */
+export interface TransitRowLine {
+  row?: string;
+  station: string;
+  name: string;
+  icon: string;
+  destination: string;
+  statusEntityId: string;
+  enabled: boolean;
+  displayStatus: TransitStatus;
+}
+
+/** One row of the Transit card: a single route, or the routes that share a `row`. */
+export interface TransitRow<L extends TransitRowLine = TransitRowLine> {
+  /** The first route's status entity: unique and stable. */
+  key: string;
+  station: string;
+  name: string;
+  icon: string;
+  /** Every route's destination, in config order. */
+  destination: string;
+  /** False only when every route in the row is off. */
+  enabled: boolean;
+  /** The most severe status among the routes that are on, or among all of them when none is. */
+  displayStatus: TransitStatus;
+  lines: L[];
+}
+
+/** The most severe status; the earliest of equals. */
+function worstTransitStatus(statuses: readonly TransitStatus[]): TransitStatus {
+  return statuses.reduce((worst, status) => (getTransitSeverity(status) > getTransitSeverity(worst) ? status : worst));
+}
+
+/** Routes of one station into rows, in config order: routes that share a `row` are one row, any other route is a row of its own. */
+export function groupTransitRows<L extends TransitRowLine>(lines: readonly L[]): TransitRow<L>[] {
+  const groups = new Map<string, L[]>();
+  for (const line of lines) {
+    const id = line.row ?? line.statusEntityId;
+    const group = groups.get(id) ?? [];
+    group.push(line);
+    groups.set(id, group);
+  }
+  return [...groups.values()].map(group => {
+    const [first] = group;
+    const on = group.filter(line => line.enabled);
+    return {
+      key: first.statusEntityId,
+      station: first.station,
+      name: first.name,
+      icon: first.icon,
+      destination: group.map(line => line.destination).join(' · '),
+      enabled: on.length > 0,
+      displayStatus: worstTransitStatus((on.length > 0 ? on : group).map(line => line.displayStatus)),
+      lines: group,
+    };
+  });
 }
 
 /** Soonest first; at the same clock minute, non-cancelled before cancelled (viable train first). */

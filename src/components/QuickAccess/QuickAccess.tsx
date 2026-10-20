@@ -18,9 +18,11 @@ import {
 import {
   formatTravelTime,
   getTransitLineDisplayStatus,
+  groupTransitRows,
   minsFromNow,
   transitBadgeLabel,
   TRANSIT_UPCOMING_MIN_MINS,
+  type TransitRow,
 } from '../../utils/transitDisplay';
 import { SONOS_SPEAKERS } from '../../config/speakers';
 import { useModalBackButton, useSwipeToClose, useViewer } from '../../hooks';
@@ -50,7 +52,9 @@ interface TransitLine {
   statusEntityId: string;
   sensorEntityId: string;
   enabledEntityId: string;
+  row?: TransitLineConfig['row'];
   badge?: TransitLineConfig['badge'];
+  directionBadge?: TransitLineConfig['directionBadge'];
 }
 
 interface Departure {
@@ -65,18 +69,18 @@ interface Departure {
   arrival_time?: string;
 }
 
+type TransitLineState = TransitLine & {
+  status: TransitStatus;
+  displayStatus: TransitStatus;
+  departures: Departure[];
+  lastChecked: string;
+  enabled: boolean;
+};
+
 interface TransitStationGroup {
   station: string;
   maxSeverity: number;
-  lines: Array<
-    TransitLine & {
-      status: TransitStatus;
-      displayStatus: TransitStatus;
-      departures: Departure[];
-      lastChecked: string;
-      enabled: boolean;
-    }
-  >;
+  rows: TransitRow<TransitLineState>[];
 }
 
 /** Parse data_as_of (ISO or "HH:MM") and return minutes ago from now. */
@@ -340,9 +344,9 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
     return () => window.removeEventListener(QUICK_ACCESS_OPEN_EVENT, handleOpenQuickAccess as EventListener);
   }, [openQuickAccess]);
 
-  const toggleLineExpand = (line: TransitLine) => {
-    if (expandedLine !== line.statusEntityId) trackUiTap('qa.transit.line', transitLabel(line));
-    setExpandedLine(prev => (prev === line.statusEntityId ? null : line.statusEntityId));
+  const toggleRowExpand = (row: TransitRow) => {
+    if (expandedLine !== row.key) trackUiTap('qa.transit.line', transitLabel(row));
+    setExpandedLine(prev => (prev === row.key ? null : row.key));
   };
 
   const handleTransitToggle = (line: TransitLine & { enabled: boolean }) => {
@@ -437,14 +441,14 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
 
     const groups: TransitStationGroup[] = [];
     for (const [station, lines] of groupMap) {
-      const sorted = [...lines].sort((a, b) => {
+      const rows = groupTransitRows(lines).sort((a, b) => {
         if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
         const bySeverity = getTransitSeverity(b.displayStatus) - getTransitSeverity(a.displayStatus);
         if (bySeverity !== 0) return bySeverity;
         return a.destination.localeCompare(b.destination, undefined, { sensitivity: 'base' });
       });
-      const maxSeverity = lines.filter(l => l.enabled).reduce((max, l) => Math.max(max, getTransitSeverity(l.displayStatus)), 0);
-      groups.push({ station, maxSeverity, lines: sorted });
+      const maxSeverity = rows.filter(r => r.enabled).reduce((max, r) => Math.max(max, getTransitSeverity(r.displayStatus)), 0);
+      groups.push({ station, maxSeverity, rows });
     }
 
     groups.sort((a, b) => {
@@ -455,7 +459,8 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
     return groups;
   }, [entities, now]);
 
-  const hasTransitAlert = transitStationGroups.flatMap(g => g.lines).some(l => l.enabled && isTransitAlert(l.displayStatus));
+  const transitLines = transitStationGroups.flatMap(g => g.rows.flatMap(r => r.lines));
+  const hasTransitAlert = transitLines.some(l => l.enabled && isTransitAlert(l.displayStatus));
 
   const hasPlayingSpeakers = playingSpeakers.length > 0;
   const hasPlayingTVs = playingTVs.length > 0;
@@ -875,7 +880,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                 (() => {
                   const lastUpdatedSensor = entities?.[TRANSIT_LAST_UPDATED_SENSOR];
                   const lastUpdatedIso = (lastUpdatedSensor?.state ?? '').trim();
-                  const fallbackChecked = transitStationGroups.flatMap(g => g.lines).find(l => l.lastChecked)?.lastChecked ?? '';
+                  const fallbackChecked = transitLines.find(l => l.lastChecked)?.lastChecked ?? '';
                   const sourceTs = lastUpdatedIso || fallbackChecked;
                   const minsAgo = sourceTs ? minsSince(sourceTs, now) : null;
                   const updatedLabel = minsAgo !== null ? formatMinsAgo(minsAgo) : lastUpdatedIso || fallbackChecked ? '—' : '';
@@ -914,50 +919,58 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                               </div>
                             )}
                           </div>
-                          {group.lines.map(line => {
-                            const isExpanded = expandedLine === line.statusEntityId;
+                          {group.rows.map(row => {
+                            const isExpanded = expandedLine === row.key;
+                            const merged = row.lines.length > 1;
                             return (
                               <div
-                                key={line.statusEntityId}
-                                className={`info-transit-row ${!line.enabled ? 'disabled' : isTransitAlert(line.displayStatus) ? 'disrupted' : ''}`}
+                                key={row.key}
+                                className={`info-transit-row ${!row.enabled ? 'disabled' : isTransitAlert(row.displayStatus) ? 'disrupted' : ''}`}
                               >
                                 <button
                                   className='info-transit-header info-transit-row-btn'
-                                  onClick={() => toggleLineExpand(line)}
+                                  onClick={() => toggleRowExpand(row)}
                                   aria-expanded={isExpanded}
                                 >
-                                  <Icon icon={line.icon} className='info-transit-line-icon' />
+                                  <Icon icon={row.icon} className='info-transit-line-icon' />
                                   <div className='info-transit-name-group'>
-                                    <span className='info-transit-name'>{line.name}</span>
+                                    <span className='info-transit-name'>{row.name}</span>
                                     <span className='info-transit-direction'>
                                       <Icon icon='mdi:arrow-right' />
-                                      {line.destination}
+                                      {row.destination}
                                     </span>
                                   </div>
-                                  {line.enabled && (
-                                    <span className='info-transit-status' style={{ color: getTransitStatusColor(line.displayStatus) }}>
-                                      <Icon icon={getTransitStatusIcon(line.displayStatus)} />
-                                      {line.displayStatus}
+                                  {row.enabled && (
+                                    <span className='info-transit-status' style={{ color: getTransitStatusColor(row.displayStatus) }}>
+                                      <Icon icon={getTransitStatusIcon(row.displayStatus)} />
+                                      {row.displayStatus}
                                     </span>
                                   )}
                                   <Icon icon='mdi:chevron-right' className={`info-transit-chevron ${isExpanded ? 'expanded' : ''}`} />
                                 </button>
-                                {isExpanded && (
-                                  <div className='info-transit-settings'>
-                                    <span className='info-transit-settings-label'>Route enabled</span>
-                                    <button
-                                      className={`info-transit-toggle ${line.enabled ? 'on' : 'off'}`}
-                                      onClick={e => {
-                                        e.stopPropagation();
-                                        handleTransitToggle(line);
-                                      }}
-                                      aria-label={line.enabled ? 'Disable route' : 'Enable route'}
-                                      title={line.enabled ? 'Disable route' : 'Enable route'}
-                                    />
-                                  </div>
-                                )}
-                                {line.enabled &&
-                                  (() => {
+                                {isExpanded &&
+                                  row.lines.map(line => {
+                                    const toggleLabel = `${line.enabled ? 'Disable' : 'Enable'} route${merged ? ` to ${line.destination}` : ''}`;
+                                    return (
+                                      <div key={line.statusEntityId} className='info-transit-settings'>
+                                        <span className='info-transit-settings-label'>
+                                          {merged ? `To ${line.destination}` : 'Route enabled'}
+                                        </span>
+                                        <button
+                                          className={`info-transit-toggle ${line.enabled ? 'on' : 'off'}`}
+                                          onClick={e => {
+                                            e.stopPropagation();
+                                            handleTransitToggle(line);
+                                          }}
+                                          aria-label={toggleLabel}
+                                          title={toggleLabel}
+                                        />
+                                      </div>
+                                    );
+                                  })}
+                                {row.lines
+                                  .filter(line => line.enabled)
+                                  .map(line => {
                                     const deps = line.departures
                                       .map(d => ({ ...d, mins: minsFromNow(d.time, now) }))
                                       .filter(d => d.mins >= TRANSIT_UPCOMING_MIN_MINS)
@@ -967,7 +980,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                                     const noIssues = !isTransitAlert(line.displayStatus);
                                     const emptyMessage = allDepartedOver2Min && noIssues ? 'Please refresh data' : 'No data';
                                     return (
-                                      <div className='info-transit-departures'>
+                                      <div key={line.statusEntityId} className='info-transit-departures'>
                                         {deps.length > 0 ? (
                                           <div className='info-transit-dep-chips'>
                                             {deps.map(d => {
@@ -979,7 +992,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                                               ]
                                                 .filter(Boolean)
                                                 .join(' ');
-                                              const badge = d.cancelled ? '' : transitBadgeLabel(line.badge, d);
+                                              const badge = d.cancelled ? '' : transitBadgeLabel(line, d);
                                               return (
                                                 <span key={`${d.line}-${d.time}`} className={cls}>
                                                   <span className='info-transit-dep-mins'>
@@ -1006,11 +1019,13 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                                             })}
                                           </div>
                                         ) : (
-                                          <span className='info-transit-no-dep'>{emptyMessage}</span>
+                                          <span className='info-transit-no-dep'>
+                                            {merged ? `${line.destination}: ${emptyMessage}` : emptyMessage}
+                                          </span>
                                         )}
                                       </div>
                                     );
-                                  })()}
+                                  })}
                               </div>
                             );
                           })}

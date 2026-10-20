@@ -43,8 +43,12 @@ export interface TransitLineConfig {
   highFrequency?: boolean;
   /** False keeps the route on the Transit card only, out of the Home Pulse alert chip. */
   homePulse?: boolean;
-  /** What a departure chip names beside its minutes: the departure's `line` or its train `category`. */
-  badge?: 'line' | 'category';
+  /** Routes at one station that share a `row` are one row on the card, one chip line per route. */
+  row?: string;
+  /** What a departure chip names beside its minutes: the departure's `line`, its train `category`, or this route's `directionBadge`. */
+  badge?: 'line' | 'category' | 'direction';
+  /** Short name of the destination, for the `direction` badge. */
+  directionBadge?: string;
 }
 
 export const QUICK_ACCESS_OPEN_EVENT = 'openQuickAccess';
@@ -79,7 +83,9 @@ export const TRANSIT_LINES: TransitLineConfig[] = [
     sensorEntityId: 'sensor.transit_enghave_metro_kbh',
     enabledEntityId: 'input_boolean.transit_enghave_metro_kbh_enabled',
     highFrequency: true,
-    badge: 'line',
+    row: 'metro',
+    badge: 'direction',
+    directionBadge: 'KBH',
   },
   {
     name: 'Metro',
@@ -90,7 +96,9 @@ export const TRANSIT_LINES: TransitLineConfig[] = [
     sensorEntityId: 'sensor.transit_enghave_metro_frb',
     enabledEntityId: 'input_boolean.transit_enghave_metro_frb_enabled',
     highFrequency: true,
-    badge: 'line',
+    row: 'metro',
+    badge: 'direction',
+    directionBadge: 'FRB',
     homePulse: false,
   },
 ];
