@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { getSystemData, setSystemData, subscribeSystemData, type SystemConnection } from '../haSystemData';
+import { TODO_LISTS_KEY } from '../../todo/visibility';
 import { FINGERPRINTS_KEY, MAP_KEY, SUGGEST_KEY } from '../mapDoc';
 
 function connection() {
@@ -49,6 +50,18 @@ describe('the frontend system store', () => {
       subscribeMessage: (async () => async () => {}) as SystemConnection['subscribeMessage'],
     };
     await expect(setSystemData(refusing, MAP_KEY, {})).rejects.toThrow('unauthorized');
+  });
+
+  it('keeps the to-do list visibility under a key of its own', async () => {
+    const { conn, sent } = connection();
+    await setSystemData(conn, TODO_LISTS_KEY, { visible: {} });
+    await getSystemData(conn, TODO_LISTS_KEY);
+    await subscribeSystemData(conn, TODO_LISTS_KEY, () => {});
+    expect(sent).toEqual([
+      { type: 'frontend/set_system_data', key: 'todo_lists', value: { visible: {} } },
+      { type: 'frontend/get_system_data', key: 'todo_lists' },
+      { type: 'frontend/subscribe_system_data', key: 'todo_lists' },
+    ]);
   });
 
   it('subscribes to one key, unwraps each event and stops on request', async () => {
