@@ -79,6 +79,17 @@ export const TRANSIT_LINES: TransitLineConfig[] = [
     highFrequency: true,
     badge: 'line',
   },
+  {
+    name: 'Metro',
+    icon: 'mdi:subway-variant',
+    station: 'Enghave Plads',
+    destination: 'Frederiksberg',
+    statusEntityId: 'input_select.transit_enghave_metro_frb_status',
+    sensorEntityId: 'sensor.transit_enghave_metro_frb',
+    enabledEntityId: 'input_boolean.transit_enghave_metro_frb_enabled',
+    highFrequency: true,
+    badge: 'line',
+  },
 ];
 
 const TRANSIT_ALERT_STATUSES = new Set(['Delayed', 'Disrupted']);

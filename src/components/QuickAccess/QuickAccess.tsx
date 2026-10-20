@@ -182,7 +182,8 @@ const DOOR_UI: Record<string, string> = {
   'lock.intercomproxy_back_door': 'qa.doors.back',
   'lock.yale_bt': 'qa.doors.lock',
 };
-const transitLabel = (line: { station: string; name: string }) => `${line.station} / ${line.name}`;
+const transitLabel = (line: { station: string; name: string; destination: string }) =>
+  `${line.station} / ${line.name} / ${line.destination}`;
 
 /** Its own subscription: the speakers and TVs it watches change often while something plays, and only the
  * bar and its modals need them. */

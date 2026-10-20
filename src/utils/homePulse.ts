@@ -247,7 +247,7 @@ function buildTransitAlertChip(entities: HassEntities): ChipCandidate | null {
   return {
     id: 'transit-alert',
     icon: topLine.icon,
-    label: `${topLine.name} ${String(status).toLowerCase()}`,
+    label: `${topLine.destination} ${String(status).toLowerCase()}`,
     tone,
     pulse: status === 'Disrupted',
     action: 'transit',
