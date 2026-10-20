@@ -31,10 +31,10 @@ describe('transitBadgeLabel', () => {
     expect(transitBadgeLabel('category', { line: 'IC 125' })).toBe('');
   });
 
-  it('follows the configured routes: S-tog by line, Odense by category, Metro none', () => {
+  it('follows the configured routes: S-tog and Metro by line, Odense by category', () => {
     const badgeOf = (name: string) => TRANSIT_LINES.find(line => line.name === name)?.badge;
     expect(badgeOf('S-tog')).toBe('line');
     expect(badgeOf('ECE/IC/ICL/Re')).toBe('category');
-    expect(badgeOf('Metro M3')).toBeUndefined();
+    expect(badgeOf('Metro')).toBe('line');
   });
 });

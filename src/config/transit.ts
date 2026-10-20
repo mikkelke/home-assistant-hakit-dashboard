@@ -69,7 +69,7 @@ export const TRANSIT_LINES: TransitLineConfig[] = [
     badge: 'line',
   },
   {
-    name: 'Metro M3',
+    name: 'Metro',
     icon: 'mdi:subway-variant',
     station: 'Enghave Plads',
     destination: 'København H',
@@ -77,6 +77,7 @@ export const TRANSIT_LINES: TransitLineConfig[] = [
     sensorEntityId: 'sensor.transit_enghave_metro_kbh',
     enabledEntityId: 'input_boolean.transit_enghave_metro_kbh_enabled',
     highFrequency: true,
+    badge: 'line',
   },
 ];
 
