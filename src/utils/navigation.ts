@@ -62,6 +62,7 @@ export type DashboardView =
   | { kind: 'map' }
   | CoffeeView
   | { kind: 'heating' }
+  | { kind: 'lists' }
   | NowView
   | { kind: 'none' };
 
@@ -124,11 +125,17 @@ export function isHeatingHash(hash: string): boolean {
   return hash === '#heating' || hash.startsWith('#heating=') || hash.startsWith('#heating&');
 }
 
+/** `#lists` opens the to-do lists page; anything after it is reserved. */
+export function isListsHash(hash: string): boolean {
+  return hash === '#lists' || hash.startsWith('#lists=') || hash.startsWith('#lists&');
+}
+
 export function parseDashboardHash(hash: string): DashboardView {
   if (hash === '#energy' || hash.startsWith('#energy=')) return { kind: 'energy' };
   if (isMapHash(hash)) return { kind: 'map' };
   if (isCoffeeHash(hash)) return parseCoffeeView(hash);
   if (isHeatingHash(hash)) return { kind: 'heating' };
+  if (isListsHash(hash)) return { kind: 'lists' };
   if (isNowHash(hash)) return { kind: 'now', focus: parseNowFocus(hash) };
   if (hash.startsWith('#room=')) {
     const [roomId, ...rest] = hash.slice(6).split('&');

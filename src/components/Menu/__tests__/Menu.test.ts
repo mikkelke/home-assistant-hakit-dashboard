@@ -139,3 +139,34 @@ describe('the heating entry', () => {
     expect(onOpenHeating).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('the lists entry', () => {
+  it('is in the menu for everyone: an administrator, a housemate, and a viewer still loading', async () => {
+    await openMenu(Promise.resolve({ is_admin: true, name: 'Mikkel' }));
+    expect(entries()).toContain('Lists');
+    await openMenu(Promise.resolve({ is_admin: false, name: 'Kristine' }));
+    expect(entries()).toContain('Lists');
+    await openMenu(new Promise<User>(() => {}));
+    expect(entries()).toContain('Lists');
+  });
+
+  it('follows Energy and comes before the administrator entries', async () => {
+    await openMenu(Promise.resolve({ is_admin: true, name: 'Mikkel' }));
+    expect(entries().slice(0, 2)).toEqual(['Energy', 'Lists']);
+    expect(entries().indexOf('Lists')).toBeLessThan(entries().indexOf('Batteries'));
+  });
+
+  it('closes the menu and opens the lists page when tapped', async () => {
+    const onClose = vi.fn();
+    const onOpenLists = vi.fn();
+    lookup.current = Promise.resolve({ is_admin: false, name: 'Kristine' });
+    store.setState({ connection: {} });
+    await act(async () => {
+      root.render(createElement(Menu, { isOpen: true, onClose, entities: {}, onOpenLists }));
+    });
+    const item = [...document.querySelectorAll('.menu-item')].find(node => node.textContent === 'Lists') as HTMLElement;
+    act(() => item.click());
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onOpenLists).toHaveBeenCalledTimes(1);
+  });
+});

@@ -23,12 +23,13 @@ interface MenuProps {
   onOpenEnergy?: () => void;
   onOpenMap?: () => void;
   onOpenHeating?: () => void;
+  onOpenLists?: () => void;
 }
 
 const KIOSK_TOGGLE_ENTITY = 'input_boolean.kiosk_mode';
 const BUILD_VERSION = __APP_BUILD_VERSION__;
 
-export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy, onOpenMap, onOpenHeating }: MenuProps) {
+export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy, onOpenMap, onOpenHeating, onOpenLists }: MenuProps) {
   const [isKioskActive, setIsKioskActive] = useState(false);
   const [isBatteryOverviewOpen, setIsBatteryOverviewOpen] = useState(false);
   const [isSmokeAlarmOpen, setIsSmokeAlarmOpen] = useState(false);
@@ -105,6 +106,11 @@ export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy, onO
     onOpenHeating?.();
   };
 
+  const handleOpenLists = () => {
+    onClose();
+    onOpenLists?.();
+  };
+
   const handleOpenSmokeAlarm = () => {
     onClose();
     setIsSmokeAlarmOpen(true);
@@ -124,6 +130,10 @@ export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy, onO
           <button className='menu-item menu-item-energy' onClick={handleOpenEnergy}>
             <Icon icon='mdi:lightning-bolt' />
             <span>Energy</span>
+          </button>
+          <button className='menu-item' onClick={handleOpenLists}>
+            <Icon icon='mdi:format-list-checks' />
+            <span>Lists</span>
           </button>
 
           {isAdmin && (

@@ -3,6 +3,7 @@ import {
   buildNowHash,
   getViewFromHistoryHash,
   isHeatingHash,
+  isListsHash,
   isMapHash,
   mergeHistoryState,
   NOW_FOCUS_KINDS,
@@ -105,6 +106,20 @@ describe('#heating link grammar', () => {
       expect(parseDashboardHash(hash).kind).not.toBe('heating');
     expect(isHeatingHash('#heating')).toBe(true);
     expect(isHeatingHash('#heatingx')).toBe(false);
+  });
+});
+
+describe('#lists link grammar', () => {
+  it('opens the lists page for #lists, with or without a parameter after it', () => {
+    for (const hash of ['#lists', '#lists=indkob', '#lists&sheet=1']) expect(parseDashboardHash(hash)).toEqual({ kind: 'lists' });
+    expect(getViewFromHistoryHash(windowWithHash('#lists'))).toEqual({ kind: 'lists' });
+  });
+
+  it('does not take anything else for the lists page', () => {
+    for (const hash of ['', '#list', '#listsx', '#LISTS', '#room=lists', '#energy', '#now=lists', '#heating'])
+      expect(parseDashboardHash(hash).kind).not.toBe('lists');
+    expect(isListsHash('#lists')).toBe(true);
+    expect(isListsHash('#listsx')).toBe(false);
   });
 });
 

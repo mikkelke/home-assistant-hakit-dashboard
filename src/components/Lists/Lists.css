@@ -1,0 +1,483 @@
+/* The to-do lists page (#lists): a full-screen page in the heating page's shell with one card per list. Colours come from the
+   tokens in index.css; the page backdrop is the one literal, as no token names it. */
+
+.lists-page {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  background: #0d0f13;
+  color: var(--text-1);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+}
+
+.lists-page-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: calc(0.75rem + env(safe-area-inset-top)) 16px 12px;
+  background: var(--surface-card);
+  border-bottom: 1px solid var(--line);
+}
+.lists-page-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent-sky) 16%, transparent);
+  color: var(--accent-sky);
+  font-size: 19px;
+}
+.lists-page-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.lists-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-chip);
+  color: var(--text-2);
+  font-size: 22px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+.lists-icon-btn:active {
+  transform: scale(0.97);
+}
+
+.lists-page-content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 12px 12px calc(5.5rem + env(safe-area-inset-bottom));
+}
+@media (min-width: 900px) {
+  .lists-page-content {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    align-items: start;
+    max-width: 1100px;
+  }
+  .lists-page-content > .lists-page-note {
+    grid-column: 1 / -1;
+  }
+}
+.lists-page-note {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--text-2);
+  font-size: 14px;
+}
+.lists-page-note svg {
+  font-size: 36px;
+  color: var(--text-3);
+}
+
+.lists-page-exit {
+  position: absolute;
+  left: max(1rem, env(safe-area-inset-left));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface-card);
+  color: var(--text-1);
+  font-size: 1.5rem;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  transition: transform 120ms var(--ease-out);
+}
+.lists-page-exit:active {
+  transform: scale(0.97);
+}
+.lists-page button:focus-visible {
+  outline: 2px solid var(--accent-sky);
+  outline-offset: -2px;
+}
+.lists-page-exit:focus-visible {
+  outline-offset: 2px;
+}
+
+/* ---- One list ---- */
+.list-card {
+  flex-shrink: 0;
+  background: var(--surface-card);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  overflow: hidden;
+}
+.list-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px 8px;
+}
+.list-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--surface-chip);
+  color: var(--text-2);
+  font-size: 18px;
+}
+.list-name {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 16px;
+  font-weight: 600;
+}
+.list-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: var(--radius-chip);
+  background: var(--surface-chip);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.list-count.is-open {
+  background: color-mix(in srgb, var(--accent-sky) 16%, transparent);
+  color: var(--accent-sky);
+}
+
+.list-add {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 44px;
+  margin: 4px 12px 10px;
+  padding: 0 4px 0 12px;
+  background: var(--surface-chip);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-chip);
+  transition: border-color 0.2s;
+}
+.list-add:focus-within {
+  border-color: color-mix(in srgb, var(--accent-sky) 60%, transparent);
+}
+.list-add input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 1rem; /* 16px keeps iOS from zooming the page on focus */
+}
+.list-add input::placeholder {
+  color: var(--text-3);
+}
+.list-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--accent-sky);
+  font-size: 22px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+.list-add-btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.list-add-btn:disabled {
+  color: var(--text-3);
+  cursor: default;
+}
+
+.list-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 14px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.list-item:active {
+  background: var(--surface-chip);
+}
+.list-item svg {
+  flex-shrink: 0;
+  font-size: 24px;
+  color: var(--text-3);
+}
+.list-item span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.list-item.is-done {
+  color: var(--text-3);
+}
+.list-item.is-done span {
+  text-decoration: line-through;
+}
+.list-item.is-done svg {
+  color: var(--accent-sky);
+}
+
+.list-done {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 10px;
+  border-top: 1px solid var(--line);
+}
+.list-done-toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.list-done-toggle svg {
+  font-size: 20px;
+}
+.list-clear {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-chip);
+  background: var(--surface-chip);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+/* Pads the 32 px chip to a 44 px target. */
+.list-clear::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+.list-clear:active {
+  transform: scale(0.97);
+}
+.list-clear svg {
+  font-size: 16px;
+}
+
+.list-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  color: var(--text-2);
+  font-size: 13px;
+}
+.list-note svg {
+  flex-shrink: 0;
+  font-size: 18px;
+}
+.list-note > span {
+  flex: 1;
+  min-width: 0;
+}
+.list-note.is-error {
+  color: var(--accent-rose);
+}
+.list-note-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  margin: -10px -10px -10px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---- Visibility sheet ---- */
+.climate-sheet.lists-sheet {
+  --appliance-accent: var(--accent-sky);
+  --appliance-accent-bg: color-mix(in srgb, var(--accent-sky) 16%, transparent);
+}
+.lists-vis {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.lists-vis-row {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.lists-vis-row:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.lists-vis-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--text-1);
+  font-size: 15px;
+  font-weight: 600;
+}
+.lists-vis-name svg {
+  flex-shrink: 0;
+  font-size: 18px;
+  color: var(--text-2);
+}
+.lists-vis-users {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.lists-vis-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-chip);
+  background: var(--surface-chip);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+.lists-vis-chip svg {
+  font-size: 16px;
+}
+.lists-vis-chip.is-on {
+  background: color-mix(in srgb, var(--accent-sky) 18%, transparent);
+  color: var(--accent-sky);
+}
+.lists-vis-chip:active {
+  transform: scale(0.97);
+}
+.lists-vis-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 16px 0 4px;
+  color: var(--text-2);
+  font-size: 14px;
+}
+.lists-vis-note svg {
+  flex-shrink: 0;
+  font-size: 20px;
+}
+.lists-vis-note.is-error {
+  color: var(--accent-rose);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lists-icon-btn,
+  .lists-page-exit,
+  .list-add-btn,
+  .list-clear,
+  .lists-vis-chip {
+    transition: none;
+  }
+}
