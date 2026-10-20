@@ -29,7 +29,7 @@ vi.mock('@hakit/core', async () => {
   return { useHass: Object.assign(useHass, store) };
 });
 
-type User = { is_admin: boolean; name: string };
+type User = { is_admin: boolean; name: string; id: string };
 const lookups = vi.hoisted(() => new Map<object, Promise<User>>());
 const getUser = vi.hoisted(() => vi.fn());
 vi.mock('home-assistant-js-websocket', () => ({ getUser }));
@@ -38,14 +38,18 @@ const { useViewer } = await import('../useViewer');
 
 let root: Root;
 const seen: Array<boolean | null> = [];
+const seenIds: Array<string | null> = [];
 
 function Probe() {
-  seen.push(useViewer().isAdmin);
+  const viewer = useViewer();
+  seen.push(viewer.isAdmin);
+  seenIds.push(viewer.id);
   return null;
 }
 
 beforeEach(() => {
   seen.length = 0;
+  seenIds.length = 0;
   lookups.clear();
   getUser.mockReset();
   getUser.mockImplementation((connection: object) => lookups.get(connection));
@@ -71,7 +75,7 @@ describe('the viewer of a connection', () => {
     connect(new Promise<User>(done => (resolve = done)));
     await act(async () => root.render(createElement(Probe)));
     expect(seen.at(-1)).toBeNull();
-    await act(async () => resolve({ is_admin: true, name: 'Admin' }));
+    await act(async () => resolve({ is_admin: true, name: 'Admin', id: 'admin-id' }));
     expect(seen.at(-1)).toBe(true);
   });
 
@@ -82,13 +86,13 @@ describe('the viewer of a connection', () => {
   });
 
   it('looks a connection up once, however many components ask', async () => {
-    connect(Promise.resolve({ is_admin: true, name: 'Admin' }));
+    connect(Promise.resolve({ is_admin: true, name: 'Admin', id: 'admin-id' }));
     await act(async () => root.render([createElement(Probe, { key: 'a' }), createElement(Probe, { key: 'b' })]));
     expect(getUser).toHaveBeenCalledTimes(1);
   });
 
   it('reads as unresolved on a replacement connection until that connection answers, never as the old viewer', async () => {
-    connect(Promise.resolve({ is_admin: true, name: 'Admin' }));
+    connect(Promise.resolve({ is_admin: true, name: 'Admin', id: 'admin-id' }));
     await act(async () => root.render(createElement(Probe)));
     expect(seen.at(-1)).toBe(true);
 
@@ -99,14 +103,14 @@ describe('the viewer of a connection', () => {
     expect(seen).not.toContain(true);
     expect(seen.at(-1)).toBeNull();
 
-    await act(async () => resolve({ is_admin: false, name: 'Housemate' }));
+    await act(async () => resolve({ is_admin: false, name: 'Housemate', id: 'housemate-id' }));
     expect(seen.at(-1)).toBe(false);
   });
 
   it('knows a connection it has already looked up straight away', async () => {
-    const first = connect(Promise.resolve({ is_admin: true, name: 'Admin' }));
+    const first = connect(Promise.resolve({ is_admin: true, name: 'Admin', id: 'admin-id' }));
     await act(async () => root.render(createElement(Probe)));
-    connect(Promise.resolve({ is_admin: false, name: 'Other' }));
+    connect(Promise.resolve({ is_admin: false, name: 'Other', id: 'other-id' }));
     await act(async () => {});
     seen.length = 0;
     act(() => store.setState({ connection: first }));
@@ -116,5 +120,48 @@ describe('the viewer of a connection', () => {
   it('has no viewer without a connection', async () => {
     await act(async () => root.render(createElement(Probe)));
     expect(seen.at(-1)).toBeNull();
+    expect(seenIds.at(-1)).toBeNull();
+  });
+});
+
+describe('the id of the viewer', () => {
+  it('is null until the lookup answers, then the id of the user', async () => {
+    let resolve: (user: User) => void = () => {};
+    connect(new Promise<User>(done => (resolve = done)));
+    await act(async () => root.render(createElement(Probe)));
+    expect(seenIds.at(-1)).toBeNull();
+    await act(async () => resolve({ is_admin: false, name: 'Kristine', id: 'kristine-id' }));
+    expect(seenIds.at(-1)).toBe('kristine-id');
+  });
+
+  it('is null when the lookup fails or the answer carries none', async () => {
+    connect(Promise.reject(new Error('refused')));
+    await act(async () => root.render(createElement(Probe)));
+    expect(seenIds.at(-1)).toBeNull();
+
+    connect(Promise.resolve({ is_admin: false, name: 'Kristine' } as unknown as User));
+    await act(async () => {});
+    expect(seen.at(-1)).toBe(false);
+    expect(seenIds.at(-1)).toBeNull();
+
+    connect(Promise.resolve({ is_admin: false, name: 'Kristine', id: '' }));
+    await act(async () => {});
+    expect(seenIds.at(-1)).toBeNull();
+  });
+
+  it('never shows the id of the previous connection on a replacement connection', async () => {
+    connect(Promise.resolve({ is_admin: true, name: 'Admin', id: 'admin-id' }));
+    await act(async () => root.render(createElement(Probe)));
+    expect(seenIds.at(-1)).toBe('admin-id');
+
+    let resolve: (user: User) => void = () => {};
+    seenIds.length = 0;
+    connect(new Promise<User>(done => (resolve = done)));
+    await act(async () => {});
+    expect(seenIds).not.toContain('admin-id');
+    expect(seenIds.at(-1)).toBeNull();
+
+    await act(async () => resolve({ is_admin: false, name: 'Housemate', id: 'housemate-id' }));
+    expect(seenIds.at(-1)).toBe('housemate-id');
   });
 });
