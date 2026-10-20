@@ -8,6 +8,8 @@ import type { PersonKey, Taste } from './model';
 
 export interface CoffeeCommands {
   start: { variant: 'usual' | 'base' | 'tweak' | 'other'; recipe_id?: string; dose?: number; ratio?: number; grind_size?: number };
+  cup_confirmed: Record<string, never>;
+  cancel: Record<string, never>;
   stop: Record<string, never>;
   pause: Record<string, never>;
   resume: Record<string, never>;

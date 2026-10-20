@@ -43,6 +43,7 @@ import {
   staleFromS,
   startFailure,
   usualTitle,
+  wantsConnect,
   type Tone,
 } from '../../coffee/view';
 import { formatHomeClock } from '../../energy/homeTime';
@@ -54,6 +55,7 @@ import type { BrewChartMode } from './BrewChart';
 import { LOOK_STAGE, LOOK_STAGE_PHONE } from './looks';
 import { chartInputs, lastValidS, planOf, series, valueAt } from './chart';
 import { ChartBox } from './ChartBox';
+import { CupWait } from './CupWait';
 import { Glyph } from './Glyph';
 import { HoldButton } from './HoldButton';
 import { Chip, Legend, LinkChip, NotifyChip, StoryPill, VerdictPill, type LegendItem } from './parts';
@@ -131,6 +133,7 @@ function subtitle(mode: StageMode, state: CoffeeState, usualName: string | null)
   if (mode === 'live' && state.source === 'power') return 'Brewing · seen by the plug';
   if (mode === 'live' || mode === 'ready') return brewSubtitle(state, usualName);
   if (mode === 'stopped') return 'Stopped';
+  if (state.phase === 'awaiting_cup') return 'Waiting for your cup';
   if (state.phase === 'starting') return 'Starting…';
   if (state.machine === 'asleep') return 'Asleep';
   if (state.machine === 'off') return 'Off';
@@ -256,33 +259,41 @@ function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
       {appHasMachine(state) && (
         <p className='cs-note'>Close the xBloom app on the phone or tablet that has the machine, then hold again.</p>
       )}
-      <HoldButton
-        kind='brew'
-        size='xl'
-        className='cs-go'
-        label={trial ? (base ? `Hold 1 s · grind ${trial.from ?? usual?.grind ?? ''}` : 'Hold 1 s · trial') : 'Hold 1 s to brew'}
-        pending={pending}
-        failed={pending ? null : failure}
-        disabled={!pending && !canStart(state)}
-        onConfirm={() => start({ variant: trial && base ? 'base' : 'usual' })}
-      />
-      <div className='cs-lowlinks'>
-        {trial ? (
-          <button type='button' onClick={() => setBase(value => !value)}>
-            {base ? <Icon icon='mdi:creation' aria-hidden='true' /> : <Glyph name='cup' />}
-            {base ? `Trial, grind ${trial.to}` : `Usual, grind ${trial.from ?? usual?.grind ?? ''}`}
-          </button>
-        ) : (
-          <button type='button' onClick={() => setSheet('tweak')}>
-            <Icon icon='mdi:tune-variant' aria-hidden='true' />
-            Tweak once
-          </button>
-        )}
-        <button type='button' onClick={() => setSheet('recipes')}>
-          <Icon icon='mdi:book-open-variant' aria-hidden='true' />
-          Other recipe
-        </button>
-      </div>
+      {state.phase === 'awaiting_cup' ? (
+        <div className='cs-go'>
+          <CupWait state={state} size='xl' />
+        </div>
+      ) : (
+        <>
+          <HoldButton
+            kind='brew'
+            size='xl'
+            className='cs-go'
+            label={trial ? (base ? `Hold 1 s · grind ${trial.from ?? usual?.grind ?? ''}` : 'Hold 1 s · trial') : 'Hold 1 s to brew'}
+            pending={pending}
+            failed={pending ? null : failure}
+            disabled={!pending && !canStart(state)}
+            onConfirm={() => start({ variant: trial && base ? 'base' : 'usual' })}
+          />
+          <div className='cs-lowlinks'>
+            {trial ? (
+              <button type='button' onClick={() => setBase(value => !value)}>
+                {base ? <Icon icon='mdi:creation' aria-hidden='true' /> : <Glyph name='cup' />}
+                {base ? `Trial, grind ${trial.to}` : `Usual, grind ${trial.from ?? usual?.grind ?? ''}`}
+              </button>
+            ) : (
+              <button type='button' onClick={() => setSheet('tweak')}>
+                <Icon icon='mdi:tune-variant' aria-hidden='true' />
+                Tweak once
+              </button>
+            )}
+            <button type='button' onClick={() => setSheet('recipes')}>
+              <Icon icon='mdi:book-open-variant' aria-hidden='true' />
+              Other recipe
+            </button>
+          </div>
+        </>
+      )}
       {sheet === 'tweak' && <TweakSheet recipe={usual} state={state} onClose={() => setSheet(null)} />}
       {sheet === 'recipes' && (
         <RecipesSheet recipes={recipes?.recipes ?? []} usualId={recipes?.usualId ?? null} state={state} onClose={() => setSheet(null)} />
@@ -700,13 +711,12 @@ export default function CoffeeStage({ onClose }: CoffeeStageProps) {
   const phone = useIsMobile();
 
   const connected = useRef(false);
-  const awake = state?.machine === 'awake' || state?.machine === 'working';
-  const linkDown = state != null && state.link !== 'connected';
+  const connectWanted = state != null && wantsConnect(state);
   useEffect(() => {
-    if (connected.current || !awake || !linkDown) return;
+    if (connected.current || !connectWanted) return;
     connected.current = true;
     void sendCoffeeCommand('connect', {}).catch(() => {});
-  }, [awake, linkDown]);
+  }, [connectWanted]);
 
   const staleS = state ? staleFromS(live, state, nowMs) : null;
   const mode = state ? stageMode(state, staleS != null) : 'idle';

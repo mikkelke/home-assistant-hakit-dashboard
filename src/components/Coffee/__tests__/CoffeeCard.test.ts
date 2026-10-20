@@ -53,7 +53,7 @@ beforeEach(() => {
       removeItem: (key: string) => void kept.delete(key),
     },
   });
-  store.setState({ entities: IDLE });
+  store.setState({ entities: IDLE, connection: null });
   root = createRoot(document.body.appendChild(document.createElement('div')));
 });
 afterEach(() => {
@@ -100,6 +100,48 @@ describe('the Kitchen Coffee entry', () => {
     show();
     expect(document.querySelector('.cc-tabs')).not.toBeNull();
     expect(document.querySelector('.appliance-word')?.textContent).toBe('Pour 3/4');
+  });
+
+  it('connects when it opens, which wakes a sleeping machine too', () => {
+    viewer.name = 'Kristine';
+    const sendMessagePromise = vi.fn((message: unknown) => Promise.resolve(message));
+    store.setState({ connection: { sendMessagePromise } });
+    const commands = () =>
+      sendMessagePromise.mock.calls
+        .map(([message]) => message as { service?: string; service_data?: { op?: string } })
+        .filter(message => message.service === 'coffee_command')
+        .map(message => message.service_data?.op);
+    show();
+    expect(commands()).toEqual([]);
+    tapHeader();
+    expect(commands()).toEqual(['connect']);
+  });
+
+  it('waits for the cup with a Cancel, and offers "Cup is already on" only while the scale cannot tell', () => {
+    viewer.name = 'Kristine';
+    const waiting = (cup: string, machine = 'awake') =>
+      store.setState({
+        entities: {
+          'sensor.coffee_state': {
+            entity_id: 'sensor.coffee_state',
+            state: 'awaiting_cup',
+            attributes: { v: '1', machine, link: 'connected', brew_id: 'c2', cup },
+          },
+        },
+      });
+    const buttons = () => [...document.querySelectorAll('.coffee-cupwait button')].map(button => button.textContent);
+    const hint = () => document.querySelector('.coffee-cupwait small')?.textContent;
+    waiting('unknown');
+    show();
+    expect(document.querySelector('.appliance-word')?.textContent).toBe('Put cup on');
+    expect(document.querySelector('.coffee-cupwait b')?.textContent).toBe('Put your cup on');
+    expect(hint()).toBe('The brew starts by itself');
+    expect(document.querySelector('.cc-hold')).toBeNull();
+    expect(buttons()).toEqual(['Cancel', 'Cup is already on']);
+    act(() => waiting('absent'));
+    expect(buttons()).toEqual(['Cancel']);
+    act(() => waiting('unknown', 'asleep'));
+    expect(hint()).toBe('Waking the machine…');
   });
 
   it('shows nothing while the coffee app is not reporting', () => {

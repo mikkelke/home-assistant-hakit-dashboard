@@ -111,6 +111,11 @@ export function machineWord(state: Pick<CoffeeState, 'machine'>): string | null 
   }
 }
 
+/** Opening the stage or the card connects to an awake machine whose link is down, and to a sleeping one, which the
+ * coffee app then nudges awake so it sees the cup go on. */
+export const wantsConnect = (state: Pick<CoffeeState, 'machine' | 'link'>): boolean =>
+  state.machine === 'asleep' || ((state.machine === 'awake' || state.machine === 'working') && state.link !== 'connected');
+
 /** The start button works once the machine is awake: the coffee app connects before it starts. */
 export const canStart = (state: Pick<CoffeeState, 'machine' | 'phase'>): boolean =>
   (state.machine === 'awake' || state.machine === 'working') &&

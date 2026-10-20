@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { maintenanceWord, startFailure } from '../view';
+import { maintenanceWord, startFailure, wantsConnect } from '../view';
 
 const row = (id: string, detail: string | null, atMs: number | null, title = 'xBloom brewer rinse') => ({ id, title, detail, atMs });
 
@@ -17,6 +17,18 @@ describe('the Kitchen card footer', () => {
   it('says due for an untimed row, and nothing without coffee rows', () => {
     expect(maintenanceWord([row('maint:coffee:tank', 'empty, rinse, air-dry, due', null)])).toBe('Tank due');
     expect(maintenanceWord([row('maint:washer:drum', 'Bomuld 90, 2 runs left', null)])).toBeNull();
+  });
+});
+
+describe('opening the stage or the card', () => {
+  it('connects to an awake machine without a link, and wakes a sleeping one', () => {
+    expect(wantsConnect({ machine: 'awake', link: 'not_connected' })).toBe(true);
+    expect(wantsConnect({ machine: 'working', link: 'connecting' })).toBe(true);
+    expect(wantsConnect({ machine: 'awake', link: 'connected' })).toBe(false);
+    expect(wantsConnect({ machine: 'asleep', link: 'not_connected' })).toBe(true);
+    expect(wantsConnect({ machine: 'asleep', link: 'connected' })).toBe(true);
+    expect(wantsConnect({ machine: 'off', link: 'not_connected' })).toBe(false);
+    expect(wantsConnect({ machine: null, link: 'not_connected' })).toBe(false);
   });
 });
 

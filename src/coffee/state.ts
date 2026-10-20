@@ -40,6 +40,7 @@ export const fields = (value: unknown, separator: string): string[] => {
 export const COFFEE_PHASES = [
   'asleep',
   'idle',
+  'awaiting_cup',
   'starting',
   'start_failed',
   'grinding',
@@ -56,6 +57,7 @@ export type Taste = (typeof TASTES)[number];
 
 export type MachineState = 'asleep' | 'awake' | 'working' | 'off';
 export type LinkState = 'connected' | 'connecting' | 'not_connected';
+export type CupState = 'present' | 'absent' | 'unknown';
 export type CoffeeFault = 'no_water' | 'no_beans' | 'dose_water_error' | 'gear_position_error';
 export type BrewSource = 'tablet' | 'phone' | 'machine' | 'ha' | 'power';
 export type BrewVariant = 'usual' | 'trial' | 'base' | 'tweak' | 'other' | 'unknown';
@@ -78,6 +80,8 @@ export interface CoffeeState {
   powerW: number | null;
   link: LinkState;
   linkSeenAtMs: number | null;
+  /** Whether a cup stands on the scale, as far as the coffee app has seen it. */
+  cup: CupState;
   fault: CoffeeFault | null;
   brewId: string | null;
   source: BrewSource | null;
@@ -128,6 +132,7 @@ export function parseCoffeeState(entity: CoffeeEntity): CoffeeState | null {
     powerW: numberOf(a.power_w),
     link: oneOf(a.link, ['connected', 'connecting', 'not_connected'] as const) ?? 'not_connected',
     linkSeenAtMs: timeOf(a.link_seen_at),
+    cup: oneOf(a.cup, ['present', 'absent', 'unknown'] as const) ?? 'unknown',
     fault: oneOf(a.fault, ['no_water', 'no_beans', 'dose_water_error', 'gear_position_error'] as const),
     brewId: text(a.brew_id),
     source: oneOf(a.source, ['tablet', 'phone', 'machine', 'ha', 'power'] as const),
@@ -181,6 +186,7 @@ export function stageLabel(pour: number | null, poursTotal: number | null): stri
 
 /** The one word for where a brew is: its stage, "Grinding" before the bloom. */
 export function phaseWord(state: Pick<CoffeeState, 'phase' | 'pour' | 'poursTotal'>): string | null {
+  if (state.phase === 'awaiting_cup') return 'Put cup on';
   if (state.phase === 'starting') return 'Starting';
   if (state.phase === 'ready' || state.phase === 'picked_up') return 'Ready';
   if (state.phase === 'paused') return 'Paused';

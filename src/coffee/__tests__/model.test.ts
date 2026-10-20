@@ -4,6 +4,7 @@ import {
   formatMinSec,
   formatRatio,
   inferPlanStep,
+  isEventful,
   parseCoffeeAdvice,
   parseCoffeeBaseline,
   parseCoffeeBeans,
@@ -129,6 +130,15 @@ describe('sensor.coffee_state', () => {
     expect(state.who).toBeNull();
     expect(state.notify).toBeNull();
     expect(state.etaMs).toBeNull();
+  });
+
+  it('reads the cup, unknown when missing, and a start waiting for one', () => {
+    expect(parseCoffeeState(entity('awaiting_cup', { cup: 'absent' }))).toMatchObject({ phase: 'awaiting_cup', cup: 'absent' });
+    expect(parseCoffeeState(entity('idle'))?.cup).toBe('unknown');
+    expect(parseCoffeeState(entity('idle', { cup: 'maybe' }))?.cup).toBe('unknown');
+    expect(phaseWord({ phase: 'awaiting_cup', pour: 0, poursTotal: null })).toBe('Put cup on');
+    expect(isEventful('awaiting_cup')).toBe(true);
+    expect(coffeeCycle(entity('awaiting_cup'), 0).status).toBe('idle');
   });
 
   it('names the stage: the bloom, then pours', () => {

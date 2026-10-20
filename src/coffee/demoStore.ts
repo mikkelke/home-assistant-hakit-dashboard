@@ -14,6 +14,7 @@ export const COFFEE_DEMO_SCENARIOS = [
   'trial_brewed',
   'start_failed',
   'asleep',
+  'awaiting_cup',
 ] as const;
 export type CoffeeDemoScenario = (typeof COFFEE_DEMO_SCENARIOS)[number];
 

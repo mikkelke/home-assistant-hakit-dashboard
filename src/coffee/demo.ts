@@ -446,6 +446,7 @@ function stateEntity({ phase, machine, powerW, link, brewId, extra = {} }: State
     machine,
     power_w: powerW,
     link,
+    cup: 'unknown',
     recipe_id: RECIPE_ID,
     recipe_name: RECIPE_NAME,
     variant: 'usual',
@@ -511,6 +512,26 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
       break;
     case 'start_failed':
       quiet('start_failed', 'awake', '2.3', 'not_connected', { start_error: 'machine_busy' });
+      break;
+    case 'awaiting_cup':
+      entities[COFFEE_STATE_ENTITY] = stateEntity(
+        {
+          phase: 'awaiting_cup',
+          machine: 'awake',
+          powerW: '2.2',
+          link: 'connected',
+          brewId: `c${Math.round(anchorMs / S) - 20}`,
+          extra: {
+            source: 'tablet',
+            pour: '0',
+            started_at: iso(anchorMs - 20 * S),
+            who: 'mikkel',
+            who_method: 'dashboard_action',
+            notify: 'mikkel',
+          },
+        },
+        nowMs
+      );
       break;
     case 'trial': {
       const brews = ledger(anchorMs - 24 * HOUR + 3 * MIN);
@@ -624,6 +645,7 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
 
 function brewingBase(bloomMs: number): Attributes {
   return {
+    cup: 'present',
     source: 'tablet',
     pours_total: '4',
     started_at: iso(bloomMs - 38 * S),

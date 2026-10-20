@@ -47,6 +47,7 @@ import {
   pourStartS,
   staleFromS,
   startFailure,
+  wantsConnect,
   type Tone,
 } from '../../coffee/view';
 import { HOUSE_UPCOMING_ENTITY } from '../../config/entities';
@@ -62,6 +63,7 @@ import { LOOK_CARD, LOOK_HIST, LOOK_MINI } from './looks';
 import { chartInputs, lastValidS, planOf, series, valueAt } from './chart';
 import { ChartBox } from './ChartBox';
 import { BeansUndo, BrewStrip, StatsSheet } from './CoffeeStats';
+import { CupWait } from './CupWait';
 import { Glyph } from './Glyph';
 import { HoldButton } from './HoldButton';
 import { Chip, LinkChip, NotifyChip, PersonFace, StoryPill, VerdictPill } from './parts';
@@ -86,7 +88,8 @@ function headerWord(
   if (state.phase === 'paused' && fault) return { word: fault.text, tone: 'alert' };
   if (state.phase === 'ready' || state.phase === 'picked_up') return { word: 'Ready', tone: 'ok' };
   if (state.phase === 'start_failed') return { word: "Didn't start", tone: 'alert' };
-  if (isBrewing(state.phase) || state.phase === 'starting') return { word: phaseWord(state) ?? 'Brewing', tone: 'tint' };
+  if (isBrewing(state.phase) || state.phase === 'starting' || state.phase === 'awaiting_cup')
+    return { word: phaseWord(state) ?? 'Brewing', tone: 'tint' };
   if (state.phase === 'stopped') return { word: 'Stopped', tone: 'muted' };
   if (beans?.low && beans.brewsLeft != null) return { word: `≈ ${beans.brewsLeft} brew${beans.brewsLeft === 1 ? '' : 's'}`, tone: 'alert' };
   if (state.machine === 'awake' && lastAtMs != null && nowMs - lastAtMs < 3_600_000)
@@ -245,18 +248,24 @@ function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onS
       {shownAdvice && shownAdvice.status !== 'trial_brewed' && (
         <AdviceCard advice={shownAdvice} brews={brews} beanName={beans?.beanName ?? state.beanName} size='sm' />
       )}
-      <div className='cc-go'>
-        <LinkChip state={state} />
-        <HoldButton
-          kind='brew'
-          className='cc-hold'
-          label={trial ? 'Hold 1 s · trial' : 'Hold 1 s to brew'}
-          pending={pending}
-          failed={pending ? null : failure}
-          disabled={!pending && !canStart(state)}
-          onConfirm={() => start({ variant: 'usual' })}
-        />
-      </div>
+      {state.phase === 'awaiting_cup' ? (
+        <div className='cc-wait'>
+          <CupWait state={state} size='md' />
+        </div>
+      ) : (
+        <div className='cc-go'>
+          <LinkChip state={state} />
+          <HoldButton
+            kind='brew'
+            className='cc-hold'
+            label={trial ? 'Hold 1 s · trial' : 'Hold 1 s to brew'}
+            pending={pending}
+            failed={pending ? null : failure}
+            disabled={!pending && !canStart(state)}
+            onConfirm={() => start({ variant: 'usual' })}
+          />
+        </div>
+      )}
       {beans && beans.remainingG == null && (
         <>
           <div className='cc-sep' />
@@ -721,13 +730,12 @@ export function CoffeeCard({ onOpenStage }: CoffeeCardProps) {
   const tablet = viewer.name === COFFEE_TABLET_VIEWER;
 
   const connected = useRef<string | null>(null);
-  const awake = state?.machine === 'awake' || state?.machine === 'working';
-  const linkDown = state != null && state.link !== 'connected';
+  const connectWanted = state != null && wantsConnect(state);
   useEffect(() => {
-    if (collapsed || !awake || !linkDown || connected.current === brewKey) return;
+    if (collapsed || !connectWanted || connected.current === brewKey) return;
     connected.current = brewKey;
     void sendCoffeeCommand('connect', {}).catch(() => {});
-  }, [collapsed, awake, linkDown, brewKey]);
+  }, [collapsed, connectWanted, brewKey]);
 
   const maintWord = useMemo(() => {
     const rows = parseHouseUpcoming(upAttributes, slowNow).filter(row => canViewerSeeUpcoming(row, viewer));
