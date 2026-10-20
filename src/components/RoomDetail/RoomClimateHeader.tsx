@@ -126,9 +126,11 @@ export function RoomClimateHeader({
   const haTarget = strictNum(thermostat?.attributes?.temperature) ?? NaN;
   const limits = thermo ? setpointLimits(entities, thermo.entityId) : { min: 15, max: 25 };
   const zone = thermo ? zoneForThermostat(thermo.entityId) : null;
+  const dialZone = zone && entities[zoneSensorId(zone)] ? zone : null;
+  const zoneLive = !!dialZone && heatBool(entities[zoneSensorId(dialZone)]?.attributes?.live);
   // A nudge only reaches the thermostat once the controller writes the zone; until then the room keeps the direct stepper.
-  const residentZone = zone && zoneHasNudge(entities, zone) && heatBool(entities[zoneSensorId(zone)]?.attributes?.live) ? zone : null;
-  const residentHeat = useResidentHeat(entities, residentZone, callService);
+  const nudgeLive = !!dialZone && zoneLive && zoneHasNudge(entities, dialZone);
+  const residentHeat = useResidentHeat(entities, dialZone, callService);
 
   // Optimistic target: {value, base, ts} - shown for up to ACK_TIMEOUT_MS while HA still reports
   // `base`, then reverted to whatever HA actually holds. Kept in this always-mounted header (not
@@ -136,6 +138,9 @@ export function RoomClimateHeader({
   const [pending, setPending] = useState<{ value: number; base: number } | null>(null);
   const waitingForThermostat = pending != null && pending.base === haTarget;
   const shownTarget = waitingForThermostat ? pending.value : haTarget;
+  // Until the controller writes the zone, the thermostat's own setpoint is the target the room heats to.
+  const dialHeat =
+    residentHeat && !zoneLive ? { ...residentHeat, target: Number.isFinite(shownTarget) ? shownTarget : null } : residentHeat;
   const writeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
@@ -269,7 +274,7 @@ export function RoomClimateHeader({
           onClose={closeSheet}
         >
           <div className='climate-scroll' tabIndex={0} role='region' aria-label='Climate details'>
-            {residentHeat && <HeatDial tempC={tempC} heat={residentHeat} />}
+            {dialHeat && <HeatDial tempC={tempC} heat={dialHeat} />}
             <TemperatureHistoryChart
               roomSensorId={temperatureHistorySensorId}
               outdoorSensorId={entities[OUTDOOR_TEMP_SENSOR] ? OUTDOOR_TEMP_SENSOR : null}
@@ -315,12 +320,12 @@ export function RoomClimateHeader({
             {tempC == null && <p className='climate-detail-note'>Room temperature is unavailable.</p>}
           </div>
 
-          {residentHeat?.seasonOn && (
+          {nudgeLive && residentHeat?.seasonOn && (
             <footer className='climate-controls'>
               <NudgeStepper heat={residentHeat} disabled={!callService} />
             </footer>
           )}
-          {showHeating && !residentHeat && (
+          {showHeating && !nudgeLive && (
             <footer className='climate-controls'>
               <div className='climate-control-heading'>
                 <strong>Heating target</strong>
