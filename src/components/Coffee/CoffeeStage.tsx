@@ -58,7 +58,7 @@ import { ChartBox } from './ChartBox';
 import { CupWait } from './CupWait';
 import { Glyph } from './Glyph';
 import { HoldButton } from './HoldButton';
-import { Chip, Legend, LinkChip, NotifyChip, StoryPill, VerdictPill, type LegendItem } from './parts';
+import { Chip, CupChip, Legend, LinkChip, NotifyChip, StoryPill, VerdictPill, type LegendItem } from './parts';
 import { BeansSheet, RecipesSheet, TweakSheet } from './sheets';
 import { TasteRow } from './taste';
 import { useClock } from './useClock';
@@ -254,6 +254,7 @@ function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
       {shownAdvice && <AdviceCard advice={shownAdvice} brews={brews} beanName={beans?.beanName ?? state.beanName} size='lg' />}
       <div className='cs-status'>
         <LinkChip state={state} big />
+        <CupChip state={state} big />
         <NotifyChip state={state} variant='chip' />
       </div>
       {appHasMachine(state) && (

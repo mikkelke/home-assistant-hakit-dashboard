@@ -118,6 +118,13 @@
   padding: 0 6px;
 }
 
+.coffee-cupchip.is-cof {
+  font-weight: 600;
+}
+.coffee-cupchip.is-mute svg {
+  color: var(--cof-t3);
+}
+
 .coffee-livedot {
   width: 9px;
   height: 9px;

@@ -6,6 +6,7 @@ import { personName, type CoffeeState, type PersonKey } from '../../coffee/model
 import { linkView, notifyPerson, type Tone, type VerdictView } from '../../coffee/view';
 import { HOUSEHOLD } from '../../home/household';
 import { ApplianceSheet } from '../Appliance';
+import { Glyph } from './Glyph';
 
 const FACE_COLOURS: Record<PersonKey, string> = { mikkel: '#5b6b7d', kristine: '#9a7a5c', claudia: '#7d8aa0' };
 
@@ -64,6 +65,19 @@ export function StoryPill({ tone, icon, children, className = '' }: { tone: Tone
     <span className={`coffee-story is-${tone} ${className}`}>
       <Icon icon={icon} aria-hidden='true' />
       {children}
+    </span>
+  );
+}
+
+/** What the scale shows while the machine is awake to see it: lit once a cup is on, so a cup put on before the machine
+ * woke (which it cannot see) shows as not lit. */
+export function CupChip({ state, big = false }: { state: Pick<CoffeeState, 'cup' | 'machine'>; big?: boolean }) {
+  if (state.machine !== 'awake' && state.machine !== 'working') return null;
+  const on = state.cup === 'present';
+  return (
+    <span className={`coffee-chip coffee-cupchip ${on ? 'is-cof' : 'is-mute'} ${big ? 'is-big' : ''}`}>
+      <Glyph name='cup' />
+      {on ? 'Cup on' : state.cup === 'absent' ? 'No cup' : 'Cup'}
     </span>
   );
 }
