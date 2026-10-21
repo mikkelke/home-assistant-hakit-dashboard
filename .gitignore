@@ -49,3 +49,8 @@ ha-dashboard-backup-*.zip
 *.njsproj
 *.sln
 *.sw?
+
+# Design harness: build, screenshots and run output
+/harness/.build
+/harness/.results
+/harness/out
