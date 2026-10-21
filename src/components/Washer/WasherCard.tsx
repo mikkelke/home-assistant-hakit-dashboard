@@ -30,7 +30,7 @@ function selectOptions(entity: HassEntities[string] | undefined): string[] {
   return Array.isArray(opts) ? (opts as string[]) : [];
 }
 
-const hasChoice = (options: string[]) => options.some((o) => o !== NO_CHOICE);
+const hasChoice = (options: string[]) => options.some(o => o !== NO_CHOICE);
 
 /** Programme keys in JSON; display labels for cycle history. Extend to match your washer programmes. */
 // eslint-disable-next-line react-refresh/only-export-components -- shared constant for cycle history
@@ -400,7 +400,11 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
     <div className='appliance-chips'>
       <WasherChip label={programmeLabel} isInteractive={isInteractive} onClick={() => setOpenPicker('programme')} />
       {showTemperature && (
-        <WasherChip label={temperatureSelect?.state ?? NO_CHOICE} isInteractive={isInteractive} onClick={() => setOpenPicker('temperature')} />
+        <WasherChip
+          label={temperatureSelect?.state ?? NO_CHOICE}
+          isInteractive={isInteractive}
+          onClick={() => setOpenPicker('temperature')}
+        />
       )}
       {showSpin && <WasherChip label={spinChipValue} isInteractive={isInteractive} onClick={() => setOpenPicker('spin')} />}
       {soakToggle && supportsSoak && <SoakChip on={soakOn} isInteractive={isInteractive} onClick={handleSoakToggle} />}
