@@ -60,7 +60,14 @@ const PLUG = {
   audience: 'admin',
   steps: ['Pick the Intensive programme.'],
 };
-const RAIN = { id: 'rain:terrace', kind: 'rain', title: 'Rain forecast', icon: 'mdi:weather-pouring', area: 'dining_room' };
+const rainIn = (minutes: number) => ({
+  id: 'rain:terrace',
+  kind: 'rain',
+  title: 'Rain forecast',
+  icon: 'mdi:weather-pouring',
+  area: 'dining_room',
+  at: new Date(Date.now() + minutes * 60_000).toISOString(),
+});
 
 let root: Root;
 let send: Mock<(message: unknown) => Promise<unknown>>;
@@ -119,6 +126,14 @@ describe('the To do section of a room panel', () => {
     expect(chips()).toEqual(['Dishwasher hygiene run']);
   });
 
+  it('lists rain only from half an hour before its time', async () => {
+    publish(rainIn(45));
+    await openAs(KRISTINE);
+    expect(document.querySelector('.room-todo')).toBeNull();
+    publish(rainIn(25));
+    expect(chips()).toEqual(['Rain forecast']);
+  });
+
   it('is not there when nothing is due in the room', async () => {
     publish(PLUG, { ...FIG, at: '2026-12-26T08:00:00Z' });
     await openAs(MIKKEL);
@@ -126,7 +141,7 @@ describe('the To do section of a room panel', () => {
   });
 
   it('shows a housemate what everyone sees and nothing of the maintenance', async () => {
-    publish(FIG, RAIN);
+    publish(FIG, rainIn(20));
     await openAs(KRISTINE);
     expect(chips()).toEqual(['Rain forecast']);
     publish(FIG);

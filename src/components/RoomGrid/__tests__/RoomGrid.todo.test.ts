@@ -46,6 +46,8 @@ const AREAS: Area[] = [
   { area_id: 'dining_room', name: 'Dining Room' },
   { area_id: 'hallway', name: 'Hallway' },
   { area_id: 'guest_bathroom', name: 'Guest Bathroom' },
+  { area_id: 'living_room', name: 'Living Room' },
+  { area_id: 'rooftop', name: 'Rooftop' },
 ];
 
 /** What the publisher sends: a plant and a hygiene run that are due, a battery that is not yet, and a log row. */
@@ -77,6 +79,16 @@ const ROWS = [
   { id: 'maint:dryer:plinth', kind: 'maint', title: 'Plinth', area: 'guest_bathroom', audience: 'admin', next: 'skip' },
 ];
 
+/** Rain with a terrace door open: one row whose hour is 20 minutes away, one that is two hours away. */
+const rain = (id: string, area: string, minutesAhead: number) => ({
+  id,
+  kind: 'rain',
+  title: 'Rain forecast',
+  icon: 'mdi:weather-pouring',
+  area,
+  at: new Date(Date.now() + minutesAhead * 60_000).toISOString(),
+});
+
 let root: Root;
 
 async function openAs(user: User) {
@@ -86,7 +98,10 @@ async function openAs(user: User) {
     'sensor.house_upcoming': {
       entity_id: 'sensor.house_upcoming',
       state: 'x',
-      attributes: { expires: new Date(Date.now() + 600_000).toISOString(), rows: ROWS },
+      attributes: {
+        expires: new Date(Date.now() + 600_000).toISOString(),
+        rows: [...ROWS, rain('rain:living', 'living_room', 20), rain('rain:later', 'rooftop', 120)],
+      },
     },
   };
   act(() => store.setState({ connection, entities }));
@@ -115,16 +130,17 @@ afterEach(() => {
 describe('the to do badge on the room overview', () => {
   it("is on the card of each room that has a row due, for an administrator, in the row's own icon", async () => {
     await openAs({ is_admin: true, name: 'Mikkel', id: 'mikkel-id' });
-    expect(document.querySelectorAll('.room-card')).toHaveLength(4);
+    expect(document.querySelectorAll('.room-card')).toHaveLength(6);
     expect(badges()).toEqual([
       ['Dining Room', 'mdi:watering-can-outline'],
       ['Kitchen', 'mdi:dishwasher'],
+      ['Living Room', 'mdi:weather-pouring'],
     ]);
   });
 
-  it('is on no card for a housemate, who does not see maintenance rows', async () => {
+  it('is on no card for a housemate but the one with rain close, which everyone sees, and not for rain two hours off', async () => {
     await openAs({ is_admin: false, name: 'Kristine', id: 'kristine-id' });
-    expect(document.querySelectorAll('.room-card')).toHaveLength(4);
-    expect(badges()).toEqual([]);
+    expect(document.querySelectorAll('.room-card')).toHaveLength(6);
+    expect(badges()).toEqual([['Living Room', 'mdi:weather-pouring']]);
   });
 });
