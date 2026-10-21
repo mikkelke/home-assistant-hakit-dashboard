@@ -36,13 +36,6 @@ export const hasSheet = (row: HouseUpcomingRow): boolean => row.tapDone || row.s
 /** Whether the row is due: it has no time, and does not ask the next chip to pass over it (a log row). */
 export const isDue = (row: HouseUpcomingRow): boolean => row.atMs == null && !row.skipNext;
 
-/** A rain row is due in its room once its forecast hour is this close, or has begun. */
-const RAIN_DUE_MS = 30 * 60_000;
-
-/** Whether the row is due in its room at `nowMs`: due as above, or a rain row whose time is at hand. */
-export const isDueAt = (row: HouseUpcomingRow, nowMs: number): boolean =>
-  isDue(row) || (row.kind === 'rain' && !row.skipNext && row.atMs != null && row.atMs - nowMs <= RAIN_DUE_MS);
-
 /** The maintenance rows whose room panel holds a card for the thing itself: the appliances' own (washer, dryer, dishwasher,
  * xBloom) and Rober2's. */
 const ROOM_CARD_PREFIXES = ['maint:washer:', 'maint:dryer:', 'maint:dishwasher:', 'maint:coffee:', 'maint:rober2:'];
@@ -127,9 +120,10 @@ export function canViewerSeeUpcoming(row: HouseUpcomingRow, viewer: HouseEventVi
   return !row.adminOnly && (row.users == null || names(row, viewer));
 }
 
-/** The rows that are due in a room at `nowMs` and that `viewer` may see, in publish order: what needs doing where. */
-export const dueRows = (rows: readonly HouseUpcomingRow[], viewer: HouseEventViewer, nowMs: number): HouseUpcomingRow[] =>
-  rows.filter(row => isDueAt(row, nowMs) && row.areaId != null && canViewerSeeUpcoming(row, viewer));
+/** The rows that are due in a room and that `viewer` may see, in publish order: what needs doing where. A rain row is always
+ * due: the publisher only has one while a terrace door is open and rain is forecast. */
+export const dueRows = (rows: readonly HouseUpcomingRow[], viewer: HouseEventViewer): HouseUpcomingRow[] =>
+  rows.filter(row => (row.kind === 'rain' || isDue(row)) && row.areaId != null && canViewerSeeUpcoming(row, viewer));
 
 /** Whether the next chip may offer `row`: the row does not ask to be passed over, the viewer sees it,
  * and a row that names people names them, so an admin's chip never offers someone else's train. */

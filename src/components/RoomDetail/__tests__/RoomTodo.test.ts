@@ -126,11 +126,9 @@ describe('the To do section of a room panel', () => {
     expect(chips()).toEqual(['Dishwasher hygiene run']);
   });
 
-  it('lists rain only from half an hour before its time', async () => {
-    publish(rainIn(45));
+  it('lists rain whatever the hour of the forecast, to a housemate too', async () => {
+    publish(rainIn(150));
     await openAs(KRISTINE);
-    expect(document.querySelector('.room-todo')).toBeNull();
-    publish(rainIn(25));
     expect(chips()).toEqual(['Rain forecast']);
   });
 

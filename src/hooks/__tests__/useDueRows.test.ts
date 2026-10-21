@@ -3,7 +3,6 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HouseUpcomingRow } from '../../home/houseUpcoming';
-import { CLOCK_TICK_MS } from '../useNowMs';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -78,7 +77,7 @@ const viewAs = async (user: User | Promise<User>) => {
 };
 
 beforeEach(() => {
-  vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
+  vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(NOW);
   seen.length = 0;
   lookups.clear();
@@ -126,21 +125,17 @@ describe('the rows that are due', () => {
     expect(latest()).toEqual([]);
   });
 
-  it('count a rain row once its hour comes near, which the shared clock brings about without a new publish', async () => {
+  it('count a rain row whatever its hour, since it exists only while a door is open and rain is forecast', async () => {
     const rain = {
       id: 'rain:terrace',
       kind: 'rain',
       title: 'Rain',
       icon: 'mdi:weather-pouring',
       area: 'living_room',
-      at: new Date(NOW + 45 * 60_000).toISOString(),
+      at: new Date(NOW + 170 * 60_000).toISOString(),
     };
-    publish(NOW + 3_600_000, [rain]);
+    publish(NOW + 600_000, [rain]);
     await viewAs({ is_admin: false, name: 'Housemate', id: 'housemate-id' });
-    expect(latest()).toEqual([]);
-    act(() => vi.advanceTimersByTime(10 * 60_000));
-    expect(latest()).toEqual([]);
-    act(() => vi.advanceTimersByTime(5 * 60_000 + CLOCK_TICK_MS));
     expect(latest().map(row => row.id)).toEqual(['rain:terrace']);
   });
 

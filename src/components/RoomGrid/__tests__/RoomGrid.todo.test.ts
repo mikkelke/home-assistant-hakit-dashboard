@@ -135,12 +135,16 @@ describe('the to do badge on the room overview', () => {
       ['Dining Room', 'mdi:watering-can-outline'],
       ['Kitchen', 'mdi:dishwasher'],
       ['Living Room', 'mdi:weather-pouring'],
+      ['Rooftop', 'mdi:weather-pouring'],
     ]);
   });
 
-  it('is on no card for a housemate but the one with rain close, which everyone sees, and not for rain two hours off', async () => {
+  it('is on no card for a housemate but those with rain, which everyone sees, whatever the hour of the forecast', async () => {
     await openAs({ is_admin: false, name: 'Kristine', id: 'kristine-id' });
     expect(document.querySelectorAll('.room-card')).toHaveLength(6);
-    expect(badges()).toEqual([['Living Room', 'mdi:weather-pouring']]);
+    expect(badges()).toEqual([
+      ['Living Room', 'mdi:weather-pouring'],
+      ['Rooftop', 'mdi:weather-pouring'],
+    ]);
   });
 });

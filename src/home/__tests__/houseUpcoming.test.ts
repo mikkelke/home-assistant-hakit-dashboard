@@ -5,7 +5,6 @@ import {
   dueRows,
   hasSheet,
   isDue,
-  isDueAt,
   isUpcomingFor,
   MAX_HOUSE_UPCOMING_ROWS,
   opensRoom,
@@ -236,47 +235,36 @@ describe('which rows are due', () => {
       entry('maint:once:mites', 'maint', {}, null),
       entry('maint:battery:sensor.test_battery', 'maint', {}, 'hallway')
     );
-    expect(ids(dueRows(rows, MIKKEL, NOW))).toEqual(['maint:plant:fig', 'rain:terrace', 'maint:battery:sensor.test_battery']);
+    expect(ids(dueRows(rows, MIKKEL))).toEqual(['maint:plant:fig', 'rain:terrace', 'maint:battery:sensor.test_battery']);
     for (const viewer of [KRISTINE, CLAUDIA, RESOLVING])
-      expect(ids(dueRows(rows, viewer, NOW)), viewer.name ?? 'resolving').toEqual(['rain:terrace']);
+      expect(ids(dueRows(rows, viewer)), viewer.name ?? 'resolving').toEqual(['rain:terrace']);
   });
 });
 
-describe('a rain row that is due', () => {
+describe('a rain row', () => {
   const MINUTE = 60_000;
-  const rainAt = (minutesAhead: number, extra: Record<string, string> = {}) =>
-    publish(entry('rain:terrace', 'rain', { at: new Date(NOW + minutesAhead * MINUTE).toISOString(), ...extra }, 'living_room'))[0];
+  const rainAt = (minutesAhead: number, area: string | null = 'living_room') =>
+    publish(entry('rain:terrace', 'rain', { at: new Date(NOW + minutesAhead * MINUTE).toISOString() }, area))[0];
 
-  it('is due from half an hour before its time, and after it, which is how the forecast hour can have begun', () => {
-    for (const ahead of [-90, -1, 0, 29, 30]) expect(isDueAt(rainAt(ahead), NOW), `${ahead} min ahead`).toBe(true);
-    for (const ahead of [31, 120]) expect(isDueAt(rainAt(ahead), NOW), `${ahead} min ahead`).toBe(false);
-    expect(isDueAt(rainAt(45), NOW + 15 * MINUTE)).toBe(true);
+  it('is always due in the room it names, whatever its hour, since the publisher has one only while a door is open and rain is forecast', () => {
+    for (const ahead of [-90, 0, 29, 31, 170])
+      expect(ids(dueRows([rainAt(ahead)], KRISTINE)), `${ahead} min ahead`).toEqual(['rain:terrace']);
   });
 
-  it('is not due while it asks to be passed over', () => {
-    expect(isDueAt(rainAt(10, { next: 'skip' }), NOW)).toBe(false);
-  });
-
-  it('leaves maintenance and the train to the general rule, whatever their time', () => {
-    const soon = new Date(NOW + 10 * MINUTE).toISOString();
-    const [job] = publish(entry('maint:plant:fig', 'maint', { at: soon }));
-    const [train] = parse(ROWS);
-    expect(isDueAt(job, NOW)).toBe(false);
-    expect(isDueAt(train, train.atMs! - 5 * MINUTE)).toBe(false);
-    expect(isDueAt(publish(entry('maint:plant:fig', 'maint'))[0], NOW)).toBe(true);
-  });
-
-  it('is listed for everyone who sees rain once its hour is near, and not before', () => {
-    const rows = publish(
-      entry('maint:plant:fig', 'maint'),
-      entry('rain:terrace', 'rain', { at: new Date(NOW + 45 * MINUTE).toISOString() }, 'living_room')
-    );
-    expect(ids(dueRows(rows, KRISTINE, NOW))).toEqual([]);
-    expect(ids(dueRows(rows, MIKKEL, NOW))).toEqual(['maint:plant:fig']);
+  it('is listed for everyone who sees rain', () => {
     for (const viewer of [MIKKEL, KRISTINE, CLAUDIA, RESOLVING]) {
-      expect(ids(dueRows(rows, viewer, NOW + 15 * MINUTE)).includes('rain:terrace'), viewer.name ?? 'resolving').toBe(true);
+      expect(ids(dueRows([rainAt(120)], viewer)), viewer.name ?? 'resolving').toEqual(['rain:terrace']);
     }
-    expect(ids(dueRows(rows, KRISTINE, NOW + 3 * 60 * MINUTE))).toEqual(['rain:terrace']);
+  });
+
+  it('is not listed without a room to show it in', () => {
+    expect(dueRows([rainAt(10, null)], MIKKEL)).toEqual([]);
+  });
+
+  it('leaves maintenance to the general rule, whatever its time', () => {
+    const soon = new Date(NOW + 10 * MINUTE).toISOString();
+    expect(dueRows(publish(entry('maint:plant:fig', 'maint', { at: soon })), MIKKEL)).toEqual([]);
+    expect(ids(dueRows(publish(entry('maint:plant:fig', 'maint')), MIKKEL))).toEqual(['maint:plant:fig']);
   });
 });
 
