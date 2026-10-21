@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import type { Fingerprint, MapDevice, Point } from '../../sensorMap/mapDoc';
+import type { Fingerprint, Furniture, MapDevice, Point } from '../../sensorMap/mapDoc';
 import { handlePoint } from '../../sensorMap/radarRange';
 import { glyphOf, typeClass } from './glyphs';
 import { activateOnKey } from './activateOnKey';
@@ -13,6 +13,8 @@ export interface Ghost {
   from: Point | null;
   at: Point;
   device: Pick<MapDevice, 'name' | 'type'>;
+  /** Set for suggested furniture, which is drawn as this outline instead of a marker; `at` is its centre. */
+  box?: Furniture['box'];
   stale: boolean;
 }
 
@@ -23,8 +25,33 @@ interface GhostMarkerProps {
   onActivate: (id: string) => void;
 }
 
+/** Suggested furniture: a dashed outline with its name. Only the edge takes a touch, so what lies inside stays reachable. */
+function GhostOutline({ ghost, box, yTop, selected, onActivate }: GhostMarkerProps & { box: Furniture['box'] }) {
+  const [x0, y0, x1, y1] = box;
+  const frame = { x: x0, y: yTop - y1, width: x1 - x0, height: y1 - y0 };
+  return (
+    <g className={`sm-ghost sm-ghost-box${selected ? ' sel' : ''}${ghost.stale ? ' stale' : ''}`}>
+      <rect {...frame} className='sm-ghost-rect' />
+      <text x={(x0 + x1) / 2} y={yTop - (y0 + y1) / 2} dy='0.35em' className='sm-room small'>
+        {ghost.device.name}
+      </text>
+      <g
+        data-hit='ghost'
+        data-id={ghost.id}
+        tabIndex={0}
+        role='button'
+        aria-label={`Suggested furniture ${ghost.device.name}`}
+        onKeyDown={activateOnKey(() => onActivate(ghost.id))}
+      >
+        <rect {...frame} className='sm-ghost-edge' />
+      </g>
+    </g>
+  );
+}
+
 /** A suggested placement: a dashed marker in the device's colour, with an arrow from where the device is now. */
 export const GhostMarker = memo(function GhostMarker({ ghost, yTop, selected, onActivate }: GhostMarkerProps) {
+  if (ghost.box) return <GhostOutline ghost={ghost} box={ghost.box} yTop={yTop} selected={selected} onActivate={onActivate} />;
   const [x, y] = ghost.at;
   return (
     <g className={`sm-ghost ${typeClass(ghost.device.type)}${selected ? ' sel' : ''}${ghost.stale ? ' stale' : ''}`}>

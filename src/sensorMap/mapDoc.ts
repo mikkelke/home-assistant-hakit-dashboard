@@ -87,6 +87,13 @@ export interface Glazing {
   door: boolean;
 }
 
+export interface Furniture {
+  id: string;
+  name: string;
+  /** `[x0, y0, x1, y1]` in metres with x0 < x1 and y0 < y1, y up, as the box of a window. */
+  box: [number, number, number, number];
+}
+
 export interface Zone {
   zone_id: string;
   name: string;
@@ -133,6 +140,7 @@ export interface Plan {
   walls: Wall[];
   doors: Door[];
   windows: Glazing[];
+  furniture?: Furniture[];
   zones: Zone[];
   clip_regions: ClipRegion[];
   zone_lines: ZoneLine[];
@@ -195,6 +203,7 @@ export interface WriteStamp {
 
 export interface MapDoc extends WriteStamp {
   schema_version: number;
+  /** Bumped by every placement or facing change of a BLE scanner; a capture or a suggestion records the value it was made against. */
   layout_version: number;
   updated_at: string;
   plan: Plan;
@@ -219,7 +228,8 @@ export type SuggestItem =
   | { id: string; kind: 'new_device'; device: NewDevice; reason: string }
   | { id: string; kind: 'wifi'; source?: WifiSource; aps?: Record<string, string>; reason: string }
   | { id: string; kind: 'rename'; device_key: string; name: string; reason: string }
-  | { id: string; kind: 'phone'; phone: Phone; reason: string };
+  | { id: string; kind: 'phone'; phone: Phone; reason: string }
+  | { id: string; kind: 'furniture'; furniture: Furniture; reason: string };
 
 export interface SuggestDoc {
   schema_version: number;
@@ -442,6 +452,23 @@ function checkRect(value: unknown, path: string, problems: string[]) {
   if (!isObject(value) || !['x0', 'x1', 'y0', 'y1'].every(k => isNumber(value[k]))) problems.push(`${path} is not {x0, x1, y0, y1}`);
 }
 
+function checkFurniture(value: unknown, path: string, problems: string[]) {
+  if (
+    !isObject(value) ||
+    !isString(value.id) ||
+    value.id.trim() === '' ||
+    !isString(value.name) ||
+    value.name.trim() === '' ||
+    !Array.isArray(value.box) ||
+    value.box.length !== 4 ||
+    !value.box.every(isNumber)
+  ) {
+    return problems.push(`${path} needs an id, a name and a box [x0, y0, x1, y1]`);
+  }
+  const [x0, y0, x1, y1] = value.box as number[];
+  if (x0 >= x1 || y0 >= y1) problems.push(`${path}.box needs x0 < x1 and y0 < y1`);
+}
+
 function checkPlan(plan: unknown, problems: string[]) {
   if (!isObject(plan)) return problems.push('plan is not an object');
   checkRect(plan.bounds, 'plan.bounds', problems);
@@ -462,6 +489,15 @@ function checkPlan(plan: unknown, problems: string[]) {
     if (!isObject(w) || !isString(w.name) || !Array.isArray(w.box) || w.box.length !== 4 || !w.box.every(isNumber))
       problems.push(`${p} is not a window`);
   });
+  if (plan.furniture !== undefined) {
+    const ids = new Set<string>();
+    list('furniture', (f, p) => {
+      checkFurniture(f, p, problems);
+      if (!isObject(f) || !isString(f.id)) return;
+      if (ids.has(f.id)) problems.push(`${p}.id ${f.id} is used twice`);
+      ids.add(f.id);
+    });
+  }
   list('zones', (z, p) => {
     if (!isObject(z) || !isString(z.zone_id) || !isString(z.name) || !isPoly(z.poly) || !isPoint(z.label))
       problems.push(`${p} is not a zone`);
@@ -635,8 +671,10 @@ export function validateSuggestDoc(raw: unknown): string[] {
         !isNullable(isString)(phone.person)
       )
         problems.push(`${path}.phone needs a name, a bermuda_address and a person that is a string or null`);
+    } else if (item.kind === 'furniture') {
+      checkFurniture(item.furniture, `${path}.furniture`, problems);
     } else {
-      problems.push(`${path}.kind is not placement, answer, new_device, wifi, rename or phone`);
+      problems.push(`${path}.kind is not placement, answer, new_device, wifi, rename, phone or furniture`);
     }
   });
   return problems;
@@ -827,6 +865,13 @@ function acceptItem(doc: MapDoc, item: SuggestItem, at: string, place?: Point): 
       updated_at: at,
       phones: doc.phones.some(same) ? doc.phones.map(known => (same(known) ? phone : known)) : [...doc.phones, phone],
     };
+  } else if (item.kind === 'furniture') {
+    const piece: Furniture = { ...item.furniture, name: item.furniture.name.trim() };
+    const known = doc.plan.furniture ?? [];
+    const furniture = known.some(entry => entry.id === piece.id)
+      ? known.map(entry => (entry.id === piece.id ? piece : entry))
+      : [...known, piece];
+    next = { ...doc, updated_at: at, plan: { ...doc.plan, furniture } };
   } else {
     const key = newDeviceKey(item.device, item.id);
     if (!doc.devices[key] && place) {

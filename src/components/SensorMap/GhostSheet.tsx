@@ -12,13 +12,14 @@ interface GhostSheetProps {
   onClose: () => void;
 }
 
+const SUBTITLE: Partial<Record<SuggestItem['kind'], string>> = {
+  new_device: 'suggested new device',
+  furniture: 'suggested furniture',
+};
+
 export function GhostSheet({ ghost, item, edit, onAccept, onReject, onClose }: GhostSheetProps) {
   return (
-    <Sheet
-      title={ghost.device.name}
-      subtitle={item.kind === 'new_device' ? 'suggested new device' : 'suggested placement'}
-      onClose={onClose}
-    >
+    <Sheet title={ghost.device.name} subtitle={SUBTITLE[item.kind] ?? 'suggested placement'} onClose={onClose}>
       <p>{item.reason}</p>
       <p className='sm-muted'>
         At x {ghost.at[0].toFixed(2)}, y {ghost.at[1].toFixed(2)}.
@@ -30,11 +31,13 @@ export function GhostSheet({ ghost, item, edit, onAccept, onReject, onClose }: G
         </button>
         <DiscardSuggestion onDiscard={() => onReject(item.id)} />
       </div>
-      <p className='sm-muted'>
-        {edit
-          ? 'Drag the marker to where it belongs: dropping it accepts the suggestion there.'
-          : 'To put it somewhere else, switch on Edit and drag the marker: dropping it accepts the suggestion there.'}
-      </p>
+      {!ghost.box && (
+        <p className='sm-muted'>
+          {edit
+            ? 'Drag the marker to where it belongs: dropping it accepts the suggestion there.'
+            : 'To put it somewhere else, switch on Edit and drag the marker: dropping it accepts the suggestion there.'}
+        </p>
+      )}
     </Sheet>
   );
 }

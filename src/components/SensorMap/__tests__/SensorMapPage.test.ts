@@ -1348,6 +1348,128 @@ describe('a suggested rename', () => {
   });
 });
 
+describe('furniture', () => {
+  const ISLAND = { id: 'island', name: 'Test island', box: [5, 5, 7, 6] as [number, number, number, number] };
+  const screenOf = (x: number, y: number) => planToScreen(fitView(canvas, makeDoc().plan.fit), canvas, x, y);
+  const withIsland = (): MapDoc => {
+    const map = makeDoc();
+    map.plan.furniture = [ISLAND];
+    return map;
+  };
+  const suggestingIsland = (): SuggestDoc => {
+    const suggest = makeSuggestDoc();
+    suggest.items = [{ id: 's-island', kind: 'furniture', furniture: ISLAND, reason: 'It stands there' }];
+    return suggest;
+  };
+  const openSuggesting = async () => {
+    const fake = fakeConnection({ ...docs(), sensor_map_suggest: suggestingIsland() });
+    await open(fake);
+    return fake;
+  };
+  const outline = () => query('.sm-ghost-box [data-hit="ghost"]') as Element;
+  const viewBox = () => query('.sm-svg')?.getAttribute('viewBox');
+
+  it('is drawn from the plan with its name, above the rooms and under the walls', async () => {
+    await open(fakeConnection({ ...docs(), sensor_map: withIsland() }));
+    const box = query('.sm-furniture .sm-furniture-box') as Element;
+    expect(queryAll('.sm-furniture .sm-furniture-box')).toHaveLength(1);
+    expect(['x', 'y', 'width', 'height'].map(name => Number(box.getAttribute(name)))).toEqual([5, makeDoc().plan.bounds.y1 - 6, 2, 1]);
+    expect(query('.sm-furniture text')?.textContent).toBe('Test island');
+    const layers = [...(query('.sm-svg')?.children ?? [])].map(node => node.getAttribute('class'));
+    expect(layers.indexOf('sm-zones')).toBeLessThan(layers.indexOf('sm-furniture'));
+    expect(layers.indexOf('sm-furniture')).toBeLessThan(layers.indexOf('sm-structure'));
+  });
+
+  it('is not there on a plan that has none', async () => {
+    await open(fakeConnection(docs()));
+    expect(query('.sm-furniture')).toBeNull();
+  });
+
+  it('is suggested as a dashed outline with its name, counted by the pill, and not yet part of the plan', async () => {
+    await openSuggesting();
+    expect(queryAll('.sm-ghost-box')).toHaveLength(1);
+    expect(query('.sm-ghost-box text')?.textContent).toBe('Test island');
+    expect(outline().getAttribute('aria-label')).toBe('Suggested furniture Test island');
+    expect(query('.sm-pill')?.textContent).toBe('1 suggestion');
+    expect(query('.sm-furniture')).toBeNull();
+  });
+
+  it('opens a sheet with the reason, without the hint to drag, and writes nothing until it is decided', async () => {
+    const fake = await openSuggesting();
+    press(outline(), 'Enter');
+    expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('Test island');
+    expect(query('.sm-sheet .sm-sheet-sub')?.textContent).toBe('suggested furniture');
+    expect(query('.sm-sheet')?.textContent).toContain('It stands there');
+    expect(query('.sm-sheet')?.textContent).not.toContain('Drag the marker');
+    expect(queryAll('.sm-sheet .sm-chip').map(node => node.textContent)).toEqual(['Accept', 'Discard suggestion']);
+    await settle(1500);
+    expect(writes(fake)).toHaveLength(0);
+  });
+
+  it('joins the plan when accepted, as a write of the page that is logged, and the outline goes', async () => {
+    const fake = await openSuggesting();
+    press(outline(), 'Enter');
+    act(() => chip('Accept').click());
+    await settle(1100);
+    const written = writes(fake).at(-1)?.value as MapDoc;
+    expect(writes(fake).at(-1)?.key).toBe('sensor_map');
+    expect(written.plan.furniture).toEqual([ISLAND]);
+    expect(written.layout_version).toBe(makeDoc().layout_version);
+    expect(written.suggest_log).toEqual([expect.objectContaining({ id: 's-island', accepted_at: expect.any(String) })]);
+    expect(queryAll('.sm-ghost')).toHaveLength(0);
+    expect(queryAll('.sm-furniture .sm-furniture-box')).toHaveLength(1);
+    expect(query('.sm-pill')).toBeNull();
+  });
+
+  it('leaves the plan alone when discarded, and logs it', async () => {
+    const fake = await openSuggesting();
+    press(outline(), 'Enter');
+    await discard();
+    await settle(1100);
+    const written = writes(fake).at(-1)?.value as MapDoc;
+    expect(written.plan.furniture).toBeUndefined();
+    expect(written.suggest_log).toEqual([expect.objectContaining({ id: 's-island', rejected_at: expect.any(String) })]);
+    expect(queryAll('.sm-ghost')).toHaveLength(0);
+    expect(query('.sm-furniture')).toBeNull();
+  });
+
+  it('is a card in the suggestions sheet that can be shown on the map, which selects the outline', async () => {
+    await openSuggesting();
+    act(() => (query('.sm-pill') as HTMLElement).click());
+    const card = query('.sm-sheet .sm-suggest-card') as HTMLElement;
+    expect(card.querySelector('.sm-tag')?.textContent).toBe('Furniture');
+    expect(card.textContent).toContain('Test island');
+    expect(card.textContent).toContain('It stands there');
+    expect([...card.querySelectorAll('button')].map(node => node.textContent)).toEqual(['Accept', 'Show on map', 'Discard suggestion']);
+    act(() => ([...card.querySelectorAll('button')].find(node => node.textContent === 'Show on map') as HTMLElement).click());
+    await settle(100);
+    expect(query('.sm-ghost.sel')).not.toBeNull();
+    expect(query('.sm-sheet .sm-sheet-sub')?.textContent).toBe('suggested furniture');
+  });
+
+  it('is not dragged in Edit: a drag on the outline pans the plan and accepts nothing', async () => {
+    const fake = await openSuggesting();
+    mode('Edit');
+    const from = screenOf(6, 5.5);
+    const fire = (target: Element, name: string, at: { x: number; y: number }) =>
+      act(
+        () =>
+          void target.dispatchEvent(
+            new PointerEvent(name, { bubbles: true, pointerId: 1, pointerType: 'mouse', button: 0, clientX: at.x, clientY: at.y })
+          )
+      );
+    const before = viewBox();
+    fire(query('.sm-ghost-edge') as Element, 'pointerdown', from);
+    fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + 20, y: from.y });
+    fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + 40, y: from.y });
+    fire(query('.sm-svg') as Element, 'pointerup', { x: from.x + 40, y: from.y });
+    await settle();
+    expect(viewBox()).not.toBe(before);
+    expect(writes(fake)).toHaveLength(0);
+    expect(queryAll('.sm-ghost-box')).toHaveLength(1);
+  });
+});
+
 describe('tapping the plan during a survey', () => {
   const screenOf = (x: number, y: number) => planToScreen(fitView(canvas, makeDoc().plan.fit), canvas, x, y);
   const fire = (target: Element, name: string, at: { x: number; y: number }) =>

@@ -118,6 +118,27 @@ export const PlanLabels = memo(function PlanLabels({ plan }: { plan: Plan }) {
   );
 });
 
+/** Furniture as a quiet filled outline with its name, under the room labels and the walls. */
+export const PlanFurniture = memo(function PlanFurniture({ plan }: { plan: Plan }) {
+  const yTop = plan.bounds.y1;
+  if (!plan.furniture?.length) return null;
+  return (
+    <g className='sm-furniture'>
+      {plan.furniture.map(piece => {
+        const [x0, y0, x1, y1] = piece.box;
+        return (
+          <g key={piece.id}>
+            <rect x={x0} y={yTop - y1} width={x1 - x0} height={y1 - y0} className='sm-furniture-box' />
+            <text x={(x0 + x1) / 2} y={yTop - (y0 + y1) / 2} dy='0.35em' className='sm-room small'>
+              {piece.name}
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  );
+});
+
 export const PlanWalls = memo(function PlanWalls({ plan }: { plan: Plan }) {
   const yTop = plan.bounds.y1;
   const { compass } = plan;

@@ -79,7 +79,7 @@ describe('validation and parsing', () => {
     expect(validateSuggestDoc(doc).some(p => p.includes('used twice'))).toBe(true);
     const raw = JSON.parse(JSON.stringify(makeSuggestDoc())) as { items: { kind: string }[] };
     raw.items[0].kind = 'teleport';
-    expect(validateSuggestDoc(raw).some(p => p.includes('placement, answer, new_device, wifi, rename or phone'))).toBe(true);
+    expect(validateSuggestDoc(raw).some(p => p.includes('placement, answer, new_device, wifi, rename, phone or furniture'))).toBe(true);
   });
 
   it('only lets set-suggest write the suggestion key and seed write the map or a scratch copy', () => {
@@ -832,5 +832,118 @@ describe('a suggested phone', () => {
     expect(samePhoneAddress(ADDRESS, ADDRESS.toUpperCase())).toBe(true);
     expect(samePhoneAddress(` ${ADDRESS}`, ADDRESS)).toBe(true);
     expect(samePhoneAddress(ADDRESS, `${ADDRESS}x`)).toBe(false);
+  });
+});
+
+describe('furniture on the plan', () => {
+  const island = { id: 'island', name: 'Test island', box: [5, 1, 7, 2] as [number, number, number, number] };
+  const withFurniture = (furniture: unknown) => ({ ...makeDoc(), plan: { ...makeDoc().plan, furniture } });
+  const problemsOf = (furniture: unknown) => validateMapDoc(JSON.parse(JSON.stringify(withFurniture(furniture))));
+
+  it('is optional: a plan without it is valid and stays without it', () => {
+    expect(makeDoc().plan.furniture).toBeUndefined();
+    expect(validateMapDoc(makeDoc())).toEqual([]);
+    expect(parseMapDoc(JSON.parse(JSON.stringify(makeDoc()))).plan.furniture).toBeUndefined();
+  });
+
+  it('is valid with an id, a name and a box, and is kept by the parse', () => {
+    expect(problemsOf([island, { id: 'table', name: 'Test table', box: [1.5, 5.25, 2.5, 6.5] }])).toEqual([]);
+    expect(problemsOf([])).toEqual([]);
+    expect(parseMapDoc(JSON.parse(JSON.stringify(withFurniture([island])))).plan.furniture).toEqual([island]);
+  });
+
+  it('names what is wrong with an entry', () => {
+    const wrong = (entry: unknown) => problemsOf([entry]).some(p => p.startsWith('plan.furniture[0]'));
+    expect(problemsOf({})).toContain('plan.furniture is not an array');
+    for (const entry of [
+      null,
+      { ...island, id: '' },
+      { ...island, id: 5 },
+      { ...island, name: ' ' },
+      { ...island, name: undefined },
+      { ...island, box: undefined },
+      { ...island, box: [5, 1, 7] },
+      { ...island, box: [5, 1, 7, 2, 3] },
+      { ...island, box: [5, 1, 7, '2'] },
+      { ...island, box: [5, 1, 7, null] },
+      { ...island, box: [7, 1, 5, 2] },
+      { ...island, box: [5, 2, 7, 1] },
+      { ...island, box: [5, 1, 5, 2] },
+    ]) {
+      expect(wrong(entry)).toBe(true);
+    }
+  });
+
+  it('does not list one id twice, since an accepted suggestion replaces the entry with its id', () => {
+    expect(problemsOf([island, { ...island, name: 'Other' }]).some(p => p.includes('plan.furniture[1].id island is used twice'))).toBe(
+      true
+    );
+  });
+});
+
+describe('a suggested piece of furniture', () => {
+  const box = (): [number, number, number, number] => [7.2, 1.1, 9, 2.05];
+  const furniture = (extra: Record<string, unknown> = {}) => ({
+    id: 's-island',
+    kind: 'furniture' as const,
+    furniture: { id: 'island', name: 'Test island', box: box(), ...extra },
+    reason: 'It stands there',
+  });
+  const suggestWith = (entry: unknown) => ({ ...makeSuggestDoc(), items: [entry] });
+
+  it('is a valid suggestion with an id, a name and a box, and not otherwise', () => {
+    expect(validateSuggestDoc(suggestWith(furniture()))).toEqual([]);
+    for (const bad of [{ id: '' }, { name: '  ' }, { box: [1, 2, 3] }, { box: [3, 1, 1, 2] }, { box: [1, 3, 2, 1] }, { box: undefined }]) {
+      expect(validateSuggestDoc(suggestWith(furniture(bad))).some(p => p.startsWith('items[0].furniture'))).toBe(true);
+    }
+    expect(
+      validateSuggestDoc(suggestWith({ id: 's-island', kind: 'furniture', reason: 'x' })).some(p => p.startsWith('items[0].furniture'))
+    ).toBe(true);
+  });
+
+  it('is added to the plan when accepted, trimmed, as an ordinary edit that is logged and leaves everything else alone', () => {
+    const before = makeDoc();
+    const doc = applyMapOp(before, { kind: 'accept', item: furniture({ name: '  Test island ' }), at: at(1) });
+    expect(doc.plan.furniture).toEqual([{ id: 'island', name: 'Test island', box: box() }]);
+    expect(doc.plan.walls).toBe(before.plan.walls);
+    expect(doc.plan.zones).toBe(before.plan.zones);
+    expect(doc.devices).toBe(before.devices);
+    expect(doc.updated_at).toBe(at(1));
+    expect(doc.suggest_log).toEqual([{ id: 's-island', accepted_at: at(1) }]);
+  });
+
+  it('does not bump the layout version, which counts changes to the scanners', () => {
+    const before = makeDoc();
+    expect(applyMapOp(before, { kind: 'accept', item: furniture(), at: at(1) }).layout_version).toBe(before.layout_version);
+  });
+
+  it('is added after the furniture that is there, and replaces the entry with the same id in its place', () => {
+    const table = { id: 'table', name: 'Test table', box: [1, 1, 2, 2] as [number, number, number, number] };
+    const base = {
+      ...makeDoc(),
+      plan: { ...makeDoc().plan, furniture: [table, { id: 'island', name: 'Old', box: [0, 0, 1, 1] as [number, number, number, number] }] },
+    };
+    const added = applyMapOp(base, {
+      kind: 'accept',
+      item: { ...furniture(), furniture: { id: 'sofa', name: 'Sofa', box: [3, 3, 4, 4] } },
+      at: at(1),
+    });
+    expect(added.plan.furniture?.map(piece => piece.id)).toEqual(['table', 'island', 'sofa']);
+    const replaced = applyMapOp(base, { kind: 'accept', item: furniture(), at: at(1) });
+    expect(replaced.plan.furniture).toEqual([table, { id: 'island', name: 'Test island', box: box() }]);
+  });
+
+  it('is accepted once, and a rejection leaves the plan alone and only logs', () => {
+    const once = applyMapOp(makeDoc(), { kind: 'accept', item: furniture(), at: at(1) });
+    expect(applyMapOp(once, { kind: 'accept', item: furniture({ name: 'Other' }), at: at(2) })).toBe(once);
+    const rejected = applyMapOp(makeDoc(), { kind: 'reject', id: 's-island', at: at(1) });
+    expect(rejected.plan.furniture).toBeUndefined();
+    expect(rejected.suggest_log).toEqual([{ id: 's-island', rejected_at: at(1) }]);
+  });
+
+  it('is read back as a valid map after it was accepted, so it survives the next load', () => {
+    const doc = applyMapOp(makeDoc(), { kind: 'accept', item: furniture(), at: at(1) });
+    expect(validateMapDoc(JSON.parse(JSON.stringify(doc)))).toEqual([]);
+    expect(parseMapDoc(JSON.parse(JSON.stringify(doc))).plan.furniture).toHaveLength(1);
   });
 });

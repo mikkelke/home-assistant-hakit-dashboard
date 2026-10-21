@@ -241,6 +241,10 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
       } else if (item.kind === 'new_device') {
         const pos = item.device.placement.pos;
         if (pos) out.push({ id: item.id, from: null, at: [pos.x, pos.y], device: item.device, stale });
+      } else if (item.kind === 'furniture') {
+        const { name, box } = item.furniture;
+        const at: Point = [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2];
+        out.push({ id: item.id, from: null, at, device: { name, type: 'other' }, box, stale: false });
       }
     }
     return out;
@@ -477,7 +481,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
     draggable: (hit: Hit) =>
       edit &&
       (hit.kind === 'ghost'
-        ? layers.suggestions
+        ? layers.suggestions && !ghosts.find(candidate => candidate.id === hit.id)?.box
         : selectedKey !== null && hit.id === selectedKey && (hit.kind === 'marker' || hit.kind === 'handle')),
     refineHit: (hit, px, shown, size) => {
       if (hit.kind === 'survey') {

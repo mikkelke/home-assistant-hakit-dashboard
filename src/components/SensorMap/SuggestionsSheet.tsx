@@ -13,8 +13,9 @@ const KIND: Record<Kind, { tag: string; rank: number }> = {
   wifi: { tag: 'Wi-Fi', rank: 1 },
   new_device: { tag: 'New device', rank: 2 },
   placement: { tag: 'Placement', rank: 3 },
-  rename: { tag: 'Rename', rank: 4 },
-  answer: { tag: 'Answer', rank: 5 },
+  furniture: { tag: 'Furniture', rank: 4 },
+  rename: { tag: 'Rename', rank: 5 },
+  answer: { tag: 'Answer', rank: 6 },
 };
 
 interface SuggestionsSheetProps {
@@ -37,6 +38,8 @@ function titleOf(item: PlanItem, doc: MapDoc): string {
       return item.device.name;
     case 'placement':
       return nameOf(doc, item.device_key);
+    case 'furniture':
+      return item.furniture.name;
     case 'rename':
       return `${nameOf(doc, item.device_key)} to ${item.name}`;
     case 'answer': {

@@ -8,7 +8,7 @@ import type { SurveyPoint, SurveyProgress } from '../../sensorMap/survey';
 import { CoverageDots, CoverageFills } from './CoverageLayer';
 import { DeviceMarker } from './DeviceMarker';
 import { Crosshair, FacingHandle, FingerprintMarks, GhostMarker, type Ghost } from './MarkLayers';
-import { PlanDefs, PlanGrid, PlanLabels, PlanWalls } from './PlanLayers';
+import { PlanDefs, PlanFurniture, PlanGrid, PlanLabels, PlanWalls } from './PlanLayers';
 import { RadarFootprint } from './RadarFootprint';
 import { SurveyLayer } from './SurveyLayer';
 import { ZoneFills } from './ZoneFills';
@@ -134,6 +134,7 @@ export const PlanCanvas = memo(function PlanCanvas(props: PlanCanvasProps) {
       {layers.grid && <PlanGrid plan={plan} />}
       <ZoneFills zones={plan.zones} yTop={yTop} selectedId={selection?.kind === 'zone' ? selection.id : null} phoneAreas={phoneAreas} />
       {coverage && <CoverageFills rooms={coverage.rooms} zones={plan.zones} yTop={yTop} />}
+      <PlanFurniture plan={plan} />
       <PlanLabels plan={plan} />
       {layers.footprints && (
         <g className='sm-footprints'>

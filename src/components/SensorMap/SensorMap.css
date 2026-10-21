@@ -16,6 +16,8 @@
   --sm-grid: rgba(230, 237, 243, 0.07);
   --sm-gridlab: #6e7681;
   --sm-room: #9aa4b2;
+  --sm-furniture-fill: var(--surface-chip);
+  --sm-furniture-line: var(--line);
   --sm-outside: #6e7681;
   --sm-mk-ring: #e6edf3;
   --sm-mk-glyph: #0b0f14;
@@ -67,6 +69,8 @@
   --sm-grid: rgba(17, 24, 39, 0.08);
   --sm-gridlab: #8a93a0;
   --sm-room: #5f6874;
+  --sm-furniture-fill: rgba(17, 24, 39, 0.05);
+  --sm-furniture-line: rgba(17, 24, 39, 0.16);
   --sm-outside: #9aa1ab;
   --sm-mk-ring: #111827;
   --sm-mk-glyph: #ffffff;
@@ -580,6 +584,13 @@
   fill: var(--sm-wall);
 }
 
+.sm-furniture-box {
+  fill: var(--sm-furniture-fill);
+  stroke: var(--sm-furniture-line);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
 .sm-win-bg {
   fill: var(--sm-plan-bg);
 }
@@ -640,6 +651,7 @@
 }
 
 .sm-compass,
+.sm-furniture,
 .sm-labels,
 .sm-grid {
   pointer-events: none;
@@ -903,6 +915,29 @@
 
 .sm-ghost.stale {
   opacity: 0.55;
+}
+
+.sm-ghost-rect {
+  fill: var(--tc);
+  fill-opacity: 0.1;
+  stroke: var(--tc);
+  stroke-width: 2.2;
+  stroke-dasharray: 5 3.5;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.sm-ghost.sel .sm-ghost-rect {
+  stroke: var(--sm-sel);
+}
+
+.sm-ghost-edge {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 20;
+  vector-effect: non-scaling-stroke;
+  pointer-events: stroke;
+  cursor: pointer;
 }
 
 .sm-ghost-arrow {

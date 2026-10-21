@@ -90,6 +90,19 @@ it('writes a suggestion document that holds a Wi-Fi setup, a rename and a phone,
   ).rejects.toThrow();
 });
 
+it('writes a suggested piece of furniture, and refuses a box that is turned inside out', async () => {
+  const item = {
+    id: 's-island',
+    kind: 'furniture',
+    furniture: { id: 'island', name: 'Test island', box: [7.2, 1.1, 9, 2.05] },
+    reason: 'It stands there',
+  };
+  await run('set-suggest', [file({ items: [item] })], client);
+  expect((data.get(SUGGEST_KEY) as { items: unknown[] }).items).toEqual([item]);
+  const inverted = { ...item, furniture: { ...item.furniture, box: [9, 1.1, 7.2, 2.05] } };
+  await expect(run('set-suggest', [file({ items: [inverted] })], client)).rejects.toThrow();
+});
+
 it('summarizes the Wi-Fi of the map', async () => {
   const lines: string[] = [];
   vi.spyOn(console, 'log').mockImplementation((line: string) => void lines.push(line));

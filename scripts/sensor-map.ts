@@ -21,6 +21,7 @@
  *   { id, kind: 'rename', device_key, name, reason }
  *   { id, kind: 'wifi', source?, aps?, reason }
  *   { id, kind: 'phone', phone: { name, bermuda_address, person }, reason }
+ *   { id, kind: 'furniture', furniture: { id, name, box: [x0, y0, x1, y1] }, reason }
  *
  * and replaces the whole document, so a file holds every item that should stay. The page writes an accepted item
  * into `sensor_map`; no command does. A `wifi` item names the phone a survey capture reads, as `source`
@@ -29,6 +30,8 @@
  * `vap_table`, to the map device key of the access point that owns it.
  * A `phone` item adds a tracked phone, or replaces the one with the same `bermuda_address`: the address Bermuda
  * names the device by, which `bermuda.dump_devices` takes in either case.
+ * A `furniture` item draws a dashed outline on the plan; accepted, it joins `plan.furniture`, replacing the entry with
+ * the same `furniture.id`. The `box` is in metres with x0 < x1 and y0 < y1, y up, like the box of a window in the plan.
  *
  * VITE_HA_URL and VITE_HA_TOKEN come from the environment, then `.env.development.local`, then `.env`. The
  * token must belong to an administrator: only administrators may write the system store.
