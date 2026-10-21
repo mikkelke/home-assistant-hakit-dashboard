@@ -11,6 +11,8 @@ import {
   nextTimedItem,
   nextWakeMs,
   readUpcoming,
+  ROBER2_RING,
+  rober2CleaningAreaId,
   upcomingCandidates,
   upcomingFocus,
   type UpcomingEntity,
@@ -216,5 +218,23 @@ describe('a brew', () => {
     for (const state of ['ready', 'idle', 'asleep', 'starting']) {
       expect(readUpcoming(reader({ 'sensor.coffee_state': entity(state) }), nowMs, MIKKEL).some(item => item.id === 'coffee')).toBe(false);
     }
+  });
+});
+
+describe('Rober2 ring', () => {
+  it('stands in the room Rober2 was sent to, only while it cleans', () => {
+    const at = (vacuum: string, segment: string) =>
+      rober2CleaningAreaId(reader({ 'vacuum.rober2': entity(vacuum), 'input_text.rober2_current_room': entity(segment) }));
+    expect(at('cleaning', '18')).toBe('living_room');
+    expect(at('cleaning', '25')).toBe('kitchen');
+    expect(at('cleaning', '23')).toBe('office');
+    expect(at('returning', '21')).toBeNull();
+    expect(at('cleaning', '')).toBeNull();
+    expect(at('docked', '18')).toBeNull();
+  });
+
+  it("shows the room's own progress", () => {
+    expect(ROBER2_RING.cycle(entity('91'), 0)).toMatchObject({ status: 'running', progressPct: 91, etaMs: null });
+    expect(ROBER2_RING.cycle(entity('unavailable'), 0).progressPct).toBe(0);
   });
 });

@@ -20,7 +20,7 @@ import { newestEventMs } from '../../home/houseEvents';
 import { HOUSEHOLD, isNightHour } from '../../home/household';
 import { useMotionSlot } from '../../home/motionBudget';
 import { AREA_EXTERIOR_CONTACTS, FROST_BELOW_C, asleepAreaIds, isAreaOpen, roomGlow, roomLightIds } from '../../home/roomAmbient';
-import { HOME_APPLIANCES, type HomeAppliance } from '../../home/upcoming';
+import { HOME_APPLIANCES, ROBER2_RING, rober2CleaningAreaId, type RingAppliance } from '../../home/upcoming';
 import { useNowMs } from '../../hooks/useNowMs';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { formatDecimal } from '../../utils/format';
@@ -147,7 +147,7 @@ const RING_ORDER: Record<ApplianceCycle['status'], number> = { ready: 0, running
 
 /** One ring per card: the appliance that matters most, the other one as a badge. Its progress and ETA
  * change every minute while a cycle runs, so the ring follows them on its own. */
-function ApplianceRing({ appliances, houseAsleep }: { appliances: readonly HomeAppliance[]; houseAsleep: boolean }) {
+function ApplianceRing({ appliances, houseAsleep }: { appliances: readonly RingAppliance[]; houseAsleep: boolean }) {
   const entities = useTrackedEntities();
   const nowMs = useNowMs();
   useCoffeeDemo();
@@ -406,7 +406,11 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
     return roomAppliances.map(appliance => read(appliance.config.stateEntityId)?.state ?? '').join('|');
   });
   const states = applianceStates.split('|');
-  const activeAppliances = roomAppliances.filter((appliance, index) => appliance.activeStates.has(states[index]));
+  const roberHere = useHass(s => rober2CleaningAreaId(entityId => s.entities[entityId]) === area.area_id);
+  const activeAppliances: RingAppliance[] = [
+    ...roomAppliances.filter((appliance, index) => appliance.activeStates.has(states[index])),
+    ...(roberHere ? [ROBER2_RING] : []),
+  ];
   const coffeeActive = activeAppliances.some(appliance => appliance.kind === 'coffee');
   const cookingIds = useHass(s =>
     isKitchen

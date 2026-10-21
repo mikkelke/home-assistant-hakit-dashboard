@@ -2,8 +2,14 @@
  * queue, which is display only. Pure. */
 import { COFFEE_AREA_ID, COFFEE_STATE_ENTITY } from '../coffee/entities';
 import { coffeeCycle } from '../coffee/state';
-import { formatRoberRoomName } from '../components/Vacuum/rooms';
-import { ROBOT_CLEAN_PREFIX, ROBOT_CLEANING_NARRATIVE_ENTITY, VACUUM_ENTITY } from '../config/entities';
+import { formatRoberRoomName, roberSegmentAreaId } from '../components/Vacuum/rooms';
+import {
+  ROBOT_CLEAN_PREFIX,
+  ROBOT_CLEANING_NARRATIVE_ENTITY,
+  VACUUM_CLEANING_PROGRESS_SENSOR,
+  VACUUM_CURRENT_ROOM_INPUT,
+  VACUUM_ENTITY,
+} from '../config/entities';
 import { PLAN_APPLIANCES, type PlanApplianceConfig, type PlanApplianceKey } from '../config/plan';
 import { readApplianceCycle, type ApplianceCycle } from '../energy/applianceRun';
 import { nextHomeClockMs } from '../energy/homeTime';
@@ -32,6 +38,9 @@ export interface HomeAppliance {
   /** HA area id of the room it stands in. */
   areaId: string;
 }
+
+/** What a room card's ring shows: an appliance, or Rober2 while it cleans the room. */
+export type RingAppliance = Omit<HomeAppliance, 'kind'> & { kind: ApplianceKind | 'rober2' };
 
 const planConfig = (key: PlanApplianceKey) => PLAN_APPLIANCES.find(appliance => appliance.key === key)!;
 
@@ -67,6 +76,34 @@ export const HOME_APPLIANCES: readonly HomeAppliance[] = [
     areaId: COFFEE_AREA_ID,
   },
 ];
+
+/** Rober2 as a ring on the card of the room it is cleaning: its progress is that room's, from 0 again in
+ * every room. It stands in no fixed room, so it is not one of `HOME_APPLIANCES`. */
+export const ROBER2_RING: RingAppliance = {
+  kind: 'rober2',
+  config: { label: 'Rober2', icon: 'mdi:robot-vacuum', stateEntityId: VACUUM_CLEANING_PROGRESS_SENSOR },
+  cycle: entity => {
+    const pct = Number(entity?.state);
+    return {
+      status: 'running',
+      progressPct: Number.isFinite(pct) ? Math.min(100, Math.max(0, pct)) : 0,
+      etaMs: null,
+      overrun: false,
+      energyKwh: null,
+      programme: null,
+      startMs: null,
+    };
+  },
+  activeStates: new Set(),
+  announceEntityId: null,
+  areaId: '',
+};
+
+/** The HA area Rober2 is cleaning right now; null while it is not cleaning a room. */
+export function rober2CleaningAreaId(read: UpcomingReader): string | null {
+  if (read(VACUUM_ENTITY)?.state !== 'cleaning') return null;
+  return roberSegmentAreaId(read(VACUUM_CURRENT_ROOM_INPUT)?.state);
+}
 
 export const WAKE_ENABLED_ENTITY = 'input_boolean.wakeup_bedroom';
 export const WAKE_TIME_ENTITY = 'input_datetime.wakeup_bedroom';

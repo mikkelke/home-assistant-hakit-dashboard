@@ -30,3 +30,21 @@ export function formatRoberRoomName(room: string | undefined): string | undefine
   // Then check numeric ID mapping (for sensor values)
   return ROOM_ID_TO_NAME[room] || ROOM_ID_TO_NAME[lowerRoom] || room[0]?.toUpperCase() + room.slice(1).replace('_', ' ');
 }
+
+/** HA area of each Rober2 segment id: both kitchen sides are the kitchen, Claudia's room is the area `office`. */
+const SEGMENT_AREA_ID: Record<string, string> = {
+  '17': 'hallway',
+  '22': 'kitchen',
+  '25': 'kitchen',
+  '18': 'living_room',
+  '21': 'dining_room',
+  '23': 'office',
+  '16': 'kristines_room',
+  '20': 'bedroom',
+  '24': 'bathroom',
+  '19': 'guest_bathroom',
+};
+
+export function roberSegmentAreaId(segment: string | undefined): string | null {
+  return segment ? (SEGMENT_AREA_ID[segment] ?? null) : null;
+}
