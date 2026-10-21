@@ -20,10 +20,17 @@ const TEMPERATURE_SELECT_ID = 'input_select.washer_temperature';
 const EMPTIED_BUTTON_ID = 'input_button.washer_emptied';
 const SOAK_TOGGLE_ID = 'input_boolean.washer_option_soak';
 
-const SPIN_OPTIONS_ORDER = ['—', '1400 rpm', '1200 rpm', '900 rpm', '700 rpm', 'No spin'];
-/** Union of every programme's allowed_temperatures (washer_monitor.py _DEFAULT_PROFILES) - stable,
- * no flash from delayed `options`. Must be updated if a programme profile adds a new temperature. */
-const WASHER_TEMPERATURE_OPTIONS = ['-', 'Cold', '20°C', '30°C', '40-60°C', '40°C', '60°C', '90°C'] as const;
+const UNCONFIRMED_PROGRAMME = 'Auto (unconfirmed)';
+const NO_CHOICE = '—';
+
+/** A select's live options. washer_monitor narrows the temperature and spin selects to the confirmed
+ * programme's own values (_apply_programme_ui_dropdowns), with NO_CHOICE alone when it has none. */
+function selectOptions(entity: HassEntities[string] | undefined): string[] {
+  const opts = entity?.attributes?.options;
+  return Array.isArray(opts) ? (opts as string[]) : [];
+}
+
+const hasChoice = (options: string[]) => options.some((o) => o !== NO_CHOICE);
 
 /** Programme keys in JSON; display labels for cycle history. Extend to match your washer programmes. */
 // eslint-disable-next-line react-refresh/only-export-components -- shared constant for cycle history
@@ -305,8 +312,12 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
     });
   };
 
-  const spinOpts = spinSelect?.attributes?.options;
-  const spinOptions: string[] = Array.isArray(spinOpts) && spinOpts.length > 0 ? (spinOpts as string[]) : SPIN_OPTIONS_ORDER;
+  // Until a programme is confirmed the selects still hold the previous programme's values.
+  const programmeConfirmed = !!programmeSelect?.state && programmeSelect.state !== UNCONFIRMED_PROGRAMME;
+  const spinOptions = selectOptions(spinSelect);
+  const temperatureOptions = selectOptions(temperatureSelect);
+  const showSpin = !!spinSelect && programmeConfirmed && hasChoice(spinOptions);
+  const showTemperature = !!temperatureSelect && programmeConfirmed && hasChoice(temperatureOptions);
   const handleSpinChange = (option: string) => {
     if (!callService) return;
     callService({
@@ -317,7 +328,6 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
     });
   };
 
-  const temperatureOptions: readonly string[] = WASHER_TEMPERATURE_OPTIONS;
   const handleTemperatureChange = (option: string) => {
     if (!callService) return;
     callService({
@@ -334,7 +344,7 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
   // Preferred (attribute-derived) spin label, e.g. "1400 rpm"/"No spin" — falls back to the
   // select's own raw state so the chip and its picker's checkmark still agree.
   const spinLabel = spinRpm !== undefined ? (spinRpm === 0 ? 'No spin' : `${spinRpm} rpm`) : null;
-  const spinChipValue = spinLabel ?? spinSelect?.state ?? '—';
+  const spinChipValue = spinLabel ?? spinSelect?.state ?? NO_CHOICE;
 
   const handlePick = (setter: (option: string) => void) => (option: string) => {
     setter(option);
@@ -389,10 +399,10 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
   const renderChips = () => (
     <div className='appliance-chips'>
       <WasherChip label={programmeLabel} isInteractive={isInteractive} onClick={() => setOpenPicker('programme')} />
-      {temperatureSelect && (
-        <WasherChip label={temperatureSelect.state ?? '-'} isInteractive={isInteractive} onClick={() => setOpenPicker('temperature')} />
+      {showTemperature && (
+        <WasherChip label={temperatureSelect?.state ?? NO_CHOICE} isInteractive={isInteractive} onClick={() => setOpenPicker('temperature')} />
       )}
-      {spinSelect && <WasherChip label={spinChipValue} isInteractive={isInteractive} onClick={() => setOpenPicker('spin')} />}
+      {showSpin && <WasherChip label={spinChipValue} isInteractive={isInteractive} onClick={() => setOpenPicker('spin')} />}
       {soakToggle && supportsSoak && <SoakChip on={soakOn} isInteractive={isInteractive} onClick={handleSoakToggle} />}
     </div>
   );
@@ -613,7 +623,7 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
           historyKey='washer-picker'
           title='Temperature'
           options={temperatureOptions}
-          current={temperatureSelect?.state ?? '-'}
+          current={temperatureSelect?.state ?? NO_CHOICE}
           onPick={handlePick(handleTemperatureChange)}
           onClose={() => setOpenPicker(null)}
         />
@@ -625,7 +635,7 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
           historyKey='washer-picker'
           title='Spin'
           options={spinOptions}
-          current={spinSelect?.state ?? '—'}
+          current={spinSelect?.state ?? NO_CHOICE}
           onPick={handlePick(handleSpinChange)}
           onClose={() => setOpenPicker(null)}
         />
