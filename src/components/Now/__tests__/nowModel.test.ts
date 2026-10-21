@@ -261,29 +261,43 @@ describe('house_upcoming rows after the NOW line', () => {
     nowMs,
     MIKKEL
   );
-  const upRows = parseHouseUpcoming(
-    {
-      expires: new Date(nowMs + 15 * 60_000).toISOString(),
-      rows: [
-        { id: 'rain:terrace', kind: 'rain', title: 'Rain forecast', at: new Date(home(2026, 10, 13, 21, 30)).toISOString() },
-        { id: 'maint:washer:drum', kind: 'maint', title: 'Washer drum clean', audience: 'admin' },
-      ],
-    },
-    nowMs
-  );
+  const publish = (rows: Record<string, string>[]) =>
+    parseHouseUpcoming({ expires: new Date(nowMs + 15 * 60_000).toISOString(), rows }, nowMs);
+  const upRows = publish([
+    { id: 'rain:terrace', kind: 'rain', title: 'Rain forecast', at: new Date(home(2026, 10, 13, 21, 30)).toISOString() },
+    { id: 'maint:washer:drum', kind: 'maint', title: 'Washer drum clean', audience: 'admin' },
+  ]);
 
-  it('sorts timed rows in among the markers and plans, and untimed ones last after Rober2', () => {
+  it('sorts timed rows in among the markers and plans, and an untimed row, which is due now, before them all', () => {
     const { future } = buildNowTimeline([], plans, timelineMarkers(RISING, SETTING, QUIET, nowMs), upRows);
     expect(future.map(row => [row.type, row.id, row.atMs == null ? null : formatHomeClock(row.atMs)])).toEqual([
+      ['up', 'maint:washer:drum', null],
       ['up', 'rain:terrace', '21:30'],
       ['marker', 'quiet', '22:00'],
       ['plan', 'wake', '06:45'],
       ['marker', 'sun:rise', '07:37'],
       ['marker', 'sun:set', '18:13'],
       ['plan', 'rober2', null],
-      ['up', 'maint:washer:drum', null],
     ]);
-    expect(future[0]).toEqual({ type: 'up', id: 'rain:terrace', row: upRows[0], atMs: home(2026, 10, 13, 21, 30) });
+    expect(future[1]).toEqual({ type: 'up', id: 'rain:terrace', row: upRows[0], atMs: home(2026, 10, 13, 21, 30) });
+  });
+
+  it('keeps the rows that are due in the order they were published, and an untimed row the next chip skips last', () => {
+    const rows = publish([
+      { id: 'maint:dryer:plinth', kind: 'maint', title: 'Dryer plinth filter', audience: 'admin', next: 'skip' },
+      { id: 'maint:plant:first', kind: 'maint', title: 'Water the first plant', audience: 'admin' },
+      { id: 'maint:filter', kind: 'maint', title: 'A filter', audience: 'admin', at: new Date(home(2027, 1, 5, 9, 0)).toISOString() },
+      { id: 'maint:plant:second', kind: 'maint', title: 'Water the second plant', audience: 'admin' },
+    ]);
+    const { future } = buildNowTimeline([], plans, [], rows);
+    expect(future.map(row => row.id)).toEqual([
+      'maint:plant:first',
+      'maint:plant:second',
+      'wake',
+      'maint:filter',
+      'rober2',
+      'maint:dryer:plinth',
+    ]);
   });
 });
 

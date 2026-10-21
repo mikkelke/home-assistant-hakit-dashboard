@@ -78,7 +78,7 @@ export interface NowTimeline {
   /** Oldest first. */
   past: (PastRow | RoomRow)[];
   running: RunningRow[];
-  /** Soonest first; untimed last. */
+  /** Rows due now first, then soonest first; the other untimed rows last. */
   future: FutureRow[];
 }
 
@@ -116,6 +116,10 @@ export function etaInQuietHours(cycle: Pick<ApplianceCycle, 'status' | 'etaMs' |
 }
 
 const byTime = (a: { atMs: number | null }, b: { atMs: number | null }) => (a.atMs ?? Infinity) - (b.atMs ?? Infinity) || 0;
+
+/** A `house_upcoming` row without a time is due now, unless it asks the next chip to pass over it (`next: "skip"`): a log row. */
+const dueNow = (row: FutureRow) => row.type === 'up' && row.atMs == null && !row.row.skipNext;
+const byDueThenTime = (a: FutureRow, b: FutureRow) => Number(dueNow(b)) - Number(dueNow(a)) || byTime(a, b);
 
 const roomRowId = (map: MapEntry) => `rober2:${map.filename}`;
 
@@ -183,7 +187,7 @@ export function buildNowTimeline(
   }
   future.push(...markers, ...upRows.map((row): UpRow => ({ type: 'up', id: row.id, row, atMs: row.atMs })));
   running.sort(byTime);
-  future.sort(byTime);
+  future.sort(byDueThenTime);
   return { past, running, future };
 }
 

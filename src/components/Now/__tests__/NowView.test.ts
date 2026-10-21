@@ -443,12 +443,12 @@ describe('rows from sensor.house_upcoming', () => {
       restricted: card.querySelector('.now-adm') != null,
     }));
 
-  it('shows Mikkel every card, the restricted ones marked', async () => {
+  it('shows Mikkel every card, the restricted ones marked, the untimed one that is due first', async () => {
     await openAs('Mikkel', true);
     expect(cards()).toEqual([
+      { label: 'Roof weather station, replace, 2x AA', restricted: true },
       { label: 'Train to Odense, 07:46, 08:02 +5, S-tog delayed', restricted: true },
       { label: 'Rain forecast, living-room terrace door open', restricted: false },
-      { label: 'Roof weather station, replace, 2x AA', restricted: true },
     ]);
   });
 
