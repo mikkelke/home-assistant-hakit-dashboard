@@ -24,7 +24,7 @@ import {
   visibleHouseEvents,
   type HouseEpisode,
 } from '../../home/houseEvents';
-import { canViewerSeeUpcoming, hasSheet, parseHouseUpcoming } from '../../home/houseUpcoming';
+import { canViewerSeeUpcoming, hasSheet, opensRoom, parseHouseUpcoming } from '../../home/houseUpcoming';
 import { MARKERS } from '../../home/markers';
 import { MotionScopeContext, useMotionSlot } from '../../home/motionBudget';
 import { linkedRing, NOW_RESOLVE_GIVE_UP_MS, resolveNowFocus, resolveNowItem, type NowResolution } from '../../home/nowResolve';
@@ -496,7 +496,7 @@ function UpCard({
   return (
     <RowShell id={row.id} time={up.atMs != null ? formatHomeClock(up.atMs) : null} tone={tone} focused={focused}>
       <RowBody
-        areaId={up.areaId}
+        areaId={opensRoom(up) ? up.areaId : null}
         onOpenRoom={onOpenRoom}
         onTap={hasSheet(up) ? () => onOpenSheet(up.id) : undefined}
         className='now-card'

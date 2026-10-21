@@ -33,6 +33,14 @@ export interface HouseUpcomingRow {
 /** Whether a tap on the row opens its sheet instead of its room: it has a Done button, a guide or info lines. */
 export const hasSheet = (row: HouseUpcomingRow): boolean => row.tapDone || row.steps.length > 0 || row.info.length > 0;
 
+/** The maintenance rows whose room panel holds a card for the thing itself: the appliances' own (washer, dryer, dishwasher,
+ * xBloom) and Rober2's. A plant, a battery or a one-off task has nothing in its room's panel. */
+const ROOM_CARD_PREFIXES = ['maint:washer:', 'maint:dryer:', 'maint:dishwasher:', 'maint:coffee:', 'maint:rober2:'];
+
+/** Whether a tap may take the viewer to the row's room: the row names one, and a maintenance row only if that room holds a card for it. */
+export const opensRoom = (row: HouseUpcomingRow): boolean =>
+  row.areaId != null && (row.kind !== 'maint' || ROOM_CARD_PREFIXES.some(prefix => row.id.startsWith(prefix)));
+
 /** The publisher keeps at most this many rows. */
 export const MAX_HOUSE_UPCOMING_ROWS = 30;
 

@@ -5,6 +5,7 @@ import {
   hasSheet,
   isUpcomingFor,
   MAX_HOUSE_UPCOMING_ROWS,
+  opensRoom,
   parseHouseUpcoming,
   type HouseUpcomingRow,
 } from '../houseUpcoming';
@@ -197,6 +198,35 @@ describe('the sheet of a maintenance row', () => {
     expect(seenBy(rows, MIKKEL)).toEqual(['maint:dishwasher:filters']);
     expect(seenBy(rows, KRISTINE)).toEqual([]);
     expect(seenBy(rows, RESOLVING)).toEqual([]);
+  });
+});
+
+describe('the room a row opens', () => {
+  const maint = (id: string, area: string | null = 'kitchen') => ({
+    id,
+    kind: 'maint',
+    title: 'A job',
+    audience: 'admin',
+    ...(area ? { area } : {}),
+  });
+  const opens = (raw: unknown) => opensRoom(parse([raw])[0]);
+
+  it('is the room of an appliance row, whose room panel has a card for the appliance', () => {
+    for (const id of ['maint:washer:drum', 'maint:dryer:plinth', 'maint:dishwasher:hygiene', 'maint:coffee:rinse', 'maint:rober2:filter']) {
+      expect(opens(maint(id)), id).toBe(true);
+    }
+  });
+
+  it('is none for a plant, a battery or a one off task, whose room panel has nothing about them', () => {
+    for (const id of ['maint:plant:fig', 'maint:once:mites', 'maint:battery:sensor.test_battery', 'maint:more']) {
+      expect(opens(maint(id)), id).toBe(false);
+    }
+  });
+
+  it('is none for a row that names no room, and still the room of a rain row, which is no maintenance', () => {
+    expect(opens(maint('maint:washer:drum', null))).toBe(false);
+    expect(opens(ROWS[1])).toBe(true);
+    expect(opens(ROWS[0])).toBe(false);
   });
 });
 

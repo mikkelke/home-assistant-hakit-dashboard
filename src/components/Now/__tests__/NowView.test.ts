@@ -273,6 +273,15 @@ describe('a maintenance row with a sheet', () => {
     area: 'rooftop',
     audience: 'admin',
   };
+  const PLAIN_APPLIANCE = {
+    id: 'maint:rober2:test',
+    kind: 'maint',
+    icon: 'mdi:robot-vacuum',
+    title: 'Rober2 test part',
+    detail: '10 h left',
+    area: 'kitchen',
+    audience: 'admin',
+  };
   const upcoming = (...rows: unknown[]): Entities => ({
     'sensor.house_upcoming': {
       entity_id: 'sensor.house_upcoming',
@@ -321,10 +330,22 @@ describe('a maintenance row with a sheet', () => {
     expect(sheetText()).toContain('Done');
   });
 
-  it('still opens the room of a maintenance row that has no sheet', async () => {
+  it('leaves a maintenance row with no sheet and no card in its room untappable, with nothing that looks tappable', async () => {
     const { opened } = await openAs(true, TAPPED, BATTERY);
-    await act(async () => row(BATTERY.id)?.click());
-    expect(opened).toEqual(['rooftop']);
+    const card = document.querySelector(`[data-row-id="${BATTERY.id}"] .now-card`);
+    expect(card).not.toBeNull();
+    expect(row(BATTERY.id)).toBeNull();
+    expect(card?.tagName).toBe('DIV');
+    expect(card?.classList.contains('is-link')).toBe(false);
+    await act(async () => (card as HTMLElement).click());
+    expect(opened).toEqual([]);
+    expect(sheet()).toBeNull();
+  });
+
+  it('still opens the room of an appliance row that has no sheet, where its card is', async () => {
+    const { opened } = await openAs(true, PLAIN_APPLIANCE);
+    await act(async () => row(PLAIN_APPLIANCE.id)?.click());
+    expect(opened).toEqual(['kitchen']);
     expect(sheet()).toBeNull();
   });
 
