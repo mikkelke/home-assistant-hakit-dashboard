@@ -337,14 +337,14 @@ describe('a maintenance row with a sheet', () => {
     expect(opened).toEqual(['guest_bathroom']);
   });
 
-  it('opens the sheet of a row that has info lines only, which shows them and still offers its room', async () => {
+  it('opens the sheet of a row that has info lines only, which shows them and offers no room', async () => {
     const { opened } = await openAs(true, INFO_ONLY);
     await act(async () => row(INFO_ONLY.id)?.click());
     expect(sheet()).not.toBeNull();
     expect(opened).toEqual([]);
     expect(sheetText()).toContain('soil 15%, water at 15%');
     expect(sheetText()).toContain('On the floor by the window');
-    expect([...document.querySelectorAll('.maint-body button')].map(button => button.textContent)).toEqual(['Open room']);
+    expect(document.querySelectorAll('.maint-body button')).toHaveLength(0);
   });
 
   it('fires the Done event for the row it was opened on', async () => {

@@ -11,6 +11,10 @@ import './MaintSheet.css';
 export const DONE_EVENT = 'house_upcoming_done';
 export const UNDO_EVENT = 'house_upcoming_undo';
 
+/** The row ids whose room panel holds a card for the thing itself: the appliances' own (washer, dryer, dishwasher, xBloom)
+ * and Rober2's. A plant, a battery or a one-off task has nothing in its room's panel, so its sheet offers no way there. */
+const ROOM_CARD_PREFIXES = ['maint:washer:', 'maint:dryer:', 'maint:dishwasher:', 'maint:coffee:', 'maint:rober2:'];
+
 /** idle: the Done button. confirm: asked once more, so a stray tap changes nothing. sending and undoing: the
  * event is on its way. done: it went through, and one tap takes it back. */
 type Phase = 'idle' | 'confirm' | 'sending' | 'done' | 'undoing';
@@ -32,6 +36,7 @@ export function MaintSheet({ row, isAdmin, onClose, onOpenRoom }: MaintSheetProp
   const [guideOpen, setGuideOpen] = useState(false);
   const guideId = useId();
   const canDone = isAdmin && row.tapDone;
+  const roomId = !row.tapDone && ROOM_CARD_PREFIXES.some(prefix => row.id.startsWith(prefix)) ? row.areaId : null;
 
   const send = (event: string, going: Phase, arrived: Phase, back: Phase) => {
     setPhase(going);
@@ -130,14 +135,8 @@ export function MaintSheet({ row, isAdmin, onClose, onOpenRoom }: MaintSheetProp
             Home Assistant did not take that. Try again.
           </p>
         )}
-        {!row.tapDone && row.areaId && (
-          <button
-            type='button'
-            className='maint-btn is-ghost'
-            onClick={() => {
-              if (row.areaId) onOpenRoom(row.areaId);
-            }}
-          >
+        {roomId && (
+          <button type='button' className='maint-btn is-ghost' onClick={() => onOpenRoom(roomId)}>
             <Icon icon='mdi:door-open' aria-hidden='true' />
             Open room
           </button>

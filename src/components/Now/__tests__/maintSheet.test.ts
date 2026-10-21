@@ -287,19 +287,43 @@ describe('a row with info lines only', () => {
     info: ['The big plant with banana leaves', 'On the floor by the window'],
   };
 
-  it('shows what it says and its info lines, with no guide and no Done button', async () => {
+  it('shows what it says and its info lines, with no guide, no Done button and no way into the room', async () => {
     await open(parse(PLANT));
     expect(text()).toContain('soil 15%, water at 15%');
     expect([...document.body.querySelectorAll('.maint-info li')].map(li => li.textContent)).toEqual(PLANT.info);
-    expect(button('How to')).toBeUndefined();
-    expect(button('Done')).toBeUndefined();
+    expect(buttons()).toEqual([]);
     expect(document.body.querySelector('.maint-guide')).toBeNull();
   });
+});
 
-  it('opens its room from the Open room button, and fires nothing', async () => {
-    await open(parse(PLANT));
-    await press('Open room');
-    expect(onOpenRoom).toHaveBeenCalledExactlyOnceWith('dining_room');
-    expect(sent()).toEqual([]);
+describe('the Open room button', () => {
+  const GUIDE = { ...without('done', 'info'), area: 'kitchen' };
+  const rowWith = (id: string) => parse({ ...GUIDE, id });
+
+  it.each(['maint:washer:drum', 'maint:dryer:plinth', 'maint:dishwasher:hygiene', 'maint:coffee:rinse', 'maint:rober2:filter'])(
+    'is on %s, whose room panel has a card for the appliance',
+    async id => {
+      await open(rowWith(id));
+      await press('Open room');
+      expect(onOpenRoom).toHaveBeenCalledExactlyOnceWith('kitchen');
+    }
+  );
+
+  it.each(['maint:plant:test', 'maint:once:test', 'maint:battery:sensor.test_battery', 'maint:more'])(
+    'is not on %s, whose room panel has nothing about it, though the row names a room and has a guide',
+    async id => {
+      const row = rowWith(id);
+      expect(row.areaId).toBe('kitchen');
+      expect(row.steps.length).toBeGreaterThan(0);
+      await open(row);
+      expect(button('How to')).toBeDefined();
+      expect(button('Open room')).toBeUndefined();
+    }
+  );
+
+  it('is not on an appliance row that has a Done button, as before', async () => {
+    await open(parse({ ...FILTERS, id: 'maint:coffee:tank' }));
+    expect(button('Done')).toBeDefined();
+    expect(button('Open room')).toBeUndefined();
   });
 });
