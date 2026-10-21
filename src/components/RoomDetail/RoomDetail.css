@@ -166,6 +166,66 @@
 .room-detail-content > *:not(:last-child) {
   margin-bottom: 1rem;
 }
+/* To do: what is due in the room, one chip each. */
+.room-todo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.room-todo-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.room-todo-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.room-todo-list > li {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+}
+.room-todo-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--accent-gold) 40%, transparent);
+  border-radius: var(--radius-chip);
+  background: color-mix(in srgb, var(--accent-gold) 8%, var(--surface-card));
+  color: var(--text-1);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+.room-todo-chip:active {
+  transform: scale(0.985);
+}
+.room-todo-chip svg {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: var(--accent-gold);
+}
+.room-todo-chip span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* TV Lift Card (Bedroom) */
 .tv-lift-card {
   display: flex;

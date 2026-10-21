@@ -17,6 +17,7 @@ import { CoffeeCard } from '../Coffee/CoffeeCard';
 import { isEventful } from '../../coffee/model';
 import { useCoffeeState } from '../../coffee/useCoffee';
 import { RoomClimateHeader } from './RoomClimateHeader';
+import { RoomTodo } from './RoomTodo';
 import { ROBOT_CLEAN_PREFIX, VACUUM_ENTITY, roomThermostat } from '../../config/entities';
 import { asleepAreaIds, roomGlow, roomLightIds } from '../../home/roomAmbient';
 import { useSwipeToClose } from '../../hooks';
@@ -165,6 +166,8 @@ export function RoomDetail({
       </div>
 
       <div className='room-detail-content'>
+        <RoomTodo areaId={area.area_id} />
+
         {coffeeFirst && <CoffeeCard onOpenStage={onOpenCoffee} />}
 
         {/* Building Access (Hallway) */}

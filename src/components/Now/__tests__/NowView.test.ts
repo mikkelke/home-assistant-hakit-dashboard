@@ -273,6 +273,7 @@ describe('a maintenance row with a sheet', () => {
     area: 'rooftop',
     audience: 'admin',
   };
+  const BATTERY_LATER = { ...BATTERY, id: 'maint:battery:sensor.later_battery', at: iso(home(2026, 12, 26, 9, 0)) };
   const PLAIN_APPLIANCE = {
     id: 'maint:rober2:test',
     kind: 'maint',
@@ -330,15 +331,22 @@ describe('a maintenance row with a sheet', () => {
     expect(sheetText()).toContain('Done');
   });
 
-  it('leaves a maintenance row with no sheet and no card in its room untappable, with nothing that looks tappable', async () => {
-    const { opened } = await openAs(true, TAPPED, BATTERY);
-    const card = document.querySelector(`[data-row-id="${BATTERY.id}"] .now-card`);
+  it('leaves a maintenance row that is not due, has no sheet and no card in its room untappable, with nothing that looks tappable', async () => {
+    const { opened } = await openAs(true, TAPPED, BATTERY_LATER);
+    const card = document.querySelector(`[data-row-id="${BATTERY_LATER.id}"] .now-card`);
     expect(card).not.toBeNull();
-    expect(row(BATTERY.id)).toBeNull();
+    expect(row(BATTERY_LATER.id)).toBeNull();
     expect(card?.tagName).toBe('DIV');
     expect(card?.classList.contains('is-link')).toBe(false);
     await act(async () => (card as HTMLElement).click());
     expect(opened).toEqual([]);
+    expect(sheet()).toBeNull();
+  });
+
+  it('opens the room of a maintenance row that is due, where the room panel lists it under To do', async () => {
+    const { opened } = await openAs(true, TAPPED, BATTERY);
+    await act(async () => row(BATTERY.id)?.click());
+    expect(opened).toEqual(['rooftop']);
     expect(sheet()).toBeNull();
   });
 
@@ -358,13 +366,22 @@ describe('a maintenance row with a sheet', () => {
     expect(opened).toEqual(['guest_bathroom']);
   });
 
-  it('opens the sheet of a row that has info lines only, which shows them and offers no room', async () => {
+  it('opens the sheet of a row that has info lines only, which shows them and offers the room that lists it as due', async () => {
     const { opened } = await openAs(true, INFO_ONLY);
     await act(async () => row(INFO_ONLY.id)?.click());
     expect(sheet()).not.toBeNull();
     expect(opened).toEqual([]);
     expect(sheetText()).toContain('soil 15%, water at 15%');
     expect(sheetText()).toContain('On the floor by the window');
+    expect([...document.querySelectorAll('.maint-body button')].map(button => button.textContent)).toEqual(['Open room']);
+    await act(async () => document.querySelector<HTMLButtonElement>('.maint-body .maint-btn')?.click());
+    expect(opened).toEqual(['dining_room']);
+  });
+
+  it('offers no room from the sheet of such a row while it is not due yet', async () => {
+    await openAs(true, { ...INFO_ONLY, at: iso(home(2026, 10, 20, 9, 0)) });
+    await act(async () => row(INFO_ONLY.id)?.click());
+    expect(sheet()).not.toBeNull();
     expect(document.querySelectorAll('.maint-body button')).toHaveLength(0);
   });
 

@@ -3,7 +3,7 @@ import { HOME_TIME_ZONE } from '../../config/plan';
 import type { ApplianceCycle } from '../../energy/applianceRun';
 import { homeDayKey, homeDayStartMs, nextHomeDayStartMs } from '../../energy/homeTime';
 import { houseEventKind, type HouseEpisode, type HouseEvent } from '../../home/houseEvents';
-import type { HouseUpcomingKind, HouseUpcomingRow } from '../../home/houseUpcoming';
+import { isDue, type HouseUpcomingKind, type HouseUpcomingRow } from '../../home/houseUpcoming';
 import type { MarkerRow } from '../../home/markers';
 import { isQuietAt, type QuietHours } from '../../home/quietHours';
 import type { UpcomingAppliance, UpcomingItem } from '../../home/upcoming';
@@ -117,8 +117,7 @@ export function etaInQuietHours(cycle: Pick<ApplianceCycle, 'status' | 'etaMs' |
 
 const byTime = (a: { atMs: number | null }, b: { atMs: number | null }) => (a.atMs ?? Infinity) - (b.atMs ?? Infinity) || 0;
 
-/** A `house_upcoming` row without a time is due now, unless it asks the next chip to pass over it (`next: "skip"`): a log row. */
-const dueNow = (row: FutureRow) => row.type === 'up' && row.atMs == null && !row.row.skipNext;
+const dueNow = (row: FutureRow) => row.type === 'up' && isDue(row.row);
 const byDueThenTime = (a: FutureRow, b: FutureRow) => Number(dueNow(b)) - Number(dueNow(a)) || byTime(a, b);
 
 const roomRowId = (map: MapEntry) => `rober2:${map.filename}`;

@@ -2,7 +2,8 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Area, HassEntities } from '../../../types';
+import { parseHouseUpcoming } from '../../../home/houseUpcoming';
+import type { Area, HassEntities, RoomCardProps } from '../../../types';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -30,7 +31,10 @@ vi.mock('@hakit/core', async () => {
     useSyncExternalStore(store.subscribe, () => selector(store.getState()));
   return { useHass: Object.assign(useHass, store) };
 });
-vi.mock('@iconify/react', () => ({ Icon: () => null }));
+vi.mock('@iconify/react', async () => {
+  const { createElement } = await import('react');
+  return { Icon: ({ icon }: { icon: string }) => createElement('i', { 'data-icon': icon }) };
+});
 vi.mock('../../Timeline', () => ({ LazyTimeline: () => null }));
 
 const { RoomCard } = await import('../RoomCard');
@@ -62,10 +66,12 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-function show(area: Area, entities: HassEntities, reads = new Set<string>()) {
+function show(area: Area, entities: HassEntities, reads = new Set<string>(), extra: Partial<RoomCardProps> = {}) {
   store.setState({ entities });
   act(() => {
-    root.render(createElement(RoomCard, { area, entities: tracked(entities, reads), onClick: () => {}, isSelected: false, hassUrl: null }));
+    root.render(
+      createElement(RoomCard, { area, entities: tracked(entities, reads), onClick: () => {}, isSelected: false, hassUrl: null, ...extra })
+    );
   });
   return reads;
 }
@@ -103,5 +109,46 @@ describe('room card exception icons', () => {
     show(KITCHEN, world(entity('sensor.oven_plug_switch_0_power', '1500', { friendly_name: 'Oven' })), reads);
     show(KITCHEN, world(entity('sensor.oven_plug_switch_0_power', '3', { friendly_name: 'Oven' })), reads);
     expect([...reads].filter(id => id.includes('power'))).toEqual([]);
+  });
+});
+
+describe('the to do badge', () => {
+  const DINING: Area = { area_id: 'dining_room', name: 'Dining Room' };
+  const NOW = Date.now();
+  const due = (...rows: Record<string, string>[]) => parseHouseUpcoming({ expires: new Date(NOW + 600_000).toISOString(), rows }, NOW);
+  const plant = { id: 'maint:plant:fig', kind: 'maint', title: 'Water the fig: 1 L', icon: 'mdi:watering-can-outline', audience: 'admin' };
+  const badge = () => document.querySelector('.room-ex .indicator.todo');
+
+  it('names what is due in the room with the icon of the row, in the corner the other states use', () => {
+    show(DINING, world(), undefined, { todo: due(plant) });
+    expect(badge()?.querySelector('i')?.getAttribute('data-icon')).toBe('mdi:watering-can-outline');
+    expect(badge()?.getAttribute('aria-label')).toBe('Water the fig: 1 L');
+    expect(badge()?.querySelector('.indicator-label')).toBeNull();
+    expect(badge()?.closest('.is-hidden') ?? null).toBeNull();
+    expect(document.querySelector<HTMLElement>('.room-card')?.style.getPropertyValue('--ex')).toBe('1');
+  });
+
+  it('is one badge with a count when several rows are due, in the icon of the first', () => {
+    show(DINING, world(), undefined, {
+      todo: due(plant, { ...plant, id: 'maint:plant:palm', title: 'Water the palm', icon: 'mdi:flower' }),
+    });
+    expect(document.querySelectorAll('.room-ex .indicator.todo')).toHaveLength(1);
+    expect(badge()?.querySelector('i')?.getAttribute('data-icon')).toBe('mdi:watering-can-outline');
+    expect(badge()?.querySelector('.indicator-label')?.textContent).toBe('2');
+    expect(badge()?.getAttribute('aria-label')).toBe('2 things to do');
+  });
+
+  it('is not there when nothing is due, and the corner shows nothing', () => {
+    show(DINING, world());
+    expect(badge()).toBeNull();
+    expect(document.querySelectorAll('.room-ex-item:not(.is-hidden)')).toHaveLength(0);
+    expect(document.querySelector<HTMLElement>('.room-card')?.style.getPropertyValue('--ex')).toBe('0');
+  });
+
+  it('is part of the card: a tap on it opens the room', () => {
+    const onClick = vi.fn();
+    show(DINING, world(), undefined, { todo: due(plant), onClick });
+    act(() => badge()!.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 });

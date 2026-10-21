@@ -17,6 +17,7 @@ import { withCoffeeDemo } from '../../coffee/demoStore';
 import { useCoffeeDemo } from '../../coffee/useCoffeeState';
 import type { ApplianceCycle } from '../../energy/applianceRun';
 import { newestEventMs } from '../../home/houseEvents';
+import type { HouseUpcomingRow } from '../../home/houseUpcoming';
 import { HOUSEHOLD, isNightHour } from '../../home/household';
 import { useMotionSlot } from '../../home/motionBudget';
 import { AREA_EXTERIOR_CONTACTS, FROST_BELOW_C, asleepAreaIds, isAreaOpen, roomGlow, roomLightIds } from '../../home/roomAmbient';
@@ -260,6 +261,18 @@ function DoorbellRipple() {
   );
 }
 
+const NO_TODO: readonly HouseUpcomingRow[] = [];
+
+/** Something in the room needs doing: the first due row's own icon, with how many when there are more. */
+function TodoBadge({ rows }: { rows: readonly HouseUpcomingRow[] }) {
+  return (
+    <span className='indicator todo' role='img' aria-label={rows.length === 1 ? rows[0].title : `${rows.length} things to do`}>
+      <Icon icon={rows[0].icon} />
+      {rows.length > 1 && <span className='indicator-label'>{rows.length}</span>}
+    </span>
+  );
+}
+
 /** An icon that may own an open history modal, so it stays mounted while `active` is off and only hides. */
 interface Exception {
   key: string;
@@ -267,7 +280,7 @@ interface Exception {
   node: ReactNode;
 }
 
-export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, hassUrl }: RoomCardProps) {
+export function RoomCard({ area, entities, todo = NO_TODO, onClick, onClimateClick, isSelected, hassUrl }: RoomCardProps) {
   const areaName = area.name.toLowerCase();
   const areaNameNormalized = areaName.replace(/\s+/g, '_');
   // Only the rare fallbacks below (a room without its own conventionally named sensor) need the full
@@ -568,6 +581,8 @@ export function RoomCard({ area, entities, onClick, onClimateClick, isSelected, 
       ),
     });
   }
+
+  if (todo.length > 0) exceptions.push({ key: 'todo', active: true, node: <TodoBadge rows={todo} /> });
 
   const hasRing = activeAppliances.length > 0;
   const shownExceptions = exceptions.filter(exception => exception.active).length;

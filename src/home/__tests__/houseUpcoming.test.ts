@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { HouseEventViewer } from '../houseEvents';
 import {
   canViewerSeeUpcoming,
+  dueRows,
   hasSheet,
+  isDue,
   isUpcomingFor,
   MAX_HOUSE_UPCOMING_ROWS,
   opensRoom,
@@ -201,32 +203,72 @@ describe('the sheet of a maintenance row', () => {
   });
 });
 
-describe('the room a row opens', () => {
-  const maint = (id: string, area: string | null = 'kitchen') => ({
-    id,
-    kind: 'maint',
-    title: 'A job',
-    audience: 'admin',
-    ...(area ? { area } : {}),
-  });
-  const opens = (raw: unknown) => opensRoom(parse([raw])[0]);
+/** Rows as the publisher sends them: a due row has no time, a row that is not due yet has one. */
+const SOON = '2026-12-27T08:00:00+00:00';
+const entry = (id: string, kind: string, extra: Record<string, string> = {}, area: string | null = 'kitchen') => ({
+  id,
+  kind,
+  title: 'A job',
+  audience: kind === 'maint' ? 'admin' : undefined,
+  ...extra,
+  ...(area ? { area } : {}),
+});
+const publish = (...raws: ReturnType<typeof entry>[]) =>
+  parse(raws.map(raw => Object.fromEntries(Object.entries(raw).filter(([, value]) => value !== undefined))));
 
-  it('is the room of an appliance row, whose room panel has a card for the appliance', () => {
+describe('which rows are due', () => {
+  it('is the row without a time that does not ask to be passed over', () => {
+    const [untimed, timed, skipped] = publish(
+      entry('maint:plant:fig', 'maint'),
+      entry('maint:plant:palm', 'maint', { at: SOON }),
+      entry('maint:dryer:plinth', 'maint', { next: 'skip' })
+    );
+    expect([isDue(untimed), isDue(timed), isDue(skipped)]).toEqual([true, false, false]);
+  });
+
+  it('lists the due rows that name a room and that the viewer sees, in publish order', () => {
+    const rows = publish(
+      entry('maint:plant:fig', 'maint'),
+      entry('rain:terrace', 'rain', {}, 'living_room'),
+      entry('maint:plant:palm', 'maint', { at: SOON }),
+      entry('maint:dryer:plinth', 'maint', { next: 'skip' }),
+      entry('maint:once:mites', 'maint', {}, null),
+      entry('maint:battery:sensor.test_battery', 'maint', {}, 'hallway')
+    );
+    expect(ids(dueRows(rows, MIKKEL))).toEqual(['maint:plant:fig', 'rain:terrace', 'maint:battery:sensor.test_battery']);
+    for (const viewer of [KRISTINE, CLAUDIA, RESOLVING])
+      expect(ids(dueRows(rows, viewer)), viewer.name ?? 'resolving').toEqual(['rain:terrace']);
+  });
+});
+
+describe('the room a row opens', () => {
+  const opens = (raw: ReturnType<typeof entry>) => opensRoom(publish(raw)[0]);
+
+  it('is the room of an appliance row, whose room panel has a card for the appliance, due or not', () => {
     for (const id of ['maint:washer:drum', 'maint:dryer:plinth', 'maint:dishwasher:hygiene', 'maint:coffee:rinse', 'maint:rober2:filter']) {
-      expect(opens(maint(id)), id).toBe(true);
+      expect(opens(entry(id, 'maint', { at: SOON })), id).toBe(true);
+      expect(opens(entry(id, 'maint', { next: 'skip' })), id).toBe(true);
     }
   });
 
-  it('is none for a plant, a battery or a one off task, whose room panel has nothing about them', () => {
-    for (const id of ['maint:plant:fig', 'maint:once:mites', 'maint:battery:sensor.test_battery', 'maint:more']) {
-      expect(opens(maint(id)), id).toBe(false);
+  it('is none for a plant, a battery or a one off task that is not due yet, whose room panel has nothing about it', () => {
+    for (const id of ['maint:plant:fig', 'maint:once:mites', 'maint:battery:sensor.test_battery']) {
+      expect(opens(entry(id, 'maint', { at: SOON })), id).toBe(false);
+      expect(opens(entry(id, 'maint', { next: 'skip' })), id).toBe(false);
+    }
+  });
+
+  it('is the room of any row that is due, since the room panel lists it under To do', () => {
+    for (const id of ['maint:plant:fig', 'maint:once:mites', 'maint:battery:sensor.test_battery']) {
+      expect(opens(entry(id, 'maint')), id).toBe(true);
     }
   });
 
   it('is none for a row that names no room, and still the room of a rain row, which is no maintenance', () => {
-    expect(opens(maint('maint:washer:drum', null))).toBe(false);
-    expect(opens(ROWS[1])).toBe(true);
-    expect(opens(ROWS[0])).toBe(false);
+    expect(opens(entry('maint:washer:drum', 'maint', {}, null))).toBe(false);
+    expect(opens(entry('maint:plant:fig', 'maint', {}, null))).toBe(false);
+    expect(opensRoom(parse(ROWS)[1])).toBe(true);
+    expect(opensRoom(parse(ROWS)[0])).toBe(false);
   });
 });
 

@@ -287,12 +287,20 @@ describe('a row with info lines only', () => {
     info: ['The big plant with banana leaves', 'On the floor by the window'],
   };
 
-  it('shows what it says and its info lines, with no guide, no Done button and no way into the room', async () => {
+  it('shows what it says and its info lines, with no guide and no Done button, and offers the room that lists it as due', async () => {
     await open(parse(PLANT));
     expect(text()).toContain('soil 15%, water at 15%');
     expect([...document.body.querySelectorAll('.maint-info li')].map(li => li.textContent)).toEqual(PLANT.info);
-    expect(buttons()).toEqual([]);
+    expect(buttons().map(b => b.textContent)).toEqual(['Open room']);
     expect(document.body.querySelector('.maint-guide')).toBeNull();
+    await press('Open room');
+    expect(onOpenRoom).toHaveBeenCalledExactlyOnceWith('dining_room');
+  });
+
+  it('offers no room while it is not due yet, since the room has nothing about it', async () => {
+    await open(parse({ ...PLANT, at: '2026-12-27T08:00:00+00:00' }));
+    expect(text()).toContain('soil 15%, water at 15%');
+    expect(buttons()).toEqual([]);
   });
 });
 
@@ -320,6 +328,20 @@ describe('the Open room button', () => {
       expect(button('Open room')).toBeUndefined();
     }
   );
+
+  it('is on a row that is due whatever it is, since the room panel lists it under To do', async () => {
+    await open(parse({ ...without('done', 'info', 'at'), id: 'maint:plant:test' }));
+    await press('Open room');
+    expect(onOpenRoom).toHaveBeenCalledExactlyOnceWith('kitchen');
+  });
+
+  it('is not offered to a sheet that is opened without a way into the room', async () => {
+    await act(async () => {
+      root.render(createElement(MaintSheet, { row: rowWith('maint:washer:drum'), isAdmin: true, onClose }));
+    });
+    expect(button('How to')).toBeDefined();
+    expect(button('Open room')).toBeUndefined();
+  });
 
   it('is not on an appliance row that has a Done button, as before', async () => {
     await open(parse({ ...FILTERS, id: 'maint:coffee:tank' }));

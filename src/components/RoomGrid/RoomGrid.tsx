@@ -1,5 +1,6 @@
 import type { Area, HassEntities } from '../../types';
 import { ROOM_ORDER } from '../../config/dashboard';
+import { useDueRows } from '../../hooks/useDueRows';
 import { RoomCard } from './RoomCard';
 import './RoomGrid.css';
 
@@ -15,6 +16,7 @@ interface RoomGridProps {
 const ALLOWED_AREAS = new Set(ROOM_ORDER);
 
 export function RoomGrid({ areas, entities, selectedAreaId, onRoomClick, onRoomClimateClick, hassUrl }: RoomGridProps) {
+  const due = useDueRows();
   const sortedAreas = areas
     .filter(area => ALLOWED_AREAS.has(area.name.toLowerCase().replace(/\s+/g, '_')))
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
@@ -26,6 +28,7 @@ export function RoomGrid({ areas, entities, selectedAreaId, onRoomClick, onRoomC
           key={area.area_id}
           area={area}
           entities={entities}
+          todo={due.filter(row => row.areaId === area.area_id)}
           onClick={() => onRoomClick(area)}
           onClimateClick={onRoomClimateClick ? () => onRoomClimateClick(area) : undefined}
           isSelected={selectedAreaId === area.area_id}

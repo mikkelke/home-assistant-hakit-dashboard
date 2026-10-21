@@ -33,13 +33,17 @@ export interface HouseUpcomingRow {
 /** Whether a tap on the row opens its sheet instead of its room: it has a Done button, a guide or info lines. */
 export const hasSheet = (row: HouseUpcomingRow): boolean => row.tapDone || row.steps.length > 0 || row.info.length > 0;
 
+/** Whether the row is due: it has no time, and does not ask the next chip to pass over it (a log row). */
+export const isDue = (row: HouseUpcomingRow): boolean => row.atMs == null && !row.skipNext;
+
 /** The maintenance rows whose room panel holds a card for the thing itself: the appliances' own (washer, dryer, dishwasher,
- * xBloom) and Rober2's. A plant, a battery or a one-off task has nothing in its room's panel. */
+ * xBloom) and Rober2's. */
 const ROOM_CARD_PREFIXES = ['maint:washer:', 'maint:dryer:', 'maint:dishwasher:', 'maint:coffee:', 'maint:rober2:'];
 
-/** Whether a tap may take the viewer to the row's room: the row names one, and a maintenance row only if that room holds a card for it. */
+/** Whether a tap may take the viewer to the row's room: the row names one, and a maintenance row only if that room holds a card
+ * for it or lists it as due (see `dueRows`). A plant, a battery or a one-off task that is not due yet has nothing there. */
 export const opensRoom = (row: HouseUpcomingRow): boolean =>
-  row.areaId != null && (row.kind !== 'maint' || ROOM_CARD_PREFIXES.some(prefix => row.id.startsWith(prefix)));
+  row.areaId != null && (row.kind !== 'maint' || isDue(row) || ROOM_CARD_PREFIXES.some(prefix => row.id.startsWith(prefix)));
 
 /** The publisher keeps at most this many rows. */
 export const MAX_HOUSE_UPCOMING_ROWS = 30;
@@ -115,6 +119,10 @@ export function canViewerSeeUpcoming(row: HouseUpcomingRow, viewer: HouseEventVi
   if (viewer.isAdmin === true) return true;
   return !row.adminOnly && (row.users == null || names(row, viewer));
 }
+
+/** The rows that are due in a room and that `viewer` may see, in publish order: what needs doing where. */
+export const dueRows = (rows: readonly HouseUpcomingRow[], viewer: HouseEventViewer): HouseUpcomingRow[] =>
+  rows.filter(row => isDue(row) && row.areaId != null && canViewerSeeUpcoming(row, viewer));
 
 /** Whether the next chip may offer `row`: the row does not ask to be passed over, the viewer sees it,
  * and a row that names people names them, so an admin's chip never offers someone else's train. */

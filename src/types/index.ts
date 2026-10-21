@@ -1,3 +1,5 @@
+import type { HouseUpcomingRow } from '../home/houseUpcoming';
+
 // Home Assistant Entity Types
 export interface HassEntity {
   entity_id: string;
@@ -45,6 +47,8 @@ export interface PersonStatusProps {
 export interface RoomCardProps {
   area: Area;
   entities: HassEntities;
+  /** The rows due in this room that the viewer sees: the card names them with one badge. */
+  todo?: readonly HouseUpcomingRow[];
   onClick: () => void;
   /** Tapping the temperature/humidity readout opens the room panel with the climate sheet
    * (temperature history chart) already open, instead of the plain room view. */

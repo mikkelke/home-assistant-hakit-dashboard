@@ -20,7 +20,8 @@ export interface MaintSheetProps {
   row: HouseUpcomingRow;
   isAdmin: boolean;
   onClose: () => void;
-  onOpenRoom: (areaId: string) => void;
+  /** Without it the sheet offers no way into the room, as when it is opened from the room's own panel. */
+  onOpenRoom?: (areaId: string) => void;
 }
 
 /** What to do about a maintenance row: its numbers, a step-by-step guide behind the info button, and for a
@@ -32,7 +33,7 @@ export function MaintSheet({ row, isAdmin, onClose, onOpenRoom }: MaintSheetProp
   const [guideOpen, setGuideOpen] = useState(false);
   const guideId = useId();
   const canDone = isAdmin && row.tapDone;
-  const roomId = !row.tapDone && opensRoom(row) ? row.areaId : null;
+  const roomId = onOpenRoom && !row.tapDone && opensRoom(row) ? row.areaId : null;
 
   const send = (event: string, going: Phase, arrived: Phase, back: Phase) => {
     setPhase(going);
@@ -132,7 +133,7 @@ export function MaintSheet({ row, isAdmin, onClose, onOpenRoom }: MaintSheetProp
           </p>
         )}
         {roomId && (
-          <button type='button' className='maint-btn is-ghost' onClick={() => onOpenRoom(roomId)}>
+          <button type='button' className='maint-btn is-ghost' onClick={() => onOpenRoom?.(roomId)}>
             <Icon icon='mdi:door-open' aria-hidden='true' />
             Open room
           </button>

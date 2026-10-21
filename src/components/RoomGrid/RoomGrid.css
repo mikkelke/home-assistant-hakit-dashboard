@@ -640,6 +640,10 @@ body.modal-open .room-card {
   color: #ea580c;
 }
 
+.room-ex .indicator.todo {
+  color: var(--accent-gold);
+}
+
 .indicator-label {
   position: absolute;
   top: -2px;
