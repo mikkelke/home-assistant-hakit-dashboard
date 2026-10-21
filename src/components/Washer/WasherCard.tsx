@@ -381,7 +381,10 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
     }
   };
 
-  const stateWord = state === 'Running' ? 'Running' : state === 'Paused' ? 'Paused' : 'Empty it';
+  // A drum clean leaves nothing to empty; the door only needs opening to air the drum.
+  const isDrumClean = attrs.detected_programme === 'drum_clean';
+  const finishIcon = isDrumClean ? 'mdi:door-open' : 'mdi:basket-outline';
+  const stateWord = state === 'Running' ? 'Running' : state === 'Paused' ? 'Paused' : isDrumClean ? 'Air it' : 'Empty it';
   const stateWordClass = state === 'Running' ? 'tint' : state === 'Unemptied' ? 'alert' : 'muted';
 
   // "Done HH:MM": the real cycle end, recovered from the Unemptied-flip timestamp minus the
@@ -429,14 +432,10 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
         className='appliance-quick-btn'
         onClick={handleForceEmptied}
         disabled={emptiedPressed}
-        aria-label='Mark the washer as emptied'
-        title='Mark emptied'
+        aria-label={isDrumClean ? 'Mark the washer as aired' : 'Mark the washer as emptied'}
+        title={isDrumClean ? 'Mark aired' : 'Mark emptied'}
       >
-        <Icon
-          icon={emptiedPressed ? 'mdi:loading' : 'mdi:basket-outline'}
-          className={emptiedPressed ? 'appliance-spin' : ''}
-          aria-hidden='true'
-        />
+        <Icon icon={emptiedPressed ? 'mdi:loading' : finishIcon} className={emptiedPressed ? 'appliance-spin' : ''} aria-hidden='true' />
       </button>
     ) : null;
 
@@ -550,7 +549,7 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
         <>
           <div className='appliance-hero'>
             <span className='appliance-hero-icon'>
-              <Icon icon='mdi:basket-outline' aria-hidden='true' />
+              <Icon icon={finishIcon} aria-hidden='true' />
             </span>
             <span className='appliance-hero-text'>
               {doneAtDisplay && <span className='appliance-hero-line1'>Done {doneAtDisplay}</span>}
@@ -569,7 +568,7 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
                   className={emptiedPressed ? 'appliance-spin' : ''}
                   aria-hidden='true'
                 />
-                <span>Emptied</span>
+                <span>{isDrumClean ? 'Aired' : 'Emptied'}</span>
               </button>
             )}
           </div>
