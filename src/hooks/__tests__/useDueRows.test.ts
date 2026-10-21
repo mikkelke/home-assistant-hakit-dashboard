@@ -125,7 +125,7 @@ describe('the rows that are due', () => {
     expect(latest()).toEqual([]);
   });
 
-  it('count a rain row whatever its hour, since it exists only while a door is open and rain is forecast', async () => {
+  it('count a rain row whatever its hour, since it exists only while a door is open and rain is forecast or falling', async () => {
     const rain = {
       id: 'rain:terrace',
       kind: 'rain',

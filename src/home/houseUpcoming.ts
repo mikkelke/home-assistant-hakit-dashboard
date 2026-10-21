@@ -121,7 +121,7 @@ export function canViewerSeeUpcoming(row: HouseUpcomingRow, viewer: HouseEventVi
 }
 
 /** The rows that are due in a room and that `viewer` may see, in publish order: what needs doing where. A rain row is always
- * due: the publisher only has one while a terrace door is open and rain is forecast. */
+ * due: the publisher has one for each open terrace door, and only while rain is forecast or falling. */
 export const dueRows = (rows: readonly HouseUpcomingRow[], viewer: HouseEventViewer): HouseUpcomingRow[] =>
   rows.filter(row => (row.kind === 'rain' || isDue(row)) && row.areaId != null && canViewerSeeUpcoming(row, viewer));
 

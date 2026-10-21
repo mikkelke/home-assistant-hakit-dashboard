@@ -246,7 +246,7 @@ describe('a rain row', () => {
   const rainAt = (minutesAhead: number, area: string | null = 'living_room') =>
     publish(entry('rain:terrace', 'rain', { at: new Date(NOW + minutesAhead * MINUTE).toISOString() }, area))[0];
 
-  it('is always due in the room it names, whatever its hour, since the publisher has one only while a door is open and rain is forecast', () => {
+  it('is always due in the room it names, whatever its hour, since the publisher has one only while a door is open and rain is forecast or falling', () => {
     for (const ahead of [-90, 0, 29, 31, 170])
       expect(ids(dueRows([rainAt(ahead)], KRISTINE)), `${ahead} min ahead`).toEqual(['rain:terrace']);
   });
