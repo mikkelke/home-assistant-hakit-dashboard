@@ -274,3 +274,32 @@ describe('a row with a guide but no Done button', () => {
     expect(button('Open room')).toBeUndefined();
   });
 });
+
+describe('a row with info lines only', () => {
+  const PLANT = {
+    id: 'maint:plant:test',
+    kind: 'maint',
+    icon: 'mdi:watering-can-outline',
+    title: 'Water the test plant: 3 L',
+    detail: 'soil 15%, water at 15%',
+    area: 'dining_room',
+    audience: 'admin',
+    info: ['The big plant with banana leaves', 'On the floor by the window'],
+  };
+
+  it('shows what it says and its info lines, with no guide and no Done button', async () => {
+    await open(parse(PLANT));
+    expect(text()).toContain('soil 15%, water at 15%');
+    expect([...document.body.querySelectorAll('.maint-info li')].map(li => li.textContent)).toEqual(PLANT.info);
+    expect(button('How to')).toBeUndefined();
+    expect(button('Done')).toBeUndefined();
+    expect(document.body.querySelector('.maint-guide')).toBeNull();
+  });
+
+  it('opens its room from the Open room button, and fires nothing', async () => {
+    await open(parse(PLANT));
+    await press('Open room');
+    expect(onOpenRoom).toHaveBeenCalledExactlyOnceWith('dining_room');
+    expect(sent()).toEqual([]);
+  });
+});

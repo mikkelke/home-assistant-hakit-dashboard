@@ -151,11 +151,17 @@ describe('the sheet of a maintenance row', () => {
     expect(hasSheet(row)).toBe(true);
   });
 
-  it('opens a sheet for a guide alone and for a Done button alone, and for nothing else', () => {
+  it('opens a sheet for a guide alone, a Done button alone and info lines alone, and for nothing else', () => {
     const without = (...keys: string[]) => Object.fromEntries(Object.entries(SHEET_ROW).filter(([key]) => !keys.includes(key)));
-    const [guide, done, plain] = parse([without('done'), without('steps', 'warn'), without('done', 'steps', 'warn', 'info')]);
-    expect([hasSheet(guide), hasSheet(done), hasSheet(plain)]).toEqual([true, true, false]);
+    const [guide, done, info, plain] = parse([
+      without('done', 'info'),
+      without('steps', 'warn', 'info'),
+      without('done', 'steps', 'warn'),
+      without('done', 'steps', 'warn', 'info'),
+    ]);
+    expect([hasSheet(guide), hasSheet(done), hasSheet(info), hasSheet(plain)]).toEqual([true, true, true, false]);
     expect(done.warn).toBeNull();
+    expect(info).toMatchObject({ tapDone: false, steps: [], warn: null, info: ['Every 30 runs (~2 months)', 'Counting from 15.10'] });
     expect(plain).toMatchObject({ tapDone: false, info: [], steps: [], warn: null });
   });
 

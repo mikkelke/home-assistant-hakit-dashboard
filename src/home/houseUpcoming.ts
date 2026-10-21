@@ -30,8 +30,8 @@ export interface HouseUpcomingRow {
   warn: string | null;
 }
 
-/** Whether a tap on the row opens its sheet instead of its room: it has a Done button or a guide. */
-export const hasSheet = (row: HouseUpcomingRow): boolean => row.tapDone || row.steps.length > 0;
+/** Whether a tap on the row opens its sheet instead of its room: it has a Done button, a guide or info lines. */
+export const hasSheet = (row: HouseUpcomingRow): boolean => row.tapDone || row.steps.length > 0 || row.info.length > 0;
 
 /** The publisher keeps at most this many rows. */
 export const MAX_HOUSE_UPCOMING_ROWS = 30;

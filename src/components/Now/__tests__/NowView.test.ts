@@ -254,6 +254,16 @@ describe('a maintenance row with a sheet', () => {
     audience: 'admin',
     steps: ['Pull the plug.', 'Start Bomuld 90 C with an empty drum.'],
   };
+  const INFO_ONLY = {
+    id: 'maint:plant:test',
+    kind: 'maint',
+    icon: 'mdi:watering-can-outline',
+    title: 'Water the test plant: 3 L',
+    detail: 'soil 15%, water at 15%',
+    area: 'dining_room',
+    audience: 'admin',
+    info: ['The big plant with banana leaves', 'On the floor by the window'],
+  };
   const BATTERY = {
     id: 'maint:battery:sensor.ecowitt_battery_8351',
     kind: 'maint',
@@ -325,6 +335,16 @@ describe('a maintenance row with a sheet', () => {
     expect([...document.querySelectorAll('.maint-body button')].map(button => button.textContent)).toEqual(['How to', 'Open room']);
     await act(async () => document.querySelector<HTMLButtonElement>('.maint-body .maint-btn')?.click());
     expect(opened).toEqual(['guest_bathroom']);
+  });
+
+  it('opens the sheet of a row that has info lines only, which shows them and still offers its room', async () => {
+    const { opened } = await openAs(true, INFO_ONLY);
+    await act(async () => row(INFO_ONLY.id)?.click());
+    expect(sheet()).not.toBeNull();
+    expect(opened).toEqual([]);
+    expect(sheetText()).toContain('soil 15%, water at 15%');
+    expect(sheetText()).toContain('On the floor by the window');
+    expect([...document.querySelectorAll('.maint-body button')].map(button => button.textContent)).toEqual(['Open room']);
   });
 
   it('fires the Done event for the row it was opened on', async () => {
