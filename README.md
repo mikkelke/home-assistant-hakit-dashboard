@@ -12,6 +12,7 @@ Node version manager - [NVM](https://github.com/nvm-sh/nvm) to easily install an
 | **Local demo** | `npm run dev`                    |
 | **Deploy**     | `npm run build && npm run deploy`|
 | **Zip raw code** | `npm run zip` (backup for moving) |
+| **Screenshots** | `npm run screens` (output in `harness/out/`) |
 
 ## Reproducing the project (backup workflow)
 
@@ -81,6 +82,15 @@ This generates `supported-types.d.ts` locally. The project is set up so that any
 Assistant (an entity dump, a log, an archive index), because this repo is public and real
 timestamps show when people are home, asleep or away. The sensor map's floor plan, device list and
 fingerprints live in Home Assistant, never here: its tests run on an invented plan.
+
+## Screenshots
+
+`npm run screens` builds the app, serves the build with `vite preview` and renders every page and key overlay at a phone (390x844) and a landscape tablet (1280x800) size with Playwright. No Home Assistant is involved: `harness/mock` answers the WebSocket and REST calls from the synthetic house in `harness/fixtures`, and the app's own files are served unchanged. The PNGs land in `harness/out/<viewport>/`, which is gitignored.
+
+- Playwright is pinned to an exact version so its Chromium build stays the same; run `npx playwright install chromium` once on a new machine.
+- Pass Playwright flags after `--`: `npm run screens -- --project=phone -g energy`. Every run starts from an empty `harness/out`.
+- Fixtures are invented, with hard cases on purpose (unavailable devices, long names, zero values, a 38-item list). Keep them invented, like the test fixtures.
+- Text renders in whatever sans fonts the machine has, so widths differ a little from a phone.
 
 ## Further documentation
 For further documentation, please visit the [documentation website](https://shannonhochkins.github.io/ha-component-kit/) for more information.
