@@ -182,8 +182,9 @@ const textState = (entity: UpcomingEntity | undefined): string | null => {
   return text && text !== 'unknown' && text !== 'unavailable' ? text : null;
 };
 
-/** Attribution methods that name a person on evidence: the only person home, or the HA user who tapped. */
-const RELIABLE_ACTOR_METHODS: ReadonlySet<string> = new Set(['sole_occupant', 'dashboard_action']);
+/** Attribution methods that name a person on evidence: the only person home, the HA user who tapped, or the
+ * one resident left once the others had stayed in their own rooms. */
+const RELIABLE_ACTOR_METHODS: ReadonlySet<string> = new Set(['sole_occupant', 'dashboard_action', 'room_elimination']);
 
 /** The resident who started a run, from its monitor's `started_by` and `started_by_method`; null unless a
  * resident was named by a reliable method. */
