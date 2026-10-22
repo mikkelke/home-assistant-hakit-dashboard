@@ -13,7 +13,7 @@ import {
   startCapture as beginCapture,
   type CaptureConfig,
 } from '../../sensorMap/fingerprint';
-import { markerNear, scaleBarLength, snapToWall, wallSnapRadius } from '../../sensorMap/geometry';
+import { markerNear, planToScreen, scaleBarLength, snapToWall, wallSnapRadius } from '../../sensorMap/geometry';
 import type { GestureEvent, Hit } from '../../sensorMap/gestures';
 import {
   FACING_STEP_DEG,
@@ -50,6 +50,7 @@ import { ModeControl } from './ModeControl';
 import { PhoneLayer } from './PhoneLayer';
 import { PhoneSheet } from './PhoneSheet';
 import { PlanCanvas, type CoverageView, type SurveyView } from './PlanCanvas';
+import { VENT_HIT_PX } from './PlanLayers';
 import { QuestionsSheet } from './QuestionsSheet';
 import { SuggestionsSheet } from './SuggestionsSheet';
 import { SurveyBar } from './SurveyBar';
@@ -532,6 +533,11 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
         return id ? { kind: 'survey', id } : hit;
       }
       if (hit.kind === 'ghost' || hit.kind === 'fingerprint') return hit;
+      const selectedVent = edit && selectedVentId !== null ? doc.plan.vents?.find(vent => vent.id === selectedVentId) : undefined;
+      if (selectedVent) {
+        const at = planToScreen(shown, size, selectedVent.pos.x, selectedVent.pos.y);
+        if (Math.hypot(at.x - px.x, at.y - px.y) <= VENT_HIT_PX) return { kind: 'vent', id: selectedVent.id };
+      }
       const handle = shown.s >= HANDLE_MIN_PX_PER_M ? handleAt : null;
       const targets = handle ? [...markerPoints, { key: HANDLE_KEY, x: handle[0], y: handle[1] }] : markerPoints;
       const key = markerNear(targets, shown, size, px, HIT_RADIUS_PX, selectedKey);

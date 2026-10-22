@@ -1644,6 +1644,15 @@ describe('vents', () => {
     expect(query('.sm-sheet .sm-sheet-sub')?.textContent).toBe('suggested vent');
   });
 
+  it('gives a touch near a sensor to the sensor in View even when the vent is the one selected', async () => {
+    const map = withVents();
+    map.plan.vents = [{ ...FAMILY, pos: { x: 6.1, y: 1 } }];
+    await open(fakeConnection({ ...docs(), sensor_map: map }));
+    press(vent('family'), 'Enter');
+    tap(query('.sm-vent[data-id="family"] .sm-mk-hit circle') as Element, screenOf(6.1, 1));
+    expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('Beta radar');
+  });
+
   describe('dragging a vent', () => {
     const family = () => screenOf(6, 5);
     /** Presses on the vent at `from`, moves `dx` px to the right in two steps and stops just short of the release. */
@@ -1693,6 +1702,17 @@ describe('vents', () => {
       expect(written.layout_version).toBe(makeDoc().layout_version);
       expect(written.suggest_log).toEqual([]);
       expect(vent('family').getAttribute('transform')).not.toBe(before);
+    });
+
+    it('is dragged from where it sits once selected in Edit, even with a sensor over it, and the sensor stays', async () => {
+      const map = withVents();
+      map.plan.vents = [{ ...FAMILY, pos: { x: 7.2, y: 3, h: 2.5 } }, HOOD];
+      const fake = await selectFamily(map);
+      drag(screenOf(7.2, 3))();
+      await settle();
+      const written = writes(fake).at(-1)?.value as MapDoc;
+      expect(written.plan.vents?.[0].pos.x).toBeCloseTo(7.2 + 40 / (canvas.w / 13), 1);
+      expect(written.devices.scan_b.placement.pos).toEqual({ x: 7, y: 3, h: 1 });
     });
 
     it('gets the sheet out of the way while it is dragged, and brings it back at the release', async () => {

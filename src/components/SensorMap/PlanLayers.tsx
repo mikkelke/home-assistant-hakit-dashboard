@@ -7,7 +7,7 @@ import { clipIdOf } from './types';
 
 const WALL_EPS = 0.004;
 /** Smaller than a marker's touch target, so the plan around a vent stays tappable. */
-const VENT_HIT_PX = 16;
+export const VENT_HIT_PX = 16;
 
 /** Clip regions for radar footprints, one per zone and per open region. */
 export const PlanDefs = memo(function PlanDefs({ plan }: { plan: Plan }) {
