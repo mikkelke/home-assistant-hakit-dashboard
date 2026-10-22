@@ -94,6 +94,20 @@ export interface Furniture {
   box: [number, number, number, number];
 }
 
+export type VentKind = 'supply' | 'exhaust';
+
+export interface Vent {
+  id: string;
+  name: string;
+  kind: VentKind;
+  /** Metres in the plan frame, y up; `h` is the height above the floor. */
+  pos: { x: number; y: number; h?: number };
+  /** The model of the valve. */
+  valve?: string;
+  /** The airflow it is set to, in cubic metres per hour. */
+  flow_m3h?: number;
+}
+
 export interface Zone {
   zone_id: string;
   name: string;
@@ -141,6 +155,7 @@ export interface Plan {
   doors: Door[];
   windows: Glazing[];
   furniture?: Furniture[];
+  vents?: Vent[];
   zones: Zone[];
   clip_regions: ClipRegion[];
   zone_lines: ZoneLine[];
@@ -229,7 +244,8 @@ export type SuggestItem =
   | { id: string; kind: 'wifi'; source?: WifiSource; aps?: Record<string, string>; reason: string }
   | { id: string; kind: 'rename'; device_key: string; name: string; reason: string }
   | { id: string; kind: 'phone'; phone: Phone; reason: string }
-  | { id: string; kind: 'furniture'; furniture: Furniture; reason: string };
+  | { id: string; kind: 'furniture'; furniture: Furniture; reason: string }
+  | { id: string; kind: 'vent'; vent: Vent; reason: string };
 
 export interface SuggestDoc {
   schema_version: number;
@@ -469,6 +485,29 @@ function checkFurniture(value: unknown, path: string, problems: string[]) {
   if (x0 >= x1 || y0 >= y1) problems.push(`${path}.box needs x0 < x1 and y0 < y1`);
 }
 
+function checkVent(value: unknown, path: string, problems: string[]) {
+  if (
+    !isObject(value) ||
+    !isString(value.id) ||
+    value.id.trim() === '' ||
+    !isString(value.name) ||
+    value.name.trim() === '' ||
+    (value.kind !== 'supply' && value.kind !== 'exhaust') ||
+    !isObject(value.pos) ||
+    !isNumber(value.pos.x) ||
+    !isNumber(value.pos.y) ||
+    (value.pos.h !== undefined && !isNumber(value.pos.h))
+  ) {
+    return problems.push(`${path} needs an id, a name, a kind that is supply or exhaust, and a pos {x, y, h?}`);
+  }
+  if (value.valve !== undefined && (!isString(value.valve) || value.valve.trim() === '')) {
+    problems.push(`${path}.valve is not a text`);
+  }
+  if (value.flow_m3h !== undefined && (!isNumber(value.flow_m3h) || value.flow_m3h < 0)) {
+    problems.push(`${path}.flow_m3h is not a number from 0 up`);
+  }
+}
+
 function checkPlan(plan: unknown, problems: string[]) {
   if (!isObject(plan)) return problems.push('plan is not an object');
   checkRect(plan.bounds, 'plan.bounds', problems);
@@ -496,6 +535,15 @@ function checkPlan(plan: unknown, problems: string[]) {
       if (!isObject(f) || !isString(f.id)) return;
       if (ids.has(f.id)) problems.push(`${p}.id ${f.id} is used twice`);
       ids.add(f.id);
+    });
+  }
+  if (plan.vents !== undefined) {
+    const ids = new Set<string>();
+    list('vents', (v, p) => {
+      checkVent(v, p, problems);
+      if (!isObject(v) || !isString(v.id)) return;
+      if (ids.has(v.id)) problems.push(`${p}.id ${v.id} is used twice`);
+      ids.add(v.id);
     });
   }
   list('zones', (z, p) => {
@@ -673,8 +721,10 @@ export function validateSuggestDoc(raw: unknown): string[] {
         problems.push(`${path}.phone needs a name, a bermuda_address and a person that is a string or null`);
     } else if (item.kind === 'furniture') {
       checkFurniture(item.furniture, `${path}.furniture`, problems);
+    } else if (item.kind === 'vent') {
+      checkVent(item.vent, `${path}.vent`, problems);
     } else {
-      problems.push(`${path}.kind is not placement, answer, new_device, wifi, rename, phone or furniture`);
+      problems.push(`${path}.kind is not placement, answer, new_device, wifi, rename, phone, furniture or vent`);
     }
   });
   return problems;
@@ -872,6 +922,11 @@ function acceptItem(doc: MapDoc, item: SuggestItem, at: string, place?: Point): 
       ? known.map(entry => (entry.id === piece.id ? piece : entry))
       : [...known, piece];
     next = { ...doc, updated_at: at, plan: { ...doc.plan, furniture } };
+  } else if (item.kind === 'vent') {
+    const vent: Vent = { ...item.vent, name: item.vent.name.trim() };
+    const known = doc.plan.vents ?? [];
+    const vents = known.some(entry => entry.id === vent.id) ? known.map(entry => (entry.id === vent.id ? vent : entry)) : [...known, vent];
+    next = { ...doc, updated_at: at, plan: { ...doc.plan, vents } };
   } else {
     const key = newDeviceKey(item.device, item.id);
     if (!doc.devices[key] && place) {

@@ -79,7 +79,9 @@ describe('validation and parsing', () => {
     expect(validateSuggestDoc(doc).some(p => p.includes('used twice'))).toBe(true);
     const raw = JSON.parse(JSON.stringify(makeSuggestDoc())) as { items: { kind: string }[] };
     raw.items[0].kind = 'teleport';
-    expect(validateSuggestDoc(raw).some(p => p.includes('placement, answer, new_device, wifi, rename, phone or furniture'))).toBe(true);
+    expect(validateSuggestDoc(raw).some(p => p.includes('placement, answer, new_device, wifi, rename, phone, furniture or vent'))).toBe(
+      true
+    );
   });
 
   it('only lets set-suggest write the suggestion key and seed write the map or a scratch copy', () => {
@@ -945,5 +947,147 @@ describe('a suggested piece of furniture', () => {
     const doc = applyMapOp(makeDoc(), { kind: 'accept', item: furniture(), at: at(1) });
     expect(validateMapDoc(JSON.parse(JSON.stringify(doc)))).toEqual([]);
     expect(parseMapDoc(JSON.parse(JSON.stringify(doc))).plan.furniture).toHaveLength(1);
+  });
+});
+
+describe('vents on the plan', () => {
+  const supply = {
+    id: 'family',
+    name: 'Test supply',
+    kind: 'supply' as const,
+    pos: { x: 5, y: 3, h: 2.5 },
+    valve: 'Test valve 160',
+    flow_m3h: 185,
+  };
+  const withVents = (vents: unknown) => ({ ...makeDoc(), plan: { ...makeDoc().plan, vents } });
+  const problemsOf = (vents: unknown) => validateMapDoc(JSON.parse(JSON.stringify(withVents(vents))));
+
+  it('is optional: a plan without it is valid and stays without it', () => {
+    expect(makeDoc().plan.vents).toBeUndefined();
+    expect(validateMapDoc(makeDoc())).toEqual([]);
+    expect(parseMapDoc(JSON.parse(JSON.stringify(makeDoc()))).plan.vents).toBeUndefined();
+  });
+
+  it('is valid with an id, a name, a kind and a position, and a valve, a flow and a height are optional', () => {
+    const bare = { id: 'hood', name: 'Test hood', kind: 'exhaust' as const, pos: { x: 7.45, y: 3.25 } };
+    expect(problemsOf([supply, bare])).toEqual([]);
+    expect(problemsOf([])).toEqual([]);
+    expect(problemsOf([{ ...bare, flow_m3h: 0 }])).toEqual([]);
+    expect(parseMapDoc(JSON.parse(JSON.stringify(withVents([supply, bare])))).plan.vents).toEqual([supply, bare]);
+  });
+
+  it('names what is wrong with an entry', () => {
+    const wrong = (entry: unknown) => problemsOf([entry]).some(p => p.startsWith('plan.vents[0]'));
+    expect(problemsOf({})).toContain('plan.vents is not an array');
+    for (const entry of [
+      null,
+      { ...supply, id: '' },
+      { ...supply, id: 5 },
+      { ...supply, name: ' ' },
+      { ...supply, name: undefined },
+      { ...supply, kind: 'return' },
+      { ...supply, kind: undefined },
+      { ...supply, pos: undefined },
+      { ...supply, pos: { x: 5 } },
+      { ...supply, pos: { x: '5', y: 3 } },
+      { ...supply, pos: { x: 5, y: null } },
+      { ...supply, pos: { x: 5, y: 3, h: '2.5' } },
+      { ...supply, pos: { x: 5, y: 3, h: null } },
+      { ...supply, valve: '' },
+      { ...supply, valve: 160 },
+      { ...supply, valve: null },
+      { ...supply, flow_m3h: '185' },
+      { ...supply, flow_m3h: -1 },
+      { ...supply, flow_m3h: null },
+    ]) {
+      expect(wrong(entry)).toBe(true);
+    }
+  });
+
+  it('does not list one id twice, since an accepted suggestion replaces the entry with its id', () => {
+    expect(problemsOf([supply, { ...supply, name: 'Other' }]).some(p => p.includes('plan.vents[1].id family is used twice'))).toBe(true);
+  });
+});
+
+describe('a suggested vent', () => {
+  const vent = (extra: Record<string, unknown> = {}) => ({
+    id: 's-family',
+    kind: 'vent' as const,
+    vent: {
+      id: 'family',
+      name: 'Test supply',
+      kind: 'supply' as const,
+      pos: { x: 5, y: 3, h: 2.5 },
+      valve: 'Test valve 160',
+      flow_m3h: 185,
+      ...extra,
+    },
+    reason: 'It blows there',
+  });
+  const suggestWith = (entry: unknown) => ({ ...makeSuggestDoc(), items: [entry] });
+
+  it('is a valid suggestion with an id, a name, a kind and a position, and not otherwise', () => {
+    expect(validateSuggestDoc(suggestWith(vent()))).toEqual([]);
+    for (const bad of [
+      { id: '' },
+      { name: '  ' },
+      { kind: 'return' },
+      { pos: undefined },
+      { pos: { x: 5 } },
+      { pos: { x: 5, y: 3, h: 'high' } },
+      { valve: ' ' },
+      { flow_m3h: -5 },
+    ]) {
+      expect(validateSuggestDoc(suggestWith(vent(bad))).some(p => p.startsWith('items[0].vent'))).toBe(true);
+    }
+    expect(validateSuggestDoc(suggestWith({ id: 's-family', kind: 'vent', reason: 'x' })).some(p => p.startsWith('items[0].vent'))).toBe(
+      true
+    );
+  });
+
+  it('is added to the plan when accepted, trimmed, as an ordinary edit that is logged and leaves everything else alone', () => {
+    const before = makeDoc();
+    const doc = applyMapOp(before, { kind: 'accept', item: vent({ name: '  Test supply ' }), at: at(1) });
+    expect(doc.plan.vents).toEqual([vent().vent]);
+    expect(doc.plan.walls).toBe(before.plan.walls);
+    expect(doc.plan.zones).toBe(before.plan.zones);
+    expect(doc.devices).toBe(before.devices);
+    expect(doc.updated_at).toBe(at(1));
+    expect(doc.suggest_log).toEqual([{ id: 's-family', accepted_at: at(1) }]);
+  });
+
+  it('does not bump the layout version, which counts changes to the scanners', () => {
+    const before = makeDoc();
+    expect(applyMapOp(before, { kind: 'accept', item: vent(), at: at(1) }).layout_version).toBe(before.layout_version);
+  });
+
+  it('is added after the vents that are there, and replaces the entry with the same id in its place', () => {
+    const hood = { id: 'hood', name: 'Test hood', kind: 'exhaust' as const, pos: { x: 1, y: 1 } };
+    const base = {
+      ...makeDoc(),
+      plan: { ...makeDoc().plan, vents: [hood, { id: 'family', name: 'Old', kind: 'exhaust' as const, pos: { x: 0, y: 0 } }] },
+    };
+    const added = applyMapOp(base, {
+      kind: 'accept',
+      item: { ...vent(), vent: { id: 'bedroom', name: 'Test bedroom', kind: 'supply' as const, pos: { x: 3, y: 3 } } },
+      at: at(1),
+    });
+    expect(added.plan.vents?.map(entry => entry.id)).toEqual(['hood', 'family', 'bedroom']);
+    const replaced = applyMapOp(base, { kind: 'accept', item: vent(), at: at(1) });
+    expect(replaced.plan.vents).toEqual([hood, vent().vent]);
+  });
+
+  it('is accepted once, and a rejection leaves the plan alone and only logs', () => {
+    const once = applyMapOp(makeDoc(), { kind: 'accept', item: vent(), at: at(1) });
+    expect(applyMapOp(once, { kind: 'accept', item: vent({ name: 'Other' }), at: at(2) })).toBe(once);
+    const rejected = applyMapOp(makeDoc(), { kind: 'reject', id: 's-family', at: at(1) });
+    expect(rejected.plan.vents).toBeUndefined();
+    expect(rejected.suggest_log).toEqual([{ id: 's-family', rejected_at: at(1) }]);
+  });
+
+  it('is read back as a valid map after it was accepted, so it survives the next load', () => {
+    const doc = applyMapOp(makeDoc(), { kind: 'accept', item: vent(), at: at(1) });
+    expect(validateMapDoc(JSON.parse(JSON.stringify(doc)))).toEqual([]);
+    expect(parseMapDoc(JSON.parse(JSON.stringify(doc))).plan.vents).toHaveLength(1);
   });
 });

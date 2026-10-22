@@ -1,7 +1,7 @@
 import { memo } from 'react';
-import type { Fingerprint, Furniture, MapDevice, Point } from '../../sensorMap/mapDoc';
+import type { Fingerprint, Furniture, MapDevice, Point, VentKind } from '../../sensorMap/mapDoc';
 import { handlePoint } from '../../sensorMap/radarRange';
-import { glyphOf, typeClass } from './glyphs';
+import { VENT_R, glyphOf, typeClass, ventGlyph } from './glyphs';
 import { activateOnKey } from './activateOnKey';
 
 /** Smaller than a marker's touch target: a ghost sits on top of the markers, and the device beside it must stay reachable. */
@@ -15,6 +15,8 @@ export interface Ghost {
   device: Pick<MapDevice, 'name' | 'type'>;
   /** Set for suggested furniture, which is drawn as this outline instead of a marker; `at` is its centre. */
   box?: Furniture['box'];
+  /** Set for a suggested vent, which is drawn as the ring of a vent of this kind instead of a marker. */
+  ventKind?: VentKind;
   stale: boolean;
 }
 
@@ -49,9 +51,41 @@ function GhostOutline({ ghost, box, yTop, selected, onActivate }: GhostMarkerPro
   );
 }
 
+/** A suggested vent: the ring of a vent, dashed. */
+function GhostVent({ ghost, kind, yTop, selected, onActivate }: GhostMarkerProps & { kind: VentKind }) {
+  const [x, y] = ghost.at;
+  return (
+    <g className={`sm-ghost sm-ghost-vent kind-${kind}${selected ? ' sel' : ''}${ghost.stale ? ' stale' : ''}`}>
+      <g
+        transform={`translate(${x} ${yTop - y})`}
+        data-hit='ghost'
+        data-id={ghost.id}
+        tabIndex={0}
+        role='button'
+        aria-label={`Suggested vent ${ghost.device.name}`}
+        onKeyDown={activateOnKey(() => onActivate(ghost.id))}
+      >
+        <g className='sm-mk-hit'>
+          <circle r={GHOST_HIT_PX} />
+        </g>
+        <g className='sm-mk-body'>
+          <circle r={VENT_R} className='sm-vent-bg' />
+          <path d={ventGlyph(kind)} className='sm-vent-glyph' />
+          {selected && (
+            <text className='sm-mk-name' x={VENT_R + 5} y={4}>
+              {ghost.device.name}
+            </text>
+          )}
+        </g>
+      </g>
+    </g>
+  );
+}
+
 /** A suggested placement: a dashed marker in the device's colour, with an arrow from where the device is now. */
 export const GhostMarker = memo(function GhostMarker({ ghost, yTop, selected, onActivate }: GhostMarkerProps) {
   if (ghost.box) return <GhostOutline ghost={ghost} box={ghost.box} yTop={yTop} selected={selected} onActivate={onActivate} />;
+  if (ghost.ventKind) return <GhostVent ghost={ghost} kind={ghost.ventKind} yTop={yTop} selected={selected} onActivate={onActivate} />;
   const [x, y] = ghost.at;
   return (
     <g className={`sm-ghost ${typeClass(ghost.device.type)}${selected ? ' sel' : ''}${ghost.stale ? ' stale' : ''}`}>

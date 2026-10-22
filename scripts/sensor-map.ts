@@ -22,6 +22,7 @@
  *   { id, kind: 'wifi', source?, aps?, reason }
  *   { id, kind: 'phone', phone: { name, bermuda_address, person }, reason }
  *   { id, kind: 'furniture', furniture: { id, name, box: [x0, y0, x1, y1] }, reason }
+ *   { id, kind: 'vent', vent: { id, name, kind: 'supply' | 'exhaust', pos: { x, y, h? }, valve?, flow_m3h? }, reason }
  *
  * and replaces the whole document, so a file holds every item that should stay. The page writes an accepted item
  * into `sensor_map`; no command does. A `wifi` item names the phone a survey capture reads, as `source`
@@ -32,6 +33,9 @@
  * names the device by, which `bermuda.dump_devices` takes in either case.
  * A `furniture` item draws a dashed outline on the plan; accepted, it joins `plan.furniture`, replacing the entry with
  * the same `furniture.id`. The `box` is in metres with x0 < x1 and y0 < y1, y up, like the box of a window in the plan.
+ * A `vent` item draws a dashed ring on the plan; accepted, it joins `plan.vents`, replacing the entry with the same `vent.id`.
+ * `pos` is in metres, y up, like the position of a device, and `h` is the height above the floor. `valve` is the model of
+ * the valve and `flow_m3h` the airflow it is set to.
  *
  * VITE_HA_URL and VITE_HA_TOKEN come from the environment, then `.env.development.local`, then `.env`. The
  * token must belong to an administrator: only administrators may write the system store.

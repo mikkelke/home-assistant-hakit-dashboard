@@ -40,6 +40,7 @@ export type Selection =
   | { kind: 'zone'; id: string; at?: Point }
   | { kind: 'fingerprint'; id: string }
   | { kind: 'tray'; id: string }
+  | { kind: 'vent'; id: string }
   | { kind: 'point'; at: Point };
 
 /** What the pointer shows while a marker, a handle or a suggested marker is being dragged, before anything is committed. */

@@ -56,6 +56,7 @@ import { SurveyBar } from './SurveyBar';
 import { TraySheet } from './TraySheet';
 import { UnplacedTray } from './UnplacedTray';
 import { SetupSheet } from './SetupSheet';
+import { VentSheet } from './VentSheet';
 import { ZoneSheet } from './ZoneSheet';
 import {
   hiddenTypeCount,
@@ -245,6 +246,9 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
         const { name, box } = item.furniture;
         const at: Point = [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2];
         out.push({ id: item.id, from: null, at, device: { name, type: 'other' }, box, stale: false });
+      } else if (item.kind === 'vent') {
+        const { name, kind, pos } = item.vent;
+        out.push({ id: item.id, from: null, at: [pos.x, pos.y], device: { name, type: 'other' }, ventKind: kind, stale: false });
       }
     }
     return out;
@@ -378,6 +382,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
         setCollapsed(false);
         revealDevice(hit.id);
       } else if (hit.kind === 'ghost' && hit.id) setSelection({ kind: 'ghost', id: hit.id });
+      else if (hit.kind === 'vent' && hit.id) setSelection({ kind: 'vent', id: hit.id });
       else if (hit.kind === 'fingerprint' && hit.id) setSelection({ kind: 'fingerprint', id: hit.id });
       else if (hit.kind === 'zone' && hit.id) setSelection({ kind: 'zone', id: hit.id, at: world });
       else setSelection({ kind: 'point', at: world });
@@ -481,7 +486,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
     draggable: (hit: Hit) =>
       edit &&
       (hit.kind === 'ghost'
-        ? layers.suggestions && !ghosts.find(candidate => candidate.id === hit.id)?.box
+        ? layers.suggestions && !ghosts.some(candidate => candidate.id === hit.id && (candidate.box || candidate.ventKind))
         : selectedKey !== null && hit.id === selectedKey && (hit.kind === 'marker' || hit.kind === 'handle')),
     refineHit: (hit, px, shown, size) => {
       if (hit.kind === 'survey') {
@@ -583,6 +588,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
 
   const activateGhost = useCallback((id: string) => setSelection({ kind: 'ghost', id }), []);
   const activatePrint = useCallback((id: string) => setSelection({ kind: 'fingerprint', id }), []);
+  const activateVent = useCallback((id: string) => setSelection({ kind: 'vent', id }), []);
 
   const armTray = useCallback((id: string | null) => setSelection(id === null ? null : { kind: 'tray', id }), []);
 
@@ -791,6 +797,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   const ghostSelected = selection?.kind === 'ghost' ? ghosts.find(ghost => ghost.id === selection.id) : undefined;
   const ghostItem = ghostSelected ? pendingItems.find(item => item.id === ghostSelected.id) : undefined;
   const zoneSelected = selection?.kind === 'zone' ? doc.plan.zones.find(zone => zone.zone_id === selection.id) : undefined;
+  const ventSelected = selection?.kind === 'vent' ? doc.plan.vents?.find(vent => vent.id === selection.id) : undefined;
   const printSelected = selection?.kind === 'fingerprint' ? prints.items.find(item => item.id === selection.id) : undefined;
   const trayArmed = selection?.kind === 'tray' ? tray.find(item => item.id === selection.id) : undefined;
   const phoneSheet = sheet?.kind === 'phone' ? phones.statuses.find(status => status.phone.bermuda_address === sheet.address) : undefined;
@@ -954,6 +961,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
             onActivateGhost={activateGhost}
             onActivatePrint={activatePrint}
             onActivateSurvey={openSurveyPoint}
+            onActivateVent={activateVent}
           />
           <div className='sm-zoom'>
             <button type='button' className='sm-icon-btn' onClick={() => zoomBy(1.6)} aria-label='Zoom in'>
@@ -1117,6 +1125,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
         />
       )}
       {idle && zoneSelected && <ZoneSheet zone={zoneSelected} doc={doc} onClose={() => setSelection(null)} />}
+      {idle && ventSelected && <VentSheet vent={ventSelected} onClose={() => setSelection(null)} />}
       {idle && printSelected && (
         <FingerprintSheet
           item={printSelected}

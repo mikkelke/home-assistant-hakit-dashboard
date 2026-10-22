@@ -5,7 +5,7 @@ export const TAP_SLOP_PX = 8;
 export const DOUBLE_TAP_MS = 300;
 export const DOUBLE_TAP_PX = 24;
 
-export type HitKind = 'plan' | 'marker' | 'handle' | 'zone' | 'ghost' | 'fingerprint' | 'survey';
+export type HitKind = 'plan' | 'marker' | 'handle' | 'zone' | 'ghost' | 'fingerprint' | 'survey' | 'vent';
 
 export interface Hit {
   kind: HitKind;

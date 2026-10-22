@@ -103,6 +103,19 @@ it('writes a suggested piece of furniture, and refuses a box that is turned insi
   await expect(run('set-suggest', [file({ items: [inverted] })], client)).rejects.toThrow();
 });
 
+it('writes a suggested vent, and refuses one that is neither a supply nor an exhaust', async () => {
+  const item = {
+    id: 's-family-supply',
+    kind: 'vent',
+    vent: { id: 'family-supply', name: 'Test supply', kind: 'supply', pos: { x: 5, y: 3, h: 2.5 }, valve: 'Test valve 160', flow_m3h: 185 },
+    reason: 'It blows there',
+  };
+  await run('set-suggest', [file({ items: [item] })], client);
+  expect((data.get(SUGGEST_KEY) as { items: unknown[] }).items).toEqual([item]);
+  const unknown = { ...item, vent: { ...item.vent, kind: 'return' } };
+  await expect(run('set-suggest', [file({ items: [unknown] })], client)).rejects.toThrow();
+});
+
 it('summarizes the Wi-Fi of the map', async () => {
   const lines: string[] = [];
   vi.spyOn(console, 'log').mockImplementation((line: string) => void lines.push(line));

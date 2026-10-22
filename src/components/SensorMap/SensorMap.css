@@ -18,6 +18,8 @@
   --sm-room: #9aa4b2;
   --sm-furniture-fill: var(--surface-chip);
   --sm-furniture-line: var(--line);
+  --sm-vent-supply: var(--accent-rose);
+  --sm-vent-exhaust: var(--accent-sky);
   --sm-outside: #6e7681;
   --sm-mk-ring: #e6edf3;
   --sm-mk-glyph: #0b0f14;
@@ -71,6 +73,8 @@
   --sm-room: #5f6874;
   --sm-furniture-fill: rgba(17, 24, 39, 0.05);
   --sm-furniture-line: rgba(17, 24, 39, 0.16);
+  --sm-vent-supply: #e11d48;
+  --sm-vent-exhaust: #0284c7;
   --sm-outside: #9aa1ab;
   --sm-mk-ring: #111827;
   --sm-mk-glyph: #ffffff;
@@ -591,6 +595,52 @@
   vector-effect: non-scaling-stroke;
 }
 
+.sm-vent {
+  cursor: pointer;
+  outline: none;
+}
+
+.sm-vent.kind-supply,
+.sm-ghost-vent.kind-supply {
+  --vc: var(--sm-vent-supply);
+}
+
+.sm-vent.kind-exhaust,
+.sm-ghost-vent.kind-exhaust {
+  --vc: var(--sm-vent-exhaust);
+}
+
+.sm-vent-bg {
+  fill: var(--vc);
+  fill-opacity: 0.18;
+  stroke: var(--vc);
+  stroke-width: 1.5;
+}
+
+.sm-vent-glyph {
+  fill: none;
+  stroke: var(--vc);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sm-vent-halo {
+  display: none;
+  fill: none;
+  stroke: var(--sm-sel);
+  stroke-width: 2;
+}
+
+.sm-vent.sel .sm-vent-halo {
+  display: inline;
+}
+
+.sm-vent:focus-visible .sm-vent-halo {
+  display: inline;
+  stroke: var(--sm-accent);
+}
+
 .sm-win-bg {
   fill: var(--sm-plan-bg);
 }
@@ -938,6 +988,20 @@
   vector-effect: non-scaling-stroke;
   pointer-events: stroke;
   cursor: pointer;
+}
+
+.sm-ghost-vent [data-hit] {
+  cursor: pointer;
+}
+
+.sm-ghost-vent .sm-vent-bg {
+  fill-opacity: 0.08;
+  stroke-width: 1.8;
+  stroke-dasharray: 3.3 2.2;
+}
+
+.sm-ghost-vent.sel .sm-vent-bg {
+  stroke: var(--sm-sel);
 }
 
 .sm-ghost-arrow {

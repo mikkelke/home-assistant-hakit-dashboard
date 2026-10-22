@@ -1,9 +1,13 @@
 import { memo } from 'react';
 import { doorPaths, glazingLine, polyPath } from '../../sensorMap/planPaths';
 import type { Plan } from '../../sensorMap/mapDoc';
+import { activateOnKey } from './activateOnKey';
+import { VENT_R, ventGlyph } from './glyphs';
 import { clipIdOf } from './types';
 
 const WALL_EPS = 0.004;
+/** Smaller than a marker's touch target, so the plan around a vent stays tappable. */
+const VENT_HIT_PX = 16;
 
 /** Clip regions for radar footprints, one per zone and per open region. */
 export const PlanDefs = memo(function PlanDefs({ plan }: { plan: Plan }) {
@@ -193,6 +197,53 @@ export const PlanWalls = memo(function PlanWalls({ plan }: { plan: Plan }) {
           approx.
         </text>
       </g>
+    </g>
+  );
+});
+
+interface PlanVentsProps {
+  plan: Plan;
+  selectedId: string | null;
+  onActivate: (id: string) => void;
+}
+
+/** Vents as small rings at one size on screen: arrows out of the ring for a supply, into it for an exhaust. They lie over
+ * the walls and under the sensors. */
+export const PlanVents = memo(function PlanVents({ plan, selectedId, onActivate }: PlanVentsProps) {
+  const yTop = plan.bounds.y1;
+  if (!plan.vents?.length) return null;
+  return (
+    <g className='sm-vents'>
+      {plan.vents.map(vent => {
+        const selected = vent.id === selectedId;
+        return (
+          <g
+            key={vent.id}
+            className={`sm-vent kind-${vent.kind}${selected ? ' sel' : ''}`}
+            transform={`translate(${vent.pos.x} ${yTop - vent.pos.y})`}
+            data-hit='vent'
+            data-id={vent.id}
+            tabIndex={0}
+            role='button'
+            aria-label={`Vent ${vent.name}, ${vent.kind}`}
+            onKeyDown={activateOnKey(() => onActivate(vent.id))}
+          >
+            <g className='sm-mk-hit'>
+              <circle r={VENT_HIT_PX} />
+            </g>
+            <g className='sm-mk-body'>
+              <circle r={VENT_R + 4} className='sm-vent-halo' />
+              <circle r={VENT_R} className='sm-vent-bg' />
+              <path d={ventGlyph(vent.kind)} className='sm-vent-glyph' />
+              {selected && (
+                <text className='sm-mk-name' x={VENT_R + 5} y={4}>
+                  {vent.name}
+                </text>
+              )}
+            </g>
+          </g>
+        );
+      })}
     </g>
   );
 });

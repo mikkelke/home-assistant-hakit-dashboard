@@ -8,7 +8,7 @@ import type { SurveyPoint, SurveyProgress } from '../../sensorMap/survey';
 import { CoverageDots, CoverageFills } from './CoverageLayer';
 import { DeviceMarker } from './DeviceMarker';
 import { Crosshair, FacingHandle, FingerprintMarks, GhostMarker, type Ghost } from './MarkLayers';
-import { PlanDefs, PlanFurniture, PlanGrid, PlanLabels, PlanWalls } from './PlanLayers';
+import { PlanDefs, PlanFurniture, PlanGrid, PlanLabels, PlanVents, PlanWalls } from './PlanLayers';
 import { RadarFootprint } from './RadarFootprint';
 import { SurveyLayer } from './SurveyLayer';
 import { ZoneFills } from './ZoneFills';
@@ -49,6 +49,7 @@ interface PlanCanvasProps {
   onActivateGhost: (id: string) => void;
   onActivatePrint: (id: string) => void;
   onActivateSurvey: (id: string) => void;
+  onActivateVent: (id: string) => void;
 }
 
 interface Placed {
@@ -92,6 +93,7 @@ export const PlanCanvas = memo(function PlanCanvas(props: PlanCanvasProps) {
     onActivateGhost,
     onActivatePrint,
     onActivateSurvey,
+    onActivateVent,
   } = props;
   const { plan } = doc;
   const yTop = plan.bounds.y1;
@@ -157,6 +159,7 @@ export const PlanCanvas = memo(function PlanCanvas(props: PlanCanvasProps) {
         </g>
       )}
       <PlanWalls plan={plan} />
+      <PlanVents plan={plan} selectedId={selection?.kind === 'vent' ? selection.id : null} onActivate={onActivateVent} />
       {layers.fingerprints && (
         <FingerprintMarks
           items={fingerprints}

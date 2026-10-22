@@ -1,3 +1,5 @@
+import type { VentKind } from '../../sensorMap/mapDoc';
+
 /** Marker glyphs on a 24 by 24 grid, one per device type; drawn with a round 2 unit stroke. */
 export const GLYPHS: Record<string, string> = {
   ble: 'M6.5 7.5l11 9-5.5 4.5V3l5.5 4.5-11 9',
@@ -16,3 +18,14 @@ export const glyphOf = (type: string): string => GLYPHS[type] ?? GLYPHS.other;
 
 /** The type class a marker takes its colour from; a type the page has no colour for reads as "other". */
 export const typeClass = (type: string): string => (type in GLYPHS ? `t-${type}` : 't-other');
+
+/** The radius of a vent's ring in marker units, where a device marker has 10. */
+export const VENT_R = 7;
+
+/** Two arrows along the ring's horizontal axis, centred on the vent: out of the ring for a supply, into it for an exhaust. */
+const VENT_GLYPHS: Record<VentKind, string> = {
+  supply: 'M-1.4 0H-5.2M-3.4 -2L-5.2 0L-3.4 2M1.4 0H5.2M3.4 -2L5.2 0L3.4 2',
+  exhaust: 'M-5.2 0H-1.4M-3.2 -2L-1.4 0L-3.2 2M5.2 0H1.4M3.2 -2L1.4 0L3.2 2',
+};
+
+export const ventGlyph = (kind: VentKind): string => VENT_GLYPHS[kind];

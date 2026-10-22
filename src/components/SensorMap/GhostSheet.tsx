@@ -2,6 +2,7 @@ import type { SuggestItem } from '../../sensorMap/mapDoc';
 import { DiscardSuggestion } from './DiscardSuggestion';
 import type { Ghost } from './MarkLayers';
 import { Sheet } from './Sheet';
+import { VentFacts } from './VentSheet';
 
 interface GhostSheetProps {
   ghost: Ghost;
@@ -15,12 +16,14 @@ interface GhostSheetProps {
 const SUBTITLE: Partial<Record<SuggestItem['kind'], string>> = {
   new_device: 'suggested new device',
   furniture: 'suggested furniture',
+  vent: 'suggested vent',
 };
 
 export function GhostSheet({ ghost, item, edit, onAccept, onReject, onClose }: GhostSheetProps) {
   return (
     <Sheet title={ghost.device.name} subtitle={SUBTITLE[item.kind] ?? 'suggested placement'} onClose={onClose}>
       <p>{item.reason}</p>
+      {item.kind === 'vent' && <VentFacts vent={item.vent} />}
       <p className='sm-muted'>
         At x {ghost.at[0].toFixed(2)}, y {ghost.at[1].toFixed(2)}.
       </p>
@@ -31,7 +34,7 @@ export function GhostSheet({ ghost, item, edit, onAccept, onReject, onClose }: G
         </button>
         <DiscardSuggestion onDiscard={() => onReject(item.id)} />
       </div>
-      {!ghost.box && (
+      {!ghost.box && !ghost.ventKind && (
         <p className='sm-muted'>
           {edit
             ? 'Drag the marker to where it belongs: dropping it accepts the suggestion there.'

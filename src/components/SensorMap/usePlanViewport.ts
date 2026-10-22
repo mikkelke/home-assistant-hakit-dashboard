@@ -14,7 +14,7 @@ import type { Plan } from '../../sensorMap/mapDoc';
 
 const WHEEL_STEP = 0.0016;
 const WHEEL_STEP_LINES = 0.05;
-const HIT_KINDS: readonly string[] = ['marker', 'handle', 'zone', 'ghost', 'fingerprint', 'survey'];
+const HIT_KINDS: readonly string[] = ['marker', 'handle', 'zone', 'ghost', 'fingerprint', 'survey', 'vent'];
 
 export interface PlanViewportOptions {
   plan: Pick<Plan, 'fit' | 'bounds'>;

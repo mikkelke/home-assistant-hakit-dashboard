@@ -16,6 +16,7 @@ import {
 import type { FingerprintDoc, FingerprintWifi, MapDoc, SuggestDoc, WifiSource } from '../../../sensorMap/mapDoc';
 import { noWifi } from '../../../sensorMap/mapDoc';
 import { surveyPoints } from '../../../sensorMap/survey';
+import { ventGlyph } from '../glyphs';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -1467,6 +1468,211 @@ describe('furniture', () => {
     expect(viewBox()).not.toBe(before);
     expect(writes(fake)).toHaveLength(0);
     expect(queryAll('.sm-ghost-box')).toHaveLength(1);
+  });
+});
+
+describe('vents', () => {
+  const FAMILY = {
+    id: 'family',
+    name: 'Test supply',
+    kind: 'supply' as const,
+    pos: { x: 6, y: 5, h: 2.5 },
+    valve: 'Test valve 160',
+    flow_m3h: 185,
+  };
+  const HOOD = { id: 'hood', name: 'Test hood', kind: 'exhaust' as const, pos: { x: 2, y: 5 } };
+  const ISLAND = { id: 'island', name: 'Test island', box: [5, 5, 7, 6] as [number, number, number, number] };
+  const screenOf = (x: number, y: number) => planToScreen(fitView(canvas, makeDoc().plan.fit), canvas, x, y);
+  const withVents = (): MapDoc => {
+    const map = makeDoc();
+    map.plan.furniture = [ISLAND];
+    map.plan.vents = [FAMILY, HOOD];
+    return map;
+  };
+  const suggestingVent = (): SuggestDoc => {
+    const suggest = makeSuggestDoc();
+    suggest.items = [{ id: 's-family', kind: 'vent', vent: FAMILY, reason: 'It blows there' }];
+    return suggest;
+  };
+  const openSuggesting = async () => {
+    const fake = fakeConnection({ ...docs(), sensor_map_suggest: suggestingVent() });
+    await open(fake);
+    return fake;
+  };
+  const ring = () => query('.sm-ghost-vent [data-hit="ghost"]') as Element;
+  const viewBox = () => query('.sm-svg')?.getAttribute('viewBox');
+  const fire = (on: Element, name: string, at: { x: number; y: number }) =>
+    act(
+      () =>
+        void on.dispatchEvent(
+          new PointerEvent(name, { bubbles: true, pointerId: 1, pointerType: 'mouse', button: 0, clientX: at.x, clientY: at.y })
+        )
+    );
+  const tap = (on: Element, at: { x: number; y: number }) => {
+    fire(on, 'pointerdown', at);
+    fire(query('.sm-svg') as Element, 'pointerup', at);
+  };
+  const vent = (id: string) => query(`.sm-vent[data-id="${id}"]`) as Element;
+  const rows = () =>
+    queryAll('.sm-sheet .sm-entity-row').map(row => [row.querySelector('dt')?.textContent, row.querySelector('dd')?.textContent]);
+
+  it('is drawn from the plan as a ring, a supply and an exhaust apart in class and glyph, over the walls and under the sensors', async () => {
+    await open(fakeConnection({ ...docs(), sensor_map: withVents() }));
+    expect(queryAll('.sm-vents .sm-vent')).toHaveLength(2);
+    expect(vent('family').getAttribute('class')).toContain('kind-supply');
+    expect(vent('hood').getAttribute('class')).toContain('kind-exhaust');
+    expect(vent('family').getAttribute('transform')).toBe(`translate(6 ${makeDoc().plan.bounds.y1 - 5})`);
+    expect(vent('family').getAttribute('aria-label')).toBe('Vent Test supply, supply');
+    const glyph = (id: string) => vent(id).querySelector('.sm-vent-glyph')?.getAttribute('d');
+    expect(glyph('family')).toBeTruthy();
+    expect(glyph('family')).not.toBe(glyph('hood'));
+    const layers = [...(query('.sm-svg')?.children ?? [])].map(node => node.getAttribute('class'));
+    expect(layers.indexOf('sm-furniture')).toBeLessThan(layers.indexOf('sm-vents'));
+    expect(layers.indexOf('sm-structure')).toBeLessThan(layers.indexOf('sm-vents'));
+    expect(layers.indexOf('sm-vents')).toBeLessThan(layers.indexOf('sm-markers'));
+  });
+
+  it('is not there on a plan that has none', async () => {
+    await open(fakeConnection(docs()));
+    expect(query('.sm-vents')).toBeNull();
+  });
+
+  it('shows its name, kind, valve, flow and place in a sheet when it is touched, and marks it selected until the sheet is closed', async () => {
+    const fake = fakeConnection({ ...docs(), sensor_map: withVents() });
+    await open(fake);
+    tap(query('.sm-vent[data-id="family"] .sm-mk-hit circle') as Element, screenOf(6, 5));
+    expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('Test supply');
+    expect(rows()).toEqual([
+      ['kind', 'supply'],
+      ['valve', 'Test valve 160'],
+      ['flow', '185 m³/h'],
+      ['height', '2.5 m'],
+    ]);
+    expect(query('.sm-sheet')?.textContent).toContain('At x 6.00, y 5.00.');
+    expect(vent('family').classList.contains('sel')).toBe(true);
+    expect(vent('hood').classList.contains('sel')).toBe(false);
+    act(() => byLabel('Close').click());
+    expect(query('.sm-sheet')).toBeNull();
+    expect(vent('family').classList.contains('sel')).toBe(false);
+    await settle(1500);
+    expect(writes(fake)).toHaveLength(0);
+  });
+
+  it('leaves out the valve, the flow and the height that the plan does not give', async () => {
+    await open(fakeConnection({ ...docs(), sensor_map: withVents() }));
+    press(vent('hood'), 'Enter');
+    expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('Test hood');
+    expect(rows()).toEqual([['kind', 'exhaust']]);
+  });
+
+  it('gives a touch near a sensor to the sensor, which lies over it', async () => {
+    const map = withVents();
+    map.plan.vents = [{ ...FAMILY, pos: { x: 6.1, y: 1 } }];
+    await open(fakeConnection({ ...docs(), sensor_map: map }));
+    tap(query('.sm-vent[data-id="family"] .sm-mk-hit circle') as Element, screenOf(6.1, 1));
+    expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('Beta radar');
+  });
+
+  it('is not dragged in Edit: a drag on it pans the plan and writes nothing', async () => {
+    const fake = fakeConnection({ ...docs(), sensor_map: withVents() });
+    await open(fake);
+    mode('Edit');
+    const from = screenOf(6, 5);
+    const before = viewBox();
+    fire(query('.sm-vent[data-id="family"] .sm-mk-hit circle') as Element, 'pointerdown', from);
+    fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + 20, y: from.y });
+    fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + 40, y: from.y });
+    fire(query('.sm-svg') as Element, 'pointerup', { x: from.x + 40, y: from.y });
+    await settle();
+    expect(viewBox()).not.toBe(before);
+    expect(writes(fake)).toHaveLength(0);
+    expect(vent('family').getAttribute('transform')).toBe(`translate(6 ${makeDoc().plan.bounds.y1 - 5})`);
+  });
+
+  it('is suggested as a dashed ring in the colour of its kind, counted by the pill, and not yet part of the plan', async () => {
+    await openSuggesting();
+    expect(queryAll('.sm-ghost-vent')).toHaveLength(1);
+    expect(query('.sm-ghost-vent')?.getAttribute('class')).toContain('kind-supply');
+    expect(query('.sm-ghost-vent .sm-vent-glyph')?.getAttribute('d')).toBe(ventGlyph('supply'));
+    expect(ring().getAttribute('aria-label')).toBe('Suggested vent Test supply');
+    expect(ring().getAttribute('transform')).toBe(`translate(6 ${makeDoc().plan.bounds.y1 - 5})`);
+    expect(query('.sm-pill')?.textContent).toBe('1 suggestion');
+    expect(query('.sm-vents')).toBeNull();
+  });
+
+  it('opens a sheet with the reason and the facts, without the hint to drag, and writes nothing until it is decided', async () => {
+    const fake = await openSuggesting();
+    press(ring(), 'Enter');
+    expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('Test supply');
+    expect(query('.sm-sheet .sm-sheet-sub')?.textContent).toBe('suggested vent');
+    expect(query('.sm-sheet')?.textContent).toContain('It blows there');
+    expect(rows()).toEqual([
+      ['kind', 'supply'],
+      ['valve', 'Test valve 160'],
+      ['flow', '185 m³/h'],
+      ['height', '2.5 m'],
+    ]);
+    expect(query('.sm-sheet')?.textContent).toContain('At x 6.00, y 5.00.');
+    expect(query('.sm-sheet')?.textContent).not.toContain('Drag the marker');
+    expect(queryAll('.sm-sheet .sm-chip').map(node => node.textContent)).toEqual(['Accept', 'Discard suggestion']);
+    await settle(1500);
+    expect(writes(fake)).toHaveLength(0);
+  });
+
+  it('joins the plan when accepted, as a write of the page that is logged, and the dashed ring gives way to the vent', async () => {
+    const fake = await openSuggesting();
+    press(ring(), 'Enter');
+    act(() => chip('Accept').click());
+    await settle(1100);
+    const written = writes(fake).at(-1)?.value as MapDoc;
+    expect(writes(fake).at(-1)?.key).toBe('sensor_map');
+    expect(written.plan.vents).toEqual([FAMILY]);
+    expect(written.layout_version).toBe(makeDoc().layout_version);
+    expect(written.suggest_log).toEqual([expect.objectContaining({ id: 's-family', accepted_at: expect.any(String) })]);
+    expect(queryAll('.sm-ghost')).toHaveLength(0);
+    expect(queryAll('.sm-vents .sm-vent')).toHaveLength(1);
+    expect(query('.sm-pill')).toBeNull();
+  });
+
+  it('leaves the plan alone when discarded, and logs it', async () => {
+    const fake = await openSuggesting();
+    press(ring(), 'Enter');
+    await discard();
+    await settle(1100);
+    const written = writes(fake).at(-1)?.value as MapDoc;
+    expect(written.plan.vents).toBeUndefined();
+    expect(written.suggest_log).toEqual([expect.objectContaining({ id: 's-family', rejected_at: expect.any(String) })]);
+    expect(queryAll('.sm-ghost')).toHaveLength(0);
+    expect(query('.sm-vents')).toBeNull();
+  });
+
+  it('is a card in the suggestions sheet that can be shown on the map, which selects the ring', async () => {
+    await openSuggesting();
+    act(() => (query('.sm-pill') as HTMLElement).click());
+    const card = query('.sm-sheet .sm-suggest-card') as HTMLElement;
+    expect(card.querySelector('.sm-tag')?.textContent).toBe('Vent');
+    expect(card.textContent).toContain('Test supply');
+    expect(card.textContent).toContain('It blows there');
+    expect([...card.querySelectorAll('button')].map(node => node.textContent)).toEqual(['Accept', 'Show on map', 'Discard suggestion']);
+    act(() => ([...card.querySelectorAll('button')].find(node => node.textContent === 'Show on map') as HTMLElement).click());
+    await settle(100);
+    expect(query('.sm-ghost.sel')).not.toBeNull();
+    expect(query('.sm-sheet .sm-sheet-sub')?.textContent).toBe('suggested vent');
+  });
+
+  it('is not dragged in Edit: a drag on the ring pans the plan and accepts nothing', async () => {
+    const fake = await openSuggesting();
+    mode('Edit');
+    const from = screenOf(6, 5);
+    const before = viewBox();
+    fire(query('.sm-ghost-vent .sm-mk-hit circle') as Element, 'pointerdown', from);
+    fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + 20, y: from.y });
+    fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + 40, y: from.y });
+    fire(query('.sm-svg') as Element, 'pointerup', { x: from.x + 40, y: from.y });
+    await settle();
+    expect(viewBox()).not.toBe(before);
+    expect(writes(fake)).toHaveLength(0);
+    expect(queryAll('.sm-ghost-vent')).toHaveLength(1);
   });
 });
 
