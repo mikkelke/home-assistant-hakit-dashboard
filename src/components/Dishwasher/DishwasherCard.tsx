@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
-import { dishwasherTimerSince, resolveDishwasherSemanticState } from '../../utils/dishwasherSemanticState';
+import { dishwasherSupportsExpress, dishwasherTimerSince, resolveDishwasherSemanticState } from '../../utils/dishwasherSemanticState';
 import { formatKr } from '../../utils/format';
 import { useRunCost } from '../../energy';
 import { ApplianceCycleTiming } from '../ApplianceCycleTiming';
@@ -18,19 +18,6 @@ const PROGRAMME_SELECT_ID = 'input_select.dishwasher_confirmed_programme';
 const SHORT_SELECT_ID = 'input_select.dishwasher_short';
 const EMPTIED_BUTTON_ID = 'input_button.dishwasher_emptied';
 const TIMER_ID = 'binary_sensor.dishwasher_timer';
-
-const SHORT_OPTIONS = ['—', 'Yes', 'No'] as const;
-
-/** Short-programme chip/picker label for the raw input_select value ("Yes"/"No"/"—") — the
- * helper value stays raw (select_option always gets the RAW option), only the display text
- * changes. Anything not recognized falls back to the raw value unchanged (e.g. the "—" placeholder). */
-function formatShortLabel(value: string | undefined): string {
-  if (value == null) return '—';
-  const key = value.trim().toLowerCase();
-  if (key === 'yes' || key === 'on' || key === 'true') return 'Short';
-  if (key === 'no' || key === 'off' || key === 'false') return 'Full length';
-  return value;
-}
 
 /** Programme keys in JSON; display labels for UI */
 // eslint-disable-next-line react-refresh/only-export-components -- shared constant used by other components
@@ -61,7 +48,7 @@ function getFeedbackUrl(): string | null {
   return url && url.length > 0 ? url : null;
 }
 
-type DishwasherPicker = 'programme' | 'short' | null;
+type DishwasherPicker = 'programme' | null;
 
 export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
   const dishwasher = entities?.[DISHWASHER_STATE_ID];
@@ -298,8 +285,12 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
         </span>
       )}
       <DishwasherChip label={programmeLabel} isInteractive={isInteractive} onClick={() => setOpenPicker('programme')} />
-      {shortSelect && (
-        <DishwasherChip label={formatShortLabel(shortSelect.state)} isInteractive={isInteractive} onClick={() => setOpenPicker('short')} />
+      {shortSelect && dishwasherSupportsExpress(programmeLabel) && (
+        <ExpressChip
+          on={shortSelect.state === 'Yes'}
+          isInteractive={isInteractive}
+          onClick={() => handleShortChange(shortSelect.state === 'Yes' ? 'No' : 'Yes')}
+        />
       )}
     </div>
   );
@@ -476,19 +467,6 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
           onClose={() => setOpenPicker(null)}
         />
       )}
-      {openPicker === 'short' && (
-        <AppliancePickerSheet
-          accentClassName={ACCENT_CLASS}
-          glyphIcon={GLYPH_ICON}
-          historyKey='dishwasher-picker'
-          title='Short'
-          options={SHORT_OPTIONS}
-          current={shortSelect?.state ?? '—'}
-          onPick={handlePick(handleShortChange)}
-          onClose={() => setOpenPicker(null)}
-          renderOption={formatShortLabel}
-        />
-      )}
       {historyOpen && (
         <ApplianceHistorySheet
           accentClassName={ACCENT_CLASS}
@@ -518,6 +496,29 @@ function DishwasherChip({ label, isInteractive, onClick }: { label: string; isIn
   return (
     <button type='button' className='appliance-chip' onClick={onClick}>
       {label}
+    </button>
+  );
+}
+
+/** Icon toggle for the Express option (Miele "Ekspres"; input_select.dishwasher_short Yes), shown
+ * beside the programme only when that programme has it. Off, the default, is the full programme. */
+function ExpressChip({ on, isInteractive, onClick }: { on: boolean; isInteractive: boolean; onClick: () => void }) {
+  if (!isInteractive) {
+    return (
+      <span className={`appliance-chip appliance-chip-icon muted ${on ? 'on' : ''}`} aria-label={on ? 'Express' : 'Full programme'}>
+        <Icon icon='mdi:clock-fast' aria-hidden='true' />
+      </span>
+    );
+  }
+  return (
+    <button
+      type='button'
+      className={`appliance-chip appliance-chip-icon ${on ? 'on' : ''}`}
+      onClick={onClick}
+      aria-pressed={on}
+      aria-label={on ? 'Turn off Express' : 'Turn on Express'}
+    >
+      <Icon icon='mdi:clock-fast' aria-hidden='true' />
     </button>
   );
 }

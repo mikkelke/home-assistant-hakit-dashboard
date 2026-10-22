@@ -92,3 +92,11 @@ export function dishwasherTimerSince(timer: HassEntity | undefined | null, state
   const since = timer.attributes?.since;
   return typeof since === 'string' ? since : '';
 }
+
+/** Programmes the Miele G5050 offers Express (Ekspres) for: the manual names QuickPowerWash + Express
+ * and ECO, and these two are the only ones with a short duration in dishwasher_programmes.yaml. */
+const EXPRESS_PROGRAMMES = new Set(['ECO', 'QuickPowerWash']);
+
+export function dishwasherSupportsExpress(programmeLabel: string | undefined | null): boolean {
+  return programmeLabel != null && EXPRESS_PROGRAMMES.has(programmeLabel);
+}
