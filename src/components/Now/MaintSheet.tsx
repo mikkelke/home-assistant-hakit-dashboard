@@ -24,8 +24,8 @@ export interface MaintSheetProps {
   onOpenRoom?: (areaId: string) => void;
 }
 
-/** What to do about a maintenance row: its numbers, a step-by-step guide behind the info button, and for a
- * tapped row a Done button that asks before it fires. */
+/** What to do about a maintenance row: its numbers, the lines of an overview row, a step-by-step guide behind the
+ * info button, and for a tapped row a Done button that asks before it fires. */
 export function MaintSheet({ row, isAdmin, onClose, onOpenRoom }: MaintSheetProps) {
   const connection = useHass(s => s.connection);
   const [phase, setPhase] = useState<Phase>('idle');
@@ -51,6 +51,13 @@ export function MaintSheet({ row, isAdmin, onClose, onOpenRoom }: MaintSheetProp
     <ApplianceSheet accentClassName='maint-sheet' glyphIcon={row.icon} title={row.title} historyKey='now-maint' onClose={onClose}>
       <div className='maint-body'>
         {row.detail && <p className='maint-detail'>{row.detail}</p>}
+        {row.items.length > 0 && (
+          <ul className='maint-items'>
+            {row.items.map((line, index) => (
+              <li key={index}>{line}</li>
+            ))}
+          </ul>
+        )}
         {row.info.length > 0 && (
           <ul className='maint-info'>
             {row.info.map(line => (

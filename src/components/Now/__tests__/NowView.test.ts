@@ -273,6 +273,15 @@ describe('a maintenance row with a sheet', () => {
     area: 'rooftop',
     audience: 'admin',
   };
+  const OVERVIEW = {
+    id: 'maint:plants',
+    kind: 'maint',
+    icon: 'mdi:sprout',
+    title: 'Plants: next 27.10',
+    audience: 'admin',
+    at: iso(home(2026, 10, 27, 9, 0)),
+    items: ['Fig: next 27.10, watered 20.10', 'Palm: next 29.10, watered 19.10'],
+  };
   const BATTERY_LATER = { ...BATTERY, id: 'maint:battery:sensor.later_battery', at: iso(home(2026, 12, 26, 9, 0)) };
   const PLAIN_APPLIANCE = {
     id: 'maint:rober2:test',
@@ -385,6 +394,16 @@ describe('a maintenance row with a sheet', () => {
     expect(document.querySelectorAll('.maint-body button')).toHaveLength(0);
   });
 
+  it('opens the sheet of an overview row from its card, with its lines, no Done button and no room', async () => {
+    const { opened } = await openAs(true, OVERVIEW);
+    await act(async () => row(OVERVIEW.id)?.click());
+    expect(sheet()).not.toBeNull();
+    expect(opened).toEqual([]);
+    expect(sheetText()).toContain('Fig: next 27.10, watered 20.10');
+    expect(sheetText()).toContain('Palm: next 29.10, watered 19.10');
+    expect(document.querySelectorAll('.maint-body button')).toHaveLength(0);
+  });
+
   it('fires the Done event for the row it was opened on', async () => {
     const { send } = await openAs(true, TAPPED);
     await act(async () => row(TAPPED.id)?.click());
@@ -424,6 +443,43 @@ describe('a maintenance row with a sheet', () => {
     expect(row(TAPPED.id)).toBeNull();
     expect(row(GUIDE_ONLY.id)).toBeNull();
     expect(sheet()).toBeNull();
+  });
+});
+
+describe('a plant watered, on the past side of the timeline', () => {
+  const at = (minutes: number) => new Date(FINISHED_MS - minutes * 60_000).toISOString();
+  const watered = [
+    { ts: at(5), icon: 'mdi:watering-can', text: 'Watered Strelitzia', audience: 'admin' },
+    { ts: at(30), icon: 'mdi:watering-can', text: 'Watered Fig' },
+  ];
+
+  async function openPast(isAdmin: boolean) {
+    user.current = { is_admin: isAdmin, name: isAdmin ? 'Mikkel' : 'Kristine' };
+    store.setState({ entities: houseEvents(watered), connection: {} });
+    await act(async () => {
+      root.render(createElement(NowView, { key: `${isAdmin}`, focus: null, arrival: 'cold', onBack: () => {}, onOpenRoom: () => {} }));
+    });
+  }
+  const pastRows = () =>
+    [...document.querySelectorAll('.now-ev.is-past')].map(event => ({
+      text: event.querySelector('.now-chip-text')?.textContent,
+      icon: event.querySelector('.now-chip.is-tone i')?.getAttribute('data-icon'),
+      tone: [...(event.querySelector('.now-chip.is-tone')?.classList ?? [])].find(name => name.startsWith('tone-')),
+      restricted: event.querySelector('.now-chip-adm') != null,
+      tappable: event.querySelector('button') != null,
+    }));
+
+  it('is a plain row with the watering can, oldest first, marked when only admins see it, and nothing to tap', async () => {
+    await openPast(true);
+    expect(pastRows()).toEqual([
+      { text: 'Watered Fig', icon: 'mdi:watering-can', tone: 'tone-slate', restricted: false, tappable: false },
+      { text: 'Watered Strelitzia', icon: 'mdi:watering-can', tone: 'tone-slate', restricted: true, tappable: false },
+    ]);
+  });
+
+  it('is left out for a housemate when the feed says admin', async () => {
+    await openPast(false);
+    expect(pastRows().map(row => row.text)).toEqual(['Watered Fig']);
   });
 });
 

@@ -28,10 +28,13 @@ export interface HouseUpcomingRow {
   /** What to do, in order, and the safety note that goes with it (`steps`, `warn`). */
   steps: string[];
   warn: string | null;
+  /** The short lines of an overview row, one per thing it covers (`items`); none without a list of strings. */
+  items: string[];
 }
 
-/** Whether a tap on the row opens its sheet instead of its room: it has a Done button, a guide or info lines. */
-export const hasSheet = (row: HouseUpcomingRow): boolean => row.tapDone || row.steps.length > 0 || row.info.length > 0;
+/** Whether a tap on the row opens its sheet instead of its room: it has a Done button, a guide, info lines or a list. */
+export const hasSheet = (row: HouseUpcomingRow): boolean =>
+  row.tapDone || row.steps.length > 0 || row.info.length > 0 || row.items.length > 0;
 
 /** Whether the row is due: it has no time, and does not ask the next chip to pass over it (a log row). */
 export const isDue = (row: HouseUpcomingRow): boolean => row.atMs == null && !row.skipNext;
@@ -48,6 +51,9 @@ export const opensRoom = (row: HouseUpcomingRow): boolean =>
 /** The publisher keeps at most this many rows. */
 export const MAX_HOUSE_UPCOMING_ROWS = 30;
 
+/** The most lines an overview row lists. */
+export const MAX_ROW_ITEMS = 20;
+
 const KINDS: readonly string[] = ['rain', 'train', 'maint'];
 
 const text = (value: unknown): string | null => (typeof value === 'string' && value.trim() ? value.trim() : null);
@@ -56,13 +62,19 @@ const text = (value: unknown): string | null => (typeof value === 'string' && va
 const lines = (value: unknown): string[] =>
   Array.isArray(value) ? value.flatMap(line => (typeof line === 'string' && line.trim() ? [line.trim()] : [])) : [];
 
+/** The non-empty lines of `items`, at most MAX_ROW_ITEMS; none unless it is a list of strings. */
+const itemLines = (value: unknown): string[] =>
+  Array.isArray(value) && value.every(item => typeof item === 'string') ? lines(value).slice(0, MAX_ROW_ITEMS) : [];
+
 /** One row, or null when it breaks the contract: every value a string or a list of strings, an id,
  * a known kind and a title, an `at` that parses. A row that names an audience it gets wrong, or a
  * train row that names no one, is dropped rather than shown to everyone. */
 function parseRow(raw: unknown): HouseUpcomingRow | null {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
   const row = raw as Record<string, unknown>;
-  const values = Object.values(row);
+  // A bad `items` costs the row nothing: it is left out of the contract below and read on its own.
+  const { items, ...rest } = row;
+  const values = Object.values(rest);
   if (!values.every(v => typeof v === 'string' || (Array.isArray(v) && v.every(item => typeof item === 'string')))) return null;
   const id = text(row.id);
   const title = text(row.title);
@@ -95,6 +107,7 @@ function parseRow(raw: unknown): HouseUpcomingRow | null {
     info: sheet ? lines(row.info) : [],
     steps: sheet ? lines(row.steps) : [],
     warn: sheet ? text(row.warn) : null,
+    items: sheet ? itemLines(items) : [],
   };
 }
 

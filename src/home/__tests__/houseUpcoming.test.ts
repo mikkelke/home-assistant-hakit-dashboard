@@ -7,6 +7,7 @@ import {
   isDue,
   isUpcomingFor,
   MAX_HOUSE_UPCOMING_ROWS,
+  MAX_ROW_ITEMS,
   opensRoom,
   parseHouseUpcoming,
   type HouseUpcomingRow,
@@ -84,6 +85,7 @@ describe('parseHouseUpcoming', () => {
       info: [],
       steps: [],
       warn: null,
+      items: [],
     });
     expect(rain).toMatchObject({ areaId: 'living_room', adminOnly: false, users: null, chip: null });
     expect(ws90).toMatchObject({ atMs: null, adminOnly: true, users: null, areaId: 'rooftop' });
@@ -200,6 +202,57 @@ describe('the sheet of a maintenance row', () => {
     expect(seenBy(rows, MIKKEL)).toEqual(['maint:dishwasher:filters']);
     expect(seenBy(rows, KRISTINE)).toEqual([]);
     expect(seenBy(rows, RESOLVING)).toEqual([]);
+  });
+});
+
+/** The plants overview as the publisher sends it: the next care date in the title, one line for each plant. */
+const OVERVIEW = {
+  id: 'maint:plants',
+  kind: 'maint',
+  at: '2026-10-27T07:00:00+00:00',
+  icon: 'mdi:sprout',
+  title: 'Plants: next 27.10',
+  audience: 'admin',
+  items: ['Fig: next 27.10, watered 20.10', 'Palm: next 29.10, watered 19.10'],
+};
+
+describe('the overview lines of a row', () => {
+  const without = (...keys: string[]) => Object.fromEntries(Object.entries(OVERVIEW).filter(([key]) => !keys.includes(key)));
+
+  it('are read as they come, and a row of them opens a sheet with no Done button and no room', () => {
+    const [row] = parse([OVERVIEW]);
+    expect(row).toMatchObject({ items: OVERVIEW.items, tapDone: false, steps: [], info: [], areaId: null, adminOnly: true });
+    expect(hasSheet(row)).toBe(true);
+    expect(opensRoom(row)).toBe(false);
+  });
+
+  it('keep only the non-empty lines, trimmed, and at most twenty', () => {
+    expect(parse([{ ...OVERVIEW, items: [' one ', '', '  '] }])[0].items).toEqual(['one']);
+    const many = Array.from({ length: 25 }, (_, index) => `Plant ${index + 1}: next 27.10`);
+    expect(MAX_ROW_ITEMS).toBe(20);
+    expect(parse([{ ...OVERVIEW, items: many }])[0].items).toEqual(many.slice(0, 20));
+  });
+
+  it('are ignored, at no cost to the row, when absent or not a list of strings', () => {
+    for (const bad of [undefined, 'Fig: next 27.10', [1, 'Fig'], [null], { fig: 'next 27.10' }, []]) {
+      const [row] = parse([bad === undefined ? without('items') : { ...OVERVIEW, items: bad }]);
+      expect(row?.id, String(bad)).toBe('maint:plants');
+      expect(row.items, String(bad)).toEqual([]);
+      expect(hasSheet(row), String(bad)).toBe(false);
+    }
+  });
+
+  it('belong to a maintenance row only', () => {
+    expect(parse([{ ...ROWS[1], items: ['x'] }])[0].items).toEqual([]);
+  });
+
+  it('are seen by admins only, and an overview that names no room is never listed under To do, due or not', () => {
+    const rows = parse([OVERVIEW, without('at')]);
+    expect(seenBy(rows, MIKKEL)).toEqual(['maint:plants', 'maint:plants']);
+    expect(seenBy(rows, KRISTINE)).toEqual([]);
+    expect(isDue(rows[1])).toBe(true);
+    expect(dueRows(rows, MIKKEL)).toEqual([]);
+    expect(opensRoom(rows[1])).toBe(false);
   });
 });
 

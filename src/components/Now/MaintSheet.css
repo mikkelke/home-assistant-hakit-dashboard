@@ -25,6 +25,20 @@
   color: rgba(255, 255, 255, 0.92);
 }
 
+/* The lines of an overview row, one per thing it covers. */
+.maint-items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13.5px;
+  line-height: 1.35;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+}
+
 .maint-info {
   margin: 0;
   padding: 0;

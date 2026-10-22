@@ -65,6 +65,22 @@ describe('past rows from the fixture feed', () => {
     expect(rowTone({ icon: 'mdi:door-open' })).toBe('rose');
     expect(rowTone({ icon: 'mdi:robot-vacuum' })).toBe('green');
     expect(rowTone({ icon: 'mdi:information-outline' })).toBe('slate');
+    expect(rowTone({ icon: 'mdi:watering-can' })).toBe('slate');
+  });
+
+  it('shows a plant watered as a plain row of its own, with no room to open', () => {
+    const watered = parseHouseEvents([
+      { ts: '2026-10-21T08:00:30+02:00', icon: 'mdi:watering-can', text: 'Watered Strelitzia', audience: 'admin' },
+      { ts: '2026-10-21T08:00:00+02:00', icon: 'mdi:watering-can', text: 'Watered Fig', audience: 'admin' },
+    ]);
+    const { past } = buildNowTimeline(houseEpisodes(visibleHouseEvents(watered, MIKKEL)), []);
+    expect(
+      past.map(row => (row.type === 'past' ? [row.episode.kind, row.areaId, row.restricted, row.episode.rows[0].text] : null))
+    ).toEqual([
+      ['evt', null, true, 'Watered Fig'],
+      ['evt', null, true, 'Watered Strelitzia'],
+    ]);
+    expect(buildNowTimeline(houseEpisodes(visibleHouseEvents(watered, KRISTINE)), []).past).toEqual([]);
   });
 
   it('owns a generic row only when all its rows point at one room', () => {

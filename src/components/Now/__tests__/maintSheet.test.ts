@@ -349,3 +349,36 @@ describe('the Open room button', () => {
     expect(button('Open room')).toBeUndefined();
   });
 });
+
+describe('an overview row', () => {
+  const PLANTS = {
+    id: 'maint:plants',
+    kind: 'maint',
+    icon: 'mdi:sprout',
+    title: 'Plants: next 27.10',
+    detail: 'Next care of each plant',
+    audience: 'admin',
+    at: '2026-10-27T07:00:00+00:00',
+    items: ['Fig: next 27.10, watered 20.10', 'Palm: next 29.10, watered 19.10', 'Aloe: next 2.11, watered 14.10'],
+  };
+
+  it('lists its lines in order under what it says, with no guide, no Done button and no room', async () => {
+    await open(parse(PLANTS));
+    expect([...document.body.querySelectorAll('.maint-items li')].map(li => li.textContent)).toEqual(PLANTS.items);
+    expect([...(document.body.querySelector('.maint-body')?.children ?? [])].map(node => node.className)).toEqual([
+      'maint-detail',
+      'maint-items',
+    ]);
+    expect(buttons()).toEqual([]);
+  });
+
+  it('has the Done button of an administrator only when it says done is a tap', async () => {
+    await open(parse({ ...PLANTS, done: 'tap' }));
+    expect(buttons().map(b => b.textContent)).toEqual(['Done']);
+    expect(document.body.querySelectorAll('.maint-items li')).toHaveLength(3);
+    await act(async () => root.unmount());
+    root = createRoot(document.createElement('div'));
+    await open(parse({ ...PLANTS, done: 'tap' }), false);
+    expect(buttons()).toEqual([]);
+  });
+});
