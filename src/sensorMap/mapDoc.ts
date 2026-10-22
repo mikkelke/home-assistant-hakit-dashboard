@@ -826,10 +826,11 @@ export type MapOp =
   | { kind: 'undo'; key: string; at: string }
   | { kind: 'unplace'; key: string; at: string }
   | { kind: 'place'; key: string; at: string; x: number; y: number; device: NewDevice }
+  | { kind: 'move_vent'; id: string; at: string; x: number; y: number }
   | { kind: 'type'; key: string; at: string; type: string }
   | { kind: 'ignore'; device_id: string; at: string }
   | { kind: 'answer'; id: string; at: string; answer: string | null }
-  /** `place` accepts a placement or a new device at that spot instead of the one the suggestion proposes. */
+  /** `place` accepts a placement, a new device or a vent at that spot instead of the one the suggestion proposes. */
   | { kind: 'accept'; item: SuggestItem; at: string; place?: Point }
   | { kind: 'reject'; id: string; at: string };
 
@@ -923,7 +924,8 @@ function acceptItem(doc: MapDoc, item: SuggestItem, at: string, place?: Point): 
       : [...known, piece];
     next = { ...doc, updated_at: at, plan: { ...doc.plan, furniture } };
   } else if (item.kind === 'vent') {
-    const vent: Vent = { ...item.vent, name: item.vent.name.trim() };
+    const pos = place ? { ...item.vent.pos, x: round2(place[0]), y: round2(place[1]) } : item.vent.pos;
+    const vent: Vent = { ...item.vent, name: item.vent.name.trim(), pos };
     const known = doc.plan.vents ?? [];
     const vents = known.some(entry => entry.id === vent.id) ? known.map(entry => (entry.id === vent.id ? vent : entry)) : [...known, vent];
     next = { ...doc, updated_at: at, plan: { ...doc.plan, vents } };
@@ -997,6 +999,14 @@ export function applyMapOp(doc: MapDoc, op: MapOp): MapDoc {
         cert: 'room',
         confirmed_at: null,
       }));
+    }
+    case 'move_vent': {
+      const x = round2(op.x);
+      const y = round2(op.y);
+      const vent = doc.plan.vents?.find(entry => entry.id === op.id);
+      if (!vent || (vent.pos.x === x && vent.pos.y === y)) return doc;
+      const vents = (doc.plan.vents ?? []).map(entry => (entry.id === op.id ? { ...entry, pos: { ...entry.pos, x, y } } : entry));
+      return { ...doc, updated_at: op.at, plan: { ...doc.plan, vents } };
     }
     case 'type': {
       const device = doc.devices[op.key];

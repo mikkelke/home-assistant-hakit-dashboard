@@ -942,6 +942,7 @@
 }
 
 .sm-main[data-edit='true'] .sm-mk.sel,
+.sm-main[data-edit='true'] .sm-vent.sel,
 .sm-main[data-edit='true'] .sm-ghost {
   cursor: move;
 }
@@ -987,10 +988,6 @@
   stroke-width: 20;
   vector-effect: non-scaling-stroke;
   pointer-events: stroke;
-  cursor: pointer;
-}
-
-.sm-ghost-vent [data-hit] {
   cursor: pointer;
 }
 

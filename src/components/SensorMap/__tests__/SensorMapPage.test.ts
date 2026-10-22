@@ -1573,22 +1573,6 @@ describe('vents', () => {
     expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('Beta radar');
   });
 
-  it('is not dragged in Edit: a drag on it pans the plan and writes nothing', async () => {
-    const fake = fakeConnection({ ...docs(), sensor_map: withVents() });
-    await open(fake);
-    mode('Edit');
-    const from = screenOf(6, 5);
-    const before = viewBox();
-    fire(query('.sm-vent[data-id="family"] .sm-mk-hit circle') as Element, 'pointerdown', from);
-    fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + 20, y: from.y });
-    fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + 40, y: from.y });
-    fire(query('.sm-svg') as Element, 'pointerup', { x: from.x + 40, y: from.y });
-    await settle();
-    expect(viewBox()).not.toBe(before);
-    expect(writes(fake)).toHaveLength(0);
-    expect(vent('family').getAttribute('transform')).toBe(`translate(6 ${makeDoc().plan.bounds.y1 - 5})`);
-  });
-
   it('is suggested as a dashed ring in the colour of its kind, counted by the pill, and not yet part of the plan', async () => {
     await openSuggesting();
     expect(queryAll('.sm-ghost-vent')).toHaveLength(1);
@@ -1600,7 +1584,7 @@ describe('vents', () => {
     expect(query('.sm-vents')).toBeNull();
   });
 
-  it('opens a sheet with the reason and the facts, without the hint to drag, and writes nothing until it is decided', async () => {
+  it('opens a sheet with the reason, the facts and the hint to drag, and writes nothing until it is decided', async () => {
     const fake = await openSuggesting();
     press(ring(), 'Enter');
     expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('Test supply');
@@ -1613,7 +1597,7 @@ describe('vents', () => {
       ['height', '2.5 m'],
     ]);
     expect(query('.sm-sheet')?.textContent).toContain('At x 6.00, y 5.00.');
-    expect(query('.sm-sheet')?.textContent).not.toContain('Drag the marker');
+    expect(query('.sm-sheet')?.textContent).toContain('switch on Edit and drag the marker');
     expect(queryAll('.sm-sheet .sm-chip').map(node => node.textContent)).toEqual(['Accept', 'Discard suggestion']);
     await settle(1500);
     expect(writes(fake)).toHaveLength(0);
@@ -1660,19 +1644,255 @@ describe('vents', () => {
     expect(query('.sm-sheet .sm-sheet-sub')?.textContent).toBe('suggested vent');
   });
 
-  it('is not dragged in Edit: a drag on the ring pans the plan and accepts nothing', async () => {
-    const fake = await openSuggesting();
-    mode('Edit');
-    const from = screenOf(6, 5);
-    const before = viewBox();
-    fire(query('.sm-ghost-vent .sm-mk-hit circle') as Element, 'pointerdown', from);
-    fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + 20, y: from.y });
-    fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + 40, y: from.y });
-    fire(query('.sm-svg') as Element, 'pointerup', { x: from.x + 40, y: from.y });
-    await settle();
-    expect(viewBox()).not.toBe(before);
-    expect(writes(fake)).toHaveLength(0);
-    expect(queryAll('.sm-ghost-vent')).toHaveLength(1);
+  describe('dragging a vent', () => {
+    const family = () => screenOf(6, 5);
+    /** Presses on the vent at `from`, moves `dx` px to the right in two steps and stops just short of the release. */
+    const drag = (from: { x: number; y: number }, dx = 40, target = '.sm-vent[data-id="family"] .sm-mk-hit circle') => {
+      fire(query(target) as Element, 'pointerdown', from);
+      fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + dx / 2, y: from.y });
+      fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + dx, y: from.y });
+      return () => fire(query('.sm-svg') as Element, 'pointerup', { x: from.x + dx, y: from.y });
+    };
+    const selectFamily = async (map = withVents()) => {
+      const fake = fakeConnection({ ...docs(), sensor_map: map });
+      await open(fake);
+      press(vent('family'), 'Enter');
+      mode('Edit');
+      return fake;
+    };
+    const ventsOf = (fake: Fake) => (writes(fake).at(-1)?.value as MapDoc).plan.vents;
+    const snapBox = () => query('.sm-sheet .sm-check input') as HTMLInputElement;
+    /** A plan on which the supply vent has a wall within reach to its left. */
+    const nearWall = () => {
+      const map = withVents();
+      map.plan.vents = [{ ...FAMILY, pos: { x: 4.5, y: 2, h: 2.5 } }, HOOD];
+      return map;
+    };
+
+    it('moves by the distance dragged, and the write follows the release, keeping the rest of the vent and the layout version', async () => {
+      const fake = await selectFamily();
+      const before = vent('family').getAttribute('transform');
+      const release = drag(family());
+      expect(vent('family').getAttribute('transform')).not.toBe(before);
+      expect(writes(fake)).toHaveLength(0);
+      release();
+      await settle();
+      expect(writes(fake)).toHaveLength(1);
+      expect(writes(fake)[0].key).toBe('sensor_map');
+      const written = writes(fake)[0].value as MapDoc;
+      expect(written.plan.vents?.[0]).toMatchObject({
+        id: 'family',
+        name: 'Test supply',
+        kind: 'supply',
+        valve: 'Test valve 160',
+        flow_m3h: 185,
+      });
+      expect(written.plan.vents?.[0].pos.x).toBeCloseTo(6 + 40 / (canvas.w / 13), 1);
+      expect(written.plan.vents?.[0].pos).toMatchObject({ y: 5, h: 2.5 });
+      expect(written.plan.vents?.[1]).toEqual(HOOD);
+      expect(written.layout_version).toBe(makeDoc().layout_version);
+      expect(written.suggest_log).toEqual([]);
+      expect(vent('family').getAttribute('transform')).not.toBe(before);
+    });
+
+    it('gets the sheet out of the way while it is dragged, and brings it back at the release', async () => {
+      await selectFamily();
+      const release = drag(family());
+      expect(query('.sm-sheet.collapsed')).not.toBeNull();
+      release();
+      await settle();
+      expect(query('.sm-sheet.collapsed')).toBeNull();
+      expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('Test supply');
+    });
+
+    it('does not write when it is dropped where it was', async () => {
+      const fake = await selectFamily();
+      const from = family();
+      fire(query('.sm-vent[data-id="family"] .sm-mk-hit circle') as Element, 'pointerdown', from);
+      fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + 30, y: from.y });
+      fire(query('.sm-svg') as Element, 'pointermove', from);
+      fire(query('.sm-svg') as Element, 'pointerup', from);
+      await settle();
+      expect(writes(fake)).toHaveLength(0);
+    });
+
+    it('snaps to the face of a wall within reach, as a sensor does', async () => {
+      const fake = await selectFamily(nearWall());
+      drag(screenOf(4.5, 2), -40)();
+      await settle();
+      expect(ventsOf(fake)?.[0].pos).toEqual({ x: 3.95, y: 2, h: 2.5 });
+    });
+
+    it('goes where it is dropped when Snap to walls is off, which only Edit offers', async () => {
+      const fake = fakeConnection({ ...docs(), sensor_map: nearWall() });
+      await open(fake);
+      press(vent('family'), 'Enter');
+      expect(snapBox()).toBeNull();
+      mode('Edit');
+      expect(snapBox().checked).toBe(true);
+      act(() => snapBox().click());
+      expect(snapBox().checked).toBe(false);
+      drag(screenOf(4.5, 2), -40)();
+      await settle();
+      expect(ventsOf(fake)?.[0].pos.x).toBeCloseTo(4.5 - 40 / (canvas.w / 13), 1);
+      expect(ventsOf(fake)?.[0].pos.x).not.toBe(3.95);
+    });
+
+    it.each([
+      ['switching to View', () => mode('View')],
+      ['Escape', () => press(query('.sm-main') as Element, 'Escape')],
+      ['closing the sheet', () => act(() => byLabel('Close').click())],
+    ])('moves nothing when %s comes before the release, and the vent is back where it was at once', async (_name, interrupt) => {
+      const fake = await selectFamily();
+      const before = vent('family').getAttribute('transform');
+      const release = drag(family());
+      interrupt();
+      expect(vent('family').getAttribute('transform')).toBe(before);
+      release();
+      await settle();
+      expect(writes(fake)).toHaveLength(0);
+    });
+
+    it('is only dragged once it is selected: a press on another vent pans the plan', async () => {
+      const fake = await selectFamily();
+      const before = viewBox();
+      drag(screenOf(2, 5), 40, '.sm-vent[data-id="hood"] .sm-mk-hit circle')();
+      await settle();
+      expect(viewBox()).not.toBe(before);
+      expect(writes(fake)).toHaveLength(0);
+    });
+
+    it('is only dragged in Edit: in View the drag pans the plan and writes nothing', async () => {
+      const fake = fakeConnection({ ...docs(), sensor_map: withVents() });
+      await open(fake);
+      press(vent('family'), 'Enter');
+      const before = viewBox();
+      drag(family())();
+      await settle();
+      expect(viewBox()).not.toBe(before);
+      expect(writes(fake)).toHaveLength(0);
+    });
+
+    it('is not written over a map that was changed elsewhere: the page keeps the edit as a draft and says so', async () => {
+      const fake = await selectFamily();
+      fake.data.sensor_map = { ...(fake.data.sensor_map as MapDoc), write_id: 'theirs', writer: 'other-page' };
+      drag(family())();
+      await settle();
+      expect(query('.sm-workspace')).toBeNull();
+      expect(query('.sm-status')?.textContent).toContain('Changed elsewhere');
+      expect(writes(fake)).toHaveLength(0);
+      expect(draft()?.doc.plan.vents[0].pos.x).toBeCloseTo(6 + 40 / (canvas.w / 13), 1);
+    });
+  });
+
+  describe('dragging a suggested vent', () => {
+    /** Presses on the suggested ring, moves it `dx` px to the right in two steps, and lifts when asked to. */
+    const dragRing = (dx: number, from = screenOf(6, 5), release = true) => {
+      fire(query('.sm-ghost-vent .sm-mk-hit circle') as Element, 'pointerdown', from);
+      fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + dx / 2, y: from.y });
+      fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + dx, y: from.y });
+      if (release) fire(query('.sm-svg') as Element, 'pointerup', { x: from.x + dx, y: from.y });
+    };
+    const openEditing = async (suggest = suggestingVent()) => {
+      const fake = fakeConnection({ ...docs(), sensor_map_suggest: suggest });
+      await open(fake);
+      mode('Edit');
+      return fake;
+    };
+
+    it('accepts the vent where it is dropped in Edit, as one write that keeps its facts and the layout version', async () => {
+      const fake = await openEditing();
+      dragRing(40);
+      await settle();
+      expect(writes(fake)).toHaveLength(1);
+      expect(writes(fake)[0].key).toBe('sensor_map');
+      const written = writes(fake)[0].value as MapDoc;
+      expect(written.plan.vents).toHaveLength(1);
+      expect(written.plan.vents?.[0]).toMatchObject({
+        id: 'family',
+        name: 'Test supply',
+        kind: 'supply',
+        valve: 'Test valve 160',
+        flow_m3h: 185,
+      });
+      expect(written.plan.vents?.[0].pos.x).toBeCloseTo(6 + 40 / (canvas.w / 13), 1);
+      expect(written.plan.vents?.[0].pos).toMatchObject({ y: 5, h: 2.5 });
+      expect(written.layout_version).toBe(makeDoc().layout_version);
+      expect(written.suggest_log).toEqual([expect.objectContaining({ id: 's-family', accepted_at: expect.any(String) })]);
+      expect(queryAll('.sm-ghost')).toHaveLength(0);
+      expect(queryAll('.sm-vents .sm-vent')).toHaveLength(1);
+    });
+
+    it('shows the ring following the pointer while it is dragged, and writes nothing before the drop', async () => {
+      const fake = await openEditing();
+      const before = query('.sm-ghost-vent [data-hit="ghost"]')?.getAttribute('transform');
+      dragRing(40, screenOf(6, 5), false);
+      expect(query('.sm-ghost-vent [data-hit="ghost"]')?.getAttribute('transform')).not.toBe(before);
+      await settle(1500);
+      expect(writes(fake)).toHaveLength(0);
+      fire(query('.sm-svg') as Element, 'pointerup', { x: screenOf(6, 5).x + 40, y: screenOf(6, 5).y });
+      await settle();
+      expect(writes(fake)).toHaveLength(1);
+    });
+
+    it('selects the vent it became, whose sheet shows the place it was dropped at', async () => {
+      await openEditing();
+      dragRing(40);
+      await settle();
+      expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('Test supply');
+      expect(query('.sm-sheet .sm-sheet-sub')?.textContent).toBe('vent');
+      expect(query('.sm-sheet')?.textContent).toMatch(/At x 6\.6\d, y 5\.00\./);
+      expect(vent('family').classList.contains('sel')).toBe(true);
+    });
+
+    it('snaps to the face of a wall within reach where it is dropped', async () => {
+      const suggest = suggestingVent();
+      suggest.items = [{ id: 's-family', kind: 'vent', vent: { ...FAMILY, pos: { x: 4.5, y: 2, h: 2.5 } }, reason: 'It blows there' }];
+      const fake = await openEditing(suggest);
+      dragRing(-40, screenOf(4.5, 2));
+      await settle();
+      expect((writes(fake)[0].value as MapDoc).plan.vents?.[0].pos).toEqual({ x: 3.95, y: 2, h: 2.5 });
+    });
+
+    it('keeps a suggested vent without a height without one', async () => {
+      const suggest = suggestingVent();
+      suggest.items = [{ id: 's-hood', kind: 'vent', vent: { ...HOOD, pos: { x: 6, y: 5 } }, reason: 'It sucks there' }];
+      const fake = await openEditing(suggest);
+      dragRing(40);
+      await settle();
+      expect(Object.keys((writes(fake)[0].value as MapDoc).plan.vents?.[0].pos ?? {})).toEqual(['x', 'y']);
+    });
+
+    it('is only possible in Edit: without it the drag pans the plan and accepts nothing', async () => {
+      const fake = await openSuggesting();
+      const before = viewBox();
+      dragRing(40);
+      await settle();
+      expect(viewBox()).not.toBe(before);
+      expect(writes(fake)).toHaveLength(0);
+      expect(queryAll('.sm-ghost-vent')).toHaveLength(1);
+    });
+
+    it('still opens the suggestion when tapped in Edit, and a press that does not move accepts nothing', async () => {
+      const fake = await openEditing();
+      const at = screenOf(6, 5);
+      fire(query('.sm-ghost-vent .sm-mk-hit circle') as Element, 'pointerdown', at);
+      fire(query('.sm-svg') as Element, 'pointerup', at);
+      expect(query('.sm-sheet')?.textContent).toContain('suggested vent');
+      expect(query('.sm-sheet')?.textContent).toContain('Drag the marker to where it belongs');
+      await settle(1500);
+      expect(writes(fake)).toHaveLength(0);
+    });
+
+    it('can be reached from a sheet that is open, which gets out of the way for the drag', async () => {
+      const fake = await openEditing();
+      press(ring(), 'Enter');
+      expect(query('.sm-sheet .sm-sheet-sub')?.textContent).toBe('suggested vent');
+      dragRing(40);
+      await settle();
+      expect(writes(fake)).toHaveLength(1);
+      expect(query('.sm-sheet .sm-sheet-sub')?.textContent).toBe('vent');
+    });
   });
 });
 

@@ -159,7 +159,12 @@ export const PlanCanvas = memo(function PlanCanvas(props: PlanCanvasProps) {
         </g>
       )}
       <PlanWalls plan={plan} />
-      <PlanVents plan={plan} selectedId={selection?.kind === 'vent' ? selection.id : null} onActivate={onActivateVent} />
+      <PlanVents
+        plan={plan}
+        selectedId={selection?.kind === 'vent' ? selection.id : null}
+        moved={drag?.kind === 'vent' ? drag : null}
+        onActivate={onActivateVent}
+      />
       {layers.fingerprints && (
         <FingerprintMarks
           items={fingerprints}

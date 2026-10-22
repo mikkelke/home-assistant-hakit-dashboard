@@ -204,23 +204,26 @@ export const PlanWalls = memo(function PlanWalls({ plan }: { plan: Plan }) {
 interface PlanVentsProps {
   plan: Plan;
   selectedId: string | null;
+  /** The vent being dragged and where it is now, before the move is written. */
+  moved: { id: string; x: number; y: number } | null;
   onActivate: (id: string) => void;
 }
 
 /** Vents as small rings at one size on screen: arrows out of the ring for a supply, into it for an exhaust. They lie over
  * the walls and under the sensors. */
-export const PlanVents = memo(function PlanVents({ plan, selectedId, onActivate }: PlanVentsProps) {
+export const PlanVents = memo(function PlanVents({ plan, selectedId, moved, onActivate }: PlanVentsProps) {
   const yTop = plan.bounds.y1;
   if (!plan.vents?.length) return null;
   return (
     <g className='sm-vents'>
       {plan.vents.map(vent => {
         const selected = vent.id === selectedId;
+        const { x, y } = moved?.id === vent.id ? moved : vent.pos;
         return (
           <g
             key={vent.id}
             className={`sm-vent kind-${vent.kind}${selected ? ' sel' : ''}`}
-            transform={`translate(${vent.pos.x} ${yTop - vent.pos.y})`}
+            transform={`translate(${x} ${yTop - y})`}
             data-hit='vent'
             data-id={vent.id}
             tabIndex={0}

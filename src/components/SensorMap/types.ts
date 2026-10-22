@@ -43,11 +43,12 @@ export type Selection =
   | { kind: 'vent'; id: string }
   | { kind: 'point'; at: Point };
 
-/** What the pointer shows while a marker, a handle or a suggested marker is being dragged, before anything is committed. */
+/** What the pointer shows while a marker, a handle, a vent or a suggested marker is being dragged, before anything is committed. */
 export type DragPreview =
   | { kind: 'move'; key: string; x: number; y: number }
   | { kind: 'facing'; key: string; deg: number }
-  | { kind: 'ghost'; id: string; x: number; y: number };
+  | { kind: 'ghost'; id: string; x: number; y: number }
+  | { kind: 'vent'; id: string; x: number; y: number };
 
 export function typeVisible(layers: Layers, type: string, roles: readonly string[]): boolean {
   const hidden = layers.hiddenTypes;

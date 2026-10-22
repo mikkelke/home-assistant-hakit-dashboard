@@ -100,7 +100,7 @@ function defaultSnap(device: Pick<MapDevice, 'type'>): boolean {
 
 const isTyping = (target: EventTarget | null) => target instanceof Element && target.closest('input, select, textarea') !== null;
 
-type DragOrigin = { key: string; x: number; y: number; kind: 'move' | 'facing' | 'ghost'; last: DragPreview | null };
+type DragOrigin = { key: string; x: number; y: number; kind: 'move' | 'facing' | 'ghost' | 'vent'; last: DragPreview | null };
 
 const NO_POINTS: readonly SurveyPoint[] = [];
 /** The reach of a survey target, as drawn: a press nearer to another target than to the one drawn on top means the nearer. */
@@ -217,6 +217,9 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   const selectedKey = selection?.kind === 'device' ? selection.key : null;
   const selectedDevice = selectedKey ? doc.devices[selectedKey] : undefined;
   const snapFor = (key: string, device: MapDevice) => (snapOverride && snapOverride.key === key ? snapOverride.on : defaultSnap(device));
+  const selectedVentId = selection?.kind === 'vent' ? selection.id : null;
+  const ventSnapKey = (id: string) => `vent:${id}`;
+  const ventSnap = (id: string) => (snapOverride && snapOverride.key === ventSnapKey(id) ? snapOverride.on : true);
 
   const phones = usePhones(doc.phones, layers.phones);
   const areas = useMemo(() => phoneAreas(phones.statuses), [phones.statuses]);
@@ -381,8 +384,11 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
         setSelection({ kind: 'device', key: hit.id });
         setCollapsed(false);
         revealDevice(hit.id);
+      } else if (hit.kind === 'vent' && hit.id) {
+        setSelection({ kind: 'vent', id: hit.id });
+        setCollapsed(false);
+        revealVent(hit.id);
       } else if (hit.kind === 'ghost' && hit.id) setSelection({ kind: 'ghost', id: hit.id });
-      else if (hit.kind === 'vent' && hit.id) setSelection({ kind: 'vent', id: hit.id });
       else if (hit.kind === 'fingerprint' && hit.id) setSelection({ kind: 'fingerprint', id: hit.id });
       else if (hit.kind === 'zone' && hit.id) setSelection({ kind: 'zone', id: hit.id, at: world });
       else setSelection({ kind: 'point', at: world });
@@ -395,6 +401,13 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
         if (!ghost) return;
         dragOrigin.current = { key: ghost.id, x: ghost.at[0], y: ghost.at[1], kind: 'ghost', last: null };
         setSelection(null);
+        return;
+      }
+      if (event.hit.kind === 'vent') {
+        const vent = doc.plan.vents?.find(candidate => candidate.id === key);
+        if (!vent) return;
+        dragOrigin.current = { key: vent.id, x: vent.pos.x, y: vent.pos.y, kind: 'vent', last: null };
+        setCollapsed(true);
         return;
       }
       const pos = key ? doc.devices[key]?.placement.pos : null;
@@ -412,6 +425,15 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
         const snapped = ghost && defaultSnap(ghost.device) ? snapToWall(doc.plan.walls, x, y, wallSnapRadius(scaleRef.current)) : null;
         if (snapped) [x, y] = [snapped.x, snapped.y];
         origin.last = { kind: 'ghost', id: origin.key, x, y };
+        setDrag(origin.last);
+        return;
+      }
+      if (origin?.kind === 'vent') {
+        let x = origin.x + (event.world[0] - event.startWorld[0]);
+        let y = origin.y + (event.world[1] - event.startWorld[1]);
+        const snapped = ventSnap(origin.key) ? snapToWall(doc.plan.walls, x, y, wallSnapRadius(scaleRef.current)) : null;
+        if (snapped) [x, y] = [snapped.x, snapped.y];
+        origin.last = { kind: 'vent', id: origin.key, x, y };
         setDrag(origin.last);
         return;
       }
@@ -440,9 +462,18 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
       setCollapsed(false);
       if (last?.kind === 'ghost') {
         const item = pendingItems.find(candidate => candidate.id === last.id);
-        if (!edit || (item?.kind !== 'placement' && item?.kind !== 'new_device')) return;
+        if (!edit || (item?.kind !== 'placement' && item?.kind !== 'new_device' && item?.kind !== 'vent')) return;
         apply(at => ({ kind: 'accept', item, at, place: [last.x, last.y] }));
-        setSelection({ kind: 'device', key: item.kind === 'placement' ? item.device_key : newDeviceKey(item.device, item.id) });
+        setSelection(
+          item.kind === 'vent'
+            ? { kind: 'vent', id: item.vent.id }
+            : { kind: 'device', key: item.kind === 'placement' ? item.device_key : newDeviceKey(item.device, item.id) }
+        );
+        return;
+      }
+      if (last?.kind === 'vent') {
+        if (edit && selectedVentId === last.id && (round2(last.x) !== origin?.x || round2(last.y) !== origin?.y))
+          apply(at => ({ kind: 'move_vent', id: last.id, at, x: last.x, y: last.y }));
         return;
       }
       if (!origin || !last || !edit || selectedKey !== origin.key) return;
@@ -466,6 +497,11 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
     if (pos) viewport.reveal(pos.x, pos.y, window.innerWidth < SIDE_PANEL_MIN_PX ? SHEET_COVER : 0);
   }
 
+  function revealVent(id: string) {
+    const pos = doc.plan.vents?.find(vent => vent.id === id)?.pos;
+    if (pos) viewport.reveal(pos.x, pos.y, window.innerWidth < SIDE_PANEL_MIN_PX ? SHEET_COVER : 0);
+  }
+
   const selectedPos = selectedDevice?.placement.pos;
   const handleAt =
     edit && selectedDevice && selectedPos && isRadar(selectedDevice) ? handlePoint(selectedPos, selectedDevice.placement.facing) : null;
@@ -486,8 +522,10 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
     draggable: (hit: Hit) =>
       edit &&
       (hit.kind === 'ghost'
-        ? layers.suggestions && !ghosts.some(candidate => candidate.id === hit.id && (candidate.box || candidate.ventKind))
-        : selectedKey !== null && hit.id === selectedKey && (hit.kind === 'marker' || hit.kind === 'handle')),
+        ? layers.suggestions && !ghosts.find(candidate => candidate.id === hit.id)?.box
+        : hit.kind === 'vent'
+          ? selectedVentId !== null && hit.id === selectedVentId
+          : selectedKey !== null && hit.id === selectedKey && (hit.kind === 'marker' || hit.kind === 'handle')),
     refineHit: (hit, px, shown, size) => {
       if (hit.kind === 'survey') {
         const id = markerNear(surveyTargets, shown, size, px, SURVEY_HIT_PX);
@@ -503,7 +541,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   });
   const { centreOn, zoomBy, fit, panByMetres, reveal, cancelGestures } = viewport;
 
-  useEffect(() => cancelGestures(), [selectedKey, edit, cancelGestures]);
+  useEffect(() => cancelGestures(), [selectedKey, selectedVentId, edit, cancelGestures]);
 
   /** A to-do or skipped point opens the capture sheet at its place; a point that was captured opens its fingerprint. */
   const openSurveyPoint = useCallback(
@@ -588,7 +626,15 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
 
   const activateGhost = useCallback((id: string) => setSelection({ kind: 'ghost', id }), []);
   const activatePrint = useCallback((id: string) => setSelection({ kind: 'fingerprint', id }), []);
-  const activateVent = useCallback((id: string) => setSelection({ kind: 'vent', id }), []);
+  const activateVent = useCallback(
+    (id: string) => {
+      const pos = docRef.current.plan.vents?.find(vent => vent.id === id)?.pos;
+      setSelection({ kind: 'vent', id });
+      setCollapsed(false);
+      if (pos) reveal(pos.x, pos.y, window.innerWidth < SIDE_PANEL_MIN_PX ? SHEET_COVER : 0);
+    },
+    [reveal]
+  );
 
   const armTray = useCallback((id: string | null) => setSelection(id === null ? null : { kind: 'tray', id }), []);
 
@@ -1125,7 +1171,18 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
         />
       )}
       {idle && zoneSelected && <ZoneSheet zone={zoneSelected} doc={doc} onClose={() => setSelection(null)} />}
-      {idle && ventSelected && <VentSheet vent={ventSelected} onClose={() => setSelection(null)} />}
+      {idle && ventSelected && (
+        <VentSheet
+          key={ventSelected.id}
+          vent={ventSelected}
+          edit={edit}
+          collapsed={collapsed}
+          snap={ventSnap(ventSelected.id)}
+          onToggle={() => setCollapsed(value => !value)}
+          onSnap={on => setSnapOverride({ key: ventSnapKey(ventSelected.id), on })}
+          onClose={() => setSelection(null)}
+        />
+      )}
       {idle && printSelected && (
         <FingerprintSheet
           item={printSelected}

@@ -1091,3 +1091,83 @@ describe('a suggested vent', () => {
     expect(parseMapDoc(JSON.parse(JSON.stringify(doc))).plan.vents).toHaveLength(1);
   });
 });
+
+describe('moving a vent', () => {
+  const supply = {
+    id: 'family',
+    name: 'Test supply',
+    kind: 'supply' as const,
+    pos: { x: 5, y: 3, h: 2.5 },
+    valve: 'Test valve 160',
+    flow_m3h: 185,
+  };
+  const hood = { id: 'hood', name: 'Test hood', kind: 'exhaust' as const, pos: { x: 7.45, y: 3.25 } };
+  const withVents = () => ({ ...makeDoc(), plan: { ...makeDoc().plan, vents: [supply, hood] } });
+  const move = (doc: MapDoc, id: string, x: number, y: number, n = 1) => applyMapOp(doc, { kind: 'move_vent', id, at: at(n), x, y });
+
+  it('puts the vent where it was dropped, to the centimetre, with everything else about it as it was', () => {
+    const before = withVents();
+    const doc = move(before, 'family', 5.123, 3.987);
+    expect(doc.plan.vents?.[0]).toEqual({ ...supply, pos: { x: 5.12, y: 3.99, h: 2.5 } });
+    expect(doc.plan.vents?.[1]).toBe(before.plan.vents[1]);
+    expect(doc.updated_at).toBe(at(1));
+  });
+
+  it('leaves a vent without a height without one', () => {
+    const doc = move(withVents(), 'hood', 8, 3);
+    expect(Object.keys(doc.plan.vents?.[1].pos ?? {})).toEqual(['x', 'y']);
+  });
+
+  it('is an ordinary edit: the layout version, the devices, the walls and the suggestion log stay', () => {
+    const before = withVents();
+    const doc = move(before, 'family', 6, 4);
+    expect(doc.layout_version).toBe(before.layout_version);
+    expect(doc.devices).toBe(before.devices);
+    expect(doc.plan.walls).toBe(before.plan.walls);
+    expect(doc.plan.zones).toBe(before.plan.zones);
+    expect(doc.suggest_log).toBe(before.suggest_log);
+  });
+
+  it('changes nothing for a vent that is not there, or for a spot it already has', () => {
+    const before = withVents();
+    expect(move(before, 'nowhere', 6, 4)).toBe(before);
+    expect(move(before, 'family', 5.004, 2.996)).toBe(before);
+    const none = makeDoc();
+    expect(move(none, 'family', 6, 4)).toBe(none);
+    expect(none.plan.vents).toBeUndefined();
+  });
+
+  it('is read back as a valid map, so it survives the next load', () => {
+    const doc = move(withVents(), 'family', 6, 4);
+    expect(validateMapDoc(JSON.parse(JSON.stringify(doc)))).toEqual([]);
+    expect(parseMapDoc(JSON.parse(JSON.stringify(doc))).plan.vents?.[0].pos).toEqual({ x: 6, y: 4, h: 2.5 });
+  });
+});
+
+describe('a suggested vent accepted at a spot', () => {
+  const vent = (pos: { x: number; y: number; h?: number }) => ({
+    id: 's-family',
+    kind: 'vent' as const,
+    vent: { id: 'family', name: 'Test supply', kind: 'supply' as const, pos, valve: 'Test valve 160', flow_m3h: 185 },
+    reason: 'It blows there',
+  });
+
+  it('goes where it is dropped instead of where it was proposed, with its height, valve and flow', () => {
+    const doc = applyMapOp(makeDoc(), { kind: 'accept', item: vent({ x: 5, y: 3, h: 2.5 }), at: at(1), place: [6.123, 4.987] });
+    expect(doc.plan.vents).toEqual([{ ...vent({ x: 5, y: 3 }).vent, pos: { x: 6.12, y: 4.99, h: 2.5 } }]);
+    expect(doc.suggest_log).toEqual([{ id: 's-family', accepted_at: at(1) }]);
+    expect(doc.layout_version).toBe(makeDoc().layout_version);
+  });
+
+  it('gets no height from the drop when the suggestion has none', () => {
+    const doc = applyMapOp(makeDoc(), { kind: 'accept', item: vent({ x: 5, y: 3 }), at: at(1), place: [6, 4] });
+    expect(Object.keys(doc.plan.vents?.[0].pos ?? {})).toEqual(['x', 'y']);
+  });
+
+  it('is left where it was proposed when no spot is given, and the item is not changed', () => {
+    const item = vent({ x: 5, y: 3, h: 2.5 });
+    const doc = applyMapOp(makeDoc(), { kind: 'accept', item, at: at(1) });
+    expect(doc.plan.vents?.[0].pos).toEqual({ x: 5, y: 3, h: 2.5 });
+    expect(item.vent.pos).toEqual({ x: 5, y: 3, h: 2.5 });
+  });
+});

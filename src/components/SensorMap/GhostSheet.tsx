@@ -34,7 +34,7 @@ export function GhostSheet({ ghost, item, edit, onAccept, onReject, onClose }: G
         </button>
         <DiscardSuggestion onDiscard={() => onReject(item.id)} />
       </div>
-      {!ghost.box && !ghost.ventKind && (
+      {!ghost.box && (
         <p className='sm-muted'>
           {edit
             ? 'Drag the marker to where it belongs: dropping it accepts the suggestion there.'

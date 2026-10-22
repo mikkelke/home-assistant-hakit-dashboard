@@ -19,13 +19,31 @@ export function VentFacts({ vent }: { vent: Vent }) {
   );
 }
 
-export function VentSheet({ vent, onClose }: { vent: Vent; onClose: () => void }) {
+interface VentSheetProps {
+  vent: Vent;
+  edit: boolean;
+  collapsed: boolean;
+  snap: boolean;
+  onToggle: () => void;
+  onSnap: (on: boolean) => void;
+  onClose: () => void;
+}
+
+export function VentSheet({ vent, edit, collapsed, snap, onToggle, onSnap, onClose }: VentSheetProps) {
   return (
-    <Sheet title={vent.name} subtitle='vent' onClose={onClose}>
+    <Sheet title={vent.name} subtitle='vent' collapsed={collapsed} onToggle={onToggle} onClose={onClose}>
       <VentFacts vent={vent} />
       <p className='sm-muted'>
         At x {vent.pos.x.toFixed(2)}, y {vent.pos.y.toFixed(2)}.
       </p>
+      {edit && (
+        <div className='sm-row wrap'>
+          <label className='sm-check'>
+            <input type='checkbox' checked={snap} onChange={event => onSnap(event.target.checked)} />
+            Snap to walls
+          </label>
+        </div>
+      )}
     </Sheet>
   );
 }
