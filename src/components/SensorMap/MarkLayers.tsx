@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import type { Fingerprint, Furniture, MapDevice, Point, VentKind } from '../../sensorMap/mapDoc';
+import { polyPath } from '../../sensorMap/planPaths';
 import { handlePoint } from '../../sensorMap/radarRange';
 import { VENT_R, glyphOf, typeClass, ventGlyph } from './glyphs';
 import { activateOnKey } from './activateOnKey';
@@ -17,6 +18,8 @@ export interface Ghost {
   box?: Furniture['box'];
   /** Set for a suggested vent, which is drawn as the ring of a vent of this kind instead of a marker. */
   ventKind?: VentKind;
+  /** Set for a suggested zone change, which is drawn as these outlines instead of a marker; `at` is their centre. */
+  outlines?: Point[][];
   stale: boolean;
 }
 
@@ -46,6 +49,30 @@ function GhostOutline({ ghost, box, yTop, selected, onActivate }: GhostMarkerPro
         onKeyDown={activateOnKey(() => onActivate(ghost.id))}
       >
         <rect {...frame} className='sm-ghost-edge' />
+      </g>
+    </g>
+  );
+}
+
+/** A suggested zone change: the new outline of each zone it redraws, dashed. Only the edge takes a touch, so what lies inside
+ * stays reachable. */
+function GhostZones({ ghost, outlines, yTop, selected, onActivate }: GhostMarkerProps & { outlines: Point[][] }) {
+  return (
+    <g className={`sm-ghost sm-ghost-zones${selected ? ' sel' : ''}${ghost.stale ? ' stale' : ''}`}>
+      {outlines.map((poly, index) => (
+        <path key={index} d={polyPath(poly, yTop)} className='sm-ghost-rect' />
+      ))}
+      <g
+        data-hit='ghost'
+        data-id={ghost.id}
+        tabIndex={0}
+        role='button'
+        aria-label={`Suggested zone change ${ghost.device.name}`}
+        onKeyDown={activateOnKey(() => onActivate(ghost.id))}
+      >
+        {outlines.map((poly, index) => (
+          <path key={index} d={polyPath(poly, yTop)} className='sm-ghost-edge' />
+        ))}
       </g>
     </g>
   );
@@ -85,6 +112,7 @@ function GhostVent({ ghost, kind, yTop, selected, onActivate }: GhostMarkerProps
 /** A suggested placement: a dashed marker in the device's colour, with an arrow from where the device is now. */
 export const GhostMarker = memo(function GhostMarker({ ghost, yTop, selected, onActivate }: GhostMarkerProps) {
   if (ghost.box) return <GhostOutline ghost={ghost} box={ghost.box} yTop={yTop} selected={selected} onActivate={onActivate} />;
+  if (ghost.outlines) return <GhostZones ghost={ghost} outlines={ghost.outlines} yTop={yTop} selected={selected} onActivate={onActivate} />;
   if (ghost.ventKind) return <GhostVent ghost={ghost} kind={ghost.ventKind} yTop={yTop} selected={selected} onActivate={onActivate} />;
   const [x, y] = ghost.at;
   return (

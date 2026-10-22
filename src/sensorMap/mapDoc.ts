@@ -108,6 +108,19 @@ export interface Vent {
   flow_m3h?: number;
 }
 
+/** A change to the zones of the plan that is accepted or refused as a whole. */
+export interface ZoneChange {
+  /** A new outline, and optionally a new label point, for zones that exist, by `zone_id`. */
+  zones?: { zone_id: string; poly: Point[]; label?: Point }[];
+  /** Zone lines to drop, by `x`, and zone lines to draw; one drawn at the `x` of a line that is there replaces it. */
+  remove_zone_lines?: number[];
+  add_zone_lines?: ZoneLine[];
+  /** A new text for an annotation that exists, or `null` to remove it, by `id`. */
+  annotations?: Record<string, string[] | null>;
+  /** The zone each device is in, by device key. */
+  device_zones?: Record<string, string>;
+}
+
 export interface Zone {
   zone_id: string;
   name: string;
@@ -245,7 +258,8 @@ export type SuggestItem =
   | { id: string; kind: 'rename'; device_key: string; name: string; reason: string }
   | { id: string; kind: 'phone'; phone: Phone; reason: string }
   | { id: string; kind: 'furniture'; furniture: Furniture; reason: string }
-  | { id: string; kind: 'vent'; vent: Vent; reason: string };
+  | { id: string; kind: 'vent'; vent: Vent; reason: string }
+  | { id: string; kind: 'zone_change'; change: ZoneChange; reason: string };
 
 export interface SuggestDoc {
   schema_version: number;
@@ -508,6 +522,64 @@ function checkVent(value: unknown, path: string, problems: string[]) {
   }
 }
 
+const ZONE_CHANGE_PARTS = ['zones', 'remove_zone_lines', 'add_zone_lines', 'annotations', 'device_zones'] as const;
+const isEmptyPart = (part: unknown) =>
+  part === undefined || (Array.isArray(part) && part.length === 0) || (isObject(part) && Object.keys(part).length === 0);
+
+function checkZoneChange(value: unknown, path: string, problems: string[]) {
+  if (!isObject(value)) return problems.push(`${path} is not an object`);
+  if (ZONE_CHANGE_PARTS.every(part => isEmptyPart(value[part]))) problems.push(`${path} changes nothing`);
+  if (value.zones !== undefined) {
+    if (!Array.isArray(value.zones)) problems.push(`${path}.zones is not an array`);
+    else {
+      const ids = new Set<string>();
+      value.zones.forEach((zone, index) => {
+        const where = `${path}.zones[${index}]`;
+        if (
+          !isObject(zone) ||
+          !isString(zone.zone_id) ||
+          zone.zone_id.trim() === '' ||
+          !isPoly(zone.poly) ||
+          (zone.label !== undefined && !isPoint(zone.label))
+        ) {
+          return problems.push(`${where} needs a zone_id, a poly of at least three points and, if it has one, a label point`);
+        }
+        if (ids.has(zone.zone_id)) problems.push(`${where}.zone_id ${zone.zone_id} is used twice`);
+        ids.add(zone.zone_id);
+      });
+    }
+  }
+  if (value.remove_zone_lines !== undefined && !(Array.isArray(value.remove_zone_lines) && value.remove_zone_lines.every(isNumber))) {
+    problems.push(`${path}.remove_zone_lines is not a list of x`);
+  }
+  if (
+    value.add_zone_lines !== undefined &&
+    !(Array.isArray(value.add_zone_lines) && value.add_zone_lines.every(line => isObject(line) && isNumber(line.x) && isNumber(line.y1)))
+  ) {
+    problems.push(`${path}.add_zone_lines is not a list of {x, y1}`);
+  }
+  if (
+    value.annotations !== undefined &&
+    !(
+      isObject(value.annotations) &&
+      Object.entries(value.annotations).every(
+        ([id, lines]) => id.trim() !== '' && (lines === null || (isStringArray(lines) && lines.length > 0))
+      )
+    )
+  ) {
+    problems.push(`${path}.annotations is not a map of annotation id to a list of lines, or null`);
+  }
+  if (
+    value.device_zones !== undefined &&
+    !(
+      isObject(value.device_zones) &&
+      Object.entries(value.device_zones).every(([key, zone]) => key.trim() !== '' && isString(zone) && zone.trim() !== '')
+    )
+  ) {
+    problems.push(`${path}.device_zones is not a map of device key to zone_id`);
+  }
+}
+
 function checkPlan(plan: unknown, problems: string[]) {
   if (!isObject(plan)) return problems.push('plan is not an object');
   checkRect(plan.bounds, 'plan.bounds', problems);
@@ -723,8 +795,10 @@ export function validateSuggestDoc(raw: unknown): string[] {
       checkFurniture(item.furniture, `${path}.furniture`, problems);
     } else if (item.kind === 'vent') {
       checkVent(item.vent, `${path}.vent`, problems);
+    } else if (item.kind === 'zone_change') {
+      checkZoneChange(item.change, `${path}.change`, problems);
     } else {
-      problems.push(`${path}.kind is not placement, answer, new_device, wifi, rename, phone, furniture or vent`);
+      problems.push(`${path}.kind is not placement, answer, new_device, wifi, rename, phone, furniture, vent or zone_change`);
     }
   });
   return problems;
@@ -883,6 +957,38 @@ function droppedAt(placement: Placement, place: Point, height: number | null): P
   };
 }
 
+/** The map with `change` applied, or null when part of it cannot be: a zone, an annotation that gets a new text or a device
+ * that is not there, or a device sent to a zone that is not there. Nothing is applied in part. Dropping a zone line or an
+ * annotation that is already gone is no obstacle. */
+function applyZoneChange(doc: MapDoc, change: ZoneChange): MapDoc | null {
+  const { plan } = doc;
+  let zones = plan.zones;
+  for (const redrawn of change.zones ?? []) {
+    if (!zones.some(zone => zone.zone_id === redrawn.zone_id)) return null;
+    zones = zones.map(zone =>
+      zone.zone_id === redrawn.zone_id ? { ...zone, poly: redrawn.poly, label: redrawn.label ?? zone.label } : zone
+    );
+  }
+  const dropped = change.remove_zone_lines ?? [];
+  const drawn = change.add_zone_lines ?? [];
+  const zoneLines =
+    dropped.length === 0 && drawn.length === 0
+      ? plan.zone_lines
+      : [...plan.zone_lines.filter(line => !dropped.includes(line.x) && !drawn.some(added => added.x === line.x)), ...drawn];
+  let annotations = plan.annotations;
+  for (const [id, lines] of Object.entries(change.annotations ?? {})) {
+    if (lines === null) annotations = annotations.filter(note => note.id !== id);
+    else if (!annotations.some(note => note.id === id)) return null;
+    else annotations = annotations.map(note => (note.id === id ? { ...note, lines } : note));
+  }
+  let devices = doc.devices;
+  for (const [key, zoneId] of Object.entries(change.device_zones ?? {})) {
+    if (!devices[key] || !zones.some(zone => zone.zone_id === zoneId)) return null;
+    devices = { ...devices, [key]: { ...devices[key], zone_id: zoneId } };
+  }
+  return { ...doc, devices, plan: { ...plan, zones, zone_lines: zoneLines, annotations } };
+}
+
 function acceptItem(doc: MapDoc, item: SuggestItem, at: string, place?: Point): MapDoc {
   if (doc.suggest_log.some(entry => entry.id === item.id)) return doc;
   let next = doc;
@@ -929,6 +1035,10 @@ function acceptItem(doc: MapDoc, item: SuggestItem, at: string, place?: Point): 
     const known = doc.plan.vents ?? [];
     const vents = known.some(entry => entry.id === vent.id) ? known.map(entry => (entry.id === vent.id ? vent : entry)) : [...known, vent];
     next = { ...doc, updated_at: at, plan: { ...doc.plan, vents } };
+  } else if (item.kind === 'zone_change') {
+    const changed = applyZoneChange(doc, item.change);
+    if (!changed) return doc;
+    next = changed;
   } else {
     const key = newDeviceKey(item.device, item.id);
     if (!doc.devices[key] && place) {

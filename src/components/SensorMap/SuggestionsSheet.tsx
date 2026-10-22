@@ -3,6 +3,7 @@ import type { Ghost } from './MarkLayers';
 import { SetupSuggestion } from './SetupSheet';
 import { Sheet } from './Sheet';
 import { SuggestionCard } from './SuggestionCard';
+import { zoneChangeLines, zoneChangeTitle } from './zoneChange';
 
 type Kind = SuggestItem['kind'];
 type PlanItem = Exclude<SuggestItem, { kind: 'phone' | 'wifi' }>;
@@ -15,8 +16,9 @@ const KIND: Record<Kind, { tag: string; rank: number }> = {
   placement: { tag: 'Placement', rank: 3 },
   furniture: { tag: 'Furniture', rank: 4 },
   vent: { tag: 'Vent', rank: 5 },
-  rename: { tag: 'Rename', rank: 6 },
-  answer: { tag: 'Answer', rank: 7 },
+  zone_change: { tag: 'Zones', rank: 6 },
+  rename: { tag: 'Rename', rank: 7 },
+  answer: { tag: 'Answer', rank: 8 },
 };
 
 interface SuggestionsSheetProps {
@@ -43,6 +45,8 @@ function titleOf(item: PlanItem, doc: MapDoc): string {
       return item.furniture.name;
     case 'vent':
       return item.vent.name;
+    case 'zone_change':
+      return zoneChangeTitle(item.change, doc.plan.zones);
     case 'rename':
       return `${nameOf(doc, item.device_key)} to ${item.name}`;
     case 'answer': {
@@ -74,9 +78,11 @@ export function SuggestionsSheet({ items, doc, ghosts, onAccept, onReject, onSho
             detail={
               item.kind === 'answer'
                 ? `Proposed: ${item.answer}`
-                : ghost
-                  ? `At x ${ghost.at[0].toFixed(2)}, y ${ghost.at[1].toFixed(2)}.`
-                  : undefined
+                : item.kind === 'zone_change'
+                  ? `${zoneChangeLines(item.change, doc).join('; ')}.`
+                  : ghost
+                    ? `At x ${ghost.at[0].toFixed(2)}, y ${ghost.at[1].toFixed(2)}.`
+                    : undefined
             }
             warn={ghost?.stale ? 'Made against an older layout.' : undefined}
             onAccept={() => onAccept(item)}

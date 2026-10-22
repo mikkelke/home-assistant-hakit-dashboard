@@ -30,7 +30,7 @@ import {
   type MapOp,
   type WifiSource,
 } from '../mapDoc';
-import { SCANNER_A, T0, device, makeDoc, makeFingerprint, makeFingerprintDoc, makeSuggestDoc, placement } from './docFixtures';
+import { SCANNER_A, T0, device, makeDoc, makeFingerprint, makeFingerprintDoc, makeSuggestDoc, placement, rect } from './docFixtures';
 
 const at = (n: number) => new Date(Date.parse(T0) + n * 1000).toISOString();
 
@@ -79,9 +79,9 @@ describe('validation and parsing', () => {
     expect(validateSuggestDoc(doc).some(p => p.includes('used twice'))).toBe(true);
     const raw = JSON.parse(JSON.stringify(makeSuggestDoc())) as { items: { kind: string }[] };
     raw.items[0].kind = 'teleport';
-    expect(validateSuggestDoc(raw).some(p => p.includes('placement, answer, new_device, wifi, rename, phone, furniture or vent'))).toBe(
-      true
-    );
+    expect(
+      validateSuggestDoc(raw).some(p => p.includes('placement, answer, new_device, wifi, rename, phone, furniture, vent or zone_change'))
+    ).toBe(true);
   });
 
   it('only lets set-suggest write the suggestion key and seed write the map or a scratch copy', () => {
@@ -1169,5 +1169,188 @@ describe('a suggested vent accepted at a spot', () => {
     const doc = applyMapOp(makeDoc(), { kind: 'accept', item, at: at(1) });
     expect(doc.plan.vents?.[0].pos).toEqual({ x: 5, y: 3, h: 2.5 });
     expect(item.vent.pos).toEqual({ x: 5, y: 3, h: 2.5 });
+  });
+});
+
+describe('a suggested zone change', () => {
+  const change = (extra: Record<string, unknown> = {}) => ({
+    id: 's-zones',
+    kind: 'zone_change' as const,
+    change: {
+      zones: [{ zone_id: 'delta', poly: rect(0, 4, 8, 8), label: [4, 6] as [number, number] }],
+      remove_zone_lines: [4],
+      add_zone_lines: [{ x: 8, y1: 4 }],
+      annotations: { a1: ['Delta', 'x 0 to 8'] as string[] },
+      device_zones: { door_1: 'beta' },
+      ...extra,
+    },
+    reason: 'It runs on there',
+  });
+  const suggestWith = (entry: unknown) => ({ ...makeSuggestDoc(), items: [entry] });
+  const problemsOf = (extra: Record<string, unknown>) => validateSuggestDoc(suggestWith(change(extra)));
+  const accept = (item: ReturnType<typeof change>, doc = makeDoc()) => applyMapOp(doc, { kind: 'accept', item, at: at(1) });
+
+  it('is valid with any of its parts on their own, and not when it changes nothing', () => {
+    expect(validateSuggestDoc(suggestWith(change()))).toEqual([]);
+    const none = {
+      zones: undefined,
+      remove_zone_lines: undefined,
+      add_zone_lines: undefined,
+      annotations: undefined,
+      device_zones: undefined,
+    };
+    for (const part of [
+      { zones: [{ zone_id: 'delta', poly: rect(0, 4, 8, 8) }] },
+      { remove_zone_lines: [4] },
+      { add_zone_lines: [{ x: 8, y1: 4 }] },
+      { annotations: { a1: null } },
+      { device_zones: { door_1: 'beta' } },
+    ]) {
+      expect(problemsOf({ ...none, ...part })).toEqual([]);
+    }
+    for (const empty of [{}, { zones: [] }, { annotations: {} }, { device_zones: {}, remove_zone_lines: [] }]) {
+      expect(problemsOf({ ...none, ...empty }).some(p => p === 'items[0].change changes nothing')).toBe(true);
+    }
+    expect(
+      validateSuggestDoc(suggestWith({ id: 's-zones', kind: 'zone_change', reason: 'x' })).some(p => p.startsWith('items[0].change'))
+    ).toBe(true);
+  });
+
+  it('names what is wrong with a part', () => {
+    const triangle = rect(0, 0, 1, 1).slice(0, 3);
+    for (const bad of [
+      { zones: {} },
+      { zones: [null] },
+      { zones: [{ poly: rect(0, 4, 8, 8) }] },
+      { zones: [{ zone_id: ' ', poly: rect(0, 4, 8, 8) }] },
+      { zones: [{ zone_id: 'delta' }] },
+      { zones: [{ zone_id: 'delta', poly: rect(0, 4, 8, 8).slice(0, 2) }] },
+      {
+        zones: [
+          {
+            zone_id: 'delta',
+            poly: [
+              [0, 4],
+              [8, 4],
+              [8, '8'],
+            ],
+          },
+        ],
+      },
+      { zones: [{ zone_id: 'delta', poly: triangle, label: [1] }] },
+      { zones: [{ zone_id: 'delta', poly: triangle, label: 'middle' }] },
+      { remove_zone_lines: 4 },
+      { remove_zone_lines: ['4'] },
+      { add_zone_lines: [{ x: 8 }] },
+      { add_zone_lines: [{ x: 8, y1: null }] },
+      { annotations: [] },
+      { annotations: { a1: 'Delta' } },
+      { annotations: { a1: [] } },
+      { annotations: { a1: [1, 2] } },
+      { annotations: { ' ': ['Delta'] } },
+      { device_zones: [] },
+      { device_zones: { door_1: 5 } },
+      { device_zones: { door_1: ' ' } },
+      { device_zones: { ' ': 'beta' } },
+    ]) {
+      expect(
+        problemsOf(bad).some(p => p.startsWith('items[0].change')),
+        JSON.stringify(bad)
+      ).toBe(true);
+    }
+  });
+
+  it('does not name one zone twice, since each gets one outline', () => {
+    const twice = [
+      { zone_id: 'delta', poly: rect(0, 4, 8, 8) },
+      { zone_id: 'delta', poly: rect(0, 4, 6, 8) },
+    ];
+    expect(problemsOf({ zones: twice }).some(p => p.includes('items[0].change.zones[1].zone_id delta is used twice'))).toBe(true);
+  });
+
+  it('is applied as a whole when accepted, as an ordinary edit that is logged and leaves everything else alone', () => {
+    const before = makeDoc();
+    const doc = accept(change(), before);
+    expect(doc.plan.zones.find(zone => zone.zone_id === 'delta')).toEqual({
+      ...before.plan.zones[3],
+      poly: rect(0, 4, 8, 8),
+      label: [4, 6],
+    });
+    expect(doc.plan.zone_lines).toEqual([{ x: 8, y1: 4 }]);
+    expect(doc.plan.annotations).toEqual([{ ...before.plan.annotations[0], lines: ['Delta', 'x 0 to 8'] }]);
+    expect(doc.devices.door_1).toEqual({ ...before.devices.door_1, zone_id: 'beta' });
+    expect(doc.devices.radar_a).toBe(before.devices.radar_a);
+    expect(doc.plan.zones[0]).toBe(before.plan.zones[0]);
+    expect(doc.plan.walls).toBe(before.plan.walls);
+    expect(doc.plan.doors).toBe(before.plan.doors);
+    expect(doc.layout_version).toBe(before.layout_version);
+    expect(doc.updated_at).toBe(at(1));
+    expect(doc.suggest_log).toEqual([{ id: 's-zones', accepted_at: at(1) }]);
+  });
+
+  it('touches only what it names', () => {
+    const before = makeDoc();
+    const doc = accept(
+      change({ zones: undefined, remove_zone_lines: undefined, add_zone_lines: undefined, annotations: undefined }),
+      before
+    );
+    expect(doc.plan.zones).toBe(before.plan.zones);
+    expect(doc.plan.zone_lines).toBe(before.plan.zone_lines);
+    expect(doc.plan.annotations).toBe(before.plan.annotations);
+    expect(doc.devices.door_1.zone_id).toBe('beta');
+    const outline = accept(
+      change({ remove_zone_lines: undefined, add_zone_lines: undefined, annotations: undefined, device_zones: undefined }),
+      before
+    );
+    expect(outline.devices).toBe(before.devices);
+    expect(outline.plan.zone_lines).toBe(before.plan.zone_lines);
+  });
+
+  it('keeps the label point of a zone when the change gives none', () => {
+    const doc = accept(change({ zones: [{ zone_id: 'delta', poly: rect(0, 4, 8, 8) }] }));
+    expect(doc.plan.zones[3].label).toEqual([2, 6]);
+  });
+
+  it('draws a zone line in place of the one at the same x, and does not mind dropping one that is not there', () => {
+    const redrawn = accept(change({ remove_zone_lines: undefined, add_zone_lines: [{ x: 4, y1: 2 }] }));
+    expect(redrawn.plan.zone_lines).toEqual([{ x: 4, y1: 2 }]);
+    const gone = accept(change({ remove_zone_lines: [4, 99], add_zone_lines: undefined }));
+    expect(gone.plan.zone_lines).toEqual([]);
+    expect(gone.plan.zones[3].poly).toEqual(rect(0, 4, 8, 8));
+  });
+
+  it('removes an annotation with null, and does not mind one that is gone', () => {
+    const doc = accept(change({ annotations: { a1: null, a9: null } }));
+    expect(doc.plan.annotations).toEqual([]);
+    expect(doc.plan.zones[3].poly).toEqual(rect(0, 4, 8, 8));
+  });
+
+  it('is refused as a whole, and not logged, when a part cannot be applied, so it stays to be decided', () => {
+    const before = makeDoc();
+    for (const unfit of [
+      { zones: [{ zone_id: 'nowhere', poly: rect(0, 4, 8, 8) }] },
+      { annotations: { a1: ['Delta'], a9: ['Missing'] } },
+      { device_zones: { door_1: 'beta', nobody: 'beta' } },
+      { device_zones: { door_1: 'nowhere' } },
+    ]) {
+      expect(accept(change(unfit), before)).toBe(before);
+    }
+    expect(before.suggest_log).toEqual([]);
+  });
+
+  it('is accepted once, and a rejection leaves the plan alone and only logs', () => {
+    const once = accept(change());
+    expect(applyMapOp(once, { kind: 'accept', item: change({ device_zones: { door_1: 'gamma' } }), at: at(2) })).toBe(once);
+    const before = makeDoc();
+    const rejected = applyMapOp(before, { kind: 'reject', id: 's-zones', at: at(1) });
+    expect(rejected.plan).toBe(before.plan);
+    expect(rejected.devices).toBe(before.devices);
+    expect(rejected.suggest_log).toEqual([{ id: 's-zones', rejected_at: at(1) }]);
+  });
+
+  it('is read back as a valid map after it was accepted, so it survives the next load', () => {
+    const doc = accept(change());
+    expect(validateMapDoc(JSON.parse(JSON.stringify(doc)))).toEqual([]);
+    expect(parseMapDoc(JSON.parse(JSON.stringify(doc))).plan.zones[3].poly).toEqual(rect(0, 4, 8, 8));
   });
 });

@@ -58,6 +58,7 @@ import { TraySheet } from './TraySheet';
 import { UnplacedTray } from './UnplacedTray';
 import { SetupSheet } from './SetupSheet';
 import { VentSheet } from './VentSheet';
+import { outlinesOf, zoneChangeTitle } from './zoneChange';
 import { ZoneSheet } from './ZoneSheet';
 import {
   hiddenTypeCount,
@@ -253,10 +254,24 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
       } else if (item.kind === 'vent') {
         const { name, kind, pos } = item.vent;
         out.push({ id: item.id, from: null, at: [pos.x, pos.y], device: { name, type: 'other' }, ventKind: kind, stale: false });
+      } else if (item.kind === 'zone_change') {
+        const outlines = outlinesOf(item.change);
+        const points = outlines.flat();
+        if (points.length === 0) continue;
+        const [xs, ys] = [points.map(point => point[0]), points.map(point => point[1])];
+        const at: Point = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
+        out.push({
+          id: item.id,
+          from: null,
+          at,
+          device: { name: zoneChangeTitle(item.change, doc.plan.zones), type: 'other' },
+          outlines,
+          stale: false,
+        });
       }
     }
     return out;
-  }, [pendingItems, suggest.doc, doc.devices, doc.layout_version]);
+  }, [pendingItems, suggest.doc, doc.devices, doc.plan.zones, doc.layout_version]);
 
   const setupProposals = pendingItems.filter(
     (item): item is Extract<SuggestItem, { kind: 'wifi' | 'phone' }> => item.kind === 'wifi' || item.kind === 'phone'
@@ -523,7 +538,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
     draggable: (hit: Hit) =>
       edit &&
       (hit.kind === 'ghost'
-        ? layers.suggestions && !ghosts.find(candidate => candidate.id === hit.id)?.box
+        ? layers.suggestions && !ghosts.some(candidate => candidate.id === hit.id && (candidate.box || candidate.outlines))
         : hit.kind === 'vent'
           ? selectedVentId !== null && hit.id === selectedVentId
           : selectedKey !== null && hit.id === selectedKey && (hit.kind === 'marker' || hit.kind === 'handle')),
@@ -1170,6 +1185,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
         <GhostSheet
           ghost={ghostSelected}
           item={ghostItem}
+          doc={doc}
           edit={edit}
           onAccept={actions.accept}
           onReject={actions.reject}

@@ -116,6 +116,33 @@ it('writes a suggested vent, and refuses one that is neither a supply nor an exh
   await expect(run('set-suggest', [file({ items: [unknown] })], client)).rejects.toThrow();
 });
 
+it('writes a suggested zone change, and refuses one that changes nothing', async () => {
+  const item = {
+    id: 's-zones',
+    kind: 'zone_change',
+    change: {
+      zones: [
+        {
+          zone_id: 'delta',
+          poly: [
+            [0, 4],
+            [8, 4],
+            [8, 8],
+            [0, 8],
+          ],
+        },
+      ],
+      remove_zone_lines: [4],
+      annotations: { a1: ['Delta', 'x 0 to 8'] },
+      device_zones: { door_1: 'beta' },
+    },
+    reason: 'It runs on there',
+  };
+  await run('set-suggest', [file({ items: [item] })], client);
+  expect((data.get(SUGGEST_KEY) as { items: unknown[] }).items).toEqual([item]);
+  await expect(run('set-suggest', [file({ items: [{ ...item, change: { zones: [] } }] })], client)).rejects.toThrow();
+});
+
 it('summarizes the Wi-Fi of the map', async () => {
   const lines: string[] = [];
   vi.spyOn(console, 'log').mockImplementation((line: string) => void lines.push(line));

@@ -11,9 +11,10 @@ import {
   makeFingerprintDoc,
   makeSuggestDoc,
   placement,
+  rect,
   ulidAt,
 } from '../../../sensorMap/__tests__/docFixtures';
-import type { FingerprintDoc, FingerprintWifi, MapDoc, SuggestDoc, WifiSource } from '../../../sensorMap/mapDoc';
+import type { FingerprintDoc, FingerprintWifi, MapDoc, SuggestDoc, WifiSource, ZoneChange } from '../../../sensorMap/mapDoc';
 import { noWifi } from '../../../sensorMap/mapDoc';
 import { surveyPoints } from '../../../sensorMap/survey';
 import { ventGlyph } from '../glyphs';
@@ -1913,6 +1914,157 @@ describe('vents', () => {
       expect(writes(fake)).toHaveLength(1);
       expect(query('.sm-sheet .sm-sheet-sub')?.textContent).toBe('vent');
     });
+  });
+});
+
+describe('a suggested zone change', () => {
+  const CHANGE: ZoneChange = {
+    zones: [{ zone_id: 'delta', poly: rect(0, 4, 8, 8) }],
+    remove_zone_lines: [4],
+    annotations: { a1: ['Delta', 'x 0 to 8'] },
+    device_zones: { door_1: 'beta' },
+  };
+  const screenOf = (x: number, y: number) => planToScreen(fitView(canvas, makeDoc().plan.fit), canvas, x, y);
+  const suggesting = (change: ZoneChange = CHANGE): SuggestDoc => {
+    const suggest = makeSuggestDoc();
+    suggest.items = [{ id: 's-zones', kind: 'zone_change', change, reason: 'It runs on there' }];
+    return suggest;
+  };
+  const openSuggesting = async (change?: ZoneChange) => {
+    const fake = fakeConnection({ ...docs(), sensor_map_suggest: suggesting(change) });
+    await open(fake);
+    return fake;
+  };
+  const outline = () => query('.sm-ghost-zones [data-hit="ghost"]') as Element;
+  const zonePath = (id: string) => query(`.sm-zone[data-id="${id}"] .sm-zone-fill`)?.getAttribute('d');
+  const OLD_DELTA = 'M0 5L4 5L4 1L0 1Z';
+  const NEW_DELTA = 'M0 5L8 5L8 1L0 1Z';
+  const LINES = [
+    'Delta: new outline',
+    'Zone line at x 4 dropped',
+    'Label "Delta" becomes "Delta x 0 to 8"',
+    'Test door contact goes to Beta',
+  ];
+
+  it('is suggested as the dashed outline of the zone it redraws, counted by the pill, and not yet part of the plan', async () => {
+    await openSuggesting();
+    expect(queryAll('.sm-ghost-zones')).toHaveLength(1);
+    expect(queryAll('.sm-ghost-zones .sm-ghost-rect').map(node => node.getAttribute('d'))).toEqual([NEW_DELTA]);
+    expect(outline().getAttribute('aria-label')).toBe('Suggested zone change Delta');
+    expect(query('.sm-pill')?.textContent).toBe('1 suggestion');
+    expect(zonePath('delta')).toBe(OLD_DELTA);
+    expect(queryAll('.sm-zoneline')).toHaveLength(1);
+  });
+
+  it('opens a sheet with the reason and what it does, and writes nothing until it is decided', async () => {
+    const fake = await openSuggesting();
+    press(outline(), 'Enter');
+    expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('Delta');
+    expect(query('.sm-sheet .sm-sheet-sub')?.textContent).toBe('suggested zone change');
+    expect(query('.sm-sheet')?.textContent).toContain('It runs on there');
+    expect(queryAll('.sm-sheet .sm-list li').map(node => node.textContent)).toEqual(LINES);
+    expect(query('.sm-sheet')?.textContent).not.toContain('At x');
+    expect(query('.sm-sheet')?.textContent).not.toContain('Drag the marker');
+    expect(queryAll('.sm-sheet .sm-chip').map(node => node.textContent)).toEqual(['Accept', 'Discard suggestion']);
+    await settle(1500);
+    expect(writes(fake)).toHaveLength(0);
+  });
+
+  it('is applied when accepted, as one write of the page that is logged, and the outline takes the place of the zone', async () => {
+    const fake = await openSuggesting();
+    press(outline(), 'Enter');
+    act(() => chip('Accept').click());
+    await settle(1100);
+    expect(writes(fake)).toHaveLength(1);
+    const written = writes(fake)[0].value as MapDoc;
+    expect(writes(fake)[0].key).toBe('sensor_map');
+    expect(written.plan.zones.find(zone => zone.zone_id === 'delta')?.poly).toEqual(rect(0, 4, 8, 8));
+    expect(written.plan.zone_lines).toEqual([]);
+    expect(written.plan.annotations[0].lines).toEqual(['Delta', 'x 0 to 8']);
+    expect(written.devices.door_1.zone_id).toBe('beta');
+    expect(written.layout_version).toBe(makeDoc().layout_version);
+    expect(written.suggest_log).toEqual([expect.objectContaining({ id: 's-zones', accepted_at: expect.any(String) })]);
+    expect(queryAll('.sm-ghost')).toHaveLength(0);
+    expect(zonePath('delta')).toBe(NEW_DELTA);
+    expect(queryAll('.sm-zoneline')).toHaveLength(0);
+    expect(queryAll('.sm-labels .sm-room').some(node => node.textContent?.includes('x 0 to 8'))).toBe(true);
+    expect(query('.sm-pill')).toBeNull();
+  });
+
+  it('leaves the plan alone when discarded, and logs it', async () => {
+    const fake = await openSuggesting();
+    press(outline(), 'Enter');
+    await discard();
+    await settle(1100);
+    const written = writes(fake).at(-1)?.value as MapDoc;
+    expect(written.plan.zones).toEqual(makeDoc().plan.zones);
+    expect(written.plan.zone_lines).toEqual(makeDoc().plan.zone_lines);
+    expect(written.devices.door_1.zone_id).toBe('alpha');
+    expect(written.suggest_log).toEqual([expect.objectContaining({ id: 's-zones', rejected_at: expect.any(String) })]);
+    expect(queryAll('.sm-ghost')).toHaveLength(0);
+    expect(zonePath('delta')).toBe(OLD_DELTA);
+  });
+
+  it('is a card in the suggestions sheet that can be shown on the map, which selects the outline', async () => {
+    await openSuggesting();
+    act(() => (query('.sm-pill') as HTMLElement).click());
+    const card = query('.sm-sheet .sm-suggest-card') as HTMLElement;
+    expect(card.querySelector('.sm-tag')?.textContent).toBe('Zones');
+    expect(card.textContent).toContain('Delta');
+    expect(card.textContent).toContain('It runs on there');
+    expect(card.textContent).toContain(`${LINES.join('; ')}.`);
+    expect([...card.querySelectorAll('button')].map(node => node.textContent)).toEqual(['Accept', 'Show on map', 'Discard suggestion']);
+    act(() => ([...card.querySelectorAll('button')].find(node => node.textContent === 'Show on map') as HTMLElement).click());
+    await settle(100);
+    expect(query('.sm-ghost.sel')).not.toBeNull();
+    expect(query('.sm-sheet .sm-sheet-sub')?.textContent).toBe('suggested zone change');
+  });
+
+  it('is not dragged in Edit: a drag on the outline pans the plan and accepts nothing', async () => {
+    const fake = await openSuggesting();
+    mode('Edit');
+    const from = screenOf(4, 6);
+    const fire = (target: Element, name: string, at: { x: number; y: number }) =>
+      act(
+        () =>
+          void target.dispatchEvent(
+            new PointerEvent(name, { bubbles: true, pointerId: 1, pointerType: 'mouse', button: 0, clientX: at.x, clientY: at.y })
+          )
+      );
+    const before = query('.sm-svg')?.getAttribute('viewBox');
+    fire(query('.sm-ghost-zones .sm-ghost-edge') as Element, 'pointerdown', from);
+    fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + 20, y: from.y });
+    fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + 40, y: from.y });
+    fire(query('.sm-svg') as Element, 'pointerup', { x: from.x + 40, y: from.y });
+    await settle();
+    expect(query('.sm-svg')?.getAttribute('viewBox')).not.toBe(before);
+    expect(writes(fake)).toHaveLength(0);
+    expect(queryAll('.sm-ghost-zones')).toHaveLength(1);
+  });
+
+  it('has no outline to draw when it only moves devices: a card without Show on map, accepted from the list', async () => {
+    const fake = await openSuggesting({ device_zones: { door_1: 'beta' } });
+    expect(queryAll('.sm-ghost')).toHaveLength(0);
+    expect(query('.sm-pill')?.textContent).toBe('1 suggestion');
+    act(() => (query('.sm-pill') as HTMLElement).click());
+    const card = query('.sm-sheet .sm-suggest-card') as HTMLElement;
+    expect(card.querySelector('.sm-tag')?.textContent).toBe('Zones');
+    expect(card.textContent).toContain('Zone change');
+    expect([...card.querySelectorAll('button')].map(node => node.textContent)).toEqual(['Accept', 'Discard suggestion']);
+    act(() => chip('Accept').click());
+    await settle(1100);
+    expect((writes(fake).at(-1)?.value as MapDoc).devices.door_1.zone_id).toBe('beta');
+  });
+
+  it('is refused as a whole when a part cannot be applied: Accept writes nothing and the suggestion stays', async () => {
+    const fake = await openSuggesting({ ...CHANGE, device_zones: { door_1: 'nowhere' } });
+    press(outline(), 'Enter');
+    act(() => chip('Accept').click());
+    await settle(1500);
+    expect(writes(fake)).toHaveLength(0);
+    expect(zonePath('delta')).toBe(OLD_DELTA);
+    expect(queryAll('.sm-ghost-zones')).toHaveLength(1);
+    expect(query('.sm-pill')?.textContent).toBe('1 suggestion');
   });
 });
 

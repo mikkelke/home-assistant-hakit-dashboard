@@ -23,6 +23,7 @@
  *   { id, kind: 'phone', phone: { name, bermuda_address, person }, reason }
  *   { id, kind: 'furniture', furniture: { id, name, box: [x0, y0, x1, y1] }, reason }
  *   { id, kind: 'vent', vent: { id, name, kind: 'supply' | 'exhaust', pos: { x, y, h? }, valve?, flow_m3h? }, reason }
+ *   { id, kind: 'zone_change', change: { zones?, remove_zone_lines?, add_zone_lines?, annotations?, device_zones? }, reason }
  *
  * and replaces the whole document, so a file holds every item that should stay. The page writes an accepted item
  * into `sensor_map`; no command does. A `wifi` item names the phone a survey capture reads, as `source`
@@ -36,6 +37,12 @@
  * A `vent` item draws a dashed ring on the plan; accepted, it joins `plan.vents`, replacing the entry with the same `vent.id`.
  * `pos` is in metres, y up, like the position of a device, and `h` is the height above the floor. `valve` is the model of
  * the valve and `flow_m3h` the airflow it is set to.
+ * A `zone_change` item is one change to the zones that the page accepts or refuses as a whole: `zones` gives a new outline,
+ * and optionally a new `label` point, for zones that exist (`[{ zone_id, poly, label? }]`, the poly in metres with at least
+ * three points); `remove_zone_lines` lists the `x` of zone lines to drop and `add_zone_lines` the `{ x, y1 }` lines to draw;
+ * `annotations` maps the id of an annotation that exists to its new lines of text, or to null to remove it; `device_zones`
+ * maps a device key to the `zone_id` it is in. It draws the new outlines dashed; if a zone, an annotation to be reworded or
+ * a device it names is not there, or a device is sent to a zone that is not there, accepting it changes nothing.
  *
  * VITE_HA_URL and VITE_HA_TOKEN come from the environment, then `.env.development.local`, then `.env`. The
  * token must belong to an administrator: only administrators may write the system store.
