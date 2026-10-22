@@ -2056,6 +2056,27 @@ describe('a suggested zone change', () => {
     expect((writes(fake).at(-1)?.value as MapDoc).devices.door_1.zone_id).toBe('beta');
   });
 
+  it('can set ceiling heights alone: nothing to draw, one card that counts the zones, and Accept writes them', async () => {
+    const fake = await openSuggesting({
+      zones: [
+        { zone_id: 'alpha', ceiling_m: 2.67 },
+        { zone_id: 'beta', ceiling_m: 2.67 },
+        { zone_id: 'gamma', ceiling_m: 2.3 },
+      ],
+    });
+    expect(queryAll('.sm-ghost')).toHaveLength(0);
+    act(() => (query('.sm-pill') as HTMLElement).click());
+    const card = query('.sm-sheet .sm-suggest-card') as HTMLElement;
+    expect(card.textContent).toContain('3 zones');
+    expect(card.textContent).toContain('Alpha: ceiling 2.67 m; Beta: ceiling 2.67 m; Gamma: ceiling 2.3 m.');
+    expect([...card.querySelectorAll('button')].map(node => node.textContent)).toEqual(['Accept', 'Discard suggestion']);
+    act(() => chip('Accept').click());
+    await settle(1100);
+    const written = writes(fake).at(-1)?.value as MapDoc;
+    expect(written.plan.zones.map(zone => zone.ceiling_m)).toEqual([2.67, 2.67, 2.3, null]);
+    expect(written.plan.zones.map(zone => zone.poly)).toEqual(makeDoc().plan.zones.map(zone => zone.poly));
+  });
+
   it('is refused as a whole when a part cannot be applied: Accept writes nothing and the suggestion stays', async () => {
     const fake = await openSuggesting({ ...CHANGE, device_zones: { door_1: 'nowhere' } });
     press(outline(), 'Enter');

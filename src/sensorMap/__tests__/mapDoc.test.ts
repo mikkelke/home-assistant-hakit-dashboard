@@ -1224,6 +1224,10 @@ describe('a suggested zone change', () => {
       { zones: [{ poly: rect(0, 4, 8, 8) }] },
       { zones: [{ zone_id: ' ', poly: rect(0, 4, 8, 8) }] },
       { zones: [{ zone_id: 'delta' }] },
+      { zones: [{ zone_id: 'delta', ceiling_m: 0 }] },
+      { zones: [{ zone_id: 'delta', ceiling_m: -2.5 }] },
+      { zones: [{ zone_id: 'delta', ceiling_m: '2.5' }] },
+      { zones: [{ zone_id: 'delta', ceiling_m: Number.NaN }] },
       { zones: [{ zone_id: 'delta', poly: rect(0, 4, 8, 8).slice(0, 2) }] },
       {
         zones: [
@@ -1304,6 +1308,35 @@ describe('a suggested zone change', () => {
     );
     expect(outline.devices).toBe(before.devices);
     expect(outline.plan.zone_lines).toBe(before.plan.zone_lines);
+  });
+
+  it('can give zones a ceiling height without an outline, and null takes one away', () => {
+    const before = makeDoc();
+    const only = { remove_zone_lines: undefined, add_zone_lines: undefined, annotations: undefined, device_zones: undefined };
+    const doc = accept(
+      change({
+        ...only,
+        zones: [
+          { zone_id: 'alpha', ceiling_m: 2.67 },
+          { zone_id: 'beta', ceiling_m: 2.3, label: [6, 2] },
+        ],
+      }),
+      before
+    );
+    expect(doc.plan.zones[0]).toEqual({ ...before.plan.zones[0], ceiling_m: 2.67 });
+    expect(doc.plan.zones[0].poly).toBe(before.plan.zones[0].poly);
+    expect(doc.plan.zones[1]).toEqual({ ...before.plan.zones[1], ceiling_m: 2.3, label: [6, 2] });
+    expect(doc.plan.zones[2]).toBe(before.plan.zones[2]);
+    const cleared = accept(change({ ...only, zones: [{ zone_id: 'gamma', ceiling_m: null }] }), before);
+    expect(before.plan.zones[2].ceiling_m).toBe(2.4);
+    expect(cleared.plan.zones[2]).toEqual({ ...before.plan.zones[2], ceiling_m: null });
+    expect(validateMapDoc(JSON.parse(JSON.stringify(doc)))).toEqual([]);
+  });
+
+  it('keeps the ceiling height of a zone that it only redraws', () => {
+    const doc = accept(change({ zones: [{ zone_id: 'gamma', poly: rect(8, 0, 12, 6) }] }));
+    expect(doc.plan.zones[2].ceiling_m).toBe(2.4);
+    expect(doc.plan.zones[2].poly).toEqual(rect(8, 0, 12, 6));
   });
 
   it('keeps the label point of a zone when the change gives none', () => {

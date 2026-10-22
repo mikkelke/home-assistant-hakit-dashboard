@@ -38,8 +38,9 @@
  * `pos` is in metres, y up, like the position of a device, and `h` is the height above the floor. `valve` is the model of
  * the valve and `flow_m3h` the airflow it is set to.
  * A `zone_change` item is one change to the zones that the page accepts or refuses as a whole: `zones` gives a new outline,
- * and optionally a new `label` point, for zones that exist (`[{ zone_id, poly, label? }]`, the poly in metres with at least
- * three points); `remove_zone_lines` lists the `x` of zone lines to drop and `add_zone_lines` the `{ x, y1 }` lines to draw;
+ * label point or ceiling height for zones that exist (`[{ zone_id, poly?, label?, ceiling_m? }]`, the poly in metres with at
+ * least three points, `ceiling_m` above 0 or null to clear it); `remove_zone_lines` lists the `x` of zone lines to drop and
+ * `add_zone_lines` the `{ x, y1 }` lines to draw;
  * `annotations` maps the id of an annotation that exists to its new lines of text, or to null to remove it; `device_zones`
  * maps a device key to the `zone_id` it is in. It draws the new outlines dashed; if a zone, an annotation to be reworded or
  * a device it names is not there, or a device is sent to a zone that is not there, accepting it changes nothing.

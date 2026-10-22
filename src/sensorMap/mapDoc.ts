@@ -110,8 +110,8 @@ export interface Vent {
 
 /** A change to the zones of the plan that is accepted or refused as a whole. */
 export interface ZoneChange {
-  /** A new outline, and optionally a new label point, for zones that exist, by `zone_id`. */
-  zones?: { zone_id: string; poly: Point[]; label?: Point }[];
+  /** A new outline, label point or ceiling height for zones that exist, by `zone_id`; a `ceiling_m` of null clears it. */
+  zones?: { zone_id: string; poly?: Point[]; label?: Point; ceiling_m?: number | null }[];
   /** Zone lines to drop, by `x`, and zone lines to draw; one drawn at the `x` of a line that is there replaces it. */
   remove_zone_lines?: number[];
   add_zone_lines?: ZoneLine[];
@@ -539,10 +539,14 @@ function checkZoneChange(value: unknown, path: string, problems: string[]) {
           !isObject(zone) ||
           !isString(zone.zone_id) ||
           zone.zone_id.trim() === '' ||
-          !isPoly(zone.poly) ||
-          (zone.label !== undefined && !isPoint(zone.label))
+          (zone.poly === undefined && zone.label === undefined && zone.ceiling_m === undefined) ||
+          (zone.poly !== undefined && !isPoly(zone.poly)) ||
+          (zone.label !== undefined && !isPoint(zone.label)) ||
+          (zone.ceiling_m !== undefined && zone.ceiling_m !== null && !(isNumber(zone.ceiling_m) && zone.ceiling_m > 0))
         ) {
-          return problems.push(`${where} needs a zone_id, a poly of at least three points and, if it has one, a label point`);
+          return problems.push(
+            `${where} needs a zone_id and a poly of at least three points, a label point or a ceiling_m above 0 or null, or any of them`
+          );
         }
         if (ids.has(zone.zone_id)) problems.push(`${where}.zone_id ${zone.zone_id} is used twice`);
         ids.add(zone.zone_id);
@@ -966,7 +970,14 @@ function applyZoneChange(doc: MapDoc, change: ZoneChange): MapDoc | null {
   for (const redrawn of change.zones ?? []) {
     if (!zones.some(zone => zone.zone_id === redrawn.zone_id)) return null;
     zones = zones.map(zone =>
-      zone.zone_id === redrawn.zone_id ? { ...zone, poly: redrawn.poly, label: redrawn.label ?? zone.label } : zone
+      zone.zone_id === redrawn.zone_id
+        ? {
+            ...zone,
+            poly: redrawn.poly ?? zone.poly,
+            label: redrawn.label ?? zone.label,
+            ceiling_m: redrawn.ceiling_m === undefined ? zone.ceiling_m : redrawn.ceiling_m,
+          }
+        : zone
     );
   }
   const dropped = change.remove_zone_lines ?? [];
