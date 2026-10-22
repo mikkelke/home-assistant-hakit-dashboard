@@ -83,3 +83,12 @@ export function inferDishwasherSemanticState(entity: HassEntity | undefined | nu
   }
   return state;
 }
+
+/** When the delay timer was set (UTC ISO, '' if unknown), or null when no timer runs. AppDaemon's
+ * `binary_sensor.dishwasher_timer` reads the countdown from standby power; it only counts while the
+ * dishwasher is Off, since a started run ends the timer. */
+export function dishwasherTimerSince(timer: HassEntity | undefined | null, state: DishwasherSemanticState): string | null {
+  if (state !== 'Off' || timer?.state !== 'on') return null;
+  const since = timer.attributes?.since;
+  return typeof since === 'string' ? since : '';
+}

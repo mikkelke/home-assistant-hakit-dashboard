@@ -274,6 +274,11 @@ button.appliance-chip:active {
   background: var(--appliance-accent-bg);
   color: var(--appliance-accent);
 }
+.appliance-chip-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 
 /* Paused */
 .appliance-paused-row {

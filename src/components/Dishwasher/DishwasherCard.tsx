@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
-import { resolveDishwasherSemanticState } from '../../utils/dishwasherSemanticState';
+import { dishwasherTimerSince, resolveDishwasherSemanticState } from '../../utils/dishwasherSemanticState';
 import { formatKr } from '../../utils/format';
 import { useRunCost } from '../../energy';
 import { ApplianceCycleTiming } from '../ApplianceCycleTiming';
@@ -17,6 +17,7 @@ const DISHWASHER_INPUT_STATE_ID = 'input_select.dishwasher_state';
 const PROGRAMME_SELECT_ID = 'input_select.dishwasher_confirmed_programme';
 const SHORT_SELECT_ID = 'input_select.dishwasher_short';
 const EMPTIED_BUTTON_ID = 'input_button.dishwasher_emptied';
+const TIMER_ID = 'binary_sensor.dishwasher_timer';
 
 const SHORT_OPTIONS = ['—', 'Yes', 'No'] as const;
 
@@ -184,9 +185,12 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
 
   if (!dishwasher) return null;
 
-  if (state === 'Off' || state === 'Emptied') return null;
+  // A set delay timer keeps the card up while Off, so the programme can be picked for the timed run.
+  const timerSince = dishwasherTimerSince(entities?.[TIMER_ID], state);
+  const timerSet = timerSince !== null;
+  if ((state === 'Off' && !timerSet) || state === 'Emptied') return null;
 
-  const programmeLabel = (attrs.programme_label as string) || programmeSelect?.state || '—';
+  const programmeLabel = timerSet ? programmeSelect?.state || '—' : (attrs.programme_label as string) || programmeSelect?.state || '—';
   const options: string[] = Array.isArray(programmeSelect?.attributes?.options) ? (programmeSelect.attributes.options as string[]) : [];
   const remainingMin = attrs.estimated_remaining_min != null ? Number(attrs.estimated_remaining_min) : undefined;
   const totalMin = attrs.programme_duration_min != null ? Number(attrs.programme_duration_min) : undefined;
@@ -233,7 +237,7 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
       countdownLabel != null ||
       (estimatedEndTime != null && String(estimatedEndTime).trim() !== ''));
 
-  const isInteractive = state === 'Running' || state === 'Unemptied';
+  const isInteractive = state === 'Running' || state === 'Unemptied' || timerSet;
 
   const handleProgrammeChange = (option: string) => {
     if (!callService || !programmeSelect) return;
@@ -274,8 +278,8 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
     });
   };
 
-  const stateWord = state === 'Running' ? 'Running' : state === 'Paused' ? 'Paused' : 'Empty it';
-  const stateWordClass = state === 'Running' ? 'tint' : state === 'Unemptied' ? 'alert' : 'muted';
+  const stateWord = timerSet ? 'Timer' : state === 'Running' ? 'Running' : state === 'Paused' ? 'Paused' : 'Empty it';
+  const stateWordClass = state === 'Running' || timerSet ? 'tint' : state === 'Unemptied' ? 'alert' : 'muted';
 
   // "Done HH:MM": the dishwasher has no idle-detection lag (unlike washer/dryer), so last_changed
   // IS the real cycle end — omitted entirely when it can't be parsed.
@@ -287,6 +291,12 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
 
   const renderChips = () => (
     <div className='appliance-chips'>
+      {timerSet && (
+        <span className='appliance-chip on appliance-chip-icon' aria-label='Delay timer set'>
+          <Icon icon='mdi:timer-outline' aria-hidden='true' />
+          {timerSince && formatTimeOnly(timerSince)}
+        </span>
+      )}
       <DishwasherChip label={programmeLabel} isInteractive={isInteractive} onClick={() => setOpenPicker('programme')} />
       {shortSelect && (
         <DishwasherChip label={formatShortLabel(shortSelect.state)} isInteractive={isInteractive} onClick={() => setOpenPicker('short')} />
@@ -382,6 +392,8 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
           )}
         </>
       )}
+
+      {timerSet && renderChips()}
 
       {state === 'Paused' && (
         <div className='appliance-paused-row'>
