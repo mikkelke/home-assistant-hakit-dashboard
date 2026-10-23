@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
-import { useIsMobile } from '../../hooks/useMediaQuery';
+import { useRoomDetailOverlay } from '../../hooks/useMediaQuery';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { useAppOpenTracking } from '../../hooks/useAppOpenTracking';
 import { EXCLUDED_AREAS } from '../../config/dashboard';
@@ -431,7 +431,7 @@ export function Dashboard() {
   const [coffeeLink, setCoffeeLink] = useState<{ brewId: string; atMs: number } | null>(null);
   const [nowRoute, setNowRoute] = useState<NowRoute | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const isMobile = useIsMobile();
+  const isMobile = useRoomDetailOverlay();
   // Flag to prevent hash change handler from running during programmatic updates
   const isUpdatingHashRef = useRef(false);
   const hashUpdateTimeoutRef = useRef<number | null>(null);
@@ -1011,7 +1011,9 @@ export function Dashboard() {
         : 'grid';
 
   return (
-    <div className={`dashboard ${selectedRoom ? 'has-detail' : ''} ${nowRoute ? 'is-covered' : ''}`}>
+    <div
+      className={`dashboard ${selectedRoom ? 'has-detail' : ''} ${selectedRoom && isMobile ? 'detail-overlay' : ''} ${nowRoute ? 'is-covered' : ''}`}
+    >
       <MotionConditions scope={motionScope} />
       <Menu
         isOpen={isMenuOpen}

@@ -33,7 +33,7 @@ vi.mock('@hakit/core', async () => {
 });
 vi.mock('@iconify/react', () => ({ Icon: () => null }));
 vi.mock('../../../hooks/useTrackedEntities', () => ({ useTrackedEntities: () => ({}) }));
-vi.mock('../../../hooks/useMediaQuery', () => ({ useIsMobile: () => true }));
+vi.mock('../../../hooks/useMediaQuery', () => ({ useRoomDetailOverlay: () => true }));
 vi.mock('../../Home/HomeHeader', () => ({ HomeHeader: () => null }));
 vi.mock('../../Home/MotionConditions', () => ({ MotionConditions: () => null }));
 vi.mock('../../Home/PulseRow', () => ({ PulseRow: () => null }));

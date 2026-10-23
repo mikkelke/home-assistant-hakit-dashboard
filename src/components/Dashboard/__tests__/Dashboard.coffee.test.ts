@@ -33,7 +33,8 @@ vi.mock('@hakit/core', async () => {
 });
 vi.mock('@iconify/react', () => ({ Icon: () => null }));
 vi.mock('../../../hooks/useTrackedEntities', () => ({ useTrackedEntities: () => ({}) }));
-vi.mock('../../../hooks/useMediaQuery', () => ({ useIsMobile: () => true }));
+const layout = vi.hoisted(() => ({ overlay: true }));
+vi.mock('../../../hooks/useMediaQuery', () => ({ useRoomDetailOverlay: () => layout.overlay }));
 vi.mock('../../Home/HomeHeader', () => ({ HomeHeader: () => null }));
 vi.mock('../../Home/MotionConditions', () => ({ MotionConditions: () => null }));
 vi.mock('../../Home/PulseRow', () => ({ PulseRow: () => null }));
@@ -42,10 +43,10 @@ vi.mock('../../RoomGrid', () => ({ RoomGrid: () => null }));
 vi.mock('../../FireSafety', () => ({ FireAlarmTakeover: () => null }));
 vi.mock('../../QuickAccess/QuickAccess', () => ({ QuickAccess: () => createElement('div', { id: 'quick-access' }) }));
 vi.mock('../../RoomDetail', () => ({
-  RoomDetail: ({ area, onOpenCoffee }: { area: { area_id: string }; onOpenCoffee?: () => void }) =>
+  RoomDetail: ({ area, onOpenCoffee, isMobile }: { area: { area_id: string }; onOpenCoffee?: () => void; isMobile: boolean }) =>
     createElement(
       'div',
-      { id: 'room-detail', 'data-area': area.area_id },
+      { id: 'room-detail', 'data-area': area.area_id, 'data-layout': isMobile ? 'overlay' : 'split' },
       createElement('button', { id: 'open-coffee', onClick: onOpenCoffee })
     ),
 }));
@@ -78,6 +79,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   window.history.replaceState(null, '', '/dashboard');
   stage.props = null;
+  layout.overlay = true;
   root = createRoot(document.body.appendChild(document.createElement('div')));
 });
 
@@ -100,6 +102,25 @@ async function mount() {
 }
 
 const has = (selector: string) => document.querySelector(selector) !== null;
+
+describe('room layout changes', () => {
+  it('keeps the selected room and history entry when rotating between split and overlay', async () => {
+    window.history.replaceState(null, '', '/dashboard#room=kitchen');
+    await mount();
+    const push = vi.spyOn(window.history, 'pushState');
+    for (const overlay of [false, true, false]) {
+      layout.overlay = overlay;
+      await act(async () => root.render(createElement(Dashboard)));
+      await settle();
+      expect(document.querySelector('#room-detail')?.getAttribute('data-layout')).toBe(overlay ? 'overlay' : 'split');
+      expect(document.querySelector('#room-detail')?.getAttribute('data-area')).toBe('kitchen');
+      expect(document.querySelector('.dashboard')?.classList.contains('detail-overlay')).toBe(overlay);
+      expect(window.location.hash).toBe('#room=kitchen');
+      expect(has('.overlay')).toBe(overlay);
+    }
+    expect(push).not.toHaveBeenCalled();
+  });
+});
 
 describe('the #coffee route', () => {
   it('opens the stage for a cold #coffee link and hides the quick access bar while it is open', async () => {

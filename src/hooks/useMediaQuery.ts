@@ -43,6 +43,12 @@ export function useIsMobile(): boolean {
   return useMediaQuery('(max-width: 768px)');
 }
 
+/** A room needs its own screen when two readable panes cannot fit. A phone
+ * turned sideways still has too little height; a portrait tablet needs its width. */
+export function useRoomDetailOverlay(): boolean {
+  return useMediaQuery('(max-width: 959px), (max-width: 1199px) and (orientation: portrait), (max-width: 1199px) and (max-height: 599px)');
+}
+
 /**
  * Hook to detect tablet devices
  * @returns boolean indicating if the device is a tablet
