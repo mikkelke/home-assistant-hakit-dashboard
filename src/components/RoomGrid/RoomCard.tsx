@@ -9,7 +9,6 @@ import {
   OUTDOOR_TEMP_SENSOR,
   WEATHER_ENTITY,
   resolveHallwayDoorSensorId,
-  resolveHallwayLockEntityId,
   resolveKitchenHumiditySensorId,
   roomFeelSensorId,
 } from '../../config/entities';
@@ -24,6 +23,7 @@ import { AREA_EXTERIOR_CONTACTS, FROST_BELOW_C, asleepAreaIds, isAreaOpen, roomG
 import { HOME_APPLIANCES, ROBER2_RING, rober2CleaningAreaId, type RingAppliance } from '../../home/upcoming';
 import { useNowMs } from '../../hooks/useNowMs';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
+import { resolveApartmentLock } from '../../utils/apartmentLock';
 import { formatDecimal } from '../../utils/format';
 import { IndicatorWithTimeline } from './IndicatorWithTimeline';
 import { MultiEntitySelector } from './MultiEntitySelector';
@@ -474,18 +474,19 @@ export function RoomCard({ area, entities, todo = NO_TODO, onClick, onClimateCli
       ),
     });
   }
-  const frontLockId = isHallway ? resolveHallwayLockEntityId(entities) : null;
-  if (frontLockId) {
+  const apartmentLock = isHallway ? resolveApartmentLock(entities) : null;
+  const frontLockId = apartmentLock?.historyEntityId;
+  if (frontLockId && apartmentLock) {
     exceptions.push({
       key: 'lock',
-      active: entities?.[frontLockId]?.state === 'unlocked',
+      active: apartmentLock.state !== 'locked',
       node: (
         <IndicatorWithTimeline
           entityId={frontLockId}
           hassUrl={hassUrl}
           className='indicator lock active'
-          title='Apartment unlocked - click for timeline'
-          icon='mdi:lock-open-variant'
+          title={`Apartment lock ${apartmentLock.label.toLowerCase()} - click for timeline`}
+          icon={apartmentLock.icon}
           modalTitle='Apartment lock'
         />
       ),

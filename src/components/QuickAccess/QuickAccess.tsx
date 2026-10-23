@@ -29,6 +29,7 @@ import { useModalBackButton, useSwipeToClose, useViewer } from '../../hooks';
 import { availablePhonePlayer, isPhonePlayer } from '../../home/household';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { onIdle } from '../../utils/idle';
+import { useApartmentLock } from '../../hooks/useApartmentLock';
 import type { OpenNow } from '../../utils/navigation';
 import { trackUiTap } from '../../utils/trackUiTap';
 import { RequestSheet, RequestTile, useRequestAccess } from '../Request';
@@ -184,7 +185,6 @@ const trackAccess = (action: string, detail?: string) => trackUiTap(`qa.access.$
 const DOOR_UI: Record<string, string> = {
   'lock.intercomproxy_front_door': 'qa.doors.front',
   'lock.intercomproxy_back_door': 'qa.doors.back',
-  'lock.yale_bt': 'qa.doors.lock',
 };
 const transitLabel = (line: { station: string; name: string; destination: string }) =>
   `${line.station} / ${line.name} / ${line.destination}`;
@@ -500,27 +500,31 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
 
   const frontLock = entities?.['lock.intercomproxy_front_door'];
   const backLock = entities?.['lock.intercomproxy_back_door'];
-  const aptLock = entities?.['lock.yale_bt'];
-  const aptLocked = aptLock?.state === 'locked';
+  const aptLock = useApartmentLock(entities, !!callService);
 
   const fireDoor = useCallback(
-    (entityId: string, lockEntity: typeof frontLock, lockToggle = false) => {
+    (entityId: string, lockEntity: typeof frontLock) => {
       if (!callService) return;
-      if (!lockToggle && entityId === 'lock.intercomproxy_front_door') {
+      if (entityId === 'lock.intercomproxy_front_door') {
         // Front street door: ABB button press, not a lock service - see FRONT_DOOR_ABB_BUTTON above.
         callService({ domain: 'button', service: 'press', target: { entity_id: FRONT_DOOR_ABB_BUTTON } });
       } else {
         const supported = Number(lockEntity?.attributes?.supported_features ?? 0);
-        const service = lockToggle ? (aptLocked ? 'unlock' : 'lock') : (supported & 1) !== 0 ? 'open' : 'unlock';
+        const service = (supported & 1) !== 0 ? 'open' : 'unlock';
         callService({ domain: 'lock', service, target: { entity_id: entityId } });
       }
-      trackUiTap(DOOR_UI[entityId], lockToggle ? (aptLocked ? 'unlock' : 'lock') : undefined);
+      trackUiTap(DOOR_UI[entityId]);
       setDoorFired(entityId);
       if (firedTimer.current) clearTimeout(firedTimer.current);
       firedTimer.current = setTimeout(() => setDoorFired(null), 2000);
     },
-    [callService, aptLocked]
+    [callService]
   );
+
+  const toggleApartmentLock = async () => {
+    const service = await aptLock.send();
+    if (service) trackUiTap('qa.doors.lock', service);
+  };
 
   const qaDoorBtn = (id: string, lock: typeof frontLock, letter: string, label: string) => (
     <button
@@ -541,18 +545,25 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
       <div className='quick-access'>
         {doorsOpen && (
           <div className='qa-doors' role='group' aria-label='Doors'>
+            {aptLock.error && (
+              <span className='qa-lock-error' role='alert'>
+                {aptLock.error}
+              </span>
+            )}
             {frontLock && qaDoorBtn('lock.intercomproxy_front_door', frontLock, 'F', 'Open the front building door')}
             {backLock && qaDoorBtn('lock.intercomproxy_back_door', backLock, 'B', 'Open the back building door')}
-            {aptLock && (frontLock || backLock) && <span className='qa-door-div' aria-hidden='true' />}
-            {aptLock && (
+            {aptLock.present && (frontLock || backLock) && <span className='qa-door-div' aria-hidden='true' />}
+            {aptLock.present && (
               <button
                 type='button'
-                className={`qa-door is-lock ${aptLocked ? '' : 'is-unlocked'} ${doorFired === 'lock.yale_bt' ? 'is-done' : ''}`}
-                onClick={() => fireDoor('lock.yale_bt', aptLock, true)}
-                aria-label={aptLocked ? 'Unlock the apartment' : 'Lock the apartment'}
-                title={aptLocked ? 'Unlock the apartment' : 'Lock the apartment'}
+                className={`qa-door is-lock ${aptLock.state === 'unlocked' ? 'is-unlocked' : ''}`}
+                onClick={toggleApartmentLock}
+                disabled={aptLock.disabled}
+                aria-busy={aptLock.pending}
+                aria-label={aptLock.actionLabel}
+                title={aptLock.actionLabel}
               >
-                <Icon icon={doorFired === 'lock.yale_bt' ? 'mdi:check' : aptLocked ? 'mdi:lock' : 'mdi:lock-open-variant'} />
+                <Icon icon={aptLock.pending ? 'mdi:lock-clock' : aptLock.icon} />
               </button>
             )}
             <span className='qa-door-div' aria-hidden='true' />

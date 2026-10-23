@@ -703,3 +703,10 @@
     max-height: calc(100dvh - 110px);
   }
 }
+
+.access-quick-btn:disabled,
+.access-ibtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+  transform: none;
+}

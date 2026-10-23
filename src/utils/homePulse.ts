@@ -1,8 +1,9 @@
-import { APARTMENT_DOOR_OPEN_ENTITY, resolveHallwayDoorSensorId, resolveHallwayLockEntityId } from '../config/entities';
+import { APARTMENT_DOOR_OPEN_ENTITY, resolveHallwayDoorSensorId } from '../config/entities';
 import { TRANSIT_LINES, getTransitSeverity, isTransitAlert } from '../config/transit';
 import { getTransitLineDisplayStatus } from './transitDisplay';
 import type { Area, HassEntities, HassEntity, HomePulseSummary, PulseChip } from '../types';
 import { resolveDishwasherSemanticState } from './dishwasherSemanticState';
+import { resolveApartmentLock } from './apartmentLock';
 import { deriveFireSafety, faultLabel } from './fireSafety';
 
 const APPLIANCE_READY_STATES = ['complete', 'finished', 'done', 'ready', 'end', 'completed', 'end of cycle', 'unemptied'];
@@ -205,13 +206,12 @@ function buildFireSafetyChip(entities: HassEntities): ChipCandidate | null {
 function buildLockChip(entities: HassEntities, homePeopleCount: number): ChipCandidate | null {
   if (homePeopleCount > 0) return null;
 
-  const lockEntityId = resolveHallwayLockEntityId(entities);
-  const apartmentLock = lockEntityId ? entities?.[lockEntityId] : undefined;
+  const apartmentLock = resolveApartmentLock(entities);
   const doorEntityId = resolveHallwayDoorSensorId(entities) ?? APARTMENT_DOOR_OPEN_ENTITY;
   const apartmentDoor = entities?.[doorEntityId];
-  const lockOpenMinutes = minutesSince(apartmentLock?.last_changed ?? apartmentLock?.last_updated);
+  const lockOpenMinutes = minutesSince(apartmentLock.since);
 
-  if (apartmentLock?.state !== 'unlocked' || apartmentDoor?.state !== 'off') return null;
+  if (apartmentLock.state !== 'unlocked' || apartmentDoor?.state !== 'off') return null;
   if (lockOpenMinutes !== null && lockOpenMinutes < 4) return null;
 
   return {

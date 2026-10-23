@@ -1,8 +1,9 @@
 import { lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
-import { APARTMENT_DOOR_OPEN_ENTITY, APARTMENT_ENTRY_SECURE_ENTITY, resolveHallwayDoorSensorId } from '../../config/entities';
+import { APARTMENT_DOOR_OPEN_ENTITY, resolveHallwayDoorSensorId } from '../../config/entities';
 import { useLocalStorageBoolean, useTouchScrollSlopGuard } from '../../hooks';
+import { useApartmentLock } from '../../hooks/useApartmentLock';
 import { LazyBoundary } from '../Lazy/LazyBoundary';
 import { fetchDoorbellIndex, formatRingTime, type DoorbellImage } from './doorbellArchive';
 import './IntercomCard.css';
@@ -117,7 +118,6 @@ export function IntercomCard({ entities, callService, showHeader = false, onUiTa
   const autoOpenId = 'input_boolean.auto_open_intercom';
   const frontLockId = 'lock.intercomproxy_front_door';
   const backLockId = 'lock.intercomproxy_back_door';
-  const aptLockId = 'lock.yale_bt';
   const aptDoorSensorId = resolveHallwayDoorSensorId(entities) ?? APARTMENT_DOOR_OPEN_ENTITY;
 
   const autoOpen = entities?.[autoOpenId];
@@ -125,28 +125,22 @@ export function IntercomCard({ entities, callService, showHeader = false, onUiTa
 
   const frontLock = entities?.[frontLockId];
   const backLock = entities?.[backLockId];
-  const aptLock = entities?.[aptLockId];
+  const aptLock = useApartmentLock(entities, !!callService);
   const aptDoorSensor = entities?.[aptDoorSensorId];
 
-  // Entry truth middle layer: BLE-authoritative state + cloud-divergence knowledge.
-  // Falls back to the raw BLE lock when the semantic entity is unavailable.
-  const entrySecure = entities?.[APARTMENT_ENTRY_SECURE_ENTITY];
-  const entryAttrs = (entrySecure?.attributes ?? {}) as Record<string, unknown>;
-  const lockStateSource = typeof entryAttrs.lock_state === 'string' ? entryAttrs.lock_state : aptLock?.state;
-  const aptLocked = lockStateSource === 'locked';
-  const cloudStale = !!entrySecure && entryAttrs.cloud_agrees === false;
+  const aptLocked = aptLock.state === 'locked';
   const aptDoorOpen = aptDoorSensor?.state === 'on';
 
   // Show only if we have any relevant entity
-  if (!autoOpen && !frontLock && !backLock && !aptLock) return null;
+  if (!autoOpen && !frontLock && !backLock && !aptLock.present) return null;
 
   // Unlocked for longer than the grace window -> the one red row this card is allowed.
-  // Measured from the BLE lock's own last_changed (the entity the unlock button drives).
-  const unlockedSinceMs = !aptLocked && aptLock?.last_changed ? Date.parse(aptLock.last_changed) : NaN;
+  // Use the same lock truth and its duration as the icon and toggle.
+  const unlockedSinceMs = aptLock.state === 'unlocked' && aptLock.since ? Date.parse(aptLock.since) : NaN;
   const unlockedMinutes = Number.isFinite(unlockedSinceMs) ? Math.floor((now - unlockedSinceMs) / 60_000) : 0;
   const unlockedTooLong = Number.isFinite(unlockedSinceMs) && unlockedMinutes >= UNLOCKED_ALERT_MINUTES;
 
-  const stateWord = `${aptLocked ? 'Locked' : 'Unlocked'} · ${aptDoorOpen ? 'Open' : 'Closed'}`;
+  const stateWord = `${aptLock.label} · ${aptDoorOpen ? 'Open' : 'Closed'}`;
   // Calm is the default, so it doesn't need saying: the closed padlock in the quick row IS
   // "locked". The word only appears when something is off-normal, freeing the header space
   // the doors now use.
@@ -193,17 +187,19 @@ export function IntercomCard({ entities, callService, showHeader = false, onUiTa
     });
   };
 
-  const handleAptLockToggle = () => {
-    if (!callService || !aptLock) return;
-    callService({
-      domain: 'lock',
-      service: aptLocked ? 'unlock' : 'lock',
-      target: { entity_id: aptLockId },
-    });
+  const handleAptLockToggle = async () => {
+    const service = await aptLock.send();
+    if (service) onUiTap?.('lock', service);
   };
 
   // The alert row is loud on purpose: it sits under the header whether or not the card is
   // expanded (a collapsed card must not be able to hide an unlocked door).
+  const commandError = aptLock.error ? (
+    <div className='access-alert' role='alert'>
+      {aptLock.error}
+    </div>
+  ) : null;
+
   const alertRow = unlockedTooLong ? (
     <div className='access-alert'>
       <Icon icon='mdi:alert' aria-hidden='true' />
@@ -253,19 +249,18 @@ export function IntercomCard({ entities, callService, showHeader = false, onUiTa
     <span className='access-quick' onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} role='presentation'>
       {frontLock && quickDoor(frontLockId, frontLock, 'F', 'Open the front building door')}
       {backLock && quickDoor(backLockId, backLock, 'B', 'Open the back building door')}
-      {aptLock && (frontLock || backLock) && <span className='access-quick-div' aria-hidden='true' />}
-      {aptLock && (
+      {aptLock.present && (frontLock || backLock) && <span className='access-quick-div' aria-hidden='true' />}
+      {aptLock.present && (
         <button
           type='button'
-          className={`access-quick-btn is-lock ${aptLocked ? '' : 'is-unlocked'} ${fired === aptLockId ? 'is-done' : ''}`}
-          onClick={() => {
-            handleAptLockToggle();
-            flashFired(aptLockId);
-          }}
-          aria-label={aptLocked ? 'Unlock the apartment' : 'Lock the apartment'}
-          title={aptLocked ? 'Unlock the apartment' : 'Lock the apartment'}
+          className={`access-quick-btn is-lock ${aptLock.state === 'unlocked' ? 'is-unlocked' : ''}`}
+          onClick={handleAptLockToggle}
+          disabled={aptLock.disabled}
+          aria-busy={aptLock.pending}
+          aria-label={aptLock.actionLabel}
+          title={aptLock.actionLabel}
         >
-          <Icon icon={fired === aptLockId ? 'mdi:check' : aptLocked ? 'mdi:lock' : 'mdi:lock-open-variant'} aria-hidden='true' />
+          <Icon icon={aptLock.pending ? 'mdi:lock-clock' : aptLock.icon} aria-hidden='true' />
         </button>
       )}
     </span>
@@ -274,30 +269,22 @@ export function IntercomCard({ entities, callService, showHeader = false, onUiTa
   const body = (
     <>
       <div className='access-rows'>
-        {aptLock && (
+        {aptLock.present && (
           <div className='access-row'>
             <span className='access-row-name'>Apartment</span>
-            <span className={`access-pill ${aptLocked ? '' : 'bad'}`}>{aptLocked ? 'Locked' : 'Unlocked'}</span>
+            <span className={`access-pill ${aptLock.state === 'unlocked' ? 'bad' : aptLocked ? '' : 'warn'}`}>{aptLock.label}</span>
             <span className={`access-pill ${aptDoorOpen ? 'warn' : ''}`}>{aptDoorOpen ? 'Open' : 'Closed'}</span>
-            {cloudStale && (
-              <span
-                className='access-pill warn'
-                title={String(entryAttrs.reason ?? 'Yale cloud out of sync — the lock itself is authoritative')}
-              >
-                Yale app stale
-              </span>
-            )}
+            {aptLock.degraded && <span className='access-pill warn'>Limited status</span>}
             <button
               type='button'
               className='access-ibtn access-ibtn--sm'
-              onClick={() => {
-                handleAptLockToggle();
-                onUiTap?.('lock', aptLocked ? 'unlock' : 'lock');
-              }}
-              aria-label={aptLocked ? 'Unlock the apartment' : 'Lock the apartment'}
-              title={aptLocked ? 'Unlock' : 'Lock'}
+              onClick={handleAptLockToggle}
+              disabled={aptLock.disabled}
+              aria-busy={aptLock.pending}
+              aria-label={aptLock.actionLabel}
+              title={aptLock.actionLabel}
             >
-              <Icon icon={aptLocked ? 'mdi:lock-open-outline' : 'mdi:lock-outline'} aria-hidden='true' />
+              <Icon icon={aptLock.command ? (aptLocked ? 'mdi:lock-open-outline' : 'mdi:lock-outline') : aptLock.icon} aria-hidden='true' />
             </button>
           </div>
         )}
@@ -401,6 +388,7 @@ export function IntercomCard({ entities, callService, showHeader = false, onUiTa
       <div className='access-card is-embedded'>
         {ringRow}
         {alertRow}
+        {commandError}
         {body}
         {gallery}
       </div>
@@ -444,6 +432,7 @@ export function IntercomCard({ entities, callService, showHeader = false, onUiTa
 
       {ringRow}
       {alertRow}
+      {commandError}
       {!collapsed && body}
       {gallery}
     </div>

@@ -1230,7 +1230,8 @@
 }
 
 /* Doors popover - press-and-hold the Access button to reach every door from any tab.
-   Same rules as the Access card's collapsed row: one tap per door, 2 s green check. */
+   Same rules as the Access card: building doors flash acknowledgement; the apartment
+   lock keeps showing semantic state while its request is acknowledged. */
 .qa-doors-scrim {
   position: fixed;
   inset: 0;
@@ -1323,4 +1324,23 @@
   background: rgba(245, 158, 11, 0.16);
   border-color: rgba(245, 158, 11, 0.35);
   color: #f59e0b;
+}
+
+.qa-door:disabled {
+  opacity: 0.45;
+  cursor: default;
+  transform: none;
+}
+
+.qa-lock-error {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: min(280px, calc(100vw - 32px));
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #2c2c2e;
+  color: #ff9f0a;
+  font-size: 13px;
+  line-height: 1.4;
 }

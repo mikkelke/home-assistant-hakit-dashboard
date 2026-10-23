@@ -23,17 +23,12 @@ export const VACUUM_CURRENT_ROOM_SENSOR = 'sensor.rober2_current_room';
 /** Robot map camera (live map image; in your HA this is image.rober2_rooftop). */
 export const VACUUM_MAP_IMAGE_ENTITY = 'image.rober2_rooftop';
 
-/**
- * Hallway / “main door” lock. lock.yale_bt (local Bluetooth) is authoritative — the cloud
- * twin lock.yale can miss re-lock pushes and stick "unlocked" (seen 2026-07-12, 1.5 h stale).
- * Intercom building front is split in two (trial): opening is commanded via the ABB Welcome
- * integration's button (button.abb_welcome_gateway_outdoor_station_2_1), while
- * lock.intercomproxy_front_door still reports the door's state — the ESP is the only side
- * that sees the door controller's bus acknowledgement, so state stays there no matter who
- * commanded the open. Building back door is unchanged: both command and state stay on
- * lock.intercomproxy_back_door.
- */
+/** Raw apartment lock command target. State truth comes from APARTMENT_LOCK_ENTITY. */
 export const FRONT_DOOR_LOCK_ENTITY = 'lock.yale_bt';
+/** The other transport for the same physical apartment lock. Never a building door. */
+export const APARTMENT_LOCK_CLOUD_ENTITY = 'lock.yale';
+/** LockHealth arbitrates the Yale twins; displays and toggle intent share this state. */
+export const APARTMENT_LOCK_ENTITY = 'sensor.apartment_lock';
 
 /**
  * Template: any apartment entry door open (OR of physical contacts).
@@ -51,17 +46,6 @@ export function resolveHallwayDoorSensorId(entities: HassEntities | undefined): 
   if (!entities) return null;
   if (entities[APARTMENT_DOOR_OPEN_ENTITY]) return APARTMENT_DOOR_OPEN_ENTITY;
   if (entities[YALE_DOOR_CONTACT_ENTITY]) return YALE_DOOR_CONTACT_ENTITY;
-  return null;
-}
-
-/**
- * Hallway lock indicator: primary {@link FRONT_DOOR_LOCK_ENTITY} (BLE), then cloud twin, then legacy IDs.
- */
-export function resolveHallwayLockEntityId(entities: HassEntities | undefined): string | null {
-  if (!entities) return null;
-  if (entities[FRONT_DOOR_LOCK_ENTITY]) return FRONT_DOOR_LOCK_ENTITY;
-  if (entities['lock.yale']) return 'lock.yale';
-  if (entities['lock.front_door']) return 'lock.front_door';
   return null;
 }
 
@@ -220,7 +204,7 @@ export const SMART_COOLING_NIGHT_CEILING = 'input_number.smart_cooling_night_cei
  * and the rescue flow - so they never say three different things about the same night. */
 export const SLEEP_PLAN_SENSOR = 'sensor.sleep_plan';
 
-/** Entry arbitration middle layer (AppDaemon EntryTruth): BLE-authoritative lock + door fused, cloud_agrees flag. */
+/** EntryTruth combines the arbitrated apartment lock with the door contact. */
 export const APARTMENT_ENTRY_SECURE_ENTITY = 'binary_sensor.apartment_entry_secure';
 
 // --- Bedroom solar shade (AppDaemon `BedroomSolarShade` app: blocks morning ENE sun, keeps daylight) ---

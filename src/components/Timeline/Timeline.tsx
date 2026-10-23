@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import type { HassEntities, HassEntity } from '../../types';
-import { APARTMENT_DOOR_OPEN_ENTITY, BEDROOM_BED_OCCUPANCY_SENSORS } from '../../config/entities';
+import { APARTMENT_DOOR_OPEN_ENTITY, APARTMENT_LOCK_ENTITY, BEDROOM_BED_OCCUPANCY_SENSORS } from '../../config/entities';
 import { extractRoomActiveZone, parseRoomActiveReason } from '../../utils/roomActiveReason';
 
 interface TimelineEvent {
@@ -112,6 +112,7 @@ function YaleAccessTimeWindow({
  * Includes door contacts and Yale locks so opening from the lock chip matches the door chip (no separate “Auto Lock” rows).
  */
 const YALE_ACCESS_TIMELINE_IDS = new Set([
+  APARTMENT_LOCK_ENTITY,
   APARTMENT_DOOR_OPEN_ENTITY,
   'binary_sensor.yale_door',
   'binary_sensor.yale_door_bt',

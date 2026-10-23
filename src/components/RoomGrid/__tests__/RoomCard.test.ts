@@ -35,7 +35,7 @@ vi.mock('@iconify/react', async () => {
   const { createElement } = await import('react');
   return { Icon: ({ icon }: { icon: string }) => createElement('i', { 'data-icon': icon }) };
 });
-vi.mock('../../Timeline', () => ({ LazyTimeline: () => null }));
+vi.mock('../../Timeline', async () => ({ LazyTimeline: (await import('../../Timeline/Timeline')).Timeline }));
 
 const { RoomCard } = await import('../RoomCard');
 
@@ -91,6 +91,51 @@ describe('room card exception icons', () => {
     show(HALLWAY, world(entity('binary_sensor.apartment_door_open', 'off', { friendly_name: 'Apartment door' })));
     expect(modalOpen()).toBe(true);
     expect(document.querySelector('.room-ex .indicator.door')?.closest('.is-hidden')).not.toBeNull();
+  });
+
+  it('shows semantic lock exceptions instead of a stuck BLE unlock', () => {
+    const state = (value: string) =>
+      world(
+        entity('sensor.apartment_lock', value, { computed_at: new Date().toISOString() }),
+        entity('lock.yale_bt', 'unlocked'),
+        entity('lock.yale', 'locked')
+      );
+    show(HALLWAY, state('locked'));
+    expect(document.querySelector('.room-ex .indicator.lock')?.closest('.is-hidden')).not.toBeNull();
+    show(HALLWAY, state('unlocked'));
+    expect(document.querySelector('.room-ex .indicator.lock')?.closest('.is-hidden') ?? null).toBeNull();
+    show(HALLWAY, state('unknown'));
+    expect(document.querySelector('.room-ex .indicator.lock')?.getAttribute('title')).toContain('unknown');
+    expect(document.querySelector('.room-ex .indicator.lock i')?.getAttribute('data-icon')).toBe('mdi:lock-question');
+  });
+
+  it('opens the canonical lock chip as Yale operator visits, without heartbeat history', async () => {
+    const fetchHistory = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => [
+        [
+          { entity_id: 'sensor.yale_operator', state: 'Mikkel', last_changed: '2026-10-22T15:00:00+02:00' },
+          { entity_id: 'sensor.yale_operator', state: 'Auto Lock', last_changed: '2026-10-22T15:03:00+02:00' },
+        ],
+      ],
+    } as Response);
+    try {
+      show(
+        HALLWAY,
+        world(entity('sensor.apartment_lock', 'unlocked', { computed_at: new Date().toISOString() }), entity('lock.yale_bt', 'locked')),
+        undefined,
+        { hassUrl: 'https://ha.example' }
+      );
+      await act(async () => document.querySelector<HTMLElement>('.room-ex .indicator.lock')!.click());
+      expect(fetchHistory).toHaveBeenCalledTimes(1);
+      expect(new URL(String(fetchHistory.mock.calls[0][0])).searchParams.get('filter_entity_id')).toBe('sensor.yale_operator');
+      expect(document.querySelectorAll('.timeline-event')).toHaveLength(1);
+      expect(document.querySelector('.timeline-event')?.textContent).toContain('Mikkel');
+      expect(document.querySelector('.timeline-yale-window')).not.toBeNull();
+      expect(document.querySelector('[aria-label="Apartment lock timeline"]')).not.toBeNull();
+    } finally {
+      fetchHistory.mockRestore();
+    }
   });
 
   it('keeps an open cooking history up when the power drops', () => {
