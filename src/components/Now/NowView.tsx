@@ -290,7 +290,7 @@ function CoffeeRunningCard({ row, focused, onOpenRoom }: { row: RunningRow; focu
   const word = state ? phaseWord(state) : null;
   const title = `Coffee${word ? ` · ${word}` : ''}`;
   const sub = [
-    state ? brewName(state, recipes?.usualName ?? null).replace(/^The /, 'the ') : null,
+    state ? brewName(state, recipes?.usualName ?? null) : null,
     state?.phase === 'paused' ? 'ETA after resume' : state?.etaMs != null ? `ready ≈ ${formatHomeClock(state.etaMs)}` : null,
   ]
     .filter(Boolean)

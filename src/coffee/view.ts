@@ -6,15 +6,14 @@ import type { BandVerdict, CoffeeBeans, CoffeeLive, CoffeeState, LiveVerdict, Pl
 
 export type Tone = 'ok' | 'up' | 'dn' | 'mute' | 'warn';
 
-/** "The usual", the recipe's own name for anything else. */
+/** The recipe's name, "Tweaked once" for a one-off tweak of it. */
 export function brewName(state: Pick<CoffeeState, 'variant' | 'recipeName'>, usualName: string | null): string {
-  if (state.variant === 'usual' || state.variant === 'base' || state.variant === 'trial') return 'The usual';
   if (state.variant === 'tweak') return 'Tweaked once';
-  if (state.recipeName && state.recipeName === usualName) return 'The usual';
-  return state.recipeName ?? 'Coffee';
+  const usual = state.variant === 'usual' || state.variant === 'base' || state.variant === 'trial';
+  return state.recipeName ?? (usual ? usualName : null) ?? 'Coffee';
 }
 
-/** "The usual · Kenya Kiambu". */
+/** "4 Pour Recipe · Kenya Kiambu". */
 export function brewSubtitle(state: Pick<CoffeeState, 'variant' | 'recipeName' | 'beanName'>, usualName: string | null): string {
   return [brewName(state, usualName), state.beanName].filter(Boolean).join(' · ');
 }

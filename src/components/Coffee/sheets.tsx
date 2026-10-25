@@ -165,23 +165,10 @@ export function RecipeDetail({
           ) : (
             <HoldButton
               kind='brew'
-              label={isUsual ? 'Hold 1 s to brew' : 'Hold 1 s · once'}
+              label='Hold 1 s to brew'
               disabled={!canStart(state)}
               onConfirm={() => water.guard(start)}
             />
-          )}
-          {!isUsual && (
-            <button
-              type='button'
-              className='coffee-btn is-ghost'
-              onClick={() => {
-                void sendCoffeeCommand('set_usual', { recipe_id: recipe.id }).catch(() => {});
-                onDone?.();
-              }}
-            >
-              <Icon icon='mdi:check' aria-hidden='true' />
-              Make usual
-            </button>
           )}
         </div>
       )}
@@ -202,7 +189,7 @@ export function RecipeRow({ recipe, index, onOpen }: { recipe: Recipe; index: nu
   );
 }
 
-/** The other recipes, one level below the usual. */
+/** The other recipes. Brewing one makes it the recipe the big button brews. */
 export function RecipesSheet({
   recipes,
   usualId,
@@ -218,7 +205,7 @@ export function RecipesSheet({
   const [openId, setOpenId] = useState<string | null>(null);
   const open = others.find(recipe => recipe.id === openId) ?? null;
   return (
-    <CoffeeSheet icon='mdi:book-open-variant' title={open ? open.name : 'Other recipe'} historyKey='coffee-recipes' onClose={onClose}>
+    <CoffeeSheet icon='mdi:book-open-variant' title={open ? open.name : 'Recipes'} historyKey='coffee-recipes' onClose={onClose}>
       {open ? (
         <div className='coffee-sheet-stack'>
           <button type='button' className='coffee-btn is-ghost is-small' onClick={() => setOpenId(null)}>
@@ -228,7 +215,7 @@ export function RecipesSheet({
           <RecipeDetail recipe={open} isUsual={false} state={state} onDone={onClose} />
         </div>
       ) : others.length === 0 ? (
-        <p className='coffee-sheet-note'>Only the usual is in Home Assistant's xBloom library.</p>
+        <p className='coffee-sheet-note'>No other recipes in Home Assistant's xBloom library.</p>
       ) : (
         <div className='coffee-sheet-list'>
           {others.map((recipe, index) => (

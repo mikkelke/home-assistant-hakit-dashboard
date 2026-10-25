@@ -205,7 +205,7 @@ function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
   return (
     <>
       <Tile className='cs-usual'>
-        <span className='coffee-lab'>The usual</span>
+        <span className='coffee-lab'>Last brewed</span>
         <h3>{usualTitle(usual, beans)}</h3>
         <div className='cs-chips'>
           {usual?.doseG != null && <Chip glyph={<Glyph name='bean' />}>{usual.doseG} g</Chip>}
@@ -309,7 +309,7 @@ function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
               )}
               <button type='button' onClick={() => setSheet('recipes')}>
                 <Icon icon='mdi:book-open-variant' aria-hidden='true' />
-                Other recipe
+                Recipes
               </button>
             </div>
           )}

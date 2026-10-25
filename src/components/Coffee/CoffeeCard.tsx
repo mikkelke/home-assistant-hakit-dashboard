@@ -226,7 +226,7 @@ function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onS
   return (
     <>
       <div className='cc-usual-line'>
-        <span className='coffee-lab'>The usual</span>
+        <span className='coffee-lab'>Last brewed</span>
         <span>
           {[
             usual ? `${usual.pours.length} pours` : null,
@@ -587,10 +587,7 @@ function HistoryTab({ data, nowMs }: { data: CardData; nowMs: number }) {
           <h4>
             {open.atMs != null ? brewWhen(open.atMs, nowMs) : 'Brew'}
             <span className='coffee-mute cc-open-name'>
-              {brewName({ variant: open.variant, recipeName: open.recipeName }, data.recipes?.usualName ?? null).replace(
-                'The usual',
-                'the usual'
-              )}
+              {brewName({ variant: open.variant, recipeName: open.recipeName }, data.recipes?.usualName ?? null)}
             </span>
             <span className='coffee-tile-r'>
               <PersonFace person={open.who} size='sm' />
@@ -631,9 +628,7 @@ function HistoryTab({ data, nowMs }: { data: CardData; nowMs: number }) {
                 <span className='coffee-hrow-w'>{brew.atMs != null ? formatHomeClock(brew.atMs) : '—'}</span>
                 <Spark cup={c ? series(c.cup, c.stepS) : null} width={50} height={22} />
                 <span className='coffee-hrow-nm'>
-                  {brew.variant === 'usual' || brew.variant === 'base' || brew.variant === 'trial'
-                    ? 'The usual'
-                    : (brew.recipeName ?? 'Coffee')}
+                  {brewName({ variant: brew.variant, recipeName: brew.recipeName }, data.recipes?.usualName ?? null)}
                   {stopped && <small>stopped{brew.doseG != null ? ` · ${brew.doseG} g` : ''}</small>}
                   {brew.outcome === 'unobserved' && <small>seen by the plug only</small>}
                 </span>
@@ -687,7 +682,7 @@ function RecipesTab({
         <div className='cc-usual'>
           <div className='cc-usual-h'>
             <Icon icon='mdi:check' aria-hidden='true' />
-            <b>The usual</b>
+            <b>Last brewed</b>
             <span>
               {[`${usual.pours.length} pours`, usual.pours[0]?.tempC != null ? `${Math.round(usual.pours[0].tempC)}°` : null]
                 .filter(Boolean)
@@ -700,7 +695,7 @@ function RecipesTab({
             look={{ ...LOOK_CARD, lane: 40, blockH: 18, blockFont: 10.5 }}
             mode='plan'
             height={118}
-            label='The usual: its pours over time'
+            label={`${usual.name}: its pours over time`}
             {...inputs}
           />
           <div className='coffee-chips'>
@@ -714,7 +709,7 @@ function RecipesTab({
           </div>
         </div>
       ) : (
-        <p className='coffee-sheet-note'>No usual yet. Make a recipe the usual below.</p>
+        <p className='coffee-sheet-note'>Nothing brewed yet. Pick a recipe below.</p>
       )}
       {others.length > 0 && <div className='coffee-lab cc-others'>Others</div>}
       {others.map((recipe, index) => (
