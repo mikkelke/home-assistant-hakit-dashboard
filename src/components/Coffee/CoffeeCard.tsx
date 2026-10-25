@@ -44,6 +44,7 @@ import {
   faultView,
   liveVerdict,
   machineWord,
+  pausedForWater,
   pourStartS,
   staleFromS,
   startFailure,
@@ -72,7 +73,7 @@ import { Spark } from './Spark';
 import { TasteDot, TasteRow } from './taste';
 import { useClock } from './useClock';
 import { useWaterGuard } from './useWaterGuard';
-import { WaterPrompt, WaterRow } from './WaterTank';
+import { PausedFill, WaterPrompt, WaterRow } from './WaterTank';
 import '../Appliance/Appliance.css';
 import './Coffee.css';
 import './CoffeeCard.css';
@@ -430,6 +431,11 @@ function LiveBrew({ data, nowMs }: { data: CardData; nowMs: number }) {
         )}
         <NotifyChip state={state} variant='small' />
       </div>
+      {pausedForWater(state) && (
+        <div className='cc-fill'>
+          <PausedFill state={state} size='md' />
+        </div>
+      )}
       <div className='cc-ctrls'>
         {stale != null || power ? (
           <button

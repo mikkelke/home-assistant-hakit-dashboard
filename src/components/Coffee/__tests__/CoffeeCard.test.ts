@@ -287,3 +287,60 @@ describe('the water tank in the Kitchen card', () => {
     expect(ops()).toEqual(['water_filled']);
   });
 });
+
+describe('the brew paused for water in the Kitchen card', () => {
+  const paused = (attributes: Record<string, string> = {}) => ({
+    'sensor.coffee_state': {
+      entity_id: 'sensor.coffee_state',
+      state: 'paused',
+      attributes: {
+        v: '1',
+        machine: 'awake',
+        link: 'connected',
+        brew_id: 'c1',
+        pour: '3',
+        pours_total: '4',
+        fault: 'no_water',
+        paused_since: '2026-10-25T09:00:00+00:00',
+        tank_ml: '946',
+        tank_left_ml: '40',
+        tank_filled_at: '2026-10-23T05:10:00+00:00',
+        ...attributes,
+      },
+    },
+  });
+  let sendMessagePromise: ReturnType<typeof vi.fn>;
+  const ops = () =>
+    sendMessagePromise.mock.calls
+      .map(([message]) => message as { service?: string; service_data?: { op?: string } })
+      .filter(message => message.service === 'coffee_command')
+      .map(message => message.service_data?.op);
+  const fill = () => document.querySelector('.cc-fill button') as HTMLButtonElement | null;
+  const open = (attributes: Record<string, string> = {}) => {
+    viewer.name = 'Kristine';
+    sendMessagePromise = vi.fn((message: unknown) => Promise.resolve(message));
+    store.setState({ entities: paused(attributes), connection: { sendMessagePromise } });
+    show();
+  };
+
+  it('offers Filled beside the resume, and tapping it sends the fill and no resume', async () => {
+    open();
+    expect(fill()?.textContent).toBe('Filled');
+    expect(fill()?.disabled).toBe(false);
+    act(() => fill()?.click());
+    await act(async () => {});
+    expect(ops()).toEqual(['water_filled']);
+  });
+
+  it('dims it once the app has registered a fill since the pause began', () => {
+    open({ tank_filled_at: '2026-10-25T09:00:05+00:00', tank_left_ml: '946' });
+    expect(fill()?.disabled).toBe(true);
+  });
+
+  it('does not offer it for another fault or a plain pause', () => {
+    open({ fault: 'no_beans' });
+    expect(fill()).toBeNull();
+    act(() => store.setState({ entities: paused({ fault: '' }) }));
+    expect(fill()).toBeNull();
+  });
+});

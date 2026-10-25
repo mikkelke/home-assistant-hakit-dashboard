@@ -9,7 +9,7 @@ const connection = vi.hoisted(() => ({ current: null as { sendMessagePromise: (m
 vi.mock('@hakit/core', () => ({ useHass: { getState: () => ({ connection: connection.current }) } }));
 vi.mock('@iconify/react', () => ({ Icon: ({ icon }: { icon: string }) => createElement('i', { 'data-icon': icon }) }));
 
-const { WaterChip, WaterPrompt, WaterSheet } = await import('../WaterTank');
+const { PausedFill, WaterChip, WaterPrompt, WaterSheet } = await import('../WaterTank');
 
 const USUAL = { totalMl: 255 };
 const tank = (tankLeftMl: number | null) => ({ tankMl: 946, tankLeftMl });
@@ -135,5 +135,40 @@ describe('the water prompt', () => {
     act(() => buttons()[0].click());
     expect(onFilled).not.toHaveBeenCalled();
     expect(onAnyway).not.toHaveBeenCalled();
+  });
+});
+
+describe('Filled on a brew paused for water', () => {
+  const PAUSED_AT = Date.parse('2026-10-25T09:00:00Z');
+  const button = () => document.querySelector('.coffee-cupwait-btns button') as HTMLButtonElement;
+  const show = (tankFilledAtMs: number | null, pausedSinceMs: number | null = PAUSED_AT) =>
+    render(createElement(PausedFill, { state: { tankFilledAtMs, pausedSinceMs }, size: 'xl' }));
+
+  it('tells the coffee app the tank is full, and sends nothing else, the machine resuming by itself', async () => {
+    show(Date.parse('2026-10-23T05:10:00Z'));
+    expect(button().textContent).toBe('Filled');
+    expect(button().disabled).toBe(false);
+    act(() => button().click());
+    await flush();
+    expect(sent).toEqual([{ op: 'water_filled', data: '{}' }]);
+  });
+
+  it('is dimmed with a check once a fill has been registered since the pause began', async () => {
+    show(PAUSED_AT + 4000);
+    expect(button().disabled).toBe(true);
+    expect(button().querySelector('[data-icon="mdi:check"]')).not.toBeNull();
+    act(() => button().click());
+    await flush();
+    expect(sent).toEqual([]);
+  });
+
+  it('stays live while the pause began after the last fill, or began at a time not known', () => {
+    show(PAUSED_AT - 1000);
+    expect(button().disabled).toBe(false);
+    show(PAUSED_AT + 4000, null);
+    expect(button().disabled).toBe(false);
+    show(null);
+    expect(button().disabled).toBe(false);
+    expect(button().querySelector('[data-icon="mdi:water-plus"]')).not.toBeNull();
   });
 });

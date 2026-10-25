@@ -179,6 +179,10 @@ export function waterCups(state: TankLevel, recipe: Pick<Recipe, 'totalMl'> | nu
   return state.tankLeftMl == null || needMl == null ? null : Math.floor(state.tankLeftMl / needMl);
 }
 
+/** The brew waits for water: paused on the machine's no-water fault. */
+export const pausedForWater = (state: Pick<CoffeeState, 'phase' | 'fault'>): boolean =>
+  state.phase === 'paused' && state.fault === 'no_water';
+
 /** The tank on the idle view, in words: "≈ 2 cups" of the usual, "under a cup" once the usual no longer fits. */
 export function waterLine(state: TankLevel, usual: Pick<Recipe, 'totalMl'> | null): { text: string; low: boolean } {
   if (state.tankLeftMl == null) return { text: 'unknown', low: false };

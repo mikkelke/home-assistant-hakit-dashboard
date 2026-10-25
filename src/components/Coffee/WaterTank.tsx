@@ -48,6 +48,23 @@ export function WaterPrompt({
   );
 }
 
+/** Filled on a brew that paused for want of water, in the prompt's button. It only tells the coffee app the tank is
+ * full: the machine resumes by itself once it has water. Dimmed with a check once a fill has been registered since
+ * the pause began. */
+export function PausedFill({ state, size }: { state: Pick<CoffeeState, 'tankFilledAtMs' | 'pausedSinceMs'>; size: 'xl' | 'md' }) {
+  const registered = state.tankFilledAtMs != null && state.pausedSinceMs != null && state.tankFilledAtMs >= state.pausedSinceMs;
+  return (
+    <div className={`coffee-cupwait is-water is-${size}`}>
+      <div className='coffee-cupwait-btns'>
+        <button type='button' className='is-sky' disabled={registered} onClick={() => void registerFill()}>
+          <Icon icon={registered ? 'mdi:check' : 'mdi:water-plus'} aria-hidden='true' />
+          Filled
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** The tank beside the link and cup chips: cups of the usual left, amber once the usual no longer fits. It opens the
  * water sheet, where Filled lives. */
 export function WaterChip({ state, usual, big = false, onOpen }: { state: Tank; usual: Volume | null; big?: boolean; onOpen: () => void }) {

@@ -271,6 +271,9 @@
 .cs-alert .coffee-lab {
   color: #fcd34d;
 }
+.cs-alert .coffee-cupwait {
+  margin-top: 14px;
+}
 
 .cs-pair {
   display: flex;

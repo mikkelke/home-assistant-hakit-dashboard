@@ -38,6 +38,7 @@ import {
   faultView,
   linkView,
   liveVerdict,
+  pausedForWater,
   pourLine,
   pourStartS,
   staleFromS,
@@ -63,7 +64,7 @@ import { BeansSheet, RecipesSheet, TweakSheet } from './sheets';
 import { TasteRow } from './taste';
 import { useClock } from './useClock';
 import { useWaterGuard } from './useWaterGuard';
-import { WaterChip, WaterPrompt, WaterSheet } from './WaterTank';
+import { PausedFill, WaterChip, WaterPrompt, WaterSheet } from './WaterTank';
 import './Coffee.css';
 import './CoffeeStage.css';
 
@@ -374,6 +375,7 @@ function BrewingSide({
           <div className='cs-sub'>
             {fault.hint} The brew is waiting at {stageText}.
           </div>
+          {pausedForWater(state) && <PausedFill state={state} size='xl' />}
         </Tile>
       ) : (
         <Tile label={stale && staleS != null ? `Last seen ${formatMinSec(staleS)}` : 'Stage'}>
