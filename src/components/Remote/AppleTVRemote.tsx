@@ -7,13 +7,24 @@ import './AppleTVRemote.css';
 interface AppleTVRemoteProps {
   remoteEntityId: string;
   mediaPlayerEntityId?: string;
+  volumeEntityId?: string;
+  powerEntityId?: string;
+  commandScriptEntityId?: string;
   callService: CallServiceFunction;
   onClose: () => void;
 }
 
 const LONG_PRESS_DURATION = 500;
 
-export function AppleTVRemote({ remoteEntityId, mediaPlayerEntityId, callService, onClose }: AppleTVRemoteProps) {
+export function AppleTVRemote({
+  remoteEntityId,
+  mediaPlayerEntityId,
+  volumeEntityId,
+  powerEntityId,
+  commandScriptEntityId,
+  callService,
+  onClose,
+}: AppleTVRemoteProps) {
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggeredRef = useRef(false);
   const { requestClose } = useModalBackButton({
@@ -24,6 +35,15 @@ export function AppleTVRemote({ remoteEntityId, mediaPlayerEntityId, callService
 
   const sendCommand = useCallback(
     (command: string) => {
+      if (commandScriptEntityId) {
+        callService({
+          domain: 'script',
+          service: 'turn_on',
+          target: { entity_id: commandScriptEntityId },
+          serviceData: { variables: { command } },
+        });
+        return;
+      }
       callService({
         domain: 'remote',
         service: 'send_command',
@@ -31,45 +51,59 @@ export function AppleTVRemote({ remoteEntityId, mediaPlayerEntityId, callService
         serviceData: { command },
       });
     },
-    [callService, remoteEntityId]
+    [callService, remoteEntityId, commandScriptEntityId]
   );
 
+  const volumeTarget = volumeEntityId || mediaPlayerEntityId;
+
   const handleVolumeUp = useCallback(() => {
-    if (mediaPlayerEntityId) {
+    if (volumeTarget) {
       callService({
         domain: 'media_player',
         service: 'volume_up',
-        target: { entity_id: mediaPlayerEntityId },
+        target: { entity_id: volumeTarget },
       });
     } else {
       sendCommand('volume_up');
     }
-  }, [callService, mediaPlayerEntityId, sendCommand]);
+  }, [callService, volumeTarget, sendCommand]);
 
   const handleVolumeDown = useCallback(() => {
-    if (mediaPlayerEntityId) {
+    if (volumeTarget) {
       callService({
         domain: 'media_player',
         service: 'volume_down',
-        target: { entity_id: mediaPlayerEntityId },
+        target: { entity_id: volumeTarget },
       });
     } else {
       sendCommand('volume_down');
     }
-  }, [callService, mediaPlayerEntityId, sendCommand]);
+  }, [callService, volumeTarget, sendCommand]);
 
   const handleMute = useCallback(() => {
-    if (mediaPlayerEntityId) {
+    if (volumeTarget) {
       callService({
         domain: 'media_player',
         service: 'volume_mute',
-        target: { entity_id: mediaPlayerEntityId },
+        target: { entity_id: volumeTarget },
         serviceData: { is_volume_muted: true },
       });
     } else {
       sendCommand('mute');
     }
-  }, [callService, mediaPlayerEntityId, sendCommand]);
+  }, [callService, volumeTarget, sendCommand]);
+
+  const handlePowerOff = useCallback(() => {
+    if (powerEntityId) {
+      callService({
+        domain: 'media_player',
+        service: 'turn_off',
+        target: { entity_id: powerEntityId },
+      });
+    } else {
+      sendCommand('turn_off');
+    }
+  }, [callService, powerEntityId, sendCommand]);
 
   const handleBackPressStart = useCallback(() => {
     longPressTriggeredRef.current = false;
@@ -111,7 +145,7 @@ export function AppleTVRemote({ remoteEntityId, mediaPlayerEntityId, callService
 
         <div className='apple-remote-body'>
           {/* Power Button - top right */}
-          <button className='power-btn' onClick={() => sendCommand('turn_off')} aria-label='Power'>
+          <button className='power-btn' onClick={handlePowerOff} aria-label='Power'>
             <Icon icon='mdi:power' />
           </button>
 

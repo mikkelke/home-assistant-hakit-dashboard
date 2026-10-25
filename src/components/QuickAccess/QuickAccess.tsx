@@ -755,7 +755,10 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                                   tvLiftSelectEntityId='select.living_room_tv_lift_position'
                                   appleRemoteEntityId='remote.living_room_apple_tv'
                                   appleMediaPlayerEntityId='media_player.living_room_apple_tv'
+                                  appleTvSourceName='HDMI2'
+                                  appleCommandScriptEntityId='script.living_room_apple_tv_command'
                                   chromecastEntityId='media_player.living_room_cast'
+                                  chromecastSourceName='HDMI1'
                                   wirelessUsbCSourceName='HDMI4'
                                   onUiTap={trackMedia}
                                 />

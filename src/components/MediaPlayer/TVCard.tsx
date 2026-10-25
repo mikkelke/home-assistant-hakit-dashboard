@@ -18,8 +18,11 @@ interface TVCardProps {
   showTvLift?: boolean;
   tvLiftSelectEntityId?: string; // For living room: select.living_room_tv_lift_position
   appleRemoteEntityId?: string; // For Apple TV remote popup, e.g., "remote.bedroom_apple_tv"
-  appleMediaPlayerEntityId?: string; // For volume control via Apple TV media_player
+  appleMediaPlayerEntityId?: string; // Apple TV playback entity and legacy remote volume target
+  appleTvSourceName?: string; // Physical input on the main TV, e.g. HDMI2
+  appleCommandScriptEntityId?: string; // Backend connects the Apple remote before sending each command
   chromecastEntityId?: string; // For Chromecast, e.g., "media_player.living_room_cast"
+  chromecastSourceName?: string; // Physical input on the main TV, e.g. HDMI1
   wirelessUsbCSourceName?: string; // HDMI input the wireless USB-C/HDMI dongle is on, e.g. "HDMI4" — it's a
   // source on the main TV, not a separate device, so it's selected via media_player.select_source rather
   // than turn_on on its own entity.
@@ -61,7 +64,10 @@ export function TVCard({
   tvLiftSelectEntityId,
   appleRemoteEntityId,
   appleMediaPlayerEntityId,
+  appleTvSourceName,
+  appleCommandScriptEntityId,
   chromecastEntityId,
+  chromecastSourceName,
   wirelessUsbCSourceName,
   onUiTap,
 }: TVCardProps) {
@@ -122,15 +128,18 @@ export function TVCard({
   const tv = entities?.[entityId];
   const state = tv?.state;
   const attributes = tv?.attributes ?? {};
-  const tvMediaTitle = attrStr(attributes.media_title);
   const volume = Math.round(attrNum(attributes.volume_level, 0) * 100);
   const isMuted = attributes.is_volume_muted;
   const activeChild = attrStr(attributes.active_child);
   const isOn = state === 'on' || state === 'playing' || state === 'paused' || state === 'idle';
 
   const highLevelSources: Array<{ name: string; entityId: string | null; sourceName?: string }> = [];
-  if (appleMediaPlayerEntityId) highLevelSources.push({ name: 'Apple TV', entityId: appleMediaPlayerEntityId });
-  if (chromecastEntityId) highLevelSources.push({ name: 'Chromecast', entityId: chromecastEntityId });
+  if (appleMediaPlayerEntityId || appleTvSourceName) {
+    highLevelSources.push({ name: 'Apple TV', entityId: appleMediaPlayerEntityId || null, sourceName: appleTvSourceName });
+  }
+  if (chromecastEntityId || chromecastSourceName) {
+    highLevelSources.push({ name: 'Chromecast', entityId: chromecastEntityId || null, sourceName: chromecastSourceName });
+  }
   if (wirelessUsbCSourceName) highLevelSources.push({ name: 'Wireless USB-C', entityId: null, sourceName: wirelessUsbCSourceName });
 
   const appleTvEntity = appleMediaPlayerEntityId ? entities?.[appleMediaPlayerEntityId] : null;
@@ -138,27 +147,42 @@ export function TVCard({
   const appleTvAvailable = Boolean(appleTvEntity && hasAvailableSourceState(appleTvEntity));
   const chromecastEntity = chromecastEntityId ? entities?.[chromecastEntityId] : null;
   const chromecastAvailable = Boolean(chromecastEntity && hasAvailableSourceState(chromecastEntity));
-  // The dongle is a source on the active child TV (e.g. Hisense), not its own entity — read the
-  // child's own `source` attribute rather than looking for a dedicated player.
+  // Explicitly mapped inputs follow the aggregate's physical source. Legacy cards
+  // can still resolve the dongle through their active child's source attribute.
   const activeChildSource = attrStr(entities?.[activeChild]?.attributes?.source).trim().toLowerCase();
-
-  const genericTvTitles = ['tv on', 'tv off', 'hdmi 1', 'hdmi 2', 'hdmi 3', 'hdmi 4', 'hdmi', 'tv', ''];
-  const mainTvHasNoMeaningfulMedia = !tvMediaTitle || genericTvTitles.includes(tvMediaTitle.toLowerCase().trim());
+  const physicalSource = attrStr(attributes.source).trim().toLowerCase();
+  const wirelessSource = appleTvSourceName || chromecastSourceName ? physicalSource : physicalSource || activeChildSource;
 
   let currentSource = '';
-  if (activeChild === appleMediaPlayerEntityId && appleTvAvailable) currentSource = 'Apple TV';
-  else if (activeChild === chromecastEntityId && chromecastAvailable) currentSource = 'Chromecast';
-  else if (wirelessUsbCSourceName && activeChildSource === wirelessUsbCSourceName.trim().toLowerCase()) currentSource = 'Wireless USB-C';
-  else if (appleMediaPlayerEntityId && appleTvActive) {
-    if (activeChild !== chromecastEntityId) currentSource = 'Apple TV';
+  if (isOn) {
+    if (
+      appleTvSourceName
+        ? physicalSource === appleTvSourceName.trim().toLowerCase()
+        : activeChild === appleMediaPlayerEntityId && appleTvAvailable
+    )
+      currentSource = 'Apple TV';
+    else if (
+      chromecastSourceName
+        ? physicalSource === chromecastSourceName.trim().toLowerCase()
+        : activeChild === chromecastEntityId && chromecastAvailable
+    )
+      currentSource = 'Chromecast';
+    else if (wirelessUsbCSourceName && wirelessSource === wirelessUsbCSourceName.trim().toLowerCase()) currentSource = 'Wireless USB-C';
   }
 
   const currentSourceEntityId =
     currentSource === 'Apple TV' ? appleMediaPlayerEntityId || null : currentSource === 'Chromecast' ? chromecastEntityId || null : null;
   const currentSourceEntity = currentSourceEntityId ? entities?.[currentSourceEntityId] : null;
 
-  const useAppleTvForDisplay = appleTvEntity && appleTvActive && (currentSource === 'Apple TV' || mainTvHasNoMeaningfulMedia);
-  const displayTv = useAppleTvForDisplay ? appleTvEntity : tv;
+  const useAppleTvForDisplay = Boolean(appleTvEntity && appleTvActive && currentSource === 'Apple TV');
+  // An aggregate may briefly retain its old active child's metadata after an input
+  // change. Physical input selection wins over that cached Apple TV context too.
+  const staleAppleChild = Boolean(appleMediaPlayerEntityId && activeChild === appleMediaPlayerEntityId && currentSource !== 'Apple TV');
+  const displayTv = useAppleTvForDisplay
+    ? appleTvEntity
+    : tv && (!isOn || staleAppleChild)
+      ? { ...tv, state: isOn ? 'on' : tv.state, attributes: {} }
+      : tv;
   const displayEntityId = useAppleTvForDisplay && appleMediaPlayerEntityId ? appleMediaPlayerEntityId : entityId;
   const displayAttrs = displayTv?.attributes ?? {};
   const displayMediaTitle = attrStr(displayAttrs.media_title);
@@ -394,7 +418,7 @@ export function TVCard({
 
     const selectedSource = highLevelSources.find(s => s.name === sourceName);
     if (selectedSource?.sourceName) {
-      // Wireless USB-C is an input on the main TV — switch to it via select_source, not turn_on.
+      // The backend owns wake, remote connection and confirmed physical switching.
       callService({
         domain: 'media_player',
         service: 'select_source',
@@ -413,12 +437,13 @@ export function TVCard({
   };
 
   const isPlayingOrPaused = displayState === 'playing' || displayState === 'paused';
-  // Collapsed header value: media title while something is playing/paused, else a plain On/Off —
-  // the fuller Apple-TV-aware fallback chain is reserved for the hero below.
-  const headerValue = isPlayingOrPaused ? displayMediaTitle || (displayState === 'playing' ? 'Playing' : 'Paused') : isOn ? 'On' : 'Off';
+  // Playback titles require the selected input; connectivity failures keep their
+  // own status labels in both the collapsed header and expanded card.
+  const powerStateLabel = state === 'unavailable' ? 'Unavailable' : state === 'unknown' || !state ? 'Unknown' : isOn ? 'On' : 'Off';
+  const headerValue = isPlayingOrPaused ? displayMediaTitle || (displayState === 'playing' ? 'Playing' : 'Paused') : powerStateLabel;
   const headerValueTone = displayState === 'playing' ? 'tint' : 'muted';
 
-  const heroTitle = isOn ? displayMediaTitle || (useAppleTvForDisplay ? 'Apple TV' : 'On') : 'Off';
+  const heroTitle = isOn ? displayMediaTitle || (useAppleTvForDisplay ? 'Apple TV' : 'On') : powerStateLabel;
   const heroSub = isOn ? displayMediaArtist || currentSource : '';
 
   const liftOptionIcon = (option: string): string => {
@@ -632,6 +657,9 @@ export function TVCard({
         <AppleTVRemote
           remoteEntityId={appleRemoteEntityId!}
           mediaPlayerEntityId={appleMediaPlayerEntityId}
+          volumeEntityId={appleTvSourceName ? entityId : undefined}
+          powerEntityId={appleTvSourceName ? entityId : undefined}
+          commandScriptEntityId={appleCommandScriptEntityId}
           callService={callService}
           onClose={() => setShowAppleRemote(false)}
         />
