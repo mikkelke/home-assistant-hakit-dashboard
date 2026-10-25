@@ -593,6 +593,18 @@
   stroke: var(--sm-furniture-line);
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
+  cursor: pointer;
+  outline: none;
+}
+
+.sm-furniture-box.sel {
+  stroke: var(--sm-sel);
+  stroke-width: 2;
+}
+
+.sm-furniture-box:focus-visible {
+  stroke: var(--sm-accent);
+  stroke-width: 2;
 }
 
 .sm-vent {
@@ -701,7 +713,6 @@
 }
 
 .sm-compass,
-.sm-furniture,
 .sm-labels,
 .sm-grid {
   pointer-events: none;

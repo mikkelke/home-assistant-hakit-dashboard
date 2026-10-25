@@ -1369,14 +1369,27 @@ describe('furniture', () => {
     return fake;
   };
   const outline = () => query('.sm-ghost-box [data-hit="ghost"]') as Element;
+  const island = () => query('.sm-furniture-box[data-id="island"]') as Element;
   const viewBox = () => query('.sm-svg')?.getAttribute('viewBox');
+  const fire = (on: Element, name: string, at: { x: number; y: number }) =>
+    act(
+      () =>
+        void on.dispatchEvent(
+          new PointerEvent(name, { bubbles: true, pointerId: 1, pointerType: 'mouse', button: 0, clientX: at.x, clientY: at.y })
+        )
+    );
+  const tap = (on: Element, at: { x: number; y: number }) => {
+    fire(on, 'pointerdown', at);
+    fire(query('.sm-svg') as Element, 'pointerup', at);
+  };
 
-  it('is drawn from the plan with its name, above the rooms and under the walls', async () => {
+  it('is drawn from the plan without its name, above the rooms and under the walls', async () => {
     await open(fakeConnection({ ...docs(), sensor_map: withIsland() }));
     const box = query('.sm-furniture .sm-furniture-box') as Element;
     expect(queryAll('.sm-furniture .sm-furniture-box')).toHaveLength(1);
     expect(['x', 'y', 'width', 'height'].map(name => Number(box.getAttribute(name)))).toEqual([5, makeDoc().plan.bounds.y1 - 6, 2, 1]);
-    expect(query('.sm-furniture text')?.textContent).toBe('Test island');
+    expect(query('.sm-furniture text')).toBeNull();
+    expect(query('.sm-svg')?.textContent).not.toContain('Test island');
     const layers = [...(query('.sm-svg')?.children ?? [])].map(node => node.getAttribute('class'));
     expect(layers.indexOf('sm-zones')).toBeLessThan(layers.indexOf('sm-furniture'));
     expect(layers.indexOf('sm-furniture')).toBeLessThan(layers.indexOf('sm-structure'));
@@ -1385,6 +1398,106 @@ describe('furniture', () => {
   it('is not there on a plan that has none', async () => {
     await open(fakeConnection(docs()));
     expect(query('.sm-furniture')).toBeNull();
+  });
+
+  it.each(['View', 'Edit'] as const)('opens its read-only sheet and highlights the outline when tapped in %s', async selectedMode => {
+    const fake = fakeConnection({ ...docs(), sensor_map: withIsland() });
+    await open(fake);
+    mode(selectedMode);
+    tap(island(), screenOf(6, 5.5));
+    expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('Test island');
+    expect(query('.sm-sheet .sm-sheet-sub')?.textContent).toBe('furniture');
+    expect(query('.sm-sheet .sm-entity-row dt')?.textContent).toBe('size');
+    expect(query('.sm-sheet .sm-entity-row dd')?.textContent).toBe('200 × 100 cm');
+    expect(query('.sm-sheet input')).toBeNull();
+    expect(island().classList.contains('sel')).toBe(true);
+    act(() => byLabel('Close').click());
+    expect(query('.sm-sheet')).toBeNull();
+    expect(island().classList.contains('sel')).toBe(false);
+    await settle();
+    expect(writes(fake)).toHaveLength(0);
+  });
+
+  it.each(['.sm-svg', '.sm-zone[data-id="delta"] .sm-zone-fill'])('finds the furniture box when the pointer target is %s', async target => {
+    const map = withIsland();
+    map.plan.furniture = [{ ...ISLAND, box: [1, 5, 3, 6] }];
+    await open(fakeConnection({ ...docs(), sensor_map: map }));
+    tap(query(target) as Element, screenOf(2, 5.5));
+    expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('Test island');
+    expect(query('.sm-sheet .sm-sheet-sub')?.textContent).toBe('furniture');
+  });
+
+  it.each(['Enter', ' '])('opens from the keyboard with %j and can collapse and expand', async key => {
+    const map = withIsland();
+    map.plan.furniture = [{ ...ISLAND, box: [5.1, 5.2, 7.03, 6.07] }];
+    await open(fakeConnection({ ...docs(), sensor_map: map }));
+    expect(island().getAttribute('aria-label')).toBe('Furniture Test island');
+    press(island(), key);
+    expect(query('.sm-sheet .sm-entity-row dd')?.textContent).toBe('193 × 87 cm');
+    act(() => byLabel('Collapse').click());
+    expect(query('.sm-sheet.collapsed')).not.toBeNull();
+    expect(query('.sm-sheet .sm-sheet-body')).toBeNull();
+    expect(island().classList.contains('sel')).toBe(true);
+    act(() => byLabel('Expand').click());
+    expect(query('.sm-sheet .sm-entity-row dd')?.textContent).toBe('193 × 87 cm');
+  });
+
+  it.each(['View', 'Edit'] as const)('selects a marker over furniture in %s', async selectedMode => {
+    const map = withIsland();
+    map.devices.radar_b.placement.pos = { x: 6, y: 5.5, h: null };
+    await open(fakeConnection({ ...docs(), sensor_map: map }));
+    mode(selectedMode);
+    tap(marker('Beta radar'), screenOf(6, 5.5));
+    expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('Beta radar');
+    expect(marker('Beta radar').classList.contains('sel')).toBe(true);
+    expect(island().classList.contains('sel')).toBe(false);
+  });
+
+  it('gives a touch near a marker to the marker even when the furniture is selected', async () => {
+    const map = withIsland();
+    map.devices.radar_b.placement.pos = { x: 6, y: 5.5, h: null };
+    await open(fakeConnection({ ...docs(), sensor_map: map }));
+    press(island(), 'Enter');
+    tap(island(), screenOf(6.2, 5.5));
+    expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('Beta radar');
+    expect(island().classList.contains('sel')).toBe(false);
+  });
+
+  it('selects a vent over furniture', async () => {
+    const map = withIsland();
+    map.plan.vents = [{ id: 'supply', name: 'Test supply', kind: 'supply', pos: { x: 6, y: 5.5 } }];
+    await open(fakeConnection({ ...docs(), sensor_map: map }));
+    tap(query('.sm-vent[data-id="supply"] .sm-mk-hit circle') as Element, screenOf(6, 5.5));
+    expect(query('.sm-sheet .sm-sheet-title')?.textContent).toBe('Test supply');
+    expect(query('.sm-sheet .sm-sheet-sub')?.textContent).toBe('vent');
+    expect(island().classList.contains('sel')).toBe(false);
+  });
+
+  it('selects a ghost over furniture', async () => {
+    await open(fakeConnection({ ...docs(), sensor_map: withIsland(), sensor_map_suggest: suggestingIsland() }));
+    tap(query('.sm-ghost-edge') as Element, screenOf(5, 5.5));
+    expect(query('.sm-sheet .sm-sheet-sub')?.textContent).toBe('suggested furniture');
+    expect(query('.sm-ghost.sel')).not.toBeNull();
+    expect(island().classList.contains('sel')).toBe(false);
+  });
+
+  it.each(['View', 'Edit'] as const)('pans without moving selected furniture in %s', async selectedMode => {
+    const fake = fakeConnection({ ...docs(), sensor_map: withIsland() });
+    await open(fake);
+    mode(selectedMode);
+    tap(island(), screenOf(6, 5.5));
+    const from = screenOf(6, 5.5);
+    const before = viewBox();
+    fire(island(), 'pointerdown', from);
+    fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + 20, y: from.y });
+    expect(query('.sm-svg')?.getAttribute('data-gesture')).toBe('pan');
+    fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + 40, y: from.y });
+    fire(query('.sm-svg') as Element, 'pointerup', { x: from.x + 40, y: from.y });
+    await settle();
+    expect(viewBox()).not.toBe(before);
+    expect(['x', 'y', 'width', 'height'].map(name => Number(island().getAttribute(name)))).toEqual([5, makeDoc().plan.bounds.y1 - 6, 2, 1]);
+    expect(writes(fake)).toHaveLength(0);
+    expect(draft()).toBeNull();
   });
 
   it('is suggested as a dashed outline with its name, counted by the pill, and not yet part of the plan', async () => {
@@ -1453,13 +1566,6 @@ describe('furniture', () => {
     const fake = await openSuggesting();
     mode('Edit');
     const from = screenOf(6, 5.5);
-    const fire = (target: Element, name: string, at: { x: number; y: number }) =>
-      act(
-        () =>
-          void target.dispatchEvent(
-            new PointerEvent(name, { bubbles: true, pointerId: 1, pointerType: 'mouse', button: 0, clientX: at.x, clientY: at.y })
-          )
-      );
     const before = viewBox();
     fire(query('.sm-ghost-edge') as Element, 'pointerdown', from);
     fire(query('.sm-svg') as Element, 'pointermove', { x: from.x + 20, y: from.y });

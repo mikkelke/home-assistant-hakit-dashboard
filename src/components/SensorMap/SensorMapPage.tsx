@@ -13,7 +13,7 @@ import {
   startCapture as beginCapture,
   type CaptureConfig,
 } from '../../sensorMap/fingerprint';
-import { markerNear, planToScreen, scaleBarLength, snapToWall, wallSnapRadius } from '../../sensorMap/geometry';
+import { markerNear, planToScreen, scaleBarLength, screenToPlan, snapToWall, wallSnapRadius } from '../../sensorMap/geometry';
 import type { GestureEvent, Hit } from '../../sensorMap/gestures';
 import {
   FACING_STEP_DEG,
@@ -43,6 +43,7 @@ import { CoverageBar } from './CoverageBar';
 import { HIT_RADIUS_PX } from './DeviceMarker';
 import { DeviceSheet } from './DeviceSheet';
 import { FingerprintSheet } from './FingerprintSheet';
+import { FurnitureSheet } from './FurnitureSheet';
 import { GhostSheet } from './GhostSheet';
 import { LayersSheet } from './LayersSheet';
 import type { Ghost } from './MarkLayers';
@@ -404,7 +405,8 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
         setSelection({ kind: 'vent', id: hit.id });
         setCollapsed(false);
         revealVent(hit.id);
-      } else if (hit.kind === 'ghost' && hit.id) setSelection({ kind: 'ghost', id: hit.id });
+      } else if (hit.kind === 'furniture' && hit.id) activateFurniture(hit.id);
+      else if (hit.kind === 'ghost' && hit.id) setSelection({ kind: 'ghost', id: hit.id });
       else if (hit.kind === 'fingerprint' && hit.id) setSelection({ kind: 'fingerprint', id: hit.id });
       else if (hit.kind === 'zone' && hit.id) setSelection({ kind: 'zone', id: hit.id, at: world });
       else setSelection({ kind: 'point', at: world });
@@ -556,7 +558,17 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
       const handle = shown.s >= HANDLE_MIN_PX_PER_M ? handleAt : null;
       const targets = handle ? [...markerPoints, { key: HANDLE_KEY, x: handle[0], y: handle[1] }] : markerPoints;
       const key = markerNear(targets, shown, size, px, HIT_RADIUS_PX, selectedKey);
-      return key === HANDLE_KEY ? { kind: 'handle', id: selectedKey } : key ? { kind: 'marker', id: key } : hit;
+      if (key === HANDLE_KEY) return { kind: 'handle', id: selectedKey };
+      if (key) return { kind: 'marker', id: key };
+      if (hit.kind !== 'plan' && hit.kind !== 'zone') return hit;
+      const [x, y] = screenToPlan(shown, size, px.x, px.y);
+      const furniture = doc.plan.furniture ?? [];
+      for (let index = furniture.length - 1; index >= 0; index -= 1) {
+        const piece = furniture[index];
+        const [x0, y0, x1, y1] = piece.box;
+        if (x >= x0 && x <= x1 && y >= y0 && y <= y1) return { kind: 'furniture', id: piece.id };
+      }
+      return hit;
     },
     onEvent: handleGesture,
   });
@@ -653,6 +665,16 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
       setSelection({ kind: 'vent', id });
       setCollapsed(false);
       if (pos) reveal(pos.x, pos.y, window.innerWidth < SIDE_PANEL_MIN_PX ? SHEET_COVER : 0);
+    },
+    [reveal]
+  );
+
+  const activateFurniture = useCallback(
+    (id: string) => {
+      const box = docRef.current.plan.furniture?.find(piece => piece.id === id)?.box;
+      setSelection({ kind: 'furniture', id });
+      setCollapsed(false);
+      if (box) reveal((box[0] + box[2]) / 2, (box[1] + box[3]) / 2, window.innerWidth < SIDE_PANEL_MIN_PX ? SHEET_COVER : 0);
     },
     [reveal]
   );
@@ -865,6 +887,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
   const ghostItem = ghostSelected ? pendingItems.find(item => item.id === ghostSelected.id) : undefined;
   const zoneSelected = selection?.kind === 'zone' ? doc.plan.zones.find(zone => zone.zone_id === selection.id) : undefined;
   const ventSelected = selection?.kind === 'vent' ? doc.plan.vents?.find(vent => vent.id === selection.id) : undefined;
+  const furnitureSelected = selection?.kind === 'furniture' ? doc.plan.furniture?.find(piece => piece.id === selection.id) : undefined;
   const printSelected = selection?.kind === 'fingerprint' ? prints.items.find(item => item.id === selection.id) : undefined;
   const trayArmed = selection?.kind === 'tray' ? tray.find(item => item.id === selection.id) : undefined;
   const phoneSheet = sheet?.kind === 'phone' ? phones.statuses.find(status => status.phone.bermuda_address === sheet.address) : undefined;
@@ -1029,6 +1052,7 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
             onActivatePrint={activatePrint}
             onActivateSurvey={openSurveyPoint}
             onActivateVent={activateVent}
+            onActivateFurniture={activateFurniture}
           />
           <div className='sm-zoom'>
             <button type='button' className='sm-icon-btn' onClick={() => zoomBy(1.6)} aria-label='Zoom in'>
@@ -1202,6 +1226,15 @@ function MapWorkspace({ queue, suggest, onClose }: WorkspaceProps) {
           snap={ventSnap(ventSelected.id)}
           onToggle={() => setCollapsed(value => !value)}
           onSnap={on => setSnapOverride({ key: ventSnapKey(ventSelected.id), on })}
+          onClose={() => setSelection(null)}
+        />
+      )}
+      {idle && furnitureSelected && (
+        <FurnitureSheet
+          key={furnitureSelected.id}
+          furniture={furnitureSelected}
+          collapsed={collapsed}
+          onToggle={() => setCollapsed(value => !value)}
           onClose={() => setSelection(null)}
         />
       )}

@@ -5,7 +5,7 @@ export const TAP_SLOP_PX = 8;
 export const DOUBLE_TAP_MS = 300;
 export const DOUBLE_TAP_PX = 24;
 
-export type HitKind = 'plan' | 'marker' | 'handle' | 'zone' | 'ghost' | 'fingerprint' | 'survey' | 'vent';
+export type HitKind = 'plan' | 'marker' | 'handle' | 'zone' | 'ghost' | 'fingerprint' | 'survey' | 'vent' | 'furniture';
 
 export interface Hit {
   kind: HitKind;
@@ -60,7 +60,7 @@ export const idleMachine = (): GestureMachine => ({ state: { mode: 'idle' }, poi
 
 const distance = (a: Px, b: Px) => Math.hypot(a.x - b.x, a.y - b.y);
 /** A room's fill covers most of the plan, so a tap on a zone is a tap on the background. */
-const isBackground = (hit: Hit) => hit.kind === 'plan' || hit.kind === 'zone';
+const isBackground = (hit: Hit) => hit.kind === 'plan' || hit.kind === 'zone' || hit.kind === 'furniture';
 const worldOf = (ctx: GestureContext, px: Px): Point => screenToPlan(ctx.view, ctx.size, px.x, px.y);
 
 function withoutPointer(pointers: Record<number, Px>, id: number): Record<number, Px> {

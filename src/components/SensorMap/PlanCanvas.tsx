@@ -50,6 +50,7 @@ interface PlanCanvasProps {
   onActivatePrint: (id: string) => void;
   onActivateSurvey: (id: string) => void;
   onActivateVent: (id: string) => void;
+  onActivateFurniture: (id: string) => void;
 }
 
 interface Placed {
@@ -94,6 +95,7 @@ export const PlanCanvas = memo(function PlanCanvas(props: PlanCanvasProps) {
     onActivatePrint,
     onActivateSurvey,
     onActivateVent,
+    onActivateFurniture,
   } = props;
   const { plan } = doc;
   const yTop = plan.bounds.y1;
@@ -136,7 +138,7 @@ export const PlanCanvas = memo(function PlanCanvas(props: PlanCanvasProps) {
       {layers.grid && <PlanGrid plan={plan} />}
       <ZoneFills zones={plan.zones} yTop={yTop} selectedId={selection?.kind === 'zone' ? selection.id : null} phoneAreas={phoneAreas} />
       {coverage && <CoverageFills rooms={coverage.rooms} zones={plan.zones} yTop={yTop} />}
-      <PlanFurniture plan={plan} />
+      <PlanFurniture plan={plan} selectedId={selection?.kind === 'furniture' ? selection.id : null} onActivate={onActivateFurniture} />
       <PlanLabels plan={plan} />
       {layers.footprints && (
         <g className='sm-footprints'>
