@@ -13,6 +13,7 @@ describe('coffee commands', () => {
       service_data: { op: 'rate', data: '{"brew_id":"c1792991000","taste":"sour"}' },
     });
     expect(coffeeCommandMessage('stop', {}).service_data).toEqual({ op: 'stop', data: '{}' });
+    expect(coffeeCommandMessage('water_filled', {}).service_data).toEqual({ op: 'water_filled', data: '{}' });
   });
 
   it('never fire an event, which only an admin may', async () => {

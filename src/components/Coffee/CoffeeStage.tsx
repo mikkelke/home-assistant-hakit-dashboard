@@ -62,6 +62,8 @@ import { Chip, CupChip, Legend, LinkChip, NotifyChip, StoryPill, VerdictPill, ty
 import { BeansSheet, RecipesSheet, TweakSheet } from './sheets';
 import { TasteRow } from './taste';
 import { useClock } from './useClock';
+import { useWaterGuard } from './useWaterGuard';
+import { WaterChip, WaterPrompt, WaterSheet } from './WaterTank';
 import './Coffee.css';
 import './CoffeeStage.css';
 
@@ -187,9 +189,10 @@ interface StageData {
 function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
   const { state, beans, recipes, advice, brews } = data;
   const usual = usualRecipe(recipes);
-  const [sheet, setSheet] = useState<'tweak' | 'recipes' | 'beans' | null>(null);
+  const [sheet, setSheet] = useState<'tweak' | 'recipes' | 'beans' | 'water' | null>(null);
   const [base, setBase] = useState(false);
   const { pending, start } = useStart(state, nowMs);
+  const water = useWaterGuard(state, usual);
   const shownAdvice = advisorShown(advice) ? advice : null;
   const trial = shownAdvice?.status === 'trial_queued' ? shownAdvice : null;
   const failure = startFailure(state);
@@ -197,6 +200,7 @@ function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
   const total = data.baseline?.status === 'ready' ? data.baseline.totalSMedian : null;
   const plannedS = total ?? usual?.planS ?? null;
   const share = beans?.remainingG != null ? Math.min(1, beans.remainingG / Math.max(BEANS_TOP_UP_G, beans.remainingG)) : 0;
+  const begin = () => start({ variant: trial && base ? 'base' : 'usual' });
   return (
     <>
       <Tile className='cs-usual'>
@@ -255,6 +259,7 @@ function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
       <div className='cs-status'>
         <LinkChip state={state} big />
         <CupChip state={state} big />
+        <WaterChip state={state} usual={usual} big onOpen={() => setSheet('water')} />
         <NotifyChip state={state} variant='chip' />
       </div>
       {appHasMachine(state) && (
@@ -266,33 +271,47 @@ function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
         </div>
       ) : (
         <>
-          <HoldButton
-            kind='brew'
-            size='xl'
-            className='cs-go'
-            label={trial ? (base ? `Hold 1 s · grind ${trial.from ?? usual?.grind ?? ''}` : 'Hold 1 s · trial') : 'Hold 1 s to brew'}
-            pending={pending}
-            failed={pending ? null : failure}
-            disabled={!pending && !canStart(state)}
-            onConfirm={() => start({ variant: trial && base ? 'base' : 'usual' })}
-          />
-          <div className='cs-lowlinks'>
-            {trial ? (
-              <button type='button' onClick={() => setBase(value => !value)}>
-                {base ? <Icon icon='mdi:creation' aria-hidden='true' /> : <Glyph name='cup' />}
-                {base ? `Trial, grind ${trial.to}` : `Usual, grind ${trial.from ?? usual?.grind ?? ''}`}
+          {water.short ? (
+            <div className='cs-go'>
+              <WaterPrompt
+                short={water.short}
+                size='xl'
+                busy={water.busy}
+                onFilled={() => water.filled(begin)}
+                onAnyway={() => water.startAnyway(begin)}
+              />
+            </div>
+          ) : (
+            <HoldButton
+              kind='brew'
+              size='xl'
+              className='cs-go'
+              label={trial ? (base ? `Hold 1 s · grind ${trial.from ?? usual?.grind ?? ''}` : 'Hold 1 s · trial') : 'Hold 1 s to brew'}
+              pending={pending}
+              failed={pending ? null : failure}
+              disabled={!pending && !canStart(state)}
+              onConfirm={() => water.guard(begin)}
+            />
+          )}
+          {!water.short && (
+            <div className='cs-lowlinks'>
+              {trial ? (
+                <button type='button' onClick={() => setBase(value => !value)}>
+                  {base ? <Icon icon='mdi:creation' aria-hidden='true' /> : <Glyph name='cup' />}
+                  {base ? `Trial, grind ${trial.to}` : `Usual, grind ${trial.from ?? usual?.grind ?? ''}`}
+                </button>
+              ) : (
+                <button type='button' onClick={() => setSheet('tweak')}>
+                  <Icon icon='mdi:tune-variant' aria-hidden='true' />
+                  Tweak once
+                </button>
+              )}
+              <button type='button' onClick={() => setSheet('recipes')}>
+                <Icon icon='mdi:book-open-variant' aria-hidden='true' />
+                Other recipe
               </button>
-            ) : (
-              <button type='button' onClick={() => setSheet('tweak')}>
-                <Icon icon='mdi:tune-variant' aria-hidden='true' />
-                Tweak once
-              </button>
-            )}
-            <button type='button' onClick={() => setSheet('recipes')}>
-              <Icon icon='mdi:book-open-variant' aria-hidden='true' />
-              Other recipe
-            </button>
-          </div>
+            </div>
+          )}
         </>
       )}
       {sheet === 'tweak' && <TweakSheet recipe={usual} state={state} onClose={() => setSheet(null)} />}
@@ -300,6 +319,7 @@ function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
         <RecipesSheet recipes={recipes?.recipes ?? []} usualId={recipes?.usualId ?? null} state={state} onClose={() => setSheet(null)} />
       )}
       {sheet === 'beans' && <BeansSheet beans={beans} onClose={() => setSheet(null)} />}
+      {sheet === 'water' && <WaterSheet state={state} usual={usual} nowMs={nowMs} onClose={() => setSheet(null)} />}
     </>
   );
 }

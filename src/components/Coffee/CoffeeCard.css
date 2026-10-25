@@ -136,6 +136,29 @@
   font-size: 12.5px;
   color: var(--cof-t3);
 }
+.cc-water {
+  margin-top: 10px;
+  cursor: default;
+}
+.cc-water .cc-disc {
+  background: var(--water-bg);
+  color: var(--water);
+}
+.cc-water.is-low .cc-disc {
+  background: var(--cof-amber-bg);
+  color: var(--cof-amber);
+}
+.cc-water.is-low .cc-beans-tx b {
+  color: #fcd34d;
+}
+.cc-water .coffee-water-fill {
+  height: 36px;
+  padding: 0 13px;
+  border-radius: 18px;
+}
+.cc-water .coffee-water-fill svg {
+  font-size: 16px;
+}
 .cst-undo {
   margin-top: 8px;
   border: 0;

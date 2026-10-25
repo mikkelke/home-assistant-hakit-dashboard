@@ -10,7 +10,9 @@ import {
   parseCoffeeRecipes,
   parseCoffeeState,
   stageLabel,
+  usualRecipe,
 } from '../model';
+import { waterShort } from '../view';
 
 vi.mock('@hakit/core', () => ({ useHass: { getState: () => ({ connection: null }) } }));
 
@@ -50,6 +52,7 @@ describe('coffee demo', () => {
         expect(JSON.stringify(entity?.attributes).length, id).toBeLessThan(CAPS_KB[id] * 1024);
       }
       expect(parseCoffeeState(entities['sensor.coffee_state'])).not.toBeNull();
+      expect(parseCoffeeState(entities['sensor.coffee_state'])?.tankMl).toBe(946);
       expect(parseCoffeeLive(entities['sensor.coffee_live'])).not.toBeNull();
       expect(parseCoffeeBaseline(entities['sensor.coffee_baseline'])).not.toBeNull();
       expect(parseCoffeeBeans(entities['sensor.coffee_beans'])?.remainingG).toBeGreaterThan(0);
@@ -70,6 +73,31 @@ describe('coffee demo', () => {
     const later = parseCoffeeState(coffeeDemo('live', ANCHOR, ANCHOR + 130_000).entities['sensor.coffee_state'])!;
     expect(later.phase).toBe('ready');
     expect(later.cupG).toBeGreaterThan(200);
+  });
+
+  it('carries a plausible tank in every scenario, a low one in water_low and none known in water_unknown', () => {
+    for (const scenario of COFFEE_DEMO_SCENARIOS) {
+      const tank = parseCoffeeState(coffeeDemo(scenario, ANCHOR, ANCHOR + 2000).entities['sensor.coffee_state'])!;
+      if (scenario === 'water_unknown') {
+        expect(tank.tankLeftMl, scenario).toBeNull();
+        expect(tank.tankFilledAtMs, scenario).toBeNull();
+      } else {
+        expect(tank.tankLeftMl, scenario).toBeGreaterThanOrEqual(0);
+        expect(tank.tankLeftMl, scenario).toBeLessThanOrEqual(946);
+        expect(tank.tankFilledAtMs, scenario).toBeLessThan(ANCHOR);
+      }
+    }
+    const low = parseCoffeeState(coffeeDemo('water_low', ANCHOR, ANCHOR).entities['sensor.coffee_state'])!;
+    expect(low.phase).toBe('idle');
+    expect(low.tankLeftMl).toBe(150);
+    expect(
+      waterShort(low, usualRecipe(parseCoffeeRecipes(coffeeDemo('water_low', ANCHOR, ANCHOR).entities['sensor.coffee_recipes'])))
+    ).toEqual({
+      leftMl: 150,
+      needMl: 315,
+    });
+    const quiet = parseCoffeeState(coffeeDemo('idle', ANCHOR, ANCHOR).entities['sensor.coffee_state'])!;
+    expect(waterShort(quiet, { totalMl: 255 })).toBeNull();
   });
 
   it('lost link leaves the seconds after the last fresh one empty', () => {

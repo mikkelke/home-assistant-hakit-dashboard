@@ -115,6 +115,11 @@ export interface CoffeeState {
   waterMl: number | null;
   totalS: number | null;
   drawdownS: number | null;
+  /** The water tank's capacity in ml. */
+  tankMl: number | null;
+  /** Millilitres the coffee app counts left in the tank, never below 0; null until a fill has been registered. */
+  tankLeftMl: number | null;
+  tankFilledAtMs: number | null;
 }
 
 export const usable = (entity: CoffeeEntity): entity is NonNullable<CoffeeEntity> =>
@@ -126,6 +131,7 @@ export function parseCoffeeState(entity: CoffeeEntity): CoffeeState | null {
   const phase = oneOf(entity.state, COFFEE_PHASES);
   if (!phase) return null;
   const a: Attributes = entity.attributes ?? {};
+  const tankLeft = numberOf(a.tank_left_ml);
   return {
     phase,
     machine: oneOf(a.machine, ['asleep', 'awake', 'working', 'off'] as const),
@@ -164,6 +170,9 @@ export function parseCoffeeState(entity: CoffeeEntity): CoffeeState | null {
     waterMl: numberOf(a.water_ml),
     totalS: numberOf(a.total_s),
     drawdownS: numberOf(a.drawdown_s),
+    tankMl: numberOf(a.tank_ml),
+    tankLeftMl: tankLeft == null ? null : Math.max(0, tankLeft),
+    tankFilledAtMs: timeOf(a.tank_filled_at),
   };
 }
 

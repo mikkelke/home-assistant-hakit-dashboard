@@ -24,6 +24,8 @@ import { HoldButton } from './HoldButton';
 import { Chip, CoffeeSheet, PersonFace } from './parts';
 import { Spark } from './Spark';
 import { TasteDot } from './taste';
+import { useWaterGuard } from './useWaterGuard';
+import { WaterPrompt } from './WaterTank';
 
 const ratioNumber = (ratio: string | null) => numberOf(ratio?.split(':')[1] ?? ratio) ?? 16;
 const isXPod = (recipe: Recipe | null) => recipe?.cup?.toLowerCase().replace(/[^a-z]/g, '') === 'xpod';
@@ -76,6 +78,7 @@ export function TweakSheet({ recipe, state, onClose }: { recipe: Recipe | null; 
   const [grind, setGrind] = useState(base.grind);
   const locked = isXPod(recipe) ? 'xPod cups keep their dose' : null;
   const changed = dose !== base.dose || ratio !== base.ratio || grind !== base.grind;
+  const water = useWaterGuard(state, { totalMl: Math.round(dose * ratio) });
   const start = () => {
     void sendCoffeeCommand('start', {
       variant: 'tweak',
@@ -98,7 +101,22 @@ export function TweakSheet({ recipe, state, onClose }: { recipe: Recipe | null; 
         <Stepper label='Ratio' value={ratio} step={0.5} min={10} max={20} format={v => `1:${v}`} onChange={setRatio} />
         <Stepper label='Grind' value={grind} step={1} min={1} max={80} onChange={setGrind} />
         <p className='coffee-sheet-note'>{Math.round(dose * ratio)} ml of water. The usual stays as it is.</p>
-        <HoldButton kind='brew' label={changed ? 'Hold 1 s · tweaked' : 'Hold 1 s to brew'} disabled={!canStart(state)} onConfirm={start} />
+        {water.short ? (
+          <WaterPrompt
+            short={water.short}
+            size='md'
+            busy={water.busy}
+            onFilled={() => water.filled(start)}
+            onAnyway={() => water.startAnyway(start)}
+          />
+        ) : (
+          <HoldButton
+            kind='brew'
+            label={changed ? 'Hold 1 s · tweaked' : 'Hold 1 s to brew'}
+            disabled={!canStart(state)}
+            onConfirm={() => water.guard(start)}
+          />
+        )}
       </div>
     </CoffeeSheet>
   );
@@ -119,6 +137,7 @@ export function RecipeDetail({
   onDone?: () => void;
 }) {
   const inputs = chartInputs({ plan: planOf(null, null, recipe), baseline: null });
+  const water = useWaterGuard(state, recipe);
   const start = () => {
     void sendCoffeeCommand('start', isUsual ? { variant: 'usual' } : { variant: 'other', recipe_id: recipe.id }).catch(() => {});
     onDone?.();
@@ -135,7 +154,22 @@ export function RecipeDetail({
       </div>
       {state && (
         <div className='coffee-recipe-acts'>
-          <HoldButton kind='brew' label={isUsual ? 'Hold 1 s to brew' : 'Hold 1 s · once'} disabled={!canStart(state)} onConfirm={start} />
+          {water.short ? (
+            <WaterPrompt
+              short={water.short}
+              size='md'
+              busy={water.busy}
+              onFilled={() => water.filled(start)}
+              onAnyway={() => water.startAnyway(start)}
+            />
+          ) : (
+            <HoldButton
+              kind='brew'
+              label={isUsual ? 'Hold 1 s to brew' : 'Hold 1 s · once'}
+              disabled={!canStart(state)}
+              onConfirm={() => water.guard(start)}
+            />
+          )}
           {!isUsual && (
             <button
               type='button'

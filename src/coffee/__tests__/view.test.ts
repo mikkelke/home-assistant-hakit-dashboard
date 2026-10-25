@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { maintenanceWord, startFailure, wantsConnect } from '../view';
+import { maintenanceWord, startFailure, waterCups, waterLine, waterShort, wantsConnect } from '../view';
 
 const row = (id: string, detail: string | null, atMs: number | null, title = 'xBloom brewer rinse') => ({ id, title, detail, atMs });
 
@@ -40,5 +40,47 @@ describe('a refused start', () => {
       "Didn't start · Machine not found"
     );
     expect(startFailure({ phase: 'idle', startError: null, machine: 'awake' })).toBeNull();
+  });
+});
+
+describe('the water tank', () => {
+  const usual = { totalMl: 255 };
+
+  it('is short when what is left cannot finish the cup and its 60 ml of bypass and margin', () => {
+    expect(waterShort({ tankLeftMl: 150 }, usual)).toEqual({ leftMl: 150, needMl: 315 });
+    expect(waterShort({ tankLeftMl: 314 }, usual)).toEqual({ leftMl: 314, needMl: 315 });
+    expect(waterShort({ tankLeftMl: 315 }, usual)).toBeNull();
+    expect(waterShort({ tankLeftMl: 946 }, usual)).toBeNull();
+    expect(waterShort({ tankLeftMl: 0 }, { totalMl: 180 })).toEqual({ leftMl: 0, needMl: 240 });
+  });
+
+  it('judges each recipe by its own volume', () => {
+    expect(waterShort({ tankLeftMl: 300 }, { totalMl: 225 })).toBeNull();
+    expect(waterShort({ tankLeftMl: 300 }, { totalMl: 272 })).toEqual({ leftMl: 300, needMl: 332 });
+  });
+
+  it('is never short while the level or the recipe is unknown', () => {
+    expect(waterShort({ tankLeftMl: null }, usual)).toBeNull();
+    expect(waterShort({ tankLeftMl: 10 }, { totalMl: null })).toBeNull();
+    expect(waterShort({ tankLeftMl: 10 }, null)).toBeNull();
+    expect(waterShort(null, usual)).toBeNull();
+  });
+
+  it('counts the whole cups of the usual that are left', () => {
+    expect(waterCups({ tankLeftMl: 946 }, usual)).toBe(3);
+    expect(waterCups({ tankLeftMl: 640 }, usual)).toBe(2);
+    expect(waterCups({ tankLeftMl: 315 }, usual)).toBe(1);
+    expect(waterCups({ tankLeftMl: 314 }, usual)).toBe(0);
+    expect(waterCups({ tankLeftMl: null }, usual)).toBeNull();
+    expect(waterCups({ tankLeftMl: 640 }, null)).toBeNull();
+  });
+
+  it('says it on the idle line, low once the usual no longer fits', () => {
+    expect(waterLine({ tankLeftMl: 640 }, usual)).toEqual({ text: '≈ 2 cups', low: false });
+    expect(waterLine({ tankLeftMl: 340 }, usual)).toEqual({ text: '≈ 1 cup', low: false });
+    expect(waterLine({ tankLeftMl: 150 }, usual)).toEqual({ text: 'under a cup', low: true });
+    expect(waterLine({ tankLeftMl: 0 }, usual)).toEqual({ text: 'under a cup', low: true });
+    expect(waterLine({ tankLeftMl: null }, usual)).toEqual({ text: 'unknown', low: false });
+    expect(waterLine({ tankLeftMl: 640 }, null)).toEqual({ text: '≈ 640 ml', low: false });
   });
 });

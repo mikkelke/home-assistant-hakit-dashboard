@@ -483,6 +483,9 @@
 .cs-status .coffee-who {
   background: var(--cof-chip);
 }
+.cs-status .coffee-waterchip svg {
+  font-size: 19px;
+}
 .cs-go {
   margin-top: auto;
 }

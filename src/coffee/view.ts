@@ -152,6 +152,41 @@ export function startFailure(state: Pick<CoffeeState, 'phase' | 'startError' | '
   return { icon: reason?.icon ?? 'mdi:alert-outline', label: `Didn't start${reason ? ` · ${reason.text}` : ''}` };
 }
 
+/** Millilitres a cup takes from the tank beyond its recipe: the bypass flush and a margin. */
+export const WATER_RESERVE_ML = 60;
+
+export interface WaterShort {
+  leftMl: number;
+  needMl: number;
+}
+
+type TankLevel = Pick<CoffeeState, 'tankLeftMl'>;
+
+const waterNeedMl = (recipe: Pick<Recipe, 'totalMl'> | null): number | null =>
+  recipe?.totalMl == null ? null : Math.ceil(recipe.totalMl) + WATER_RESERVE_ML;
+
+/** The tank cannot finish a cup of `recipe`: what is left against what the cup needs. Null when it can, and when the
+ * level or the recipe's volume is unknown. */
+export function waterShort(state: TankLevel | null, recipe: Pick<Recipe, 'totalMl'> | null): WaterShort | null {
+  const leftMl = state?.tankLeftMl ?? null;
+  const needMl = waterNeedMl(recipe);
+  return leftMl == null || needMl == null || leftMl >= needMl ? null : { leftMl, needMl };
+}
+
+/** Whole cups of `recipe` the tank still holds; null while the level or the recipe's volume is unknown. */
+export function waterCups(state: TankLevel, recipe: Pick<Recipe, 'totalMl'> | null): number | null {
+  const needMl = waterNeedMl(recipe);
+  return state.tankLeftMl == null || needMl == null ? null : Math.floor(state.tankLeftMl / needMl);
+}
+
+/** The tank on the idle view, in words: "≈ 2 cups" of the usual, "under a cup" once the usual no longer fits. */
+export function waterLine(state: TankLevel, usual: Pick<Recipe, 'totalMl'> | null): { text: string; low: boolean } {
+  if (state.tankLeftMl == null) return { text: 'unknown', low: false };
+  const cups = waterCups(state, usual);
+  if (cups == null) return { text: `≈ ${Math.round(state.tankLeftMl)} ml`, low: false };
+  return cups < 1 ? { text: 'under a cup', low: true } : { text: `≈ ${cups} cup${cups === 1 ? '' : 's'}`, low: false };
+}
+
 export { faultView } from './state';
 
 /** "65 ml · spiral · 93°". */

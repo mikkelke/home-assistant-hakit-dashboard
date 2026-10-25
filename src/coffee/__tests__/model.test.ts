@@ -132,6 +132,21 @@ describe('sensor.coffee_state', () => {
     expect(state.etaMs).toBeNull();
   });
 
+  it('reads the water tank, unknown until a fill is registered and while the attributes are missing', () => {
+    expect(
+      parseCoffeeState(entity('idle', { tank_ml: '946', tank_left_ml: '640', tank_filled_at: '2026-10-23T05:10:00+00:00' }))
+    ).toMatchObject({ tankMl: 946, tankLeftMl: 640, tankFilledAtMs: Date.parse('2026-10-23T05:10:00Z') });
+    expect(parseCoffeeState(entity('idle', { tank_ml: '946', tank_left_ml: '', tank_filled_at: '' }))).toMatchObject({
+      tankMl: 946,
+      tankLeftMl: null,
+      tankFilledAtMs: null,
+    });
+    expect(parseCoffeeState(entity('idle'))).toMatchObject({ tankMl: null, tankLeftMl: null, tankFilledAtMs: null });
+    expect(parseCoffeeState(entity('idle', { tank_left_ml: '0' }))?.tankLeftMl).toBe(0);
+    expect(parseCoffeeState(entity('idle', { tank_left_ml: '-35' }))?.tankLeftMl).toBe(0);
+    expect(parseCoffeeState(entity('idle', { tank_left_ml: 'full' }))?.tankLeftMl).toBeNull();
+  });
+
   it('reads the cup, unknown when missing, and a start waiting for one', () => {
     expect(parseCoffeeState(entity('awaiting_cup', { cup: 'absent' }))).toMatchObject({ phase: 'awaiting_cup', cup: 'absent' });
     expect(parseCoffeeState(entity('idle'))?.cup).toBe('unknown');

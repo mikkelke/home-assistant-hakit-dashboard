@@ -71,6 +71,8 @@ import { BeansSheet, RecipeDetail, RecipeRow, TweakSheet } from './sheets';
 import { Spark } from './Spark';
 import { TasteDot, TasteRow } from './taste';
 import { useClock } from './useClock';
+import { useWaterGuard } from './useWaterGuard';
+import { WaterPrompt, WaterRow } from './WaterTank';
 import '../Appliance/Appliance.css';
 import './Coffee.css';
 import './CoffeeCard.css';
@@ -177,6 +179,8 @@ function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onS
     void sendCoffeeCommand('start', data).catch(() => setSent(null));
   };
   const failure = startFailure(state);
+  const water = useWaterGuard(state, usual);
+  const begin = () => start({ variant: 'usual' });
 
   if (trialBrewed && last) {
     return (
@@ -252,6 +256,16 @@ function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onS
         <div className='cc-wait'>
           <CupWait state={state} size='md' />
         </div>
+      ) : water.short ? (
+        <div className='cc-wait'>
+          <WaterPrompt
+            short={water.short}
+            size='md'
+            busy={water.busy}
+            onFilled={() => water.filled(begin)}
+            onAnyway={() => water.startAnyway(begin)}
+          />
+        </div>
       ) : (
         <div className='cc-go'>
           <LinkChip state={state} />
@@ -262,7 +276,7 @@ function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onS
             pending={pending}
             failed={pending ? null : failure}
             disabled={!pending && !canStart(state)}
-            onConfirm={() => start({ variant: 'usual' })}
+            onConfirm={() => water.guard(begin)}
           />
         </div>
       )}
@@ -303,6 +317,22 @@ function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onS
             )}
           </button>
           <BeansUndo beans={beans} nowMs={nowMs} />
+        </>
+      )}
+      {!water.short && (
+        <>
+          {!beans && <div className='cc-sep' />}
+          <WaterRow
+            state={state}
+            usual={usual}
+            hint={
+              state.tankFilledAtMs != null
+                ? `filled ${dayLabelShort(state.tankFilledAtMs, nowMs)}`
+                : state.tankLeftMl == null
+                  ? 'tap when you fill the tank'
+                  : null
+            }
+          />
         </>
       )}
       {last && (

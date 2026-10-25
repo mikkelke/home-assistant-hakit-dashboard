@@ -32,6 +32,9 @@ const PLAN_POURS = PLAN.map(pour => `${pour.start}-${pour.end}:${pour.pattern}:9
 const PLAN_END_S = 116;
 const MAX_S = 300;
 
+/** The tank's capacity in ml, as the coffee app publishes it. */
+const TANK_ML = '946';
+
 const RECIPE_ID = '1234567';
 const RECIPE_NAME = '4 Pour Recipe';
 const BEAN = { id: 'b1', name: 'Kenya Kiambu' };
@@ -453,6 +456,9 @@ function stateEntity({ phase, machine, powerW, link, brewId, extra = {} }: State
     bean_id: BEAN.id,
     bean_name: BEAN.name,
     notify_guess: 'mikkel',
+    tank_ml: TANK_ML,
+    tank_left_ml: '640',
+    tank_filled_at: iso(nowMs - 2 * DAY - 3 * HOUR),
     ...extra,
   };
   if (link === 'connected') attributes.link_seen_at = iso(nowMs);
@@ -510,6 +516,12 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
     case 'asleep':
       quiet('asleep', 'asleep', '0.9', 'not_connected');
       break;
+    case 'water_low':
+      quiet('idle', 'awake', '2.2', 'connected', { tank_left_ml: '150' });
+      break;
+    case 'water_unknown':
+      quiet('idle', 'awake', '2.2', 'connected', { tank_left_ml: '', tank_filled_at: '' });
+      break;
     case 'start_failed':
       quiet('start_failed', 'awake', '2.3', 'not_connected', { start_error: 'machine_busy' });
       break;
@@ -545,7 +557,7 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
       const atMs = anchorMs - 10 * MIN;
       const brews = ledger(atMs, { rating: 'balanced', who: 'mikkel', brew: TRIAL, trial: 'grind_size:46>44' });
       entities[COFFEE_STATE_ENTITY] = stateEntity(
-        { phase: 'idle', machine: 'awake', powerW: '2.1', link: 'not_connected', brewId: brews[0].id },
+        { phase: 'idle', machine: 'awake', powerW: '2.1', link: 'not_connected', brewId: brews[0].id, extra: { tank_left_ml: '385' } },
         nowMs
       );
       entities[COFFEE_LIVE_ENTITY] = liveEntity('ended', TRIAL, atMs - TRIAL.ready * S, TRIAL.ready);
@@ -593,7 +605,14 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
             powerW: '3.1',
             link: 'connected',
             brewId,
-            extra: { ...base, pour: '3', fault: 'no_water', paused_since: iso(bloomMs + (stoppedAt + 2) * S), verdict: 'on_track' },
+            extra: {
+              ...base,
+              pour: '3',
+              fault: 'no_water',
+              paused_since: iso(bloomMs + (stoppedAt + 2) * S),
+              verdict: 'on_track',
+              tank_left_ml: '40',
+            },
           },
           nowMs
         );
@@ -674,6 +693,7 @@ function readyState(bloomMs: number, brewId: string, nowMs: number): CoffeeEntit
         water_ml: '255',
         total_s: String(TODAY.ready),
         drawdown_s: String(TODAY.ready - PLAN_END_S - TODAY.shift),
+        tank_left_ml: '385',
       },
     },
     nowMs
