@@ -22,7 +22,7 @@ import {
   type HeatingZone,
 } from '../../utils/heating';
 import { HeatZoneSheet } from './HeatZoneSheet';
-import { BEDROOM_META, ZONE_META, bedroomAir, zoneAir } from './zoneMeta';
+import { BEDROOM_FLOOR_ENTITY, BEDROOM_META, ZONE_META, bedroomAir, zoneAir } from './zoneMeta';
 import '../Appliance/Appliance.css';
 import '../RoomDetail/RoomClimateHeader.css';
 import './HeatingPage.css';
@@ -203,10 +203,12 @@ function ZoneRow({ zone, entities, onOpen }: { zone: HeatingZone; entities: Hass
 function BedroomRow({ entities }: { entities: HassEntities }) {
   const { airC, tone } = bedroomAir(entities);
   const cooling = entities[AC_THERMOSTAT_ENTITY]?.attributes?.hvac_action === 'cooling';
+  const floorC = heatNum(entities[BEDROOM_FLOOR_ENTITY]?.state);
 
   const label = [
     BEDROOM_META.name,
     airC == null ? 'air unknown' : `air ${airC.toFixed(1)} °C`,
+    floorC == null ? null : `floor ${floorC.toFixed(1)} °C`,
     'not heated',
     cooling ? 'A/C cooling' : null,
   ]
@@ -227,6 +229,12 @@ function BedroomRow({ entities }: { entities: HassEntities }) {
       </span>
       <span className={`heat-zone-temps tone-${tone}`} aria-hidden='true'>
         <span className='heat-zone-air'>{airC == null ? '—' : `${airC.toFixed(1)}°`}</span>
+        {floorC != null && (
+          <span className='heat-zone-target heat-zone-floor'>
+            <Icon icon='mdi:heating-coil' />
+            {floorC.toFixed(1)}
+          </span>
+        )}
       </span>
     </div>
   );

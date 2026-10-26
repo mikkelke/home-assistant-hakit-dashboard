@@ -22,6 +22,7 @@ export const ZONE_META: Record<HeatingZone, ZoneMeta> = {
 
 /** The bedroom row's room, kept apart from ZONE_META because the controller has no zone for it. */
 export const BEDROOM_META = { name: 'Bedroom', icon: 'mdi:bed-outline', areaId: 'bedroom' } satisfies ZoneMeta;
+export const BEDROOM_FLOOR_ENTITY = 'sensor.bedroom_floor_thermometer_temperature';
 
 /** The zone's air temperature (the controller's control air, else the thermostat's reading) and
  * the comfort tone the room's climate chip uses. */
