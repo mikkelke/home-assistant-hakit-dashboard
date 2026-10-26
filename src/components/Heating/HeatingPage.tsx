@@ -142,12 +142,16 @@ function ZoneRow({ zone, entities, onOpen }: { zone: HeatingZone; entities: Hass
   const nextSetpoint = heatNum(attrs.next_setpoint);
   const nextAt = clockOf(attrs.next_change_at);
   const setpointNow = heatNum(attrs.setpoint_now);
+  const floorC = heatNum(attrs.floor_temp);
+  const floorMax = heatNum(attrs.floor_max_c);
+  const floorHot = floorC != null && floorMax != null && floorC >= floorMax;
   const nextUp = nextSetpoint != null && setpointNow != null && nextSetpoint > setpointNow;
 
   const label = [
     meta.name,
     airC == null ? 'air unknown' : `air ${airC.toFixed(1)} °C`,
     target == null ? null : `target ${target.toFixed(1)} °C`,
+    floorC == null ? null : `floor ${floorC.toFixed(1)} °C`,
     heating ? 'heating' : null,
     mode?.label,
     nudge !== 0 ? `nudged ${nudge > 0 ? '+' : ''}${nudge.toFixed(1)}` : null,
@@ -184,6 +188,12 @@ function ZoneRow({ zone, entities, onOpen }: { zone: HeatingZone; entities: Hass
           <Icon icon='mdi:target' />
           {target == null ? '—' : target.toFixed(1)}
         </span>
+        {floorC != null && (
+          <span className={`heat-zone-target heat-zone-floor${floorHot ? ' is-hot' : ''}`}>
+            <Icon icon='mdi:heating-coil' />
+            {floorC.toFixed(1)}
+          </span>
+        )}
       </span>
     </button>
   );

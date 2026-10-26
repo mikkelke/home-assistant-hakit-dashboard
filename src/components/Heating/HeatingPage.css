@@ -416,6 +416,9 @@
 .heat-zone-target svg {
   font-size: 14px;
 }
+.heat-zone-floor.is-hot {
+  color: var(--heat);
+}
 
 .heating-page-exit {
   position: absolute;
