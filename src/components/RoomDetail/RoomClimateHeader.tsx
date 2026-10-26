@@ -15,8 +15,8 @@ import {
 import { deriveRoomFeel } from '../../utils/roomFeel';
 import {
   canAdjustRoom,
-  heatBool,
   heatingSeasonOn,
+  liveZoneTarget,
   setpointLimits,
   stepSetpoint,
   zoneForThermostat,
@@ -124,11 +124,14 @@ export function RoomClimateHeader({ roomName, entities, areaId, callService, aut
   const hvacMode = attrStr(thermostat?.state, 'off');
   const zoneOn = !!thermostat && !ZONE_OFF_STATES.has(hvacMode);
   const hvacAction = attrStr(thermostat?.attributes?.hvac_action);
-  const haTarget = strictNum(thermostat?.attributes?.temperature) ?? NaN;
   const limits = thermo ? setpointLimits(entities, thermo.entityId) : { min: 15, max: 25 };
   const zone = thermo ? zoneForThermostat(thermo.entityId) : null;
   const dialZone = zone && entities[zoneSensorId(zone)] ? zone : null;
-  const zoneLive = !!dialZone && heatBool(entities[zoneSensorId(dialZone)]?.attributes?.live);
+  // The stepper moves the thermostat, except in a live zone: its thermostat is locked and a direct setpoint change is undone.
+  const liveTarget = liveZoneTarget(entities, dialZone);
+  const zoneLive = liveTarget != null;
+  const haTarget = (liveTarget ? liveTarget.value : strictNum(thermostat?.attributes?.temperature)) ?? NaN;
+  const range = liveTarget ? liveTarget.range : { ...limits, step: 0.5 };
   // A nudge only reaches the thermostat once the controller writes the zone; until then the room keeps the direct stepper.
   const nudgeLive = !!dialZone && zoneLive && zoneHasNudge(entities, dialZone);
   const residentHeat = useResidentHeat(entities, dialZone, callService);
@@ -139,8 +142,8 @@ export function RoomClimateHeader({ roomName, entities, areaId, callService, aut
   // `base`, then reverted to whatever HA actually holds. Kept in this always-mounted header (not
   // the sheet) so closing the sheet never cancels a pending write.
   const [pending, setPending] = useState<{ value: number; base: number } | null>(null);
-  const waitingForThermostat = pending != null && pending.base === haTarget;
-  const shownTarget = waitingForThermostat ? pending.value : haTarget;
+  const waiting = pending != null && pending.base === haTarget;
+  const shownTarget = waiting ? pending.value : haTarget;
   // Until the controller writes the zone, the thermostat's own setpoint is the target the room heats to.
   const dialHeat =
     residentHeat && !zoneLive ? { ...residentHeat, target: Number.isFinite(shownTarget) ? shownTarget : null } : residentHeat;
@@ -161,14 +164,15 @@ export function RoomClimateHeader({ roomName, entities, areaId, callService, aut
     [callService]
   );
 
-  const adjustTarget = (delta: number) => {
-    if (!thermo || !Number.isFinite(shownTarget)) return;
-    const next = stepSetpoint(shownTarget, delta, limits);
+  const adjustTarget = (direction: 1 | -1) => {
+    if (!thermo || !range || !Number.isFinite(shownTarget)) return;
+    const next = stepSetpoint(shownTarget, direction * range.step, range, range.step);
     setPending({ value: next, base: haTarget });
     if (writeTimer.current) clearTimeout(writeTimer.current);
     if (ackTimer.current) clearTimeout(ackTimer.current);
     writeTimer.current = setTimeout(() => {
-      call('climate', 'set_temperature', thermo.entityId, { temperature: next });
+      if (liveTarget) call('input_number', 'set_value', liveTarget.helperId, { value: next });
+      else call('climate', 'set_temperature', thermo.entityId, { temperature: next });
     }, WRITE_DEBOUNCE_MS);
     ackTimer.current = setTimeout(() => setPending(null), ACK_TIMEOUT_MS);
   };
@@ -225,7 +229,10 @@ export function RoomClimateHeader({ roomName, entities, areaId, callService, aut
   if (!feel.present && !thermostat) return null;
 
   const knownZone = !!thermostat && !['unknown', 'unavailable', ''].includes(hvacMode);
-  const canAdjust = !!callService && knownZone && Number.isFinite(shownTarget);
+  const canAdjust = !!callService && knownZone && range != null && Number.isFinite(shownTarget);
+  const canLower = canAdjust && shownTarget > range.min;
+  const canRaise = canAdjust && shownTarget < range.max;
+  const targetName = liveTarget ? 'room target' : 'heating target';
   // Off season the heating stays off: no target control unless something is heating anyway.
   const showHeating = !!thermostat && (heatingSeasonOn(entities) || hvacAction === 'heating');
   const rhShown = feel.available ? feel.rh : strictNum(thermostat?.attributes?.current_humidity);
@@ -332,7 +339,7 @@ export function RoomClimateHeader({ roomName, entities, areaId, callService, aut
           {mayAdjust && showHeating && !nudgeLive && (
             <footer className='climate-controls'>
               <div className='climate-control-heading'>
-                <strong>Heating target</strong>
+                <strong>{liveTarget ? 'Room target' : 'Heating target'}</strong>
                 <button type='button' className='climate-zone-toggle' disabled={!callService || !knownZone} onClick={toggleZone}>
                   {zoneOn ? 'Turn off' : 'Turn on'}
                 </button>
@@ -342,9 +349,9 @@ export function RoomClimateHeader({ roomName, entities, areaId, callService, aut
                 <button
                   type='button'
                   className='climate-step'
-                  aria-label='Lower heating target by 0.5 degrees Celsius'
-                  disabled={!canAdjust || shownTarget <= limits.min}
-                  onClick={() => adjustTarget(-0.5)}
+                  aria-label={`Lower ${targetName} by ${range?.step ?? 0.5} degrees Celsius`}
+                  disabled={!canLower}
+                  onClick={() => adjustTarget(-1)}
                 >
                   <Icon icon='mdi:minus' aria-hidden='true' />
                 </button>
@@ -353,8 +360,10 @@ export function RoomClimateHeader({ roomName, entities, areaId, callService, aut
                     {Number.isFinite(shownTarget) ? `${shownTarget.toFixed(1)} °C` : '—'}
                   </output>
                   <span className='climate-target-label'>
-                    {waitingForThermostat
-                      ? 'Waiting for thermostat'
+                    {waiting
+                      ? liveTarget
+                        ? 'Saving target'
+                        : 'Waiting for thermostat'
                       : !knownZone
                         ? 'Unavailable'
                         : !zoneOn
@@ -369,9 +378,9 @@ export function RoomClimateHeader({ roomName, entities, areaId, callService, aut
                 <button
                   type='button'
                   className='climate-step'
-                  aria-label='Raise heating target by 0.5 degrees Celsius'
-                  disabled={!canAdjust || shownTarget >= limits.max}
-                  onClick={() => adjustTarget(0.5)}
+                  aria-label={`Raise ${targetName} by ${range?.step ?? 0.5} degrees Celsius`}
+                  disabled={!canRaise}
+                  onClick={() => adjustTarget(1)}
                 >
                   <Icon icon='mdi:plus' aria-hidden='true' />
                 </button>

@@ -7,6 +7,7 @@ import {
   canAdjustRoom,
   heatingSeasonOn,
   heatNum,
+  liveZoneTarget,
   nudgeControl,
   nudgeButtonIds,
   parseDayBlocks,
@@ -86,6 +87,72 @@ describe('setpointLimits', () => {
     expect(stepSetpoint(21.3, 0.5, { min: 19, max: 24 })).toBe(22);
     expect(stepSetpoint(24, 0.5, { min: 19, max: 24 })).toBe(24);
     expect(stepSetpoint(15, 0.5, { min: 19, max: 24 })).toBe(19);
+  });
+
+  it('steps on a given grid inside the limits without float noise', () => {
+    expect(stepSetpoint(21, 1, { min: 19, max: 24 }, 1)).toBe(22);
+    expect(stepSetpoint(23.5, 1, { min: 19, max: 24 }, 1)).toBe(24);
+    expect(stepSetpoint(19.5, -1, { min: 19, max: 24 }, 1)).toBe(19);
+    expect(stepSetpoint(21.6, 0.1, { min: 19, max: 24 }, 0.1)).toBe(21.7);
+  });
+});
+
+describe('liveZoneTarget', () => {
+  const HELPER = 'input_number.heating_target_living';
+  const helper = entity(HELPER, '21.5', { min: 19, max: 24, step: 0.5 });
+  const sensor = (live: unknown, attributes: Record<string, unknown> = {}) =>
+    entity('sensor.heating_zone_living', '21', { live, base_target: 21, ...attributes });
+
+  it.each(['true', true])('steps the target helper of a zone published live as %j', live => {
+    expect(liveZoneTarget(entitiesOf(sensor(live), helper), 'living')).toEqual({
+      helperId: HELPER,
+      value: 21.5,
+      range: { min: 19, max: 24, step: 0.5 },
+    });
+  });
+
+  it.each(['false', false, 'unknown', undefined])('leaves a zone published live as %j to its thermostat', live => {
+    expect(liveZoneTarget(entitiesOf(sensor(live), helper), 'living')).toBeNull();
+  });
+
+  it('leaves a zone the controller does not publish to its thermostat', () => {
+    expect(liveZoneTarget(entitiesOf(helper), 'living')).toBeNull();
+    expect(liveZoneTarget(entitiesOf(sensor('true'), helper), 'family')).toBeNull();
+    expect(liveZoneTarget(entitiesOf(sensor('true'), helper), null)).toBeNull();
+  });
+
+  it('reads the controller base target while the helper holds no number', () => {
+    for (const state of ['unknown', 'unavailable']) {
+      const unreadable = entity(HELPER, state, { min: 19, max: 24, step: 0.5 });
+      expect(liveZoneTarget(entitiesOf(sensor('true'), unreadable), 'living')).toMatchObject({ value: 21 });
+    }
+    expect(liveZoneTarget(entitiesOf(sensor('true', { base_target: 'n/a' }), entity(HELPER, 'unknown')), 'living')).toMatchObject({
+      value: null,
+    });
+  });
+
+  it('has no range without the helper or one of its min, max and step', () => {
+    expect(liveZoneTarget(entitiesOf(sensor('true')), 'living')).toEqual({ helperId: HELPER, value: 21, range: null });
+    for (const attributes of [
+      { max: 24, step: 0.5 },
+      { min: 19, step: 0.5 },
+      { min: 19, max: 24 },
+      { min: 24, max: 19, step: 0.5 },
+      { min: 19, max: 24, step: 0 },
+    ]) {
+      expect(liveZoneTarget(entitiesOf(sensor('true'), entity(HELPER, '21', attributes)), 'living')?.range).toBeNull();
+    }
+  });
+
+  it('judges each zone by its own sensor and helper', () => {
+    const family = entity('input_number.heating_target_family', '22', { min: 19, max: 24, step: 1 });
+    const entities = entitiesOf(entity('sensor.heating_zone_family', '22', { live: 'true' }), sensor('false'), helper, family);
+    expect(liveZoneTarget(entities, 'family')).toEqual({
+      helperId: 'input_number.heating_target_family',
+      value: 22,
+      range: { min: 19, max: 24, step: 1 },
+    });
+    expect(liveZoneTarget(entities, 'living')).toBeNull();
   });
 });
 

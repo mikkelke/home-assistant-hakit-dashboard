@@ -79,9 +79,41 @@ export function setpointLimits(entities: HassEntities, thermostatId: string): Se
   return narrowed.min <= narrowed.max ? narrowed : { min, max };
 }
 
-/** `current + delta` on the half-degree grid, kept inside `limits`. */
-export function stepSetpoint(current: number, delta: number, limits: SetpointLimits): number {
-  return Math.min(limits.max, Math.max(limits.min, Math.round((current + delta) * 2) / 2));
+/** `current + delta` on a grid of `grid` degrees (the half degree unless given), kept inside `limits`. */
+export function stepSetpoint(current: number, delta: number, limits: SetpointLimits, grid = 0.5): number {
+  const onGrid = Math.round((current + delta) / grid) * grid;
+  return Math.min(limits.max, Math.max(limits.min, Math.round(onGrid * 1e6) / 1e6));
+}
+
+export interface HelperRange extends SetpointLimits {
+  step: number;
+}
+
+export interface LiveZoneTarget {
+  helperId: string;
+  /** The helper's value, else the controller's published base_target. */
+  value: number | null;
+  /** The helper's own min, max and step; null while the helper is missing or lacks one of them. */
+  range: HelperRange | null;
+}
+
+/** The room target of a zone the controller writes. Its thermostat is locked and a direct setpoint
+ * change is undone, so the room steps the zone's target helper instead. Null for a zone the controller
+ * only shadows and for one it does not publish. */
+export function liveZoneTarget(entities: HassEntities, zone: HeatingZone | null): LiveZoneTarget | null {
+  const sensor = zone ? entities[zoneSensorId(zone)] : undefined;
+  if (!zone || !sensor || !heatBool(sensor.attributes?.live)) return null;
+  const helperId = zoneTargetHelperId(zone);
+  const helper = entities[helperId];
+  const min = heatNum(helper?.attributes?.min);
+  const max = heatNum(helper?.attributes?.max);
+  const step = heatNum(helper?.attributes?.step);
+  const ranged = min != null && max != null && step != null && min <= max && step > 0;
+  return {
+    helperId,
+    value: heatNum(helper?.state) ?? heatNum(sensor.attributes?.base_target),
+    range: ranged ? { min, max, step } : null,
+  };
 }
 
 export interface NudgeControl {

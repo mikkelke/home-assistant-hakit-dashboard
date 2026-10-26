@@ -214,22 +214,100 @@ describe('the living room heating controls', () => {
     return callService;
   }
 
-  it('falls back to its own thermostat within living limits when nudge buttons are missing', async () => {
-    const callService = openLiving();
+  const shadowed = zone('living', '21.0', { live: 'false', lower_limit: 20.5, upper_limit: 21.5 });
+  const targetHelper = (state: string, attributes: Record<string, unknown> = {}) =>
+    entity('input_number.heating_target_living', state, { min: 19, max: 24, step: 0.5, ...attributes });
+  const button = (label: string) => document.querySelector(`[aria-label="${label}"]`) as HTMLButtonElement;
+  const shownTarget = () => document.querySelector('.climate-target-value')?.textContent;
+
+  it('steps its own thermostat within living limits while the zone is only shadowed', async () => {
+    const callService = openLiving(shadowed, targetHelper('21'));
     expect(document.querySelector('.heat-dial')).not.toBeNull();
     expect(document.querySelector('.climate-shared')).toBeNull();
     expect(document.querySelector('[aria-label="Warmer"]')).toBeNull();
-    const raise = document.querySelector('[aria-label="Raise heating target by 0.5 degrees Celsius"]') as HTMLButtonElement;
+    expect(document.querySelector('.climate-control-heading strong')?.textContent).toBe('Heating target');
+    expect(document.querySelector('[aria-label="Raise room target by 0.5 degrees Celsius"]')).toBeNull();
+    const raise = button('Raise heating target by 0.5 degrees Celsius');
     expect(raise.disabled).toBe(false);
     act(() => raise.click());
     expect(raise.disabled).toBe(true);
+    expect(document.querySelector('.climate-target-label')?.textContent).toBe('Waiting for thermostat');
     await act(async () => vi.advanceTimersByTimeAsync(700));
-    expect(callService).toHaveBeenCalledWith({
-      domain: 'climate',
-      service: 'set_temperature',
-      target: { entity_id: 'climate.living_room_thermostat' },
-      serviceData: { temperature: 21.5 },
-    });
+    expect(callService.mock.calls).toEqual([
+      [
+        {
+          domain: 'climate',
+          service: 'set_temperature',
+          target: { entity_id: 'climate.living_room_thermostat' },
+          serviceData: { temperature: 21.5 },
+        },
+      ],
+    ]);
+  });
+
+  it('steps the target helper instead of the locked thermostat once the zone is live', async () => {
+    const callService = openLiving(targetHelper('21'));
+    expect(document.querySelector('.heat-dial')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Warmer"]')).toBeNull();
+    expect(document.querySelector('.climate-control-heading strong')?.textContent).toBe('Room target');
+    expect(document.querySelector('[aria-label="Raise heating target by 0.5 degrees Celsius"]')).toBeNull();
+    expect(shownTarget()).toBe('21.0 °C');
+    const raise = button('Raise room target by 0.5 degrees Celsius');
+    expect(raise.disabled).toBe(false);
+    act(() => raise.click());
+    expect(shownTarget()).toBe('21.5 °C');
+    expect(document.querySelector('.climate-target-label')?.textContent).toBe('Saving target');
+    await act(async () => vi.advanceTimersByTimeAsync(700));
+    expect(callService.mock.calls).toEqual([
+      [
+        {
+          domain: 'input_number',
+          service: 'set_value',
+          target: { entity_id: 'input_number.heating_target_living' },
+          serviceData: { value: 21.5 },
+        },
+      ],
+    ]);
+  });
+
+  it('lowers the live target in the helper step', async () => {
+    const callService = openLiving(targetHelper('22', { step: 2 }));
+    act(() => button('Lower room target by 2 degrees Celsius').click());
+    await act(async () => vi.advanceTimersByTimeAsync(700));
+    expect(callService).toHaveBeenCalledTimes(1);
+    expect(callService).toHaveBeenCalledWith(expect.objectContaining({ service: 'set_value', serviceData: { value: 20 } }));
+  });
+
+  it('is not held by the thermostat limits once the zone is live, only by the helper range', async () => {
+    const callService = openLiving(targetHelper('21.5'));
+    const raise = button('Raise room target by 0.5 degrees Celsius');
+    expect(raise.disabled).toBe(false);
+    act(() => raise.click());
+    act(() => raise.click());
+    expect(shownTarget()).toBe('22.5 °C');
+    await act(async () => vi.advanceTimersByTimeAsync(700));
+    expect(callService).toHaveBeenCalledTimes(1);
+    expect(callService).toHaveBeenCalledWith(expect.objectContaining({ serviceData: { value: 22.5 } }));
+  });
+
+  it.each([
+    ['maximum', '24', 'Raise', 'Lower'],
+    ['minimum', '19', 'Lower', 'Raise'],
+  ])('stops the live target at the helper %s', (_edge, state, blocked, free) => {
+    openLiving(targetHelper(state));
+    expect(button(`${blocked} room target by 0.5 degrees Celsius`).disabled).toBe(true);
+    expect(button(`${free} room target by 0.5 degrees Celsius`).disabled).toBe(false);
+  });
+
+  it('shows the live base target but writes nothing without the target helper', async () => {
+    const callService = openLiving(zone('living', '21.0', { live: true, base_target: 21 }));
+    expect(shownTarget()).toBe('21.0 °C');
+    const buttons = [...document.querySelectorAll<HTMLButtonElement>('.climate-step')];
+    expect(buttons).toHaveLength(2);
+    expect(buttons.every(step => step.disabled)).toBe(true);
+    act(() => buttons.forEach(step => step.click()));
+    await act(async () => vi.advanceTimersByTimeAsync(700));
+    expect(callService).not.toHaveBeenCalled();
   });
 
   it('uses living nudge buttons when the live controller supplies both', () => {
@@ -238,12 +316,66 @@ describe('the living room heating controls', () => {
       entity('input_button.heating_living_colder', 'unknown')
     );
     expect(document.querySelector('[aria-label="Raise heating target by 0.5 degrees Celsius"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Raise room target by 0.5 degrees Celsius"]')).toBeNull();
     act(() => (document.querySelector('[aria-label="Warmer"]') as HTMLButtonElement).click());
     expect(callService).toHaveBeenCalledWith({
       domain: 'input_button',
       service: 'press',
       target: { entity_id: 'input_button.heating_living_warmer' },
     });
+  });
+});
+
+describe('the kitchen heating controls', () => {
+  function openKitchen(...extra: ReturnType<typeof entity>[]) {
+    const callService = vi.fn();
+    const list = [
+      entity('sensor.heating_controller', 'live'),
+      entity('input_boolean.heating_season', 'on'),
+      entity('climate.family_room_thermostat', 'heat', { temperature: 22, current_temperature: 23.1, min_temp: 5, max_temp: 40 }),
+      zone('family', '22.0', { live: 'true', base_target: 22 }),
+      entity('input_number.heating_target_family', '22', { min: 19, max: 24, step: 0.5 }),
+      ...extra,
+    ];
+    const entities = Object.fromEntries(list.map(e => [e.entity_id, e]));
+    act(() => root.render(createElement(RoomClimateHeader, { roomName: 'Kitchen', areaId: 'kitchen', entities, callService })));
+    act(() => (document.querySelector('.room-climate-chip') as HTMLButtonElement).click());
+    return callService;
+  }
+
+  it('steps the shared family target helper while that zone is live', async () => {
+    const callService = openKitchen();
+    expect(document.querySelector('.climate-shared')?.textContent).toBe('Shared by the kitchen, dining and hallway');
+    expect(document.querySelector('.climate-control-heading strong')?.textContent).toBe('Room target');
+    act(() => (document.querySelector('[aria-label="Lower room target by 0.5 degrees Celsius"]') as HTMLButtonElement).click());
+    await act(async () => vi.advanceTimersByTimeAsync(700));
+    expect(callService.mock.calls).toEqual([
+      [
+        {
+          domain: 'input_number',
+          service: 'set_value',
+          target: { entity_id: 'input_number.heating_target_family' },
+          serviceData: { value: 21.5 },
+        },
+      ],
+    ]);
+  });
+
+  it('steps the family thermostat while that zone is only shadowed', async () => {
+    const callService = openKitchen(zone('family', '22.0', { live: 'false', base_target: 22 }));
+    expect(document.querySelector('.climate-control-heading strong')?.textContent).toBe('Heating target');
+    act(() => (document.querySelector('[aria-label="Lower heating target by 0.5 degrees Celsius"]') as HTMLButtonElement).click());
+    await act(async () => vi.advanceTimersByTimeAsync(700));
+    expect(callService.mock.calls).toEqual([
+      [
+        {
+          domain: 'climate',
+          service: 'set_temperature',
+          target: { entity_id: 'climate.family_room_thermostat' },
+          serviceData: { temperature: 21.5 },
+        },
+      ],
+    ]);
   });
 });
 
