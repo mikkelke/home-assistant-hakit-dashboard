@@ -1,15 +1,23 @@
 import { describe, expect, it } from 'vitest';
+import { roomThermostat } from '../../config/entities';
 import type { HassEntities } from '../../types';
 import {
+  HEATING_ZONES,
   blockIcons,
   canAdjustRoom,
   heatingSeasonOn,
   heatNum,
   nudgeControl,
+  nudgeButtonIds,
   parseDayBlocks,
+  planModeMeta,
   setpointLimits,
   stepSetpoint,
   zoneHasNudge,
+  zoneForThermostat,
+  zoneSensorId,
+  zoneTargetHelperId,
+  zoneThermostatId,
 } from '../heating';
 
 const entity = (entity_id: string, state: string, attributes: Record<string, unknown> = {}) => ({ entity_id, state, attributes });
@@ -54,6 +62,15 @@ describe('setpointLimits', () => {
       entity('sensor.heating_zone_family', '22', { lower_limit: 19, upper_limit: 24 })
     );
     expect(setpointLimits(entities, 'climate.family_room_thermostat')).toEqual({ min: 19, max: 24 });
+  });
+
+  it('uses the living zone limits for the living room thermostat, independently of family', () => {
+    const entities = entitiesOf(
+      entity('climate.living_room_thermostat', 'heat', { min_temp: 5, max_temp: 40 }),
+      entity('sensor.heating_zone_living', '21', { lower_limit: 20, upper_limit: 23 }),
+      entity('sensor.heating_zone_family', '22', { lower_limit: 19, upper_limit: 24 })
+    );
+    expect(setpointLimits(entities, 'climate.living_room_thermostat')).toEqual({ min: 20, max: 23 });
   });
 
   it('ignores zone limits that would leave no range', () => {
@@ -107,6 +124,45 @@ describe('nudgeControl', () => {
 });
 
 describe('zone helpers', () => {
+  it('places living immediately after family and maps its entities', () => {
+    expect(HEATING_ZONES).toEqual(['family', 'living', 'kristines_room', 'claudias_room', 'bathroom', 'guest_bathroom']);
+    expect(zoneSensorId('living')).toBe('sensor.heating_zone_living');
+    expect(zoneTargetHelperId('living')).toBe('input_number.heating_target_living');
+    expect(nudgeButtonIds('living')).toEqual({
+      warmer: 'input_button.heating_living_warmer',
+      colder: 'input_button.heating_living_colder',
+    });
+    expect(zoneThermostatId('living')).toBe('climate.living_room_thermostat');
+    expect(zoneForThermostat('climate.living_room_thermostat')).toBe('living');
+    expect(zoneThermostatId('family')).toBe('climate.family_room_thermostat');
+    expect(zoneForThermostat('climate.family_room_thermostat')).toBe('family');
+    expect(zoneForThermostat('climate.living_thermostat')).toBeNull();
+    expect(zoneForThermostat('climate.bedroom_thermostat')).toBeNull();
+  });
+
+  it.each(['living_room', 'Living Room'])('routes the %s area to its own controller zone', areaId => {
+    const thermostat = roomThermostat(areaId);
+    expect(thermostat).toEqual({ entityId: 'climate.living_room_thermostat', shared: false, sharedNote: null });
+    expect(zoneForThermostat(thermostat!.entityId)).toBe('living');
+  });
+
+  it.each(['kitchen', 'dining_room', 'hallway'])('keeps %s in the shared family zone', areaId => {
+    const thermostat = roomThermostat(areaId);
+    expect(thermostat).toEqual({
+      entityId: 'climate.family_room_thermostat',
+      shared: true,
+      sharedNote: 'Shared by the kitchen, dining and hallway',
+    });
+    expect(zoneForThermostat(thermostat!.entityId)).toBe('family');
+  });
+
+  it('describes floor_cap as a floor that is too warm', () => {
+    expect(planModeMeta('floor_cap')).toEqual({ icon: 'mdi:heat-wave', label: 'Floor too warm' });
+    expect(parseDayBlocks([{ start: '00:00', end: '24:00', mode: 'floor_cap', setpoint: '19' }])).toEqual([
+      { startMin: 0, endMin: 1440, mode: 'floor_cap', setpoint: 19 },
+    ]);
+  });
+
   it('reads published numbers, never turning nothing into 0', () => {
     expect(heatNum('+0.5')).toBe(0.5);
     expect(heatNum('0')).toBe(0);
@@ -125,6 +181,16 @@ describe('zone helpers', () => {
     expect(zoneHasNudge(entities, 'kristines_room')).toBe(true);
     expect(zoneHasNudge(entities, 'family')).toBe(false);
     expect(zoneHasNudge(entities, 'claudias_room')).toBe(false);
+  });
+
+  it('allows living nudges only when both buttons exist', () => {
+    const sensor = entity('sensor.heating_zone_living', '21', { nudge_min: '-1.0', nudge_max: '+1.0' });
+    const warmer = entity('input_button.heating_living_warmer', 'unknown');
+    const colder = entity('input_button.heating_living_colder', 'unknown');
+    expect(zoneHasNudge(entitiesOf(sensor), 'living')).toBe(false);
+    expect(zoneHasNudge(entitiesOf(sensor, warmer), 'living')).toBe(false);
+    expect(zoneHasNudge(entitiesOf(sensor, colder), 'living')).toBe(false);
+    expect(zoneHasNudge(entitiesOf(sensor, warmer, colder), 'living')).toBe(true);
   });
 
   it('is off season when the controller or the switch says so', () => {

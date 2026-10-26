@@ -1,6 +1,7 @@
 /* Admin heating overview (#heating): a full-screen page in the Energy page's shell, one card per
    concern, one row per controller zone and a monitor-only row for the bedroom. Mode colours: hold
-   orange, sun cut yellow, window and settle cyan, party violet, guard indigo, fallback grey. */
+   orange, floor cap the heat colour, sun cut yellow, window and settle cyan, party violet, guard indigo,
+   fallback grey. */
 
 .heating-page {
   position: fixed;
@@ -33,6 +34,9 @@
 }
 .mode-hold {
   --mode: var(--mode-hold);
+}
+.mode-floor_cap {
+  --mode: var(--heat);
 }
 .mode-sun_cut {
   --mode: var(--mode-sun_cut);

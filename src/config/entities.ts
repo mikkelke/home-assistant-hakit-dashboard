@@ -322,14 +322,14 @@ export const SUN_ENTITY = 'sun.sun';
 
 // --- Underfloor heating thermostats (Salus iT600, one climate.* per zone) ---
 
-/** The living-area rooms are ONE physical zone on the Salus master at the hallway. HA still carries
- * `climate.kitchen_/living_room_/dining_room_/hallway_thermostat` clones of it (slated for
+/** Kitchen, dining and hallway share one physical zone on the Salus master at the hallway. HA still carries
+ * `climate.kitchen_/dining_room_/hallway_thermostat` clones of it (slated for
  * retirement once nothing reads them), so the dashboard targets the master directly. */
-const FAMILY_ZONE_AREAS = new Set(['kitchen', 'living_room', 'dining_room', 'hallway']);
+const FAMILY_ZONE_AREAS = new Set(['kitchen', 'dining_room', 'hallway']);
 
 export interface RoomThermostat {
   entityId: string;
-  /** True for the living-area rooms that share the family-room zone. */
+  /** True for the kitchen, dining room and hallway that share the family-room zone. */
   shared: boolean;
   /** Plain-words note shown next to the target control when the zone is shared. */
   sharedNote: string | null;
@@ -345,11 +345,11 @@ export function roomThermostat(areaId: string | undefined | null): RoomThermosta
     return {
       entityId: 'climate.family_room_thermostat',
       shared: true,
-      sharedNote: normalized === 'living_room' ? 'Shared with the kitchen, dining and hallway' : 'Shared with the living area',
+      sharedNote: 'Shared by the kitchen, dining and hallway',
     };
   }
   const suffix = normalized === 'office' ? 'claudias_room' : normalized;
-  if (['bedroom', 'claudias_room', 'kristines_room', 'bathroom', 'guest_bathroom'].includes(suffix)) {
+  if (['living_room', 'bedroom', 'claudias_room', 'kristines_room', 'bathroom', 'guest_bathroom'].includes(suffix)) {
     return { entityId: `climate.${suffix}_thermostat`, shared: false, sharedNote: null };
   }
   return null;
