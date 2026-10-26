@@ -13,6 +13,7 @@ import {
   roomFeelSensorId,
   roomThermostat,
 } from '../../config/entities';
+import { HOTPLATE_ICON, OVEN_ICON } from '../../config/kitchenIcons';
 import { withCoffeeDemo } from '../../coffee/demoStore';
 import { useCoffeeDemo } from '../../coffee/useCoffeeState';
 import type { ApplianceCycle } from '../../energy/applianceRun';
@@ -45,8 +46,8 @@ const formatName = (text: string) => text.replace(/\b(\p{L})(\p{L}*)/gu, (_, a, 
 /** Watts above which a kitchen appliance counts as on: cooking draws 800 to 3000 W, standby far less. */
 const COOKING_W = 200;
 const COOKING_DEVICES = [
-  { entityId: 'sensor.hotplate_power_monitor_total_active_power', icon: 'mdi:stove', name: 'Hotplate' },
-  { entityId: 'sensor.oven_plug_switch_0_power', icon: 'hugeicons:oven', name: 'Oven' },
+  { entityId: 'sensor.hotplate_power_monitor_total_active_power', icon: HOTPLATE_ICON, name: 'Hotplate' },
+  { entityId: 'sensor.oven_plug_switch_0_power', icon: OVEN_ICON, name: 'Oven' },
   { entityId: 'sensor.microwave_plug_power', icon: 'mdi:microwave', name: 'Microwave' },
 ] as const;
 

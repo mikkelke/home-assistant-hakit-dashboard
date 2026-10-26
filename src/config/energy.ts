@@ -1,3 +1,5 @@
+import { HOTPLATE_ICON, OVEN_ICON } from './kitchenIcons';
+
 // Energy page constants. Price bands are relative to each day; see energy/priceBands.ts.
 
 // Sanity ceiling for a single kr/kWh reading, applied wherever a price arrives from outside this
@@ -30,8 +32,8 @@ export const FLOW_MAX_ROOMS = 8;
 /** Icons for the energy devices whose kind is clear, by statistic id; the washer, dishwasher and dryer
  * take theirs from `PLAN_APPLIANCES`. Every other device keeps its room's icon. */
 export const ENERGY_DEVICE_ICONS: Readonly<Record<string, string>> = {
-  'sensor.oven_plug_switch_0_energy': 'mdi:toaster-oven',
-  'sensor.hotplate_power_monitor_total_active_energy': 'mdi:stove',
+  'sensor.oven_plug_switch_0_energy': OVEN_ICON,
+  'sensor.hotplate_power_monitor_total_active_energy': HOTPLATE_ICON,
   'sensor.microwave_plug_energy': 'mdi:microwave',
   'sensor.fridge_plug_energy': 'mdi:fridge',
   'sensor.wine_fridge_energy': 'mdi:fridge',

@@ -209,8 +209,8 @@ describe('deviceIcon', () => {
   const icon = (statId: string) => deviceIcon(devices, statId);
 
   it('gives the clear cases their own icon', () => {
-    expect(icon('sensor.oven_plug_switch_0_energy')).toBe('mdi:toaster-oven');
-    expect(icon('sensor.hotplate_power_monitor_total_active_energy')).toBe('mdi:stove');
+    expect(icon('sensor.oven_plug_switch_0_energy')).toBe('hugeicons:oven');
+    expect(icon('sensor.hotplate_power_monitor_total_active_energy')).toBe('rooftop:cooktop');
     expect(icon('sensor.microwave_plug_energy')).toBe('mdi:microwave');
     expect(icon('sensor.fridge_plug_energy')).toBe('mdi:fridge');
     expect(icon('sensor.wine_fridge_energy')).toBe('mdi:fridge');

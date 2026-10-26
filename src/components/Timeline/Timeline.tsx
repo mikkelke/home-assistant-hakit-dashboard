@@ -3,6 +3,7 @@ import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import type { HassEntities, HassEntity } from '../../types';
 import { APARTMENT_DOOR_OPEN_ENTITY, APARTMENT_LOCK_ENTITY, BEDROOM_BED_OCCUPANCY_SENSORS } from '../../config/entities';
+import { HOTPLATE_ICON, OVEN_ICON } from '../../config/kitchenIcons';
 import { extractRoomActiveZone, parseRoomActiveReason } from '../../utils/roomActiveReason';
 
 interface TimelineEvent {
@@ -902,8 +903,8 @@ export function Timeline({ entityId, entity: _entity, entities, hassUrl, hours =
     if (isDishwasher) return 'mdi:dishwasher';
     if (isWasher) return 'mdi:washing-machine';
     if (isDryer) return 'mdi:tumble-dryer';
-    if (isHotplate) return 'mdi:stove';
-    if (isOven) return 'mdi:toaster-oven';
+    if (isHotplate) return HOTPLATE_ICON;
+    if (isOven) return OVEN_ICON;
     if (isMicrowave) return 'mdi:microwave';
 
     // Generic binary sensor
