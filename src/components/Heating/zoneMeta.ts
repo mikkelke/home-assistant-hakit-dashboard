@@ -12,8 +12,7 @@ export interface ZoneMeta {
 }
 
 export const ZONE_META: Record<HeatingZone, ZoneMeta> = {
-  family: { name: 'Kitchen & dining', icon: 'mdi:silverware-fork-knife', areaId: 'kitchen' },
-  living: { name: 'Living room', icon: 'mdi:sofa-outline', areaId: 'living_room' },
+  family: { name: 'Family', icon: 'mdi:sofa-outline', areaId: 'living_room' },
   kristines_room: { name: "Kristine's room", letter: 'K', areaId: 'kristines_room' },
   claudias_room: { name: "Claudia's room", letter: 'C', areaId: 'office' },
   bathroom: { name: 'Bathroom', icon: 'mdi:shower', areaId: 'bathroom' },

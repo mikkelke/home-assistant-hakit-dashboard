@@ -1,7 +1,7 @@
 import type { HassEntities, HassEntity } from '../types';
 
 /** The zones the AppDaemon heating controller plans, in display order. The bedroom has no zone. */
-export const HEATING_ZONES = ['family', 'living', 'kristines_room', 'claudias_room', 'bathroom', 'guest_bathroom'] as const;
+export const HEATING_ZONES = ['family', 'kristines_room', 'claudias_room', 'bathroom', 'guest_bathroom'] as const;
 export type HeatingZone = (typeof HEATING_ZONES)[number];
 
 export const HEATING_CONTROLLER_SENSOR = 'sensor.heating_controller';
@@ -18,15 +18,10 @@ export const BEDROOM_THERMOSTAT = 'climate.bedroom_thermostat';
 export const NUDGE_STEP_C = 0.5;
 
 const FAMILY_THERMOSTAT = 'climate.family_room_thermostat';
-const LIVING_THERMOSTAT = 'climate.living_room_thermostat';
 
 export const zoneSensorId = (zone: HeatingZone) => `sensor.heating_zone_${zone}`;
 export const zoneTargetHelperId = (zone: HeatingZone) => `input_number.heating_target_${zone}`;
-export const zoneThermostatId = (zone: HeatingZone) => {
-  if (zone === 'family') return FAMILY_THERMOSTAT;
-  if (zone === 'living') return LIVING_THERMOSTAT;
-  return `climate.${zone}_thermostat`;
-};
+export const zoneThermostatId = (zone: HeatingZone) => (zone === 'family' ? FAMILY_THERMOSTAT : `climate.${zone}_thermostat`);
 export const nudgeButtonIds = (zone: HeatingZone) => ({
   warmer: `input_button.heating_${zone}_warmer`,
   colder: `input_button.heating_${zone}_colder`,
@@ -56,6 +51,26 @@ export function heatList(value: unknown): unknown[] {
 /** A published boolean ("true"/"false" strings). */
 export function heatBool(value: unknown): boolean {
   return value === true || value === 'true';
+}
+
+export interface FloorReading {
+  /** The room the thermometer sits in, spelled out: "living room" for sensor.living_room_floor_thermometer_temperature. */
+  room: string;
+  tempC: number;
+}
+
+/** The floor thermometers behind `floor_temps` ({entity_id: °C}, published for a zone with more than one),
+ * without a thermometer that has no reading. */
+export function floorReadings(raw: unknown): FloorReading[] {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return [];
+  return Object.entries(raw).flatMap(([entityId, value]) => {
+    const tempC = heatNum(value);
+    const room = entityId
+      .slice(entityId.indexOf('.') + 1)
+      .replace(/_floor_thermometer_temperature$/, '')
+      .replace(/_/g, ' ');
+    return tempC == null ? [] : [{ room, tempC }];
+  });
 }
 
 export interface SetpointLimits {

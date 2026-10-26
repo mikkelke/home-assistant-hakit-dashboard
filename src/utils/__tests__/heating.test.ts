@@ -5,6 +5,7 @@ import {
   HEATING_ZONES,
   blockIcons,
   canAdjustRoom,
+  floorReadings,
   heatingSeasonOn,
   heatNum,
   liveZoneTarget,
@@ -65,15 +66,6 @@ describe('setpointLimits', () => {
     expect(setpointLimits(entities, 'climate.family_room_thermostat')).toEqual({ min: 19, max: 24 });
   });
 
-  it('uses the living zone limits for the living room thermostat, independently of family', () => {
-    const entities = entitiesOf(
-      entity('climate.living_room_thermostat', 'heat', { min_temp: 5, max_temp: 40 }),
-      entity('sensor.heating_zone_living', '21', { lower_limit: 20, upper_limit: 23 }),
-      entity('sensor.heating_zone_family', '22', { lower_limit: 19, upper_limit: 24 })
-    );
-    expect(setpointLimits(entities, 'climate.living_room_thermostat')).toEqual({ min: 20, max: 23 });
-  });
-
   it('ignores zone limits that would leave no range', () => {
     const entities = entitiesOf(
       kristineThermostat,
@@ -98,13 +90,13 @@ describe('setpointLimits', () => {
 });
 
 describe('liveZoneTarget', () => {
-  const HELPER = 'input_number.heating_target_living';
+  const HELPER = 'input_number.heating_target_family';
   const helper = entity(HELPER, '21.5', { min: 19, max: 24, step: 0.5 });
   const sensor = (live: unknown, attributes: Record<string, unknown> = {}) =>
-    entity('sensor.heating_zone_living', '21', { live, base_target: 21, ...attributes });
+    entity('sensor.heating_zone_family', '21', { live, base_target: 21, ...attributes });
 
   it.each(['true', true])('steps the target helper of a zone published live as %j', live => {
-    expect(liveZoneTarget(entitiesOf(sensor(live), helper), 'living')).toEqual({
+    expect(liveZoneTarget(entitiesOf(sensor(live), helper), 'family')).toEqual({
       helperId: HELPER,
       value: 21.5,
       range: { min: 19, max: 24, step: 0.5 },
@@ -112,27 +104,27 @@ describe('liveZoneTarget', () => {
   });
 
   it.each(['false', false, 'unknown', undefined])('leaves a zone published live as %j to its thermostat', live => {
-    expect(liveZoneTarget(entitiesOf(sensor(live), helper), 'living')).toBeNull();
+    expect(liveZoneTarget(entitiesOf(sensor(live), helper), 'family')).toBeNull();
   });
 
   it('leaves a zone the controller does not publish to its thermostat', () => {
-    expect(liveZoneTarget(entitiesOf(helper), 'living')).toBeNull();
-    expect(liveZoneTarget(entitiesOf(sensor('true'), helper), 'family')).toBeNull();
+    expect(liveZoneTarget(entitiesOf(helper), 'family')).toBeNull();
+    expect(liveZoneTarget(entitiesOf(sensor('true'), helper), 'kristines_room')).toBeNull();
     expect(liveZoneTarget(entitiesOf(sensor('true'), helper), null)).toBeNull();
   });
 
   it('reads the controller base target while the helper holds no number', () => {
     for (const state of ['unknown', 'unavailable']) {
       const unreadable = entity(HELPER, state, { min: 19, max: 24, step: 0.5 });
-      expect(liveZoneTarget(entitiesOf(sensor('true'), unreadable), 'living')).toMatchObject({ value: 21 });
+      expect(liveZoneTarget(entitiesOf(sensor('true'), unreadable), 'family')).toMatchObject({ value: 21 });
     }
-    expect(liveZoneTarget(entitiesOf(sensor('true', { base_target: 'n/a' }), entity(HELPER, 'unknown')), 'living')).toMatchObject({
+    expect(liveZoneTarget(entitiesOf(sensor('true', { base_target: 'n/a' }), entity(HELPER, 'unknown')), 'family')).toMatchObject({
       value: null,
     });
   });
 
   it('has no range without the helper or one of its min, max and step', () => {
-    expect(liveZoneTarget(entitiesOf(sensor('true')), 'living')).toEqual({ helperId: HELPER, value: 21, range: null });
+    expect(liveZoneTarget(entitiesOf(sensor('true')), 'family')).toEqual({ helperId: HELPER, value: 21, range: null });
     for (const attributes of [
       { max: 24, step: 0.5 },
       { min: 19, step: 0.5 },
@@ -140,19 +132,39 @@ describe('liveZoneTarget', () => {
       { min: 24, max: 19, step: 0.5 },
       { min: 19, max: 24, step: 0 },
     ]) {
-      expect(liveZoneTarget(entitiesOf(sensor('true'), entity(HELPER, '21', attributes)), 'living')?.range).toBeNull();
+      expect(liveZoneTarget(entitiesOf(sensor('true'), entity(HELPER, '21', attributes)), 'family')?.range).toBeNull();
     }
   });
 
   it('judges each zone by its own sensor and helper', () => {
-    const family = entity('input_number.heating_target_family', '22', { min: 19, max: 24, step: 1 });
-    const entities = entitiesOf(entity('sensor.heating_zone_family', '22', { live: 'true' }), sensor('false'), helper, family);
-    expect(liveZoneTarget(entities, 'family')).toEqual({
-      helperId: 'input_number.heating_target_family',
+    const kristine = entity('input_number.heating_target_kristines_room', '22', { min: 19, max: 24, step: 1 });
+    const entities = entitiesOf(entity('sensor.heating_zone_kristines_room', '22', { live: 'true' }), sensor('false'), helper, kristine);
+    expect(liveZoneTarget(entities, 'kristines_room')).toEqual({
+      helperId: 'input_number.heating_target_kristines_room',
       value: 22,
       range: { min: 19, max: 24, step: 1 },
     });
-    expect(liveZoneTarget(entities, 'living')).toBeNull();
+    expect(liveZoneTarget(entities, 'family')).toBeNull();
+  });
+});
+
+describe('floorReadings', () => {
+  const LIVING = 'sensor.living_room_floor_thermometer_temperature';
+  const DINING = 'sensor.dining_room_floor_thermometer_temperature';
+
+  it('names each floor thermometer after its room, in the published order', () => {
+    expect(floorReadings({ [LIVING]: 23.5, [DINING]: '24.0' })).toEqual([
+      { room: 'living room', tempC: 23.5 },
+      { room: 'dining room', tempC: 24 },
+    ]);
+  });
+
+  it('drops a thermometer that has no reading', () => {
+    expect(floorReadings({ [LIVING]: 'unavailable', [DINING]: 24.5 })).toEqual([{ room: 'dining room', tempC: 24.5 }]);
+  });
+
+  it.each([undefined, null, '<none>', 24, ['sensor.living_room_floor_thermometer_temperature']])('reads %j as no floors', raw => {
+    expect(floorReadings(raw)).toEqual([]);
   });
 });
 
@@ -191,35 +203,34 @@ describe('nudgeControl', () => {
 });
 
 describe('zone helpers', () => {
-  it('places living immediately after family and maps its entities', () => {
-    expect(HEATING_ZONES).toEqual(['family', 'living', 'kristines_room', 'claudias_room', 'bathroom', 'guest_bathroom']);
-    expect(zoneSensorId('living')).toBe('sensor.heating_zone_living');
-    expect(zoneTargetHelperId('living')).toBe('input_number.heating_target_living');
-    expect(nudgeButtonIds('living')).toEqual({
-      warmer: 'input_button.heating_living_warmer',
-      colder: 'input_button.heating_living_colder',
-    });
-    expect(zoneThermostatId('living')).toBe('climate.living_room_thermostat');
-    expect(zoneForThermostat('climate.living_room_thermostat')).toBe('living');
+  it('plans the open family room as one zone and maps each zone to its entities', () => {
+    expect(HEATING_ZONES).toEqual(['family', 'kristines_room', 'claudias_room', 'bathroom', 'guest_bathroom']);
+    expect(zoneSensorId('family')).toBe('sensor.heating_zone_family');
+    expect(zoneTargetHelperId('family')).toBe('input_number.heating_target_family');
     expect(zoneThermostatId('family')).toBe('climate.family_room_thermostat');
     expect(zoneForThermostat('climate.family_room_thermostat')).toBe('family');
-    expect(zoneForThermostat('climate.living_thermostat')).toBeNull();
+    expect(zoneThermostatId('kristines_room')).toBe('climate.kristines_room_thermostat');
+    expect(zoneForThermostat('climate.kristines_room_thermostat')).toBe('kristines_room');
+    expect(nudgeButtonIds('kristines_room')).toEqual({
+      warmer: 'input_button.heating_kristines_room_warmer',
+      colder: 'input_button.heating_kristines_room_colder',
+    });
+  });
+
+  it('knows no zone for a thermostat the controller does not plan', () => {
+    expect(zoneForThermostat('climate.living_room_thermostat')).toBeNull();
     expect(zoneForThermostat('climate.bedroom_thermostat')).toBeNull();
   });
 
-  it.each(['living_room', 'Living Room'])('routes the %s area to its own controller zone', areaId => {
+  it.each([
+    ['living_room', 'Shared with the kitchen, dining and hallway'],
+    ['Living Room', 'Shared with the kitchen, dining and hallway'],
+    ['kitchen', 'Shared with the living area'],
+    ['dining_room', 'Shared with the living area'],
+    ['hallway', 'Shared with the living area'],
+  ])('routes the %s area to the shared family zone', (areaId, sharedNote) => {
     const thermostat = roomThermostat(areaId);
-    expect(thermostat).toEqual({ entityId: 'climate.living_room_thermostat', shared: false, sharedNote: null });
-    expect(zoneForThermostat(thermostat!.entityId)).toBe('living');
-  });
-
-  it.each(['kitchen', 'dining_room', 'hallway'])('keeps %s in the shared family zone', areaId => {
-    const thermostat = roomThermostat(areaId);
-    expect(thermostat).toEqual({
-      entityId: 'climate.family_room_thermostat',
-      shared: true,
-      sharedNote: 'Shared by the kitchen, dining and hallway',
-    });
+    expect(thermostat).toEqual({ entityId: 'climate.family_room_thermostat', shared: true, sharedNote });
     expect(zoneForThermostat(thermostat!.entityId)).toBe('family');
   });
 
@@ -250,14 +261,14 @@ describe('zone helpers', () => {
     expect(zoneHasNudge(entities, 'claudias_room')).toBe(false);
   });
 
-  it('allows living nudges only when both buttons exist', () => {
-    const sensor = entity('sensor.heating_zone_living', '21', { nudge_min: '-1.0', nudge_max: '+1.0' });
-    const warmer = entity('input_button.heating_living_warmer', 'unknown');
-    const colder = entity('input_button.heating_living_colder', 'unknown');
-    expect(zoneHasNudge(entitiesOf(sensor), 'living')).toBe(false);
-    expect(zoneHasNudge(entitiesOf(sensor, warmer), 'living')).toBe(false);
-    expect(zoneHasNudge(entitiesOf(sensor, colder), 'living')).toBe(false);
-    expect(zoneHasNudge(entitiesOf(sensor, warmer, colder), 'living')).toBe(true);
+  it('allows nudges only when both buttons exist', () => {
+    const sensor = entity('sensor.heating_zone_kristines_room', '21.5', { nudge_min: '-1.0', nudge_max: '+1.0' });
+    const warmer = entity('input_button.heating_kristines_room_warmer', 'unknown');
+    const colder = entity('input_button.heating_kristines_room_colder', 'unknown');
+    expect(zoneHasNudge(entitiesOf(sensor), 'kristines_room')).toBe(false);
+    expect(zoneHasNudge(entitiesOf(sensor, warmer), 'kristines_room')).toBe(false);
+    expect(zoneHasNudge(entitiesOf(sensor, colder), 'kristines_room')).toBe(false);
+    expect(zoneHasNudge(entitiesOf(sensor, warmer, colder), 'kristines_room')).toBe(true);
   });
 
   it('is off season when the controller or the switch says so', () => {

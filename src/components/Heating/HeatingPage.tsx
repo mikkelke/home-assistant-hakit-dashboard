@@ -11,6 +11,7 @@ import {
   HEATING_SUPPLY_TEMP_SENSOR,
   HEATING_ZONES,
   clockOf,
+  floorReadings,
   heatBool,
   heatList,
   heatNum,
@@ -145,13 +146,14 @@ function ZoneRow({ zone, entities, onOpen }: { zone: HeatingZone; entities: Hass
   const floorC = heatNum(attrs.floor_temp);
   const floorMax = heatNum(attrs.floor_max_c);
   const floorHot = floorC != null && floorMax != null && floorC >= floorMax;
+  const floors = floorReadings(attrs.floor_temps).map(floor => `${floor.room} ${floor.tempC.toFixed(1)} °C`);
   const nextUp = nextSetpoint != null && setpointNow != null && nextSetpoint > setpointNow;
 
   const label = [
     meta.name,
     airC == null ? 'air unknown' : `air ${airC.toFixed(1)} °C`,
     target == null ? null : `target ${target.toFixed(1)} °C`,
-    floorC == null ? null : `floor ${floorC.toFixed(1)} °C`,
+    floorC == null ? null : `floor ${floorC.toFixed(1)} °C${floors.length > 0 ? ` (${floors.join(', ')})` : ''}`,
     heating ? 'heating' : null,
     mode?.label,
     nudge !== 0 ? `nudged ${nudge > 0 ? '+' : ''}${nudge.toFixed(1)}` : null,
