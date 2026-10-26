@@ -165,6 +165,23 @@ body.modal-open .room-card {
   color: #93c5fd;
 }
 
+.room-clim .climate-temp {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.room-heating {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--heat);
+}
+
+.room-heating svg {
+  width: 14px;
+  height: 14px;
+}
+
 .room-orb {
   position: absolute;
   left: -24px;

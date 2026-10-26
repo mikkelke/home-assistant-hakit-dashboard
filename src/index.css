@@ -37,6 +37,7 @@ html, body {
   --accent-sky: #38bdf8;
   --accent-gold: #fbbf24;
   --accent-rose: #fb7185;
+  --heat: #ff9f0a;
   --radius-chip: 12px;
   /* Relative price bands: each day's hours ranked into quarters. One palette on every chart. */
   --band-cheap: #34d399;

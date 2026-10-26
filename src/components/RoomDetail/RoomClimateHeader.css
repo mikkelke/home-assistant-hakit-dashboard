@@ -127,8 +127,8 @@
   font-size: 0.95rem;
 }
 .climate-chip.chip-heat {
-  background: rgba(255, 159, 10, 0.16);
-  color: #ff9f0a;
+  background: color-mix(in srgb, var(--heat) 16%, transparent);
+  color: var(--heat);
 }
 .climate-chip.chip-cool {
   background: rgba(100, 210, 255, 0.16);

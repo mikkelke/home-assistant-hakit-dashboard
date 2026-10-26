@@ -80,6 +80,128 @@ const HALLWAY: Area = { area_id: 'hallway', name: 'Hallway' };
 const KITCHEN: Area = { area_id: 'kitchen', name: 'Kitchen' };
 const modalOpen = () => document.querySelector('.person-info-overlay') != null;
 
+describe('room card heating', () => {
+  const familyThermostat = 'climate.family_room_thermostat';
+  const inSeason = (...entities: ReturnType<typeof entity>[]) => world(entity('input_boolean.heating_season', 'on'), ...entities);
+  const flame = () => document.querySelector('.room-heating');
+  const card = () => document.querySelector('.room-card');
+
+  it.each(['living_room', 'kitchen', 'dining_room', 'hallway'])('follows the family thermostat for %s', areaId => {
+    show({ area_id: areaId, name: areaId.replace(/_/g, ' ') }, inSeason(entity(familyThermostat, 'heat', { hvac_action: 'heating' })));
+    expect(flame()?.querySelector('[data-icon="mdi:fire"]')).not.toBeNull();
+    expect(card()?.getAttribute('aria-description')).toBe('heating');
+  });
+
+  it.each([
+    ['kristines_room', 'kristines_room'],
+    ['claudias_room', 'claudias_room'],
+    ['office', 'claudias_room'],
+    ['bathroom', 'bathroom'],
+    ['guest_bathroom', 'guest_bathroom'],
+  ])('follows the own thermostat for %s, keyed by area ID', (areaId, thermostatName) => {
+    show(
+      { area_id: areaId, name: 'Renamed room' },
+      inSeason(
+        entity(familyThermostat, 'heat', { hvac_action: 'idle' }),
+        entity(`climate.${thermostatName}_thermostat`, 'heat', { hvac_action: 'heating' })
+      )
+    );
+    expect(flame()).not.toBeNull();
+  });
+
+  it('never heats the bedroom, even if its thermostat or the family zone reports heating', () => {
+    show(
+      { area_id: 'bedroom', name: 'Bedroom' },
+      inSeason(
+        entity(familyThermostat, 'heat', { hvac_action: 'heating' }),
+        entity('climate.bedroom_thermostat', 'heat', { hvac_action: 'heating' })
+      )
+    );
+    expect(flame()).toBeNull();
+    expect(card()?.hasAttribute('aria-description')).toBe(false);
+  });
+
+  it.each(['living_room', 'kitchen', 'dining_room', 'hallway'])('ignores the unpaired living room spare for %s', areaId => {
+    show(
+      { area_id: areaId, name: areaId.replace(/_/g, ' ') },
+      inSeason(
+        entity(familyThermostat, 'heat', { hvac_action: 'idle' }),
+        entity('climate.living_room_thermostat', 'heat', { hvac_action: 'heating' })
+      )
+    );
+    expect(flame()).toBeNull();
+  });
+
+  it.each([
+    ['heat', 'idle'],
+    ['heat', 'off'],
+    ['off', 'heating'],
+    ['unknown', 'heating'],
+    ['unavailable', 'heating'],
+  ])('hides for thermostat state %s and action %s', (state, action) => {
+    show(KITCHEN, inSeason(entity(familyThermostat, state, { hvac_action: action })));
+    expect(flame()).toBeNull();
+    expect(card()?.hasAttribute('aria-description')).toBe(false);
+  });
+
+  it('hides when the thermostat is missing', () => {
+    show(KITCHEN, inSeason());
+    expect(flame()).toBeNull();
+  });
+
+  it.each([
+    ['off', 'live'],
+    ['on', 'off_season'],
+  ])('shows whenever the thermostat heats, also with season %s and controller %s', (season, controller) => {
+    show(
+      KITCHEN,
+      world(
+        entity('input_boolean.heating_season', season),
+        entity('sensor.heating_controller', controller),
+        entity(familyThermostat, 'heat', { hvac_action: 'heating' })
+      )
+    );
+    expect(flame()).not.toBeNull();
+  });
+
+  it('updates from the store without a parent render', () => {
+    const state = (action: string) => inSeason(entity(familyThermostat, 'heat', { hvac_action: action }));
+    show(KITCHEN, state('idle'));
+    expect(flame()).toBeNull();
+
+    act(() => store.setState({ entities: state('heating') }));
+    expect(flame()).not.toBeNull();
+    expect(card()?.getAttribute('aria-description')).toBe('heating');
+
+    act(() => store.setState({ entities: state('idle') }));
+    expect(flame()).toBeNull();
+    expect(card()?.hasAttribute('aria-description')).toBe(false);
+  });
+
+  it('keeps the small decorative flame by the temperature and names heating on the climate action', () => {
+    const onClimateClick = vi.fn();
+    show(
+      KITCHEN,
+      inSeason(entity(familyThermostat, 'heat', { hvac_action: 'heating' }), entity('sensor.kitchen_feel', '21.5', { rh: 48 })),
+      undefined,
+      { onClimateClick }
+    );
+    expect(flame()?.getAttribute('aria-hidden')).toBe('true');
+    expect(flame()?.closest('.climate-temp')?.textContent).toContain('21,5 °C');
+    expect(document.querySelector('.room-clim')?.getAttribute('aria-label')).toBe('Kitchen temperature history, heating');
+    expect(card()?.hasAttribute('aria-label')).toBe(false);
+    expect(document.querySelector('.room-ex .room-heating')).toBeNull();
+    act(() => flame()!.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(onClimateClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows heating even without a temperature reading', () => {
+    show(KITCHEN, inSeason(entity(familyThermostat, 'heat', { hvac_action: 'heating' })));
+    expect(flame()).not.toBeNull();
+    expect(flame()?.closest('.climate-temp')?.textContent).toBe('—');
+  });
+});
+
 describe('room card exception icons', () => {
   it('keeps an open door history up when the door closes meanwhile', () => {
     show(HALLWAY, world(entity('binary_sensor.apartment_door_open', 'on', { friendly_name: 'Apartment door' })));

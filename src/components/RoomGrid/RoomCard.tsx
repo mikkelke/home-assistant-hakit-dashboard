@@ -11,6 +11,7 @@ import {
   resolveHallwayDoorSensorId,
   resolveKitchenHumiditySensorId,
   roomFeelSensorId,
+  roomThermostat,
 } from '../../config/entities';
 import { withCoffeeDemo } from '../../coffee/demoStore';
 import { useCoffeeDemo } from '../../coffee/useCoffeeState';
@@ -25,6 +26,7 @@ import { useNowMs } from '../../hooks/useNowMs';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { resolveApartmentLock } from '../../utils/apartmentLock';
 import { formatDecimal } from '../../utils/format';
+import { isHeating, zoneForThermostat } from '../../utils/heating';
 import { IndicatorWithTimeline } from './IndicatorWithTimeline';
 import { MultiEntitySelector } from './MultiEntitySelector';
 import './RoomGrid.css';
@@ -308,6 +310,14 @@ export function RoomCard({ area, entities, todo = NO_TODO, onClick, onClimateCli
   // Priority: 1) sensor.{area}_temperature 2) climate.{area}_thermostat current_temp 3) generic search (exclude floor)
   const climateSensorId = `climate.${areaNameNormalized}_thermostat`;
   const climateEntity = entities?.[climateSensorId];
+
+  // Heating follows the physical zone, not the temperature fallback above. The bedroom has no zone.
+  const thermostat = roomThermostat(area.area_id);
+  const heating = useHass(s => {
+    if (!thermostat || !zoneForThermostat(thermostat.entityId)) return false;
+    const entity = s.entities[thermostat.entityId];
+    return hasReading(entity) && entity?.state !== 'off' && isHeating(entity);
+  });
 
   const isKitchen = areaNameNormalized === 'kitchen';
 
@@ -605,7 +615,7 @@ export function RoomCard({ area, entities, todo = NO_TODO, onClick, onClimateCli
   } as CSSProperties;
 
   return (
-    <button className={cardClass} onClick={onClick} style={cardStyle}>
+    <button className={cardClass} onClick={onClick} style={cardStyle} aria-description={heating ? 'heating' : undefined}>
       <GlowLayers glowKey={litKey} />
       {frosty && <i className='room-frost' />}
       {asleep && (
@@ -628,7 +638,7 @@ export function RoomCard({ area, entities, todo = NO_TODO, onClick, onClimateCli
         className={`room-clim ${frosty ? 'is-cold' : ''}`}
         role={onClimateClick ? 'button' : undefined}
         tabIndex={onClimateClick ? 0 : undefined}
-        aria-label={onClimateClick ? `${formatName(area.name)} temperature history` : undefined}
+        aria-label={onClimateClick ? `${formatName(area.name)} temperature history${heating ? ', heating' : ''}` : undefined}
         onClick={
           onClimateClick
             ? e => {
@@ -649,8 +659,16 @@ export function RoomCard({ area, entities, todo = NO_TODO, onClick, onClimateCli
             : undefined
         }
       >
-        {temp == null && humidity == null && <span className='climate-item'>—</span>}
-        {temp != null && <span className='climate-item climate-temp'>{formatTemp(temp)} °C</span>}
+        {(temp != null || heating || humidity == null) && (
+          <span className='climate-item climate-temp'>
+            {temp != null ? `${formatTemp(temp)} °C` : '—'}
+            {heating && (
+              <span className='room-heating' aria-hidden='true'>
+                <Icon icon='mdi:fire' />
+              </span>
+            )}
+          </span>
+        )}
         {humidity != null && <span className='climate-item'>{humidity} %</span>}
       </span>
       <span className='room-orb'>
