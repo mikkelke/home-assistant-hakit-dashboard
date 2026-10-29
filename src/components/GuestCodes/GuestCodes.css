@@ -19,7 +19,6 @@
 }
 .gc-head h2 { flex: 1; font-size: 1.15rem; font-weight: 600; }
 .guest-codes .modal-close-button {
-  position: static;
   width: 44px !important;
   height: 44px !important;
   min-width: 44px !important;
