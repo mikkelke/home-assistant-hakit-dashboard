@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { loadedByUpdate } from '../updateCheck';
+import { handleStaleChunk, loadedByUpdate } from '../updateCheck';
 
 const NOW = Date.parse('2026-10-16T08:00:00Z');
 
@@ -49,5 +49,40 @@ describe('loadedByUpdate', () => {
       withGuard(raw);
       expect(loadedByUpdate()).toBe(false);
     }
+  });
+});
+
+describe('handleStaleChunk', () => {
+  function staleChunkWindow() {
+    const store = new Map<string, string>();
+    const replace = vi.fn();
+    vi.stubGlobal('__APP_BUILD_VERSION__', 'build-1');
+    vi.stubGlobal('window', {
+      location: { href: 'https://ha.example/local/ha-dashboard/index.html', replace },
+      sessionStorage: { getItem: (key: string) => store.get(key) ?? null, setItem: (key: string, value: string) => store.set(key, value) },
+    });
+    return replace;
+  }
+
+  it('reloads the page once and swallows the error', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    const replace = staleChunkWindow();
+    const event = new Event('vite:preloadError', { cancelable: true });
+    handleStaleChunk(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(replace).toHaveBeenCalledOnce();
+    expect(replace.mock.calls[0][0]).toContain('_v=');
+  });
+
+  it('lets the error through when the reload did not help', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    const replace = staleChunkWindow();
+    handleStaleChunk(new Event('vite:preloadError', { cancelable: true }));
+    const again = new Event('vite:preloadError', { cancelable: true });
+    handleStaleChunk(again);
+    expect(again.defaultPrevented).toBe(false);
+    expect(replace).toHaveBeenCalledOnce();
   });
 });

@@ -90,6 +90,16 @@ async function checkForUpdate() {
   }
 }
 
+/** A deploy keeps only its own and the previous build's chunks, so a page open across two deploys can no longer load a
+ * lazy page. One reload per build brings up the current one; if that did not help, the error goes through as before. */
+export function handleStaleChunk(event: Event) {
+  const guard = `stale-chunk:${__APP_BUILD_VERSION__}`;
+  if (reloadedRecentlyFor(guard)) return;
+  event.preventDefault();
+  rememberReloadFor(guard);
+  window.location.replace(getReloadUrl());
+}
+
 export function startUpdateCheck() {
   if (typeof window === 'undefined' || import.meta.env.DEV) return;
 
@@ -97,6 +107,7 @@ export function startUpdateCheck() {
     void checkForUpdate();
   };
 
+  window.addEventListener('vite:preloadError', handleStaleChunk);
   run();
   window.setInterval(run, VERSION_POLL_INTERVAL_MS);
   document.addEventListener('visibilitychange', () => {
