@@ -61,16 +61,18 @@ function GuestFrame({
 function GuestEditor({
   connection,
   user,
+  role,
   onClose,
   onChanged,
 }: {
   connection: Connection;
   user?: GuestUser;
+  role: GuestRole;
   onClose: () => void;
   onChanged: () => void;
 }) {
   const [name, setName] = useState('');
-  const [mode, setMode] = useState<'always' | 'temporary'>(user?.kind === 'temporary' ? 'temporary' : 'always');
+  const [mode, setMode] = useState<'always' | 'temporary'>(role !== 'admin' || user?.kind === 'temporary' ? 'temporary' : 'always');
   const [period, setPeriod] = useState(() => {
     const defaults = defaultPeriod();
     return { from: user?.from ? toCopenhagenInput(user.from) : defaults.from, to: user?.to ? toCopenhagenInput(user.to) : defaults.to };
@@ -231,16 +233,18 @@ function GuestEditor({
               )}
               <fieldset disabled={busy} className='gc-period'>
                 <legend>Access period</legend>
-                <div className='gc-options'>
-                  <label>
-                    <input type='radio' name='period' checked={mode === 'always'} onChange={() => setMode('always')} />
-                    Always
-                  </label>
-                  <label>
-                    <input type='radio' name='period' checked={mode === 'temporary'} onChange={() => setMode('temporary')} />
-                    From–to
-                  </label>
-                </div>
+                {role === 'admin' && (
+                  <div className='gc-options'>
+                    <label>
+                      <input type='radio' name='period' checked={mode === 'always'} onChange={() => setMode('always')} />
+                      Always
+                    </label>
+                    <label>
+                      <input type='radio' name='period' checked={mode === 'temporary'} onChange={() => setMode('temporary')} />
+                      From–to
+                    </label>
+                  </div>
+                )}
                 {mode === 'temporary' && (
                   <div className='gc-dates'>
                     <label className='gc-field'>
@@ -389,6 +393,7 @@ export function GuestCodesSheet({ role, onClose }: { role: GuestRole; onClose: (
     <li className='gc-row' key={user.user_id}>
       <div className='gc-row-top'>
         <h3>{user.name}</h3>
+        {user.protected && <span className='gc-status'>Protected</span>}
         <span className={`gc-status gc-status--${user.status}`}>{user.status}</span>
       </div>
       <p>{formatValidity(user)}</p>
@@ -396,16 +401,18 @@ export function GuestCodesSheet({ role, onClose }: { role: GuestRole; onClose: (
         {formatLastUse(user.last_use)}
         {role === 'admin' && user.created_by ? ` · Created by ${user.created_by}` : ''}
       </p>
-      <div className='gc-actions'>
-        <button type='button' disabled={user.kind === 'recurring'} onClick={() => setView({ type: 'period', user })}>
-          <Icon icon='mdi:calendar-clock' />
-          Change period
-        </button>
-        <button type='button' onClick={() => setView({ type: 'end', user })}>
-          <Icon icon='mdi:account-remove-outline' />
-          End access
-        </button>
-      </div>
+      {!user.protected && (
+        <div className='gc-actions'>
+          <button type='button' disabled={user.kind === 'recurring'} onClick={() => setView({ type: 'period', user })}>
+            <Icon icon='mdi:calendar-clock' />
+            Change period
+          </button>
+          <button type='button' onClick={() => setView({ type: 'end', user })}>
+            <Icon icon='mdi:account-remove-outline' />
+            End access
+          </button>
+        </div>
+      )}
       {user.kind === 'recurring' && <p className='gc-muted'>Recurring periods are read-only.</p>}
     </li>
   );
@@ -438,9 +445,11 @@ export function GuestCodesSheet({ role, onClose }: { role: GuestRole; onClose: (
           </details>
         )}
       </GuestFrame>
-      {connection && view?.type === 'create' && <GuestEditor connection={connection} onClose={() => setView(null)} onChanged={refresh} />}
+      {connection && view?.type === 'create' && (
+        <GuestEditor connection={connection} role={role} onClose={() => setView(null)} onChanged={refresh} />
+      )}
       {connection && view?.type === 'period' && (
-        <GuestEditor connection={connection} user={view.user} onClose={() => setView(null)} onChanged={refresh} />
+        <GuestEditor connection={connection} user={view.user} role={role} onClose={() => setView(null)} onChanged={refresh} />
       )}
       {connection && view?.type === 'end' && (
         <EndConfirmation connection={connection} user={view.user} role={role} onClose={() => setView(null)} onChanged={refresh} />

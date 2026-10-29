@@ -22,7 +22,7 @@ export async function fetchUsers(connection: Connection): Promise<GuestUser[]> {
   requireConnection(connection);
   const reply = await connection.sendMessagePromise<{ users: GuestUser[] }>({ type: 'yale_access/users' });
   if (!Array.isArray(reply?.users)) throw new Error('The lock returned an invalid user list.');
-  return reply.users.map(({ user_id, name, slot, kind, from, to, status, last_use, created_by }) => ({
+  return reply.users.map(({ user_id, name, slot, kind, from, to, status, last_use, created_by, protected: isProtected }) => ({
     user_id,
     name,
     slot,
@@ -32,6 +32,7 @@ export async function fetchUsers(connection: Connection): Promise<GuestUser[]> {
     status,
     last_use,
     created_by,
+    protected: isProtected === true,
   }));
 }
 

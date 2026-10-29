@@ -2,6 +2,7 @@
 import { act, createElement, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
 import type { GuestRole, GuestUser } from '../types';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -142,6 +143,70 @@ afterEach(() => {
 });
 
 describe('guest list', () => {
+  it('reserves the header and gives the body the remaining height for scrolling', async () => {
+    const style = document.createElement('style');
+    style.textContent = readFileSync('src/components/GuestCodes/GuestCodes.css', 'utf8');
+    document.head.appendChild(style);
+    try {
+      await open('admin');
+      const header = getComputedStyle(document.querySelector('.gc-head')!);
+      const body = getComputedStyle(document.querySelector('.gc-body')!);
+      expect(header.flexShrink).toBe('0');
+      expect(body.flexGrow).toBe('1');
+      expect(body.flexShrink).toBe('1');
+      expect(body.minHeight).toBe('0');
+      expect(body.overflowY).toBe('auto');
+      expect(body.touchAction).toBe('pan-y');
+    } finally {
+      style.remove();
+    }
+  });
+
+  it('keeps Create guest before a long owner list and opens the editor', async () => {
+    users = Array.from({ length: 40 }, (_, index) => row({ user_id: `synthetic-${index}`, name: `Guest ${index}` }));
+    await open('admin');
+    const body = document.querySelector('.gc-body')!;
+    expect(body.firstElementChild?.className).toBe('gc-toolbar');
+    expect(body.firstElementChild?.contains(button('Create guest')!)).toBe(true);
+    expect(document.querySelectorAll('.gc-row')).toHaveLength(40);
+    expect(document.querySelector('[role="dialog"]')?.closest('[inert]')).toBeNull();
+    await tap(button('Create guest'));
+    expect(input('Name')).toBeTruthy();
+  });
+
+  it('allows a vertical touch on the list without cancelling scrolling or closing', async () => {
+    vi.spyOn(window, 'matchMedia').mockImplementation(query => ({
+      matches: query === '(max-width: 768px)',
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+    users = [row()];
+    await open('admin');
+    const target = document.querySelector('.gc-row h3')!;
+    const touch = (type: string, clientX: number, clientY: number) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      const points = [{ clientX, clientY }];
+      Object.defineProperties(event, { touches: { value: points }, changedTouches: { value: points } });
+      return event;
+    };
+    const move = touch('touchmove', 105, 200);
+    await act(async () => {
+      target.dispatchEvent(touch('touchstart', 100, 500));
+      target.dispatchEvent(move);
+      target.dispatchEvent(touch('touchend', 105, 200));
+    });
+    expect(move.defaultPrevented).toBe(false);
+    expect(window.history.back).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    await tap(button('Create guest'));
+    expect(input('Name')).toBeTruthy();
+  });
+
   it.each([
     ['admin', 'Lock users'],
     ['guests', 'My guests'],
@@ -185,6 +250,26 @@ describe('guest list', () => {
 });
 
 describe('one-time guest PIN', () => {
+  it('hides Always for the guests role and creates with from/to', async () => {
+    await open('guests');
+    await newGuest();
+    expect(text()).not.toContain('Always');
+    expect(document.querySelectorAll('input[type="radio"]')).toHaveLength(0);
+    expect(input('From')).toBeTruthy();
+    expect(input('To')).toBeTruthy();
+    await enter('From', '2026-07-15T12:00');
+    await enter('To', '2026-07-16T12:00');
+    await tap(button('Create guest'));
+    expect(sent('yale_access/create')).toEqual([
+      {
+        type: 'yale_access/create',
+        name: 'Test guest',
+        from: '2026-07-15T10:00:00.000Z',
+        to: '2026-07-16T10:00:00.000Z',
+      },
+    ]);
+  });
+
   it('shows progress without a second create request, then shows the PIN and only copies or shares on a tap', async () => {
     const pending = deferred();
     send.mockImplementation(async message => (message.type === 'yale_access/create' ? pending.promise : { users }));
@@ -314,7 +399,7 @@ describe('one-time guest PIN', () => {
   it('skips fields disabled by the period fieldset when trapping focus during creation', async () => {
     const pending = deferred();
     send.mockImplementation(async command => (command.type === 'yale_access/create' ? pending.promise : { users }));
-    await open();
+    await open('admin');
     await newGuest();
     await tap(
       [...document.querySelectorAll<HTMLInputElement>('input[type="radio"]')].find(
@@ -335,9 +420,32 @@ describe('one-time guest PIN', () => {
 });
 
 describe('guest row actions', () => {
+  it.each(['admin', 'guests'] as const)('labels protected users and omits their actions for %s', async role => {
+    users = [
+      row({ user_id: 'protected-active', protected: true }),
+      row({ user_id: 'protected-expired', protected: true, status: 'expired' }),
+      row({ user_id: 'ordinary-explicit', protected: false }),
+      row({ user_id: 'ordinary-legacy' }),
+    ];
+    await open(role);
+    const rows = [...document.querySelectorAll('.gc-row')];
+    const protectedRows = rows.filter(element => element.textContent?.includes('Protected'));
+    expect(protectedRows).toHaveLength(2);
+    expect(protectedRows.some(element => element.closest('details'))).toBe(true);
+    for (const protectedRow of protectedRows) expect(protectedRow.querySelector('button')).toBeNull();
+    const editableRows = rows.filter(element => !element.textContent?.includes('Protected'));
+    expect(editableRows).toHaveLength(2);
+    for (const editableRow of editableRows) {
+      expect([...editableRow.querySelectorAll('button')].map(element => element.textContent?.trim())).toEqual([
+        'Change period',
+        'End access',
+      ]);
+    }
+  });
+
   it('sends a changed period as Copenhagen instants and refreshes the list', async () => {
     users = [row()];
-    await open();
+    await open('admin');
     await tap(button('Change period'));
     const timed = [...document.querySelectorAll<HTMLInputElement>('input[type="radio"]')].find(
       element => element.closest('label')?.textContent === 'From–to'

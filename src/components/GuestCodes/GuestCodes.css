@@ -10,6 +10,7 @@
   height: 100%;
 }
 .gc-head {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -27,8 +28,12 @@
   background: var(--surface-chip);
 }
 .gc-body {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  touch-action: pan-y;
   padding: 1rem 1rem max(1rem, env(safe-area-inset-bottom));
   scrollbar-color: var(--text-3) var(--surface-card);
 }

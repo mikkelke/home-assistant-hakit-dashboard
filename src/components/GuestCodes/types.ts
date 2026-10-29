@@ -9,6 +9,7 @@ export interface GuestUser {
   status: 'active' | 'scheduled' | 'expired' | 'pending' | 'failed';
   last_use: string | null;
   created_by: string | null;
+  protected?: boolean;
 }
 export interface Period {
   from?: string;
