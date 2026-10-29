@@ -1,0 +1,97 @@
+.gc-sheet {
+  background: var(--surface-card);
+  color: var(--text-1);
+  border-color: var(--line);
+}
+.guest-codes {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.gc-head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--line);
+}
+.gc-head h2 { flex: 1; font-size: 1.15rem; font-weight: 600; }
+.guest-codes .modal-close-button {
+  position: static;
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+  color: var(--text-2);
+  background: var(--surface-chip);
+}
+.gc-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1rem 1rem max(1rem, env(safe-area-inset-bottom));
+  scrollbar-color: var(--text-3) var(--surface-card);
+}
+.guest-codes button {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-chip);
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-size: 0.875rem;
+  background: var(--surface-chip);
+  color: var(--text-1);
+  cursor: pointer;
+}
+.guest-codes button:disabled { opacity: 0.5; cursor: default; }
+.guest-codes button:focus-visible, .guest-codes input:focus-visible, .guest-codes summary:focus-visible { outline: 2px solid var(--accent-sky); outline-offset: 2px; }
+.guest-codes .gc-primary { background: var(--accent-sky); color: var(--surface-card); font-weight: 600; }
+.guest-codes .gc-danger { color: var(--accent-rose); margin-top: 1.5rem; }
+.gc-toolbar, .gc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.gc-toolbar { justify-content: space-between; margin-bottom: 1rem; }
+.gc-list { list-style: none; }
+.gc-row { padding: 1rem 0; border-bottom: 1px solid var(--line); }
+.gc-row-top { display: flex; align-items: baseline; gap: 0.75rem; justify-content: space-between; }
+.gc-row h3, .gc-success h3 { font-size: 1rem; font-weight: 600; overflow-wrap: anywhere; }
+.gc-row p { font-size: 0.875rem; margin-top: 0.25rem; overflow-wrap: anywhere; }
+.gc-muted { color: var(--text-2); font-size: 0.875rem; }
+.gc-row .gc-actions { margin-top: 0.75rem; }
+.gc-status { font-size: 0.75rem; color: var(--text-2); text-transform: capitalize; white-space: nowrap; }
+.gc-status--active { color: var(--accent-sky); }
+.gc-status--scheduled, .gc-status--pending { color: var(--accent-gold); }
+.gc-status--failed, .gc-error { color: var(--accent-rose); }
+.gc-error { margin-top: 1rem; overflow-wrap: anywhere; white-space: pre-wrap; }
+.gc-expired { margin-top: 1.25rem; }
+.gc-expired summary { min-height: 44px; padding: 0.6rem 0; cursor: pointer; color: var(--text-2); }
+.gc-field { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; margin-bottom: 1rem; }
+.gc-field input {
+  min-height: 44px;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-chip);
+  padding: 0.65rem;
+  font: inherit;
+  font-size: 1rem;
+  background: var(--surface-chip);
+  color: var(--text-1);
+  caret-color: var(--accent-sky);
+  color-scheme: dark;
+}
+.gc-period { border: 0; margin: 1.5rem 0; min-width: 0; }
+.gc-period legend { font-size: 0.875rem; color: var(--text-2); }
+.gc-options { display: flex; gap: 1rem; margin: 0.25rem 0 1rem; }
+.gc-options label { min-height: 44px; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+.gc-options input { accent-color: var(--accent-sky); }
+.gc-progress { margin-top: 1rem; color: var(--text-2); }
+.gc-success { text-align: center; padding: 1rem 0; }
+.gc-success p { margin-top: 0.5rem; }
+.gc-success .gc-actions { justify-content: center; margin: 1.5rem 0; }
+.gc-pin { font-size: clamp(2rem, 12vw, 3.5rem); font-variant-numeric: tabular-nums; letter-spacing: 0.1em; user-select: all; }
+@media (min-width: 480px) { .gc-dates { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.75rem; } }
+@media (prefers-reduced-motion: reduce) { .gc-sheet { animation: none; } }

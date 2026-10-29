@@ -1278,6 +1278,14 @@
 .qa-door svg {
   font-size: 1.1rem;
 }
+.qa-door.is-guests {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  background: var(--surface-chip);
+  color: var(--accent-sky);
+}
+
 .qa-door.is-lock {
   color: rgba(235, 235, 245, 0.6);
 }

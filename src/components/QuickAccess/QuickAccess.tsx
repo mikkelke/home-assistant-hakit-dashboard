@@ -33,6 +33,7 @@ import { useApartmentLock } from '../../hooks/useApartmentLock';
 import type { OpenNow } from '../../utils/navigation';
 import { trackUiTap } from '../../utils/trackUiTap';
 import { RequestSheet, RequestTile, useRequestAccess } from '../Request';
+import { useGuestAccess } from '../GuestCodes/useGuestAccess';
 import './QuickAccess.css';
 
 interface QuickAccessProps {
@@ -163,6 +164,8 @@ interface SpeakerInfo {
   groupSize: number;
 }
 
+const GuestCodesSheet = lazy(() => import('../GuestCodes/GuestCodesSheet').then(module => ({ default: module.GuestCodesSheet })));
+
 const QuickWeatherCard = lazy(() => import('../Weather/QuickWeatherCard').then(module => ({ default: module.QuickWeatherCard })));
 const warmQuickWeatherCard = () => void import('../Weather/QuickWeatherCard');
 
@@ -202,6 +205,8 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
   const [showSpeakerSelector, setShowSpeakerSelector] = useState(false);
   const [mediaTab, setMediaTab] = useState<MediaTab>('audio');
   const [requestOpen, setRequestOpen] = useState(false);
+  const [guestCodesOpen, setGuestCodesOpen] = useState(false);
+  const guestRole = useGuestAccess();
   const { allowed: requestAllowed, drtv: requestDrtv } = useRequestAccess();
   const [expandedLine, setExpandedLine] = useState<string | null>(null);
   const [isTransitRefreshing, setIsTransitRefreshing] = useState(false);
@@ -564,6 +569,19 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                 title={aptLock.actionLabel}
               >
                 <Icon icon={aptLock.pending ? 'mdi:lock-clock' : aptLock.icon} />
+              </button>
+            )}
+            {aptLock.present && guestRole && (
+              <button
+                type='button'
+                className='qa-door is-guests'
+                aria-label='Guest codes'
+                onClick={() => {
+                  setDoorsOpen(false);
+                  setGuestCodesOpen(true);
+                }}
+              >
+                <Icon icon='mdi:key-plus' />
               </button>
             )}
             <span className='qa-door-div' aria-hidden='true' />
@@ -1091,6 +1109,18 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
       {/* A sibling of the media modal, not a child: React bubbles the sheet's touch events up the component
           tree, which would otherwise feed its swipes into the media modal's own swipe-to-close. */}
       {openModal === 'media' && requestAllowed && requestOpen && <RequestSheet drtv={requestDrtv} onClose={() => setRequestOpen(false)} />}
+      {guestCodesOpen && guestRole && (
+        <LazyBoundary
+          fallback={null}
+          error={
+            <button type='button' onClick={() => setGuestCodesOpen(false)}>
+              Could not load Guest codes. Close
+            </button>
+          }
+        >
+          <GuestCodesSheet key={guestRole} role={guestRole} onClose={() => setGuestCodesOpen(false)} />
+        </LazyBoundary>
+      )}
     </>
   );
 }

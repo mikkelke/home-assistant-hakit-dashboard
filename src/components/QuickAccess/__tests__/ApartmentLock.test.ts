@@ -43,6 +43,7 @@ vi.mock('../../Request', () => ({
   RequestTile: () => null,
   useRequestAccess: () => ({ allowed: false, drtv: false }),
 }));
+vi.mock('../../GuestCodes/useGuestAccess', () => ({ useGuestAccess: () => null }));
 vi.mock('../../Weather/QuickWeatherCard', () => ({ QuickWeatherCard: () => null }));
 vi.mock('../../MediaPlayer', async () => {
   const { createElement: h } = await import('react');
