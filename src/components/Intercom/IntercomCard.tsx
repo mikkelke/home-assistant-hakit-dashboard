@@ -5,10 +5,12 @@ import { APARTMENT_DOOR_OPEN_ENTITY, resolveHallwayDoorSensorId } from '../../co
 import { useLocalStorageBoolean, useTouchScrollSlopGuard } from '../../hooks';
 import { useApartmentLock } from '../../hooks/useApartmentLock';
 import { LazyBoundary } from '../Lazy/LazyBoundary';
+import { useGuestAccess } from '../GuestCodes/useGuestAccess';
 import { fetchDoorbellIndex, formatRingTime, type DoorbellImage } from './doorbellArchive';
 import './IntercomCard.css';
 
 const DoorbellGallery = lazy(() => import('./DoorbellGallery').then(module => ({ default: module.DoorbellGallery })));
+const GuestCodesSheet = lazy(() => import('../GuestCodes/GuestCodesSheet').then(module => ({ default: module.GuestCodesSheet })));
 
 // "Access" card - the apartment lock, the two building doors, and the auto-open ritual, in the
 // Climate-card grammar (see AC/TonightCard). Two homes, one component: the Hallway room detail
@@ -53,6 +55,8 @@ export function IntercomCard({ entities, callService, showHeader = false, onUiTa
   }, []);
   const [collapsed, setCollapsed] = useLocalStorageBoolean('accesscard-collapsed', true);
   const topSlop = useTouchScrollSlopGuard();
+  const [guestCodesOpen, setGuestCodesOpen] = useState(false);
+  const guestRole = useGuestAccess();
   // Which door just fired - shows a green check for FIRED_FLASH_MS so a tap answers itself
   // without a toast (user 2026-07-31: the doors must work from the collapsed row).
   const [fired, setFired] = useState<string | null>(null);
@@ -289,6 +293,23 @@ export function IntercomCard({ entities, callService, showHeader = false, onUiTa
           </div>
         )}
 
+        {aptLock.present && guestRole && (
+          <div className='access-row'>
+            <span className='access-row-name'>Guest codes</span>
+            <button
+              type='button'
+              className='access-ibtn'
+              aria-label='Guest codes'
+              onClick={() => {
+                setGuestCodesOpen(true);
+                onUiTap?.('guest_codes');
+              }}
+            >
+              <Icon icon='mdi:key-plus' aria-hidden='true' />
+            </button>
+          </div>
+        )}
+
         {(frontLock || backLock) && (
           <div className='access-row'>
             <span className='access-row-name'>Building</span>
@@ -383,6 +404,23 @@ export function IntercomCard({ entities, callService, showHeader = false, onUiTa
       </LazyBoundary>
     ) : null;
 
+  const guestCodes =
+    guestCodesOpen && guestRole ? (
+      // Portal events still bubble through React parents. Keep sheet gestures out of the access modal's swipe handler.
+      <div onTouchStart={e => e.stopPropagation()} onTouchMove={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
+        <LazyBoundary
+          fallback={null}
+          error={
+            <button type='button' onClick={() => setGuestCodesOpen(false)}>
+              Could not load Guest codes. Close
+            </button>
+          }
+        >
+          <GuestCodesSheet key={guestRole} role={guestRole} onClose={() => setGuestCodesOpen(false)} />
+        </LazyBoundary>
+      </div>
+    ) : null;
+
   if (!showHeader) {
     return (
       <div className='access-card is-embedded'>
@@ -391,6 +429,7 @@ export function IntercomCard({ entities, callService, showHeader = false, onUiTa
         {commandError}
         {body}
         {gallery}
+        {guestCodes}
       </div>
     );
   }
@@ -435,6 +474,7 @@ export function IntercomCard({ entities, callService, showHeader = false, onUiTa
       {commandError}
       {!collapsed && body}
       {gallery}
+      {guestCodes}
     </div>
   );
 }
