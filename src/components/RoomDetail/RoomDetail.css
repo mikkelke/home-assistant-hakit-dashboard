@@ -162,6 +162,9 @@
   padding: 1.25rem;
   overflow-y: auto;
 }
+.room-detail.mobile .room-detail-content {
+  padding-bottom: calc(5.5rem + 48px + 16px + env(safe-area-inset-bottom));
+}
 /* Uniform spacing between cards */
 .room-detail-content > *:not(:last-child) {
   margin-bottom: 1rem;

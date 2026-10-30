@@ -39,14 +39,20 @@ export class Shots {
   async scrolling(scroller: string | Locator, name: string, limit = 4): Promise<void> {
     const element = typeof scroller === 'string' ? this.page.locator(scroller).first() : scroller;
     await element.waitFor();
+    await this.settle();
     const { client, total } = await element.evaluate(node => ({ client: node.clientHeight, total: node.scrollHeight }));
     const stride = Math.max(1, client - 96);
     const needed = total <= client + 24 ? 1 : 1 + Math.ceil((total - client) / stride);
     const steps = Math.min(limit, needed);
     if (steps < needed) console.log(`[cut] ${this.viewport}/${name}: ${needed} screens long, ${steps} taken`);
     for (let step = 0; step < steps; step += 1) {
-      const top = step === steps - 1 && steps > 1 ? total : step * stride;
-      await element.evaluate((node, value) => node.scrollTo({ top: value, behavior: 'instant' }), top);
+      if (step === steps - 1) {
+        // Late cards and fonts change the scroll range, so the end is read after settling.
+        await this.settle();
+        await element.evaluate(node => node.scrollTo({ top: node.scrollHeight, behavior: 'instant' }));
+      } else {
+        await element.evaluate((node, top) => node.scrollTo({ top, behavior: 'instant' }), step * stride);
+      }
       await this.shot(steps === 1 ? name : `${name}-${step + 1}`);
     }
     await element.evaluate(node => node.scrollTo({ top: 0, behavior: 'instant' }));
