@@ -8,6 +8,7 @@ import { useLocalStorageBoolean } from '../../hooks';
 import { ApplianceCard, AppliancePickerSheet, ApplianceHistorySheet, formatTimeOnly, formatDuration, startedLine } from '../Appliance';
 import type { ApplianceCycle, ApplianceFeedbackJson } from '../Appliance';
 import './WasherCard.css';
+import { stateSinceIso } from '../../utils/stateSince';
 
 const ACCENT_CLASS = 'appliance-accent-washer';
 const GLYPH_ICON = 'mdi:washing-machine';
@@ -200,7 +201,7 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
   const runCostKr = useRunCost({
     mode: 'finished',
     active: state === 'Unemptied',
-    endDetectedIso: washer?.last_changed,
+    endDetectedIso: stateSinceIso(washer),
     runTimeMinutes,
     idleMinutes,
     energyKwh: energyUsed,
@@ -388,8 +389,8 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
   const stateWordClass = state === 'Running' ? 'tint' : state === 'Unemptied' ? 'alert' : 'muted';
 
   // "Done HH:MM": the real cycle end, recovered from the Unemptied-flip timestamp minus the
-  // backend's known detection lag (idle_min) — omitted entirely when last_changed can't be parsed.
-  const lastChangedMs = washer.last_changed ? Date.parse(washer.last_changed) : NaN;
+  // backend's known detection lag (idle_min) — omitted entirely when the flip time can't be parsed.
+  const lastChangedMs = Date.parse(stateSinceIso(washer) ?? '');
   const doneAtDisplay = Number.isFinite(lastChangedMs)
     ? new Date(lastChangedMs - (idleMinutes ?? 0) * 60_000).toLocaleTimeString('en-GB', {
         hour: '2-digit',

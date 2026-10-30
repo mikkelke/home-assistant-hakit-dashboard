@@ -15,6 +15,7 @@ import {
   DRYER_STATE_ENTITY,
   DRYER_TIME_MINUTES_SELECT,
 } from '../../config/entities';
+import { stateSinceIso } from '../../utils/stateSince';
 
 const ACCENT_CLASS = 'appliance-accent-dryer';
 const GLYPH_ICON = 'mdi:tumble-dryer';
@@ -204,7 +205,7 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
   const runCostKr = useRunCost({
     mode: 'finished',
     active: state === 'Unemptied',
-    endDetectedIso: dryer?.last_changed,
+    endDetectedIso: stateSinceIso(dryer),
     runTimeMinutes,
     idleMinutes,
     energyKwh: energyUsed,
@@ -365,8 +366,8 @@ export function DryerCard({ entities, callService }: DryerCardProps) {
   const stateWordClass = state === 'Running' ? 'tint' : state === 'Unemptied' ? 'alert' : 'muted';
 
   // "Done HH:MM": the real cycle end, recovered from the Unemptied-flip timestamp minus the
-  // backend's known detection lag (idle_min) — omitted entirely when last_changed can't be parsed.
-  const lastChangedMs = dryer.last_changed ? Date.parse(dryer.last_changed) : NaN;
+  // backend's known detection lag (idle_min) — omitted entirely when the flip time can't be parsed.
+  const lastChangedMs = Date.parse(stateSinceIso(dryer) ?? '');
   const doneAtDisplay = Number.isFinite(lastChangedMs)
     ? new Date(lastChangedMs - (idleMinutes ?? 0) * 60_000).toLocaleTimeString('en-GB', {
         hour: '2-digit',

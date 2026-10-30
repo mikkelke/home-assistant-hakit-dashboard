@@ -31,6 +31,7 @@ import { isHeating, zoneForThermostat } from '../../utils/heating';
 import { IndicatorWithTimeline } from './IndicatorWithTimeline';
 import { MultiEntitySelector } from './MultiEntitySelector';
 import './RoomGrid.css';
+import { stateSinceIso } from '../../utils/stateSince';
 
 /** A sensor is only useful here if it carries an actual measurement. HA publishes "unknown"
  * (template returned None) and "unavailable" (device offline) as ordinary state strings, and
@@ -175,7 +176,7 @@ function ApplianceRing({ appliances, houseAsleep }: { appliances: readonly RingA
   const coffee = appliance.kind === 'coffee';
   const share = ready ? 1 : (cycle.progressPct ?? 0) / 100;
   const night = houseAsleep || isNightHour(nowMs);
-  const sinceMs = Date.parse(entity?.last_changed ?? '');
+  const sinceMs = Date.parse(stateSinceIso(entity) ?? '');
   const text = ready
     ? coffee
       ? null

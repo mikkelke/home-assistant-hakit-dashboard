@@ -8,6 +8,7 @@ import { ApplianceCycleTiming } from '../ApplianceCycleTiming';
 import { useLocalStorageBoolean } from '../../hooks';
 import { ApplianceCard, AppliancePickerSheet, ApplianceHistorySheet, formatTimeOnly, formatDuration, startedLine } from '../Appliance';
 import type { ApplianceCycle, ApplianceFeedbackJson } from '../Appliance';
+import { stateSinceIso } from '../../utils/stateSince';
 
 const ACCENT_CLASS = 'appliance-accent-dishwasher';
 const GLYPH_ICON = 'mdi:dishwasher';
@@ -158,7 +159,7 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
   const runCostKr = useRunCost({
     mode: 'finished',
     active: state === 'Unemptied',
-    endDetectedIso: dishwasher?.last_changed,
+    endDetectedIso: stateSinceIso(dishwasher),
     runTimeMinutes,
     energyKwh: energyUsed,
   });
@@ -268,9 +269,9 @@ export function DishwasherCard({ entities, callService }: DishwasherCardProps) {
   const stateWord = timerSet ? 'Timer' : state === 'Running' ? 'Running' : state === 'Paused' ? 'Paused' : 'Empty it';
   const stateWordClass = state === 'Running' || timerSet ? 'tint' : state === 'Unemptied' ? 'alert' : 'muted';
 
-  // "Done HH:MM": the dishwasher has no idle-detection lag (unlike washer/dryer), so last_changed
-  // IS the real cycle end — omitted entirely when it can't be parsed.
-  const lastChangedMs = dishwasher.last_changed ? Date.parse(dishwasher.last_changed) : NaN;
+  // "Done HH:MM": the dishwasher has no idle-detection lag (unlike washer/dryer), so entering
+  // Unemptied IS the real cycle end — omitted entirely when it can't be parsed.
+  const lastChangedMs = Date.parse(stateSinceIso(dishwasher) ?? '');
   const doneAtDisplay = Number.isFinite(lastChangedMs)
     ? new Date(lastChangedMs).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
     : null;
