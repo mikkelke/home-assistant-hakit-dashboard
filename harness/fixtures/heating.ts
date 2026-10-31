@@ -79,6 +79,21 @@ export function addHeating(h: HouseBuilder): void {
     { ago: 2 }
   );
 
+  const probes: [string, string, number][] = [
+    ['primary_supply', 'Primary supply', 48.6],
+    ['primary_return', 'Primary return', 33.9],
+    ['zone_1_return', 'Zone 1 return', 32.4],
+    ['zone_2_return', 'Zone 2 return', 31.1],
+    ['zone_3_return', 'Zone 3 return', 30.2],
+    ['zone_4_return', 'Zone 4 return', 34.7],
+    ['zone_5_return', 'Zone 5 return', 22.1],
+    ['zone_6_return', 'Zone 6 return', 33.0],
+    ['zone_7_return', 'Zone 7 return', 36.8],
+  ];
+  for (const [id, name, tempC] of probes) {
+    h.put(`sensor.heating_room_${id}`, tempC, { friendly_name: name, unit_of_measurement: '°C', device_class: 'temperature' }, { ago: 2 });
+  }
+
   for (const zone of ZONES) {
     const nudged = zone.nudge ?? 0;
     h.put(
