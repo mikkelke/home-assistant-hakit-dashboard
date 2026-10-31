@@ -133,15 +133,21 @@ function SeasonAdvisor({ entities, seasonOn }: { entities: HassEntities; seasonO
 }
 
 function LoopBadges({ loops }: { loops: ReturnType<typeof loopReturns> }) {
-  return loops.map(({ loop, icon, tempC }) => (
-    <span key={loop} className='heat-badge heat-loop'>
-      <Icon icon={icon} />
-      {tempC.toFixed(1)}
+  if (loops.length === 0) return null;
+  return (
+    <span className='heat-zone-loops'>
+      {loops.map(({ loop, icon, tempC }) => (
+        <span key={loop} className={`heat-badge heat-loop${tempC == null ? ' is-unavailable' : ''}`}>
+          <Icon icon={icon} />
+          {tempC == null ? '—' : tempC.toFixed(1)}
+        </span>
+      ))}
     </span>
-  ));
+  );
 }
 
-const loopLabels = (loops: ReturnType<typeof loopReturns>) => loops.map(({ loop, tempC }) => `loop ${loop} return ${tempC.toFixed(1)} °C`);
+const loopLabels = (loops: ReturnType<typeof loopReturns>) =>
+  loops.map(({ loop, tempC }) => `loop ${loop} return ${tempC == null ? 'unavailable' : `${tempC.toFixed(1)} °C`}`);
 
 function ZoneRow({ zone, entities, onOpen }: { zone: HeatingZone; entities: HassEntities; onOpen: () => void }) {
   const meta = ZONE_META[zone];
@@ -261,11 +267,15 @@ function BedroomRow({ entities }: { entities: HassEntities }) {
   );
 }
 
-function PipeProbe({ icon, label, tempC }: { icon: string; label: string; tempC: number }) {
+function PipeProbe({ icon, label, tempC }: { icon: string; label: string; tempC: number | null }) {
   return (
-    <span className='heat-pill' role='img' aria-label={`${label} ${tempC.toFixed(1)} °C`}>
+    <span
+      className={`heat-pill${tempC == null ? ' is-unavailable' : ''}`}
+      role='img'
+      aria-label={tempC == null ? `${label} unavailable` : `${label} ${tempC.toFixed(1)} °C`}
+    >
       <Icon icon={icon} aria-hidden='true' />
-      {tempC.toFixed(1)}°
+      {tempC == null ? '—' : `${tempC.toFixed(1)}°`}
     </span>
   );
 }
@@ -285,16 +295,15 @@ function HeatingOverview({ onClose }: HeatingPageProps) {
   const live = zones.filter(zone => heatBool(entities[zoneSensorId(zone)]?.attributes?.live)).length;
   const writes = heatNum(ctl.would_writes_today);
   const alerts = heatList(ctl.alerts_active).length;
-  const supplyC = heatNum(entities[HEATING_SUPPLY_TEMP_SENSOR]?.state);
-  const returnC = heatNum(entities[HEATING_RETURN_TEMP_SENSOR]?.state);
-  const buildingInC = heatNum(entities[BUILDING_SUPPLY_TEMP_SENSOR]?.state);
-  const buildingOutC = heatNum(entities[BUILDING_RETURN_TEMP_SENSOR]?.state);
   const probes = [
-    { icon: 'mdi:home-import-outline', label: 'Building supply', tempC: buildingInC },
-    { icon: 'mdi:thermometer-chevron-up', label: 'Supply pipe', tempC: supplyC },
-    { icon: 'mdi:thermometer-chevron-down', label: 'Return pipe', tempC: returnC },
-    { icon: 'mdi:home-export-outline', label: 'Building return', tempC: buildingOutC },
-  ].filter((probe): probe is { icon: string; label: string; tempC: number } => probe.tempC != null);
+    { entity: BUILDING_SUPPLY_TEMP_SENSOR, icon: 'mdi:home-import-outline', label: 'Building supply' },
+    { entity: HEATING_SUPPLY_TEMP_SENSOR, icon: 'mdi:thermometer-chevron-up', label: 'Supply pipe' },
+    { entity: HEATING_RETURN_TEMP_SENSOR, icon: 'mdi:thermometer-chevron-down', label: 'Return pipe' },
+    { entity: BUILDING_RETURN_TEMP_SENSOR, icon: 'mdi:home-export-outline', label: 'Building return' },
+  ].flatMap(({ entity, icon, label }) => {
+    const probe = entities[entity];
+    return probe ? [{ icon, label, tempC: heatNum(probe.state) }] : [];
+  });
 
   return (
     <div

@@ -411,9 +411,16 @@ describe('the pipe probes', () => {
     expect(header().textContent).toContain('Shadow');
   });
 
+  it('keeps a probe without a reading in place as a dash', () => {
+    renderPage(entity(SUPPLY, 'unavailable'), entity(RETURN, 'unknown'));
+    expect(probeIcons()).toEqual(['mdi:thermometer-chevron-up', 'mdi:thermometer-chevron-down']);
+    const supply = header().querySelector('[aria-label="Supply pipe unavailable"]');
+    expect(supply?.textContent).toBe('—');
+    expect(supply?.classList.contains('is-unavailable')).toBe(true);
+    expect(header().querySelector('[aria-label="Return pipe unavailable"]')?.textContent).toBe('—');
+  });
+
   const hidden: [string, Published[], string[]][] = [
-    ['an unavailable supply', [entity(SUPPLY, 'unavailable'), entity(RETURN, '24.1')], ['mdi:thermometer-chevron-down']],
-    ['an unknown return', [entity(SUPPLY, '28.3'), entity(RETURN, 'unknown')], ['mdi:thermometer-chevron-up']],
     ['a missing supply', [entity(RETURN, '24.1')], ['mdi:thermometer-chevron-down']],
     ['a missing return', [entity(SUPPLY, '28.3')], ['mdi:thermometer-chevron-up']],
     ['both probes when neither exists', [], []],
@@ -439,7 +446,7 @@ describe('the plant probes', () => {
     expect(probeLabels()).toEqual(['Building supply 22.7 °C', 'Supply pipe 25.1 °C', 'Return pipe 24.4 °C', 'Building return 21.1 °C']);
   });
 
-  it('puts each loop return on its zone row and skips loops without a reading', () => {
+  it('puts each loop return on its zone row, a dash for a dead probe and nothing for a missing one', () => {
     renderPage(
       entity('sensor.heating_room_zone_1_return', '20.04'),
       entity('sensor.heating_room_zone_4_return', '20.31'),
@@ -454,7 +461,11 @@ describe('the plant probes', () => {
       'mdi:silverware-fork-knife',
     ]);
     expect(rows[0].getAttribute('aria-label')).toContain('loop 1 return 20.0 °C, loop 4 return 20.3 °C');
-    expect(badges(rows[1])).toEqual([]);
+    expect(badges(rows[1])).toEqual(['—']);
+    expect(rows[1].querySelector('.heat-loop')?.classList.contains('is-unavailable')).toBe(true);
+    expect(rows[1].getAttribute('aria-label')).toContain('loop 2 return unavailable');
+    expect(badges(rows[2])).toEqual([]);
+    expect(rows[0].querySelectorAll('.heat-zone-loops > .heat-loop')).toHaveLength(2);
     expect(badges(rows[5])).toEqual(['20.2']);
     expect(rows[5].getAttribute('aria-label')).toContain('loop 5 return 20.2 °C');
   });

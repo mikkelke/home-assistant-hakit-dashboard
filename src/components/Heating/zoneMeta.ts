@@ -60,10 +60,10 @@ export function bedroomAir(entities: HassEntities) {
   };
 }
 
-/** The return temperature of each of the zone's floor loops that has a reading. */
+/** The return temperature of each of the zone's floor loops whose probe exists; null while the probe has no reading. */
 export function loopReturns(entities: HassEntities, meta: ZoneMeta) {
   return meta.loops.flatMap(({ loop, icon }) => {
-    const tempC = heatNum(entities[loopReturnSensorId(loop)]?.state);
-    return tempC == null ? [] : [{ loop, icon, tempC }];
+    const probe = entities[loopReturnSensorId(loop)];
+    return probe ? [{ loop, icon, tempC: heatNum(probe.state) }] : [];
   });
 }

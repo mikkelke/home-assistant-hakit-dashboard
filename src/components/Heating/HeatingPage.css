@@ -124,6 +124,10 @@
   gap: 8px;
   margin-left: auto;
 }
+.heat-pill.is-unavailable,
+.heat-badge.is-unavailable {
+  color: var(--text-3);
+}
 
 .heating-page-content {
   flex: 1;
@@ -383,6 +387,11 @@
 }
 .heat-badge svg {
   font-size: 13px;
+}
+.heat-zone-loops {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 6px;
 }
 .heat-badge.is-up {
   background: rgba(255, 159, 10, 0.16);
