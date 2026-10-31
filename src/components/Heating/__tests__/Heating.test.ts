@@ -425,6 +425,41 @@ describe('the pipe probes', () => {
   });
 });
 
+describe('the plant probes', () => {
+  const header = () => document.querySelector('.heating-page-header') as HTMLElement;
+  const probeLabels = () => [...header().querySelectorAll('.heat-probes .heat-pill')].map(pill => pill.getAttribute('aria-label'));
+
+  it('orders the header probes along the flow: building in, floor supply, floor return, building out', () => {
+    renderPage(
+      entity('sensor.heating_room_primary_return', '21.06'),
+      entity('sensor.heating_room_floor_heating_return', '24.4'),
+      entity('sensor.heating_room_primary_supply', '22.69'),
+      entity('sensor.heating_room_floor_heating_supply', '25.1')
+    );
+    expect(probeLabels()).toEqual(['Building supply 22.7 °C', 'Supply pipe 25.1 °C', 'Return pipe 24.4 °C', 'Building return 21.1 °C']);
+  });
+
+  it('puts each loop return on its zone row and skips loops without a reading', () => {
+    renderPage(
+      entity('sensor.heating_room_zone_1_return', '20.04'),
+      entity('sensor.heating_room_zone_4_return', '20.31'),
+      entity('sensor.heating_room_zone_2_return', 'unavailable'),
+      entity('sensor.heating_room_zone_5_return', '20.19')
+    );
+    const rows = [...document.querySelectorAll('.heat-zones > .heat-zone-row')];
+    const badges = (row: Element) => [...row.querySelectorAll('.heat-loop')].map(badge => badge.textContent);
+    expect(badges(rows[0])).toEqual(['20.0', '20.3']);
+    expect([...rows[0].querySelectorAll('.heat-loop')].flatMap(badge => icons(badge))).toEqual([
+      'mdi:sofa-outline',
+      'mdi:silverware-fork-knife',
+    ]);
+    expect(rows[0].getAttribute('aria-label')).toContain('loop 1 return 20.0 °C, loop 4 return 20.3 °C');
+    expect(badges(rows[1])).toEqual([]);
+    expect(badges(rows[5])).toEqual(['20.2']);
+    expect(rows[5].getAttribute('aria-label')).toContain('loop 5 return 20.2 °C');
+  });
+});
+
 describe('the bedroom row', () => {
   const AC = 'climate.air_conditioner_thermostat';
   const feel = entity('sensor.bedroom_feel', '21.34', { headline: '21.3 °C · comfortable' });

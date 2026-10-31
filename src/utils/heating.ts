@@ -7,9 +7,16 @@ export type HeatingZone = (typeof HEATING_ZONES)[number];
 export const HEATING_CONTROLLER_SENSOR = 'sensor.heating_controller';
 export const HEATING_SEASON_SWITCH = 'input_boolean.heating_season';
 
-/** Pipe clamps on the building's supply and return, in °C. */
+/** Pipe probes on the floor circuit's mixed supply and its return, in °C. */
 export const HEATING_SUPPLY_TEMP_SENSOR = 'sensor.heating_room_floor_heating_supply';
 export const HEATING_RETURN_TEMP_SENSOR = 'sensor.heating_room_floor_heating_return';
+
+/** Pipe probes on the building's own supply before the mixing tee and on the water sent back to it, in °C. */
+export const BUILDING_SUPPLY_TEMP_SENSOR = 'sensor.heating_room_primary_supply';
+export const BUILDING_RETURN_TEMP_SENSOR = 'sensor.heating_room_primary_return';
+
+/** The return-pipe probe of one floor loop, numbered by its wiring-centre zone (actuator cap 1-x). */
+export const loopReturnSensorId = (loop: number) => `sensor.heating_room_zone_${loop}_return`;
 
 /** The bedroom is never heated and the controller has no zone for it, so it stays out of HEATING_ZONES. */
 export const BEDROOM_THERMOSTAT = 'climate.bedroom_thermostat';

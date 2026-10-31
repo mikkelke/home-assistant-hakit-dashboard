@@ -6,6 +6,8 @@ import { useSwipeToClose, useViewer } from '../../hooks';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { AC_THERMOSTAT_ENTITY } from '../../config/entities';
 import {
+  BUILDING_RETURN_TEMP_SENSOR,
+  BUILDING_SUPPLY_TEMP_SENSOR,
   HEATING_CONTROLLER_SENSOR,
   HEATING_RETURN_TEMP_SENSOR,
   HEATING_SUPPLY_TEMP_SENSOR,
@@ -23,7 +25,7 @@ import {
   type HeatingZone,
 } from '../../utils/heating';
 import { HeatZoneSheet } from './HeatZoneSheet';
-import { BEDROOM_FLOOR_ENTITY, BEDROOM_META, ZONE_META, bedroomAir, zoneAir } from './zoneMeta';
+import { BEDROOM_FLOOR_ENTITY, BEDROOM_META, ZONE_META, bedroomAir, loopReturns, zoneAir } from './zoneMeta';
 import '../Appliance/Appliance.css';
 import '../RoomDetail/RoomClimateHeader.css';
 import './HeatingPage.css';
@@ -130,6 +132,17 @@ function SeasonAdvisor({ entities, seasonOn }: { entities: HassEntities; seasonO
   );
 }
 
+function LoopBadges({ loops }: { loops: ReturnType<typeof loopReturns> }) {
+  return loops.map(({ loop, icon, tempC }) => (
+    <span key={loop} className='heat-badge heat-loop'>
+      <Icon icon={icon} />
+      {tempC.toFixed(1)}
+    </span>
+  ));
+}
+
+const loopLabels = (loops: ReturnType<typeof loopReturns>) => loops.map(({ loop, tempC }) => `loop ${loop} return ${tempC.toFixed(1)} °C`);
+
 function ZoneRow({ zone, entities, onOpen }: { zone: HeatingZone; entities: HassEntities; onOpen: () => void }) {
   const meta = ZONE_META[zone];
   const sensor = entities[zoneSensorId(zone)];
@@ -148,12 +161,14 @@ function ZoneRow({ zone, entities, onOpen }: { zone: HeatingZone; entities: Hass
   const floorHot = floorC != null && floorMax != null && floorC >= floorMax;
   const floors = floorReadings(attrs.floor_temps).map(floor => `${floor.room} ${floor.tempC.toFixed(1)} °C`);
   const nextUp = nextSetpoint != null && setpointNow != null && nextSetpoint > setpointNow;
+  const loops = loopReturns(entities, meta);
 
   const label = [
     meta.name,
     airC == null ? 'air unknown' : `air ${airC.toFixed(1)} °C`,
     target == null ? null : `target ${target.toFixed(1)} °C`,
     floorC == null ? null : `floor ${floorC.toFixed(1)} °C${floors.length > 0 ? ` (${floors.join(', ')})` : ''}`,
+    ...loopLabels(loops),
     heating ? 'heating' : null,
     mode?.label,
     nudge !== 0 ? `nudged ${nudge > 0 ? '+' : ''}${nudge.toFixed(1)}` : null,
@@ -182,6 +197,7 @@ function ZoneRow({ zone, entities, onOpen }: { zone: HeatingZone; entities: Hass
               {nextSetpoint.toFixed(1)} {nextAt}
             </span>
           )}
+          <LoopBadges loops={loops} />
         </span>
       </span>
       <span className={`heat-zone-temps tone-${tone}`} aria-hidden='true'>
@@ -206,11 +222,13 @@ function BedroomRow({ entities }: { entities: HassEntities }) {
   const { airC, tone } = bedroomAir(entities);
   const cooling = entities[AC_THERMOSTAT_ENTITY]?.attributes?.hvac_action === 'cooling';
   const floorC = heatNum(entities[BEDROOM_FLOOR_ENTITY]?.state);
+  const loops = loopReturns(entities, BEDROOM_META);
 
   const label = [
     BEDROOM_META.name,
     airC == null ? 'air unknown' : `air ${airC.toFixed(1)} °C`,
     floorC == null ? null : `floor ${floorC.toFixed(1)} °C`,
+    ...loopLabels(loops),
     'not heated',
     cooling ? 'A/C cooling' : null,
   ]
@@ -227,6 +245,7 @@ function BedroomRow({ entities }: { entities: HassEntities }) {
         <span className='heat-zone-chips' aria-hidden='true'>
           <Icon className='heat-zone-noheat' icon='mdi:radiator-off' />
           {cooling && <Icon className='heat-zone-cooling' icon='mdi:snowflake' />}
+          <LoopBadges loops={loops} />
         </span>
       </span>
       <span className={`heat-zone-temps tone-${tone}`} aria-hidden='true'>
@@ -268,6 +287,14 @@ function HeatingOverview({ onClose }: HeatingPageProps) {
   const alerts = heatList(ctl.alerts_active).length;
   const supplyC = heatNum(entities[HEATING_SUPPLY_TEMP_SENSOR]?.state);
   const returnC = heatNum(entities[HEATING_RETURN_TEMP_SENSOR]?.state);
+  const buildingInC = heatNum(entities[BUILDING_SUPPLY_TEMP_SENSOR]?.state);
+  const buildingOutC = heatNum(entities[BUILDING_RETURN_TEMP_SENSOR]?.state);
+  const probes = [
+    { icon: 'mdi:home-import-outline', label: 'Building supply', tempC: buildingInC },
+    { icon: 'mdi:thermometer-chevron-up', label: 'Supply pipe', tempC: supplyC },
+    { icon: 'mdi:thermometer-chevron-down', label: 'Return pipe', tempC: returnC },
+    { icon: 'mdi:home-export-outline', label: 'Building return', tempC: buildingOutC },
+  ].filter((probe): probe is { icon: string; label: string; tempC: number } => probe.tempC != null);
 
   return (
     <div
@@ -300,10 +327,11 @@ function HeatingOverview({ onClose }: HeatingPageProps) {
             {alerts}
           </span>
         )}
-        {(supplyC != null || returnC != null) && (
+        {probes.length > 0 && (
           <div className='heat-probes'>
-            {supplyC != null && <PipeProbe icon='mdi:thermometer-chevron-up' label='Supply pipe' tempC={supplyC} />}
-            {returnC != null && <PipeProbe icon='mdi:thermometer-chevron-down' label='Return pipe' tempC={returnC} />}
+            {probes.map(probe => (
+              <PipeProbe key={probe.label} {...probe} />
+            ))}
           </div>
         )}
       </header>
