@@ -86,6 +86,7 @@ describe('parseHouseUpcoming', () => {
       steps: [],
       warn: null,
       items: [],
+      plants: [],
     });
     expect(rain).toMatchObject({ areaId: 'living_room', adminOnly: false, users: null, chip: null });
     expect(ws90).toMatchObject({ atMs: null, adminOnly: true, users: null, areaId: 'rooftop' });
@@ -253,6 +254,152 @@ describe('the overview lines of a row', () => {
     expect(isDue(rows[1])).toBe(true);
     expect(dueRows(rows, MIKKEL)).toEqual([]);
     expect(opensRoom(rows[1])).toBe(false);
+  });
+});
+
+/** The plants row as the publisher sends it: one entry for each plant that needs water today. */
+const PLANTS = {
+  id: 'maint:plants',
+  kind: 'maint',
+  icon: 'mdi:watering-can-outline',
+  title: 'Water 3 plants',
+  detail: 'Monstera, Peace lily kitchen, Ivy',
+  audience: 'admin',
+  plants: [
+    {
+      id: 'maint:plant:monstera',
+      name: 'Monstera',
+      amount: '1 L',
+      detail: 'due since 30.10',
+      where: 'Kitchen floor by the Rober2 dock',
+      aka: 'Big leaves with holes',
+      photo: 'monstera',
+      done: 'tap',
+    },
+    {
+      id: 'maint:plant:peace_lily_kitchen',
+      name: 'Peace lily kitchen',
+      amount: '0.4 L',
+      detail: 'due since 27.10',
+      where: 'Coffee cart next to the xBloom',
+      aka: 'Small peace lily, droops when thirsty',
+      photo: 'peace_lily',
+      done: 'tap',
+    },
+    {
+      id: 'maint:plant:ivy',
+      name: 'Ivy',
+      amount: '0.3 L + 1/4 tsp fertiliser',
+      detail: 'soil 20%, water at 20%',
+      where: 'Top of the wine fridge',
+      aka: 'Small trailing ivy',
+      photo: 'ivy',
+    },
+  ],
+};
+
+describe('the plants of a row', () => {
+  const without = (...keys: string[]) => Object.fromEntries(Object.entries(PLANTS).filter(([key]) => !keys.includes(key)));
+  const plantsOf = (plants: unknown) => parse([{ ...PLANTS, plants }])[0]?.plants;
+  const [monstera] = PLANTS.plants;
+
+  it('are read entry by entry, with a Done button only for done "tap"', () => {
+    expect(parse([PLANTS])[0].plants).toEqual([
+      {
+        id: 'maint:plant:monstera',
+        name: 'Monstera',
+        amount: '1 L',
+        detail: 'due since 30.10',
+        where: 'Kitchen floor by the Rober2 dock',
+        aka: 'Big leaves with holes',
+        photo: 'monstera',
+        tapDone: true,
+      },
+      {
+        id: 'maint:plant:peace_lily_kitchen',
+        name: 'Peace lily kitchen',
+        amount: '0.4 L',
+        detail: 'due since 27.10',
+        where: 'Coffee cart next to the xBloom',
+        aka: 'Small peace lily, droops when thirsty',
+        photo: 'peace_lily',
+        tapDone: true,
+      },
+      {
+        id: 'maint:plant:ivy',
+        name: 'Ivy',
+        amount: '0.3 L + 1/4 tsp fertiliser',
+        detail: 'soil 20%, water at 20%',
+        where: 'Top of the wine fridge',
+        aka: 'Small trailing ivy',
+        photo: 'ivy',
+        tapDone: false,
+      },
+    ]);
+  });
+
+  it('need only an id and a name, trim what they have and leave out what is empty', () => {
+    expect(
+      plantsOf([
+        { id: 'maint:plant:fig', name: 'Fig' },
+        { id: ' maint:plant:palm ', name: ' Palm ', amount: '  ', where: ' By the window ', done: 'Tap' },
+      ])
+    ).toEqual([
+      { id: 'maint:plant:fig', name: 'Fig', amount: null, detail: null, where: null, aka: null, photo: null, tapDone: false },
+      { id: 'maint:plant:palm', name: 'Palm', amount: null, detail: null, where: 'By the window', aka: null, photo: null, tapDone: false },
+    ]);
+  });
+
+  it('open a sheet with no Done button of its own and no room, and are seen by admins only', () => {
+    const rows = parse([PLANTS]);
+    expect(rows[0]).toMatchObject({ tapDone: false, items: [], steps: [], info: [], areaId: null, adminOnly: true });
+    expect(hasSheet(rows[0])).toBe(true);
+    expect(opensRoom(rows[0])).toBe(false);
+    expect(seenBy(rows, MIKKEL)).toEqual(['maint:plants']);
+    expect(seenBy(rows, KRISTINE)).toEqual([]);
+    expect(seenBy(rows, RESOLVING)).toEqual([]);
+    expect(dueRows(rows, MIKKEL)).toEqual([]);
+  });
+
+  it('leave out an entry that is no object of strings with an id and a name, and keep the rest', () => {
+    const bad = [
+      'Monstera',
+      null,
+      5,
+      ['maint:plant:fig', 'Fig'],
+      { name: 'No id' },
+      { id: 'maint:plant:x1' },
+      { id: '', name: 'Empty id' },
+      { id: 'maint:plant:x2', name: '  ' },
+      { ...monstera, id: 'maint:plant:x3', amount: 1 },
+      { ...monstera, id: 'maint:plant:x4', where: null },
+      { ...monstera, id: 'maint:plant:x5', aka: ['Big leaves'] },
+      { ...monstera, id: 'maint:plant:x6', done: true },
+    ];
+    expect(plantsOf([...bad, monstera, ...bad])).toEqual(plantsOf([monstera]));
+    expect(plantsOf([monstera])).toHaveLength(1);
+    expect(plantsOf(bad)).toEqual([]);
+  });
+
+  it('are at most twenty, counted after the entries that break the contract are left out', () => {
+    const many = Array.from({ length: 25 }, (_, index) => ({ id: `maint:plant:${index}`, name: `Plant ${index + 1}` }));
+    const expected = many.slice(0, 20).map(plant => plant.id);
+    expect(MAX_ROW_ITEMS).toBe(20);
+    expect(plantsOf(many)?.map(plant => plant.id)).toEqual(expected);
+    expect(plantsOf([null, 'x', ...many])?.map(plant => plant.id)).toEqual(expected);
+  });
+
+  it('cost the row nothing when they are absent or no list: it stays, with no plants and no sheet', () => {
+    for (const bad of [undefined, 'Monstera', 5, null, { monstera: 'Monstera' }, []]) {
+      const [row] = parse([bad === undefined ? without('plants') : { ...PLANTS, plants: bad }]);
+      expect(row?.id, String(bad)).toBe('maint:plants');
+      expect(row.plants, String(bad)).toEqual([]);
+      expect(hasSheet(row), String(bad)).toBe(false);
+    }
+  });
+
+  it('belong to a maintenance row only', () => {
+    expect(parse([{ ...ROWS[1], plants: PLANTS.plants }])[0].plants).toEqual([]);
   });
 });
 

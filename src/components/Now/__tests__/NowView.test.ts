@@ -282,6 +282,25 @@ describe('a maintenance row with a sheet', () => {
     at: iso(home(2026, 10, 27, 9, 0)),
     items: ['Fig: next 27.10, watered 20.10', 'Palm: next 29.10, watered 19.10'],
   };
+  const PLANT_CARDS = {
+    id: 'maint:plants',
+    kind: 'maint',
+    icon: 'mdi:watering-can-outline',
+    title: 'Water 2 plants',
+    detail: 'Monstera, Ivy',
+    audience: 'admin',
+    plants: [
+      {
+        id: 'maint:plant:monstera',
+        name: 'Monstera',
+        amount: '1 L',
+        where: 'Kitchen floor by the Rober2 dock',
+        photo: 'monstera',
+        done: 'tap',
+      },
+      { id: 'maint:plant:ivy', name: 'Ivy', detail: 'soil 20%, water at 20%', where: 'Top of the wine fridge', photo: 'ivy' },
+    ],
+  };
   const BATTERY_LATER = { ...BATTERY, id: 'maint:battery:sensor.later_battery', at: iso(home(2026, 12, 26, 9, 0)) };
   const PLAIN_APPLIANCE = {
     id: 'maint:rober2:test',
@@ -402,6 +421,40 @@ describe('a maintenance row with a sheet', () => {
     expect(sheetText()).toContain('Fig: next 27.10, watered 20.10');
     expect(sheetText()).toContain('Palm: next 29.10, watered 19.10');
     expect(document.querySelectorAll('.maint-body button')).toHaveLength(0);
+  });
+
+  it('opens the sheet of a plants row from its card, with a card for each plant, a Done button for the ones that have one and no room', async () => {
+    const { opened, send } = await openAs(true, PLANT_CARDS);
+    await act(async () => row(PLANT_CARDS.id)?.click());
+    expect(sheet()).not.toBeNull();
+    expect(opened).toEqual([]);
+    expect([...document.querySelectorAll('.maint-plant-name')].map(name => name.textContent)).toEqual(['Monstera', 'Ivy']);
+    expect(sheetText()).toContain('soil 20%, water at 20%');
+    const buttons = () => [...document.querySelectorAll<HTMLButtonElement>('.maint-body button')];
+    expect(buttons().map(button => button.getAttribute('aria-label'))).toEqual(['Mark done: Monstera']);
+    await act(async () => buttons()[0].click());
+    expect(send).toHaveBeenCalledExactlyOnceWith({
+      type: 'fire_event',
+      event_type: 'house_upcoming_done',
+      event_data: { row: 'maint:plant:monstera' },
+    });
+  });
+
+  it('keeps the watered plant on its card, dimmed, once the row stops listing it', async () => {
+    await openAs(true, PLANT_CARDS);
+    await act(async () => row(PLANT_CARDS.id)?.click());
+    await act(async () => document.querySelector<HTMLButtonElement>('.maint-body button')?.click());
+    await act(async () => {
+      store.setState({ entities: upcoming({ ...PLANT_CARDS, title: 'Water 1 plant', plants: [PLANT_CARDS.plants[1]] }) });
+    });
+    expect(document.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Water 1 plant');
+    expect(
+      [...document.querySelectorAll('.maint-plant')].map(card => [card.querySelector('b')?.textContent, card.classList.contains('is-done')])
+    ).toEqual([
+      ['Monstera', true],
+      ['Ivy', false],
+    ]);
+    expect(document.querySelector('.maint-body button')?.getAttribute('aria-label')).toBe('Undo: Monstera');
   });
 
   it('fires the Done event for the row it was opened on', async () => {
