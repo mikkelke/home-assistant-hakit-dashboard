@@ -139,6 +139,42 @@ for (const surface of ['quick access', 'intercom'] as const) {
       expect(sendCommand).not.toHaveBeenCalled();
     });
 
+    async function update(entities: HassEntities) {
+      store.setState({ entities });
+      await act(async () => {
+        root.render(
+          surface === 'quick access'
+            ? createElement(QuickAccess, { hassUrl: null, callService, onOpenNow: vi.fn() })
+            : createElement(IntercomCard, { entities, callService, showHeader: true })
+        );
+      });
+    }
+    const jammedAt = (jamAgeMs: number) => {
+      const entities = world('jammed', 'jammed', 'locked');
+      entities['sensor.apartment_lock'] = entity('sensor.apartment_lock', 'jammed', { computed_at: iso() }, iso(jamAgeMs));
+      return entities;
+    };
+    const unlock = { type: 'call_service', domain: 'lock', service: 'unlock', target: { entity_id: 'lock.yale_bt' } };
+
+    it('offers to repeat our own unlock when the bolt jams right after it', async () => {
+      await show(world('locked', 'locked'));
+      await act(async () => button().click());
+      await update(jammedAt(-2_000));
+      expect(button().disabled).toBe(false);
+      expect(button().getAttribute('aria-label')).toBe('Jammed. Try unlocking again');
+      await act(async () => button().click());
+      expect(sendCommand).toHaveBeenNthCalledWith(2, unlock);
+    });
+
+    it('offers nothing for a jam long after our own unlock', async () => {
+      await show(world('locked', 'locked'));
+      await act(async () => button().click());
+      await update(jammedAt(-121_000));
+      expect(button().disabled).toBe(true);
+      await act(async () => button().click());
+      expect(sendCommand).toHaveBeenCalledOnce();
+    });
+
     it('disables contradictory raw fallback after the publisher stops', async () => {
       const entities = world('locked', 'unlocked', 'locked');
       entities['sensor.apartment_lock'].attributes.computed_at = iso(180_001);

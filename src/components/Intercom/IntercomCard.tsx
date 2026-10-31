@@ -288,7 +288,12 @@ export function IntercomCard({ entities, callService, showHeader = false, onUiTa
               aria-label={aptLock.actionLabel}
               title={aptLock.actionLabel}
             >
-              <Icon icon={aptLock.command ? (aptLocked ? 'mdi:lock-open-outline' : 'mdi:lock-outline') : aptLock.icon} aria-hidden='true' />
+              <Icon
+                icon={
+                  aptLock.command ? (aptLock.command.service === 'unlock' ? 'mdi:lock-open-outline' : 'mdi:lock-outline') : aptLock.icon
+                }
+                aria-hidden='true'
+              />
             </button>
           </div>
         )}
