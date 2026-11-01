@@ -69,7 +69,7 @@ import { CupWait } from './CupWait';
 import { Glyph } from './Glyph';
 import { HoldButton } from './HoldButton';
 import { Chip, LinkChip, NotifyChip, PersonFace, StoryPill, VerdictPill } from './parts';
-import { BeansSheet, RecipeDetail, RecipeRow, TweakSheet } from './sheets';
+import { AdjustSheet, BeansSheet, RecipeRow } from './sheets';
 import { Spark } from './Spark';
 import { TasteDot, TasteRow } from './taste';
 import { useClock } from './useClock';
@@ -80,7 +80,7 @@ import './Coffee.css';
 import './CoffeeCard.css';
 
 type Tab = 'brew' | 'history' | 'recipes';
-type Sheet = 'stats' | 'beans' | 'tweak' | null;
+type Sheet = 'stats' | 'beans' | 'adjust' | null;
 
 function headerWord(
   state: CoffeeState,
@@ -227,7 +227,7 @@ function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onS
   return (
     <>
       <div className='cc-usual-line'>
-        <span className='coffee-lab'>Last brewed</span>
+        <span className='coffee-lab'>Selected</span>
         <span>
           {[
             usual ? `${usual.pours.length} pours` : null,
@@ -657,38 +657,24 @@ function RecipesTab({
   data,
   isAdmin,
   hassUrl,
-  onTweak,
+  onAdjust,
 }: {
   data: CardData;
   isAdmin: boolean;
   hassUrl: string | null;
-  onTweak: () => void;
+  onAdjust: () => void;
 }) {
-  const { recipes, state, baseline } = data;
+  const { recipes, baseline } = data;
   const usual = usualRecipe(recipes);
   const others = (recipes?.recipes ?? []).filter(recipe => recipe.id !== usual?.id);
-  const [openId, setOpenId] = useState<string | null>(null);
-  const open = others.find(recipe => recipe.id === openId) ?? null;
   const inputs = chartInputs({ plan: planOf(null, baseline, usual), baseline: null });
-  if (open) {
-    return (
-      <div className='cc-recipes'>
-        <button type='button' className='coffee-btn is-ghost is-small' onClick={() => setOpenId(null)}>
-          <Icon icon='mdi:chevron-left' aria-hidden='true' />
-          Recipes
-        </button>
-        <div className='cc-recipe-name'>{open.name}</div>
-        <RecipeDetail recipe={open} isUsual={false} state={state} onDone={() => setOpenId(null)} />
-      </div>
-    );
-  }
   return (
     <div className='cc-recipes'>
       {usual ? (
         <div className='cc-usual'>
           <div className='cc-usual-h'>
             <Icon icon='mdi:check' aria-hidden='true' />
-            <b>Last brewed</b>
+            <b>Selected</b>
             <span>
               {[`${usual.pours.length} pours`, usual.pours[0]?.tempC != null ? `${Math.round(usual.pours[0].tempC)}°` : null]
                 .filter(Boolean)
@@ -708,18 +694,23 @@ function RecipesTab({
             {usual.doseG != null && <Chip glyph={<Glyph name='bean' />}>{usual.doseG} g</Chip>}
             {usual.ratio && <Chip>{usual.ratio}</Chip>}
             {usual.totalMl != null && <Chip icon='mdi:water-outline'>{Math.round(usual.totalMl)}</Chip>}
-            <button type='button' className='coffee-chip is-mute cc-tweak' onClick={onTweak}>
+            <button type='button' className='coffee-chip is-mute cc-tweak' onClick={onAdjust}>
               <Icon icon='mdi:tune-variant' aria-hidden='true' />
-              Tweak
+              Grind & temp
             </button>
           </div>
         </div>
       ) : (
-        <p className='coffee-sheet-note'>Nothing brewed yet. Pick a recipe below.</p>
+        <p className='coffee-sheet-note'>No recipe selected. Pick one below.</p>
       )}
       {others.length > 0 && <div className='coffee-lab cc-others'>Others</div>}
       {others.map((recipe, index) => (
-        <RecipeRow key={recipe.id} recipe={recipe} index={index} onOpen={() => setOpenId(recipe.id)} />
+        <RecipeRow
+          key={recipe.id}
+          recipe={recipe}
+          index={index}
+          onOpen={() => void sendCoffeeCommand('select', { recipe_id: recipe.id }).catch(() => {})}
+        />
       ))}
       {isAdmin && (
         <a className='coffee-rrow is-import' href={`${hassUrl ?? ''}${XBLOOM_INTEGRATION_PATH}`} target='_top'>
@@ -844,7 +835,7 @@ export function CoffeeCard({ onOpenStage }: CoffeeCardProps) {
             ))}
           {tab === 'history' && <HistoryTab data={data} nowMs={nowMs} />}
           {tab === 'recipes' && (
-            <RecipesTab data={data} isAdmin={viewer.isAdmin === true} hassUrl={hassUrl} onTweak={() => setSheet('tweak')} />
+            <RecipesTab data={data} isAdmin={viewer.isAdmin === true} hassUrl={hassUrl} onAdjust={() => setSheet('adjust')} />
           )}
           <div className='cc-foot'>
             {maintWord && (
@@ -863,7 +854,7 @@ export function CoffeeCard({ onOpenStage }: CoffeeCardProps) {
             <button type='button' className='cc-ibtn' onClick={() => setSheet('stats')} aria-label='Coffee statistics'>
               <Icon icon='mdi:chart-bar' />
             </button>
-            <button type='button' className='cc-ibtn' onClick={() => setSheet('tweak')} aria-label='Tweak once'>
+            <button type='button' className='cc-ibtn' onClick={() => setSheet('adjust')} aria-label='Grind and temperature'>
               <Icon icon='mdi:tune-variant' />
             </button>
           </div>
@@ -882,7 +873,7 @@ export function CoffeeCard({ onOpenStage }: CoffeeCardProps) {
         />
       )}
       {sheet === 'beans' && <BeansSheet beans={beans} onClose={() => setSheet(null)} />}
-      {sheet === 'tweak' && <TweakSheet recipe={usualRecipe(recipes)} state={state} onClose={() => setSheet(null)} />}
+      {sheet === 'adjust' && <AdjustSheet recipe={usualRecipe(recipes)} onClose={() => setSheet(null)} />}
     </div>
   );
 }

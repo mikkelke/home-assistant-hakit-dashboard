@@ -18,11 +18,11 @@ describe('coffee commands', () => {
 
   it('never fire an event, which only an admin may', async () => {
     const send = vi.fn(() => Promise.resolve(null));
-    await sendCoffeeCommand('start', { variant: 'tweak', grind_size: 44 }, send);
+    await sendCoffeeCommand('adjust', { grind_size: 44 }, send);
     expect(send).toHaveBeenCalledTimes(1);
     const message = (send.mock.calls[0] as unknown[])[0] as { type: string; service_data: { data: string } };
     expect(message.type).toBe('call_service');
-    expect(JSON.parse(message.service_data.data)).toEqual({ variant: 'tweak', grind_size: 44 });
+    expect(JSON.parse(message.service_data.data)).toEqual({ grind_size: 44 });
   });
 
   it('reject when HA refuses, so a caller can show it', async () => {

@@ -7,7 +7,7 @@ import { COFFEE_COMMAND_SCRIPT } from './entities';
 import type { PersonKey, Taste } from './model';
 
 export interface CoffeeCommands {
-  start: { variant: 'usual' | 'base' | 'tweak' | 'other'; recipe_id?: string; dose?: number; ratio?: number; grind_size?: number };
+  start: { variant: 'usual' | 'base' };
   cup_confirmed: Record<string, never>;
   cancel: Record<string, never>;
   stop: Record<string, never>;
@@ -20,6 +20,8 @@ export interface CoffeeCommands {
   beans_add: { grams: number; bean_id?: string; new_name?: string };
   beans_undo: { op_id: string };
   water_filled: Record<string, never>;
+  select: { recipe_id: string };
+  adjust: { grind_size?: number; temperature?: number };
   trial_accept: { advice_id: string };
   trial_undo: { advice_id: string };
   trial_keep: { advice_id: string };

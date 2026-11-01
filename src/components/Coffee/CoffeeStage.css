@@ -379,6 +379,13 @@
   background: var(--cof-green-bg);
   color: var(--cof-green);
 }
+.cs-wide.is-new {
+  height: 56px;
+  border-radius: 18px;
+  font-size: 18px;
+  background: #2c2c30;
+  color: inherit;
+}
 .cs-wide-hold {
   flex: 1;
   height: 84px;

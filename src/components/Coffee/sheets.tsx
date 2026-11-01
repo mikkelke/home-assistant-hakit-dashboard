@@ -5,30 +5,20 @@ import { BEANS_TOP_UP_G } from '../../coffee/entities';
 import {
   adviceFieldWord,
   formatMinSec,
-  numberOf,
   type BrewRecord,
   type CoffeeAdvice,
   type CoffeeBaseline,
   type CoffeeBeans,
-  type CoffeeState,
   type Recipe,
 } from '../../coffee/model';
 import { useCoffeeRecent } from '../../coffee/useCoffee';
-import { canStart, formatDayMonth, recipeLine } from '../../coffee/view';
+import { formatDayMonth, recipeLine } from '../../coffee/view';
 import { formatHomeClock } from '../../energy/homeTime';
-import { LOOK_PLAN } from './looks';
-import { chartInputs, planOf, series } from './chart';
-import { ChartBox } from './ChartBox';
+import { series } from './chart';
 import { Glyph } from './Glyph';
-import { HoldButton } from './HoldButton';
 import { Chip, CoffeeSheet, PersonFace } from './parts';
 import { Spark } from './Spark';
 import { TasteDot } from './taste';
-import { useWaterGuard } from './useWaterGuard';
-import { WaterPrompt } from './WaterTank';
-
-const ratioNumber = (ratio: string | null) => numberOf(ratio?.split(':')[1] ?? ratio) ?? 16;
-const isXPod = (recipe: Recipe | null) => recipe?.cup?.toLowerCase().replace(/[^a-z]/g, '') === 'xpod';
 
 function Stepper({
   label,
@@ -37,8 +27,6 @@ function Stepper({
   step,
   min,
   max,
-  locked,
-  format = v => String(v),
   onChange,
 }: {
   label: string;
@@ -47,76 +35,56 @@ function Stepper({
   step: number;
   min: number;
   max: number;
-  locked?: string | null;
-  format?: (value: number) => string;
   onChange: (value: number) => void;
 }) {
   const set = (next: number) => onChange(Math.min(max, Math.max(min, Math.round(next / step) * step)));
   return (
-    <div className={`coffee-stepper ${locked ? 'is-locked' : ''}`}>
+    <div className='coffee-stepper'>
       <span className='coffee-stepper-label'>{label}</span>
-      <button type='button' onClick={() => set(value - step)} disabled={!!locked || value <= min} aria-label={`${label} down`}>
+      <button type='button' onClick={() => set(value - step)} disabled={value <= min} aria-label={`${label} down`}>
         <Icon icon='mdi:minus' />
       </button>
       <b>
-        {format(value)}
+        {value}
         {unit && <small>{unit}</small>}
       </b>
-      <button type='button' onClick={() => set(value + step)} disabled={!!locked || value >= max} aria-label={`${label} up`}>
+      <button type='button' onClick={() => set(value + step)} disabled={value >= max} aria-label={`${label} up`}>
         <Icon icon='mdi:plus' />
       </button>
-      {locked && <span className='coffee-stepper-note'>{locked}</span>}
     </div>
   );
 }
 
-/** Dose, ratio and grind changed for one brew only; the usual stays as it is. */
-export function TweakSheet({ recipe, state, onClose }: { recipe: Recipe | null; state: CoffeeState; onClose: () => void }) {
-  const base = { dose: recipe?.doseG ?? 15, ratio: ratioNumber(recipe?.ratio ?? null), grind: recipe?.grind ?? 46 };
-  const [dose, setDose] = useState(base.dose);
-  const [ratio, setRatio] = useState(base.ratio);
+/** Grind and temperature of the recipe the button brews, saved into it. Temperature moves every pour by the same amount,
+ * so a cooler last pour stays cooler. */
+export function AdjustSheet({ recipe, onClose }: { recipe: Recipe | null; onClose: () => void }) {
+  const base = { grind: recipe?.grind ?? 46, temp: Math.round(recipe?.pours[0]?.tempC ?? 93) };
   const [grind, setGrind] = useState(base.grind);
-  const locked = isXPod(recipe) ? 'xPod cups keep their dose' : null;
-  const changed = dose !== base.dose || ratio !== base.ratio || grind !== base.grind;
-  const water = useWaterGuard(state, { totalMl: Math.round(dose * ratio) });
-  const start = () => {
-    void sendCoffeeCommand('start', {
-      variant: 'tweak',
-      ...(dose !== base.dose ? { dose } : {}),
-      ...(ratio !== base.ratio ? { ratio } : {}),
+  const [temp, setTemp] = useState(base.temp);
+  const changed = grind !== base.grind || temp !== base.temp;
+  const save = () => {
+    void sendCoffeeCommand('adjust', {
       ...(grind !== base.grind ? { grind_size: grind } : {}),
+      ...(temp !== base.temp ? { temperature: temp } : {}),
     }).catch(() => {});
     onClose();
   };
   return (
     <CoffeeSheet
       icon='mdi:tune-variant'
-      title='Tweak once'
+      title='Grind & temperature'
       subtitle={recipe?.name ?? undefined}
-      historyKey='coffee-tweak'
+      historyKey='coffee-adjust'
       onClose={onClose}
     >
       <div className='coffee-sheet-stack'>
-        <Stepper label='Dose' value={dose} unit='g' step={0.5} min={8} max={30} locked={locked} onChange={setDose} />
-        <Stepper label='Ratio' value={ratio} step={0.5} min={10} max={20} format={v => `1:${v}`} onChange={setRatio} />
         <Stepper label='Grind' value={grind} step={1} min={1} max={80} onChange={setGrind} />
-        <p className='coffee-sheet-note'>{Math.round(dose * ratio)} ml of water. The usual stays as it is.</p>
-        {water.short ? (
-          <WaterPrompt
-            short={water.short}
-            size='md'
-            busy={water.busy}
-            onFilled={() => water.filled(start)}
-            onAnyway={() => water.startAnyway(start)}
-          />
-        ) : (
-          <HoldButton
-            kind='brew'
-            label={changed ? 'Hold 1 s · tweaked' : 'Hold 1 s to brew'}
-            disabled={!canStart(state)}
-            onConfirm={() => water.guard(start)}
-          />
-        )}
+        <Stepper label='Temp' value={temp} unit='°' step={1} min={80} max={96} onChange={setTemp} />
+        <p className='coffee-sheet-note'>Lower grind is finer. Saved into {recipe?.name ?? 'the recipe'} for every brew from now on.</p>
+        <button type='button' className='coffee-btn is-copper' disabled={!recipe || !changed} onClick={save}>
+          <Icon icon='mdi:check' aria-hidden='true' />
+          Save
+        </button>
       </div>
     </CoffeeSheet>
   );
@@ -124,102 +92,43 @@ export function TweakSheet({ recipe, state, onClose }: { recipe: Recipe | null; 
 
 const POUR_TONES = ['sky', 'purple', 'green', 'copper', 'amber'];
 
-/** One recipe: its plan on the brew axis, its numbers, and starting it once or making it the usual. */
-export function RecipeDetail({
+export function RecipeRow({
   recipe,
-  isUsual,
-  state,
-  onDone,
+  index,
+  selected = false,
+  onOpen,
 }: {
   recipe: Recipe;
-  isUsual: boolean;
-  state: CoffeeState | null;
-  onDone?: () => void;
+  index: number;
+  selected?: boolean;
+  onOpen: () => void;
 }) {
-  const inputs = chartInputs({ plan: planOf(null, null, recipe), baseline: null });
-  const water = useWaterGuard(state, recipe);
-  const start = () => {
-    void sendCoffeeCommand('start', isUsual ? { variant: 'usual' } : { variant: 'other', recipe_id: recipe.id }).catch(() => {});
-    onDone?.();
-  };
   return (
-    <div className='coffee-recipe'>
-      <ChartBox look={LOOK_PLAN} mode='plan' height={118} label={`${recipe.name}, its pours over time`} {...inputs} />
-      <div className='coffee-chips'>
-        {recipe.doseG != null && <Chip glyph={<Glyph name='bean' />}>{recipe.doseG} g</Chip>}
-        {recipe.ratio && <Chip>{recipe.ratio}</Chip>}
-        {recipe.totalMl != null && <Chip icon='mdi:water-outline'>{Math.round(recipe.totalMl)} ml</Chip>}
-        {recipe.grind != null && <Chip>Grind {recipe.grind}</Chip>}
-        {recipe.pours[0]?.tempC != null && <Chip icon='mdi:thermometer'>{Math.round(recipe.pours[0].tempC)}°</Chip>}
-      </div>
-      {state && (
-        <div className='coffee-recipe-acts'>
-          {water.short ? (
-            <WaterPrompt
-              short={water.short}
-              size='md'
-              busy={water.busy}
-              onFilled={() => water.filled(start)}
-              onAnyway={() => water.startAnyway(start)}
-            />
-          ) : (
-            <HoldButton
-              kind='brew'
-              label='Hold 1 s to brew'
-              disabled={!canStart(state)}
-              onConfirm={() => water.guard(start)}
-            />
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function RecipeRow({ recipe, index, onOpen }: { recipe: Recipe; index: number; onOpen: () => void }) {
-  return (
-    <button type='button' className='coffee-rrow' onClick={onOpen}>
+    <button type='button' className={`coffee-rrow ${selected ? 'is-selected' : ''}`} aria-pressed={selected} onClick={onOpen}>
       <span className={`coffee-rrow-num is-${POUR_TONES[index % POUR_TONES.length]}`}>{recipe.pours.length || '·'}</span>
       <span className='coffee-rrow-tx'>
         <b>{recipe.name}</b>
         <small>{recipeLine(recipe)}</small>
       </span>
-      <Icon icon='mdi:chevron-right' className='coffee-rrow-chev' aria-hidden='true' />
+      {selected && <Icon icon='mdi:check' className='coffee-rrow-chev' aria-hidden='true' />}
     </button>
   );
 }
 
-/** The other recipes. Brewing one makes it the recipe the big button brews. */
-export function RecipesSheet({
-  recipes,
-  usualId,
-  state,
-  onClose,
-}: {
-  recipes: Recipe[];
-  usualId: string | null;
-  state: CoffeeState;
-  onClose: () => void;
-}) {
-  const others = recipes.filter(recipe => recipe.id !== usualId);
-  const [openId, setOpenId] = useState<string | null>(null);
-  const open = others.find(recipe => recipe.id === openId) ?? null;
+/** Every recipe in the library. Picking one makes it the recipe the big button brews. */
+export function RecipesSheet({ recipes, usualId, onClose }: { recipes: Recipe[]; usualId: string | null; onClose: () => void }) {
+  const pick = (recipe: Recipe) => {
+    if (recipe.id !== usualId) void sendCoffeeCommand('select', { recipe_id: recipe.id }).catch(() => {});
+    onClose();
+  };
   return (
-    <CoffeeSheet icon='mdi:book-open-variant' title={open ? open.name : 'Recipes'} historyKey='coffee-recipes' onClose={onClose}>
-      {open ? (
-        <div className='coffee-sheet-stack'>
-          <button type='button' className='coffee-btn is-ghost is-small' onClick={() => setOpenId(null)}>
-            <Icon icon='mdi:chevron-left' aria-hidden='true' />
-            All recipes
-          </button>
-          <RecipeDetail recipe={open} isUsual={false} state={state} onDone={onClose} />
-        </div>
-      ) : others.length === 0 ? (
-        <p className='coffee-sheet-note'>No other recipes in Home Assistant's xBloom library.</p>
+    <CoffeeSheet icon='mdi:book-open-variant' title='Recipes' historyKey='coffee-recipes' onClose={onClose}>
+      {recipes.length === 0 ? (
+        <p className='coffee-sheet-note'>No recipes in Home Assistant's xBloom library.</p>
       ) : (
         <div className='coffee-sheet-list'>
-          {others.map((recipe, index) => (
-            <RecipeRow key={recipe.id} recipe={recipe} index={index} onOpen={() => setOpenId(recipe.id)} />
+          {recipes.map((recipe, index) => (
+            <RecipeRow key={recipe.id} recipe={recipe} index={index} selected={recipe.id === usualId} onOpen={() => pick(recipe)} />
           ))}
         </div>
       )}
