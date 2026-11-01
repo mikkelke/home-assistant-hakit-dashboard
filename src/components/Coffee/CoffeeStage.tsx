@@ -60,7 +60,7 @@ import { ChartBox } from './ChartBox';
 import { CupWait } from './CupWait';
 import { Glyph } from './Glyph';
 import { HoldButton } from './HoldButton';
-import { Chip, CupChip, Legend, LinkChip, NotifyChip, StoryPill, VerdictPill, type LegendItem } from './parts';
+import { Chip, CupChip, Legend, LinkChip, NotifyChip, SaveToRecipe, StoryPill, VerdictPill, type LegendItem } from './parts';
 import { BeansSheet, RecipesSheet, TweakSheet } from './sheets';
 import { TasteRow } from './taste';
 import { useClock } from './useClock';
@@ -469,6 +469,7 @@ function BrewingSide({
           </>
         )}
       </div>
+      <SaveToRecipe state={state} className='cs-save' />
     </>
   );
 }
@@ -536,6 +537,7 @@ function ReadySide({ data, nowMs, onNewCup }: { data: StageData; nowMs: number; 
       <Tile label='How is it?' className='cs-taste'>
         <TasteRow brewId={state.brewId} rating={record?.rating ?? null} />
       </Tile>
+      <SaveToRecipe state={state} className='cs-save' />
       {shownAdvice && (
         <AdviceCard advice={shownAdvice} brews={brews} beanName={beans?.beanName ?? state.beanName} forBrewId={state.brewId} size='lg' />
       )}

@@ -204,3 +204,22 @@ export function NotifySheet({ current, onClose }: { current: PersonKey | null; o
     </CoffeeSheet>
   );
 }
+
+/** Writes what a tweaked cup changed (dose, ratio, grind, temperature) into its recipe, while it brews or after. */
+export function SaveToRecipe({ state, className }: { state: CoffeeState; className: string }) {
+  const [savedFor, setSavedFor] = useState<string | null>(null);
+  const brewId = state.brewId;
+  if (state.variant !== 'tweak' || !brewId) return null;
+  const saved = savedFor === brewId;
+  const name = state.recipeName ?? 'the recipe';
+  const save = () => {
+    void sendCoffeeCommand('save_brew', { brew_id: brewId }).catch(() => {});
+    setSavedFor(brewId);
+  };
+  return (
+    <button type='button' className={className} disabled={saved} onClick={save}>
+      <Icon icon={saved ? 'mdi:check' : 'mdi:content-save-outline'} aria-hidden='true' />
+      {saved ? `Saved to ${name}` : `Save to ${name}`}
+    </button>
+  );
+}

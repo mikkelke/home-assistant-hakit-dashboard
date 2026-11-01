@@ -31,6 +31,7 @@ function Stepper({
   step,
   min,
   max,
+  format = String,
   onChange,
 }: {
   label: string;
@@ -39,6 +40,7 @@ function Stepper({
   step: number;
   min: number;
   max: number;
+  format?: (value: number) => string;
   onChange: (value: number) => void;
 }) {
   const set = (next: number) => onChange(Math.min(max, Math.max(min, Math.round(next / step) * step)));
@@ -49,7 +51,7 @@ function Stepper({
         <Icon icon='mdi:minus' />
       </button>
       <b>
-        {value}
+        {format(value)}
         {unit && <small>{unit}</small>}
       </b>
       <button type='button' onClick={() => set(value + step)} disabled={value >= max} aria-label={`${label} up`}>
@@ -59,17 +61,26 @@ function Stepper({
   );
 }
 
-/** Grind and temperature changed for this cup only; the recipe stays as it is. Temperature moves every pour by the
- * same amount, so a cooler last pour stays cooler. */
+/** Dose, ratio, grind and temperature changed for this cup only; the recipe stays as it is. Dose times ratio scales
+ * every pour, and temperature moves every pour by the same amount, so a cooler last pour stays cooler. */
 export function TweakSheet({ recipe, state, onClose }: { recipe: Recipe | null; state: CoffeeState; onClose: () => void }) {
-  const base = { grind: recipe?.grind ?? 46, temp: Math.round(recipe?.pours[0]?.tempC ?? 93) };
+  const base = {
+    dose: recipe?.doseG ?? 15,
+    ratio: Number(recipe?.ratio?.split(':').pop()) || 16,
+    grind: recipe?.grind ?? 46,
+    temp: Math.round(recipe?.pours[0]?.tempC ?? 93),
+  };
+  const [dose, setDose] = useState(base.dose);
+  const [ratio, setRatio] = useState(base.ratio);
   const [grind, setGrind] = useState(base.grind);
   const [temp, setTemp] = useState(base.temp);
-  const changed = grind !== base.grind || temp !== base.temp;
-  const water = useWaterGuard(state, recipe);
+  const changed = dose !== base.dose || ratio !== base.ratio || grind !== base.grind || temp !== base.temp;
+  const water = useWaterGuard(state, { totalMl: dose * ratio });
   const start = () => {
     void sendCoffeeCommand('start', {
       variant: 'tweak',
+      ...(dose !== base.dose ? { dose } : {}),
+      ...(ratio !== base.ratio ? { ratio } : {}),
       ...(grind !== base.grind ? { grind_size: grind } : {}),
       ...(temp !== base.temp ? { temperature: temp } : {}),
     }).catch(() => {});
@@ -78,9 +89,13 @@ export function TweakSheet({ recipe, state, onClose }: { recipe: Recipe | null; 
   return (
     <CoffeeSheet icon='mdi:tune-variant' title='This cup' subtitle={recipe?.name ?? undefined} historyKey='coffee-tweak' onClose={onClose}>
       <div className='coffee-sheet-stack'>
+        <Stepper label='Dose' value={dose} unit='g' step={0.5} min={5} max={25} onChange={setDose} />
+        <Stepper label='Ratio' value={ratio} step={0.5} min={10} max={20} format={value => `1:${value}`} onChange={setRatio} />
         <Stepper label='Grind' value={grind} step={1} min={1} max={80} onChange={setGrind} />
         <Stepper label='Temp' value={temp} unit='°' step={1} min={80} max={96} onChange={setTemp} />
-        <p className='coffee-sheet-note'>Lower grind is finer. Only this cup; the recipe stays as it is.</p>
+        <p className='coffee-sheet-note'>
+          {Math.round(dose * ratio)} ml water. Lower grind is finer. Only this cup; save it to the recipe while it brews.
+        </p>
         {water.short ? (
           <WaterPrompt
             short={water.short}

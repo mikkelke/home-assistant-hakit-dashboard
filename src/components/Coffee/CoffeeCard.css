@@ -291,7 +291,8 @@
 .cc-d.is-dn {
   color: #93c5fd;
 }
-.cc-picked {
+.cc-picked,
+.cc-save {
   width: 100%;
   margin-top: 12px;
   height: 50px;

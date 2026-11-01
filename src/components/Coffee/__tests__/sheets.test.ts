@@ -93,6 +93,16 @@ describe('the this-cup sheet', () => {
     expect(data(0)).toEqual({ variant: 'tweak', grind_size: 47 });
   });
 
+  it('sends dose and ratio for this cup and checks the water against them', () => {
+    show();
+    tap(document.querySelector('[aria-label="Dose up"]'));
+    tap(document.querySelector('[aria-label="Ratio down"]'));
+    expect(document.body.textContent).toContain('1:16.5');
+    expect(document.body.textContent).toContain('256 ml water');
+    hold();
+    expect(data(0)).toEqual({ variant: 'tweak', dose: 15.5, ratio: 16.5 });
+  });
+
   it('holds the start for water when the tank cannot finish the cup', () => {
     const onClose = show('200');
     hold();

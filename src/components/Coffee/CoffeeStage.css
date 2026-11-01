@@ -504,7 +504,8 @@
   display: flex;
   gap: 10px;
 }
-.cs-lowlinks button {
+.cs-lowlinks button,
+.cs-save {
   flex: 1;
   display: flex;
   align-items: center;
@@ -523,10 +524,16 @@
   touch-action: manipulation;
   transition: transform 120ms var(--ease-out);
 }
-.cs-lowlinks button:active {
+.cs-lowlinks button:active,
+.cs-save:active {
   transform: scale(0.98);
 }
-.cs-lowlinks svg {
+.cs-save:disabled {
+  cursor: default;
+  color: var(--cof-t2);
+}
+.cs-lowlinks svg,
+.cs-save svg {
   font-size: 19px;
   color: var(--cof-t2);
 }

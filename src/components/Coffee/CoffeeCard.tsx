@@ -68,7 +68,7 @@ import { BeansUndo, BrewStrip, StatsSheet } from './CoffeeStats';
 import { CupWait } from './CupWait';
 import { Glyph } from './Glyph';
 import { HoldButton } from './HoldButton';
-import { Chip, LinkChip, NotifyChip, PersonFace, StoryPill, VerdictPill } from './parts';
+import { Chip, LinkChip, NotifyChip, PersonFace, SaveToRecipe, StoryPill, VerdictPill } from './parts';
 import { BeansSheet, RecipeRow, TweakSheet } from './sheets';
 import { Spark } from './Spark';
 import { TasteDot, TasteRow } from './taste';
@@ -473,6 +473,7 @@ function LiveBrew({ data, nowMs }: { data: CardData; nowMs: number }) {
           onConfirm={() => void sendCoffeeCommand('stop', {}).catch(() => {})}
         />
       </div>
+      <SaveToRecipe state={state} className='coffee-btn is-ghost cc-save' />
     </>
   );
 }
@@ -549,6 +550,7 @@ function ReadyBrew({ data }: { data: CardData }) {
           Picked up
         </button>
       )}
+      <SaveToRecipe state={state} className='coffee-btn is-ghost cc-save' />
     </>
   );
 }

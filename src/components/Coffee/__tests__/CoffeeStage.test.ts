@@ -60,3 +60,19 @@ describe('the stage after a brew', () => {
     expect(document.querySelector('.cs-side.is-idle')).not.toBeNull();
   });
 });
+
+describe('saving a tweaked cup', () => {
+  it('saves the brew into its recipe while it brews, once', () => {
+    entities.current = coffeeState('brewing', { brew_id: 'c2', variant: 'tweak', recipe_name: '3 Pour Recipe', pour: '1' });
+    show();
+    act(() => (button('Save to 3 Pour Recipe') as HTMLElement).click());
+    expect(sent.map(command => [command.op, JSON.parse(command.data ?? '{}')])).toEqual([['save_brew', { brew_id: 'c2' }]]);
+    expect((button('Saved to 3 Pour Recipe') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('offers no save for a cup brewed as the recipe is', () => {
+    entities.current = coffeeState('ready', { brew_id: 'c3', variant: 'usual', recipe_name: '3 Pour Recipe' });
+    show();
+    expect(button('Save to 3 Pour Recipe')).toBeNull();
+  });
+});
