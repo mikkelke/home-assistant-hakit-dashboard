@@ -1,0 +1,378 @@
+body.wake-alarm-open {
+  overflow: hidden;
+}
+
+.wake-alarm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px 12px 0;
+  background: rgba(0, 0, 0, 0.66);
+}
+
+.wake-alarm-sheet {
+  --wake-surface: #1d241b;
+  --wake-line: #414a38;
+  --wake-text: #ece9dd;
+  --wake-secondary: #babeb0;
+  --wake-sage: #c4d1ad;
+  --wake-ink: #20271b;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 440px;
+  max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px));
+  min-height: min(710px, calc(100dvh - 32px - env(safe-area-inset-top, 0px)));
+  padding: 18px 24px calc(18px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  color: var(--wake-text);
+  background: var(--wake-surface);
+  border-radius: 28px 28px 0 0;
+  outline: none;
+  scrollbar-color: var(--wake-line) var(--wake-surface);
+  scrollbar-width: thin;
+}
+
+.wake-alarm-sheet ::selection {
+  color: var(--wake-ink);
+  background: var(--wake-sage);
+}
+
+.wake-alarm-sheet button {
+  font: inherit;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+
+.wake-alarm-sheet button:focus-visible {
+  outline: 3px solid #e0d1a3;
+  outline-offset: 3px;
+}
+
+.wake-alarm-sheet button:active {
+  transform: scale(0.985);
+}
+
+.wake-alarm-sheet button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.wake-alarm-top,
+.wake-alarm-top > span {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wake-alarm-top {
+  justify-content: space-between;
+  min-height: 48px;
+  color: var(--wake-secondary);
+  font-size: 15px;
+}
+
+.wake-alarm-top svg {
+  font-size: 23px;
+  color: var(--wake-sage);
+}
+
+.wake-alarm-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--wake-secondary);
+}
+
+.wake-alarm-sheet h2 {
+  margin: 20px 0 8px;
+  font-size: 27px;
+  line-height: 1.2;
+  font-weight: 450;
+  letter-spacing: -0.025em;
+}
+
+.wake-alarm-description {
+  margin: 0;
+  color: var(--wake-secondary);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.wake-alarm-hero {
+  text-align: center;
+  padding-top: 14px;
+}
+
+.wake-alarm-clock {
+  margin: 0;
+  color: var(--wake-text);
+  font-size: clamp(54px, 18vw, 78px);
+  font-weight: 300;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.wake-alarm-hero-icon {
+  color: var(--wake-sage);
+  font-size: 44px;
+  margin: 12px 0 18px;
+}
+
+.wake-alarm-room-icon {
+  font-size: 76px;
+  color: var(--wake-sage);
+  margin: 18px auto 12px;
+}
+
+.wake-alarm-playing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin: 4px 0 6px;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.wake-alarm-playing svg {
+  font-size: 22px;
+}
+
+.wake-alarm-actions {
+  margin-top: auto;
+  padding-top: 24px;
+}
+
+.wake-alarm-primary,
+.wake-alarm-stop,
+.wake-alarm-options {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  border: 0;
+}
+
+.wake-alarm-primary {
+  min-height: 100px;
+  padding: 14px 10px;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: 18px;
+  background: var(--wake-sage);
+  color: var(--wake-ink);
+}
+
+.wake-alarm-primary svg {
+  font-size: 27px;
+}
+
+.wake-alarm-primary strong {
+  font-size: 24px;
+  font-weight: 550;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+.wake-alarm-primary small {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #34422b;
+}
+
+.wake-alarm-options {
+  min-height: 50px;
+  gap: 9px;
+  border-radius: 12px;
+  color: var(--wake-sage);
+  background: transparent;
+  font-size: 15px;
+}
+
+.wake-alarm-return,
+.wake-alarm-footnote {
+  margin: 0 0 18px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--wake-secondary);
+}
+
+.wake-alarm-stop {
+  margin-top: 18px;
+  min-height: 74px;
+  gap: 10px;
+  border: 1px solid var(--wake-line);
+  border-radius: 16px;
+  color: var(--wake-text);
+  background: #2a3025;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.wake-alarm-footnote {
+  margin: 10px 0 0;
+}
+
+.wake-alarm-room {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 22px 0;
+}
+
+.wake-alarm-room button {
+  min-height: 126px;
+  padding: 14px 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 9px;
+  border-radius: 16px;
+  border: 1px solid var(--wake-line);
+  color: var(--wake-secondary);
+  background: #252d21;
+}
+
+.wake-alarm-room svg {
+  font-size: 40px;
+}
+
+.wake-alarm-room strong {
+  color: var(--wake-text);
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.wake-alarm-room small {
+  font-size: 12px;
+}
+
+.wake-alarm-room button[aria-pressed='true'] {
+  border-color: var(--wake-sage);
+  color: var(--wake-sage);
+  background: #35402b;
+}
+
+.wake-alarm-field {
+  font-size: 14px;
+  color: var(--wake-secondary);
+  margin: 0 0 10px;
+}
+
+.wake-alarm-length {
+  display: flex;
+  gap: 6px;
+  padding: 5px;
+  border-radius: 13px;
+  background: #151b12;
+}
+
+.wake-alarm-length button {
+  flex: 1;
+  min-height: 49px;
+  border: 0;
+  border-radius: 9px;
+  font-size: 20px;
+  color: var(--wake-secondary);
+  background: transparent;
+}
+
+.wake-alarm-length small {
+  font-size: 12px;
+}
+
+.wake-alarm-length button[aria-pressed='true'] {
+  background: #414d35;
+  color: var(--wake-text);
+}
+
+.wake-alarm-behavior {
+  margin-top: 22px;
+  padding-top: 10px;
+  border-top: 1px solid var(--wake-line);
+  color: var(--wake-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.wake-alarm-behavior p {
+  margin: 10px 0;
+}
+
+.wake-alarm-behavior strong {
+  display: block;
+  font-size: 15px;
+  color: var(--wake-text);
+  font-weight: 500;
+  margin-bottom: 3px;
+}
+
+.wake-alarm-ended {
+  padding-top: 48px;
+}
+
+.wake-alarm-quiet {
+  margin: 30px 0;
+  color: var(--wake-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.wake-alarm-feedback {
+  min-height: 21px;
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--wake-secondary);
+}
+
+.wake-alarm-feedback[role='alert'] {
+  color: #f4c5aa;
+}
+
+@media (min-width: 600px) {
+  .wake-alarm-overlay {
+    align-items: center;
+    padding-bottom: 16px;
+  }
+
+  .wake-alarm-sheet {
+    border-radius: 28px;
+  }
+}
+
+@media (max-height: 660px) {
+  .wake-alarm-sheet {
+    min-height: 0;
+  }
+
+  .wake-alarm-hero {
+    padding-top: 0;
+  }
+
+  .wake-alarm-room-icon {
+    font-size: 48px;
+    margin-top: 12px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wake-alarm-sheet button:hover:not(:disabled) {
+    filter: brightness(1.07);
+  }
+}

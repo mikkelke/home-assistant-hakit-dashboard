@@ -3,6 +3,7 @@ import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { useLocalStorageBoolean, useTouchScrollSlopGuard } from '../../hooks';
 import './WakeupAlarm.css';
+import { WakeAlarmStatus } from './WakeAlarmStatus';
 
 // Wake-up alarm card — same collapsed-by-default iOS shell as HeatCard/TonightCard. Presentation
 // only: every value here comes straight off input_boolean.wakeup_<room> / input_datetime.wakeup_
@@ -227,6 +228,8 @@ export function WakeupAlarm({ areaName, entities, callService }: WakeupAlarmProp
           <Icon icon={collapsed ? 'mdi:chevron-down' : 'mdi:chevron-up'} aria-hidden='true' className='wakeup-chevron' />
         </span>
       </div>
+
+      {areaNameNormalized === 'bedroom' && <WakeAlarmStatus entities={entities} />}
 
       {!collapsed && (
         <div className='wakeup-content'>
