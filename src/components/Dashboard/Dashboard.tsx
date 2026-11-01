@@ -42,7 +42,7 @@ import { QuickAccess } from '../QuickAccess/QuickAccess';
 import { RoomGrid } from '../RoomGrid';
 import { Menu } from '../Menu';
 import { FireAlarmTakeover } from '../FireSafety';
-import { WakeAlarmSession } from '../Alarm/WakeAlarmSession';
+import { WakeAlarmGate } from '../Alarm/WakeAlarmGate';
 import { FIRE_SAFETY_SENSOR, KITCHEN_COOKING_MODE_BOOLEAN, SMOKE_ALARM_SENSORS } from '../../config/entities';
 import './Dashboard.css';
 
@@ -1027,7 +1027,7 @@ export function Dashboard() {
         onOpenLists={handleOpenLists}
       />
       <FireAlarmTakeover entities={displayEntities} callService={callService} />
-      <WakeAlarmSession entities={displayEntities} callService={callService} />
+      <WakeAlarmGate entities={displayEntities} callService={callService} />
       <div className='dashboard-main'>
         <div className='dashboard-content'>
           <main className='rooms-container'>
