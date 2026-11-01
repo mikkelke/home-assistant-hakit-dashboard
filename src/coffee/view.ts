@@ -6,9 +6,9 @@ import type { BandVerdict, CoffeeBeans, CoffeeLive, CoffeeState, LiveVerdict, Pl
 
 export type Tone = 'ok' | 'up' | 'dn' | 'mute' | 'warn';
 
-/** The recipe's name, "Tweaked once" for a one-off tweak of it. */
+/** The recipe's name, marked when one cup of it was adjusted. */
 export function brewName(state: Pick<CoffeeState, 'variant' | 'recipeName'>, usualName: string | null): string {
-  if (state.variant === 'tweak') return 'Tweaked once';
+  if (state.variant === 'tweak') return `${state.recipeName ?? usualName ?? 'Coffee'} · adjusted`;
   const usual = state.variant === 'usual' || state.variant === 'base' || state.variant === 'trial';
   return state.recipeName ?? (usual ? usualName : null) ?? 'Coffee';
 }

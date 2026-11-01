@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '@iconify/react';
 import { sendCoffeeCommand, type CoffeeCommands } from '../../coffee/command';
+import { adjusted, setCupAdjust, useCupAdjust } from '../../coffee/adjust';
 import { BEANS_TOP_UP_G } from '../../coffee/entities';
 import {
   advisorShown,
@@ -61,7 +62,7 @@ import { CupWait } from './CupWait';
 import { Glyph } from './Glyph';
 import { HoldButton } from './HoldButton';
 import { Chip, CupChip, Legend, LinkChip, NotifyChip, SaveToRecipe, StoryPill, VerdictPill, type LegendItem } from './parts';
-import { BeansSheet, RecipesSheet, TweakSheet } from './sheets';
+import { AdjustSheet, BeansSheet, RecipesSheet } from './sheets';
 import { TasteRow } from './taste';
 import { useClock } from './useClock';
 import { useWaterGuard } from './useWaterGuard';
@@ -191,10 +192,12 @@ interface StageData {
 function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
   const { state, beans, recipes, advice, brews } = data;
   const usual = usualRecipe(recipes);
+  const adjust = useCupAdjust(usual);
+  const cup = usual && adjust ? adjusted(usual, adjust) : usual;
   const [sheet, setSheet] = useState<'tweak' | 'recipes' | 'beans' | 'water' | null>(null);
   const [base, setBase] = useState(false);
   const { pending, start } = useStart(state, nowMs);
-  const water = useWaterGuard(state, usual);
+  const water = useWaterGuard(state, cup);
   const shownAdvice = advisorShown(advice) ? advice : null;
   const trial = shownAdvice?.status === 'trial_queued' ? shownAdvice : null;
   const failure = startFailure(state);
@@ -202,23 +205,26 @@ function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
   const total = data.baseline?.status === 'ready' ? data.baseline.totalSMedian : null;
   const plannedS = total ?? usual?.planS ?? null;
   const share = beans?.remainingG != null ? Math.min(1, beans.remainingG / Math.max(BEANS_TOP_UP_G, beans.remainingG)) : 0;
-  const begin = () => start({ variant: trial && base ? 'base' : 'usual' });
+  const begin = () => {
+    start(adjust ? { variant: 'tweak', ...adjust } : { variant: trial && base ? 'base' : 'usual' });
+    setCupAdjust(usual, null);
+  };
   return (
     <>
       <Tile className='cs-usual'>
-        <span className='coffee-lab'>Selected</span>
+        <span className='coffee-lab'>{adjust ? 'Selected · adjusted for this cup' : 'Selected'}</span>
         <h3>{usualTitle(usual, beans)}</h3>
         <div className='cs-chips'>
-          {usual?.doseG != null && <Chip glyph={<Glyph name='bean' />}>{usual.doseG} g</Chip>}
-          {usual?.ratio && <Chip>{usual.ratio}</Chip>}
-          {usual?.totalMl != null && <Chip icon='mdi:water-outline'>{Math.round(usual.totalMl)} ml</Chip>}
-          {usual?.pours[0]?.tempC != null && <Chip icon='mdi:thermometer'>{Math.round(usual.pours[0].tempC)}°</Chip>}
-          {trial && !base ? (
+          {cup?.doseG != null && <Chip glyph={<Glyph name='bean' />}>{cup.doseG} g</Chip>}
+          {cup?.ratio && <Chip>{cup.ratio}</Chip>}
+          {cup?.totalMl != null && <Chip icon='mdi:water-outline'>{Math.round(cup.totalMl)} ml</Chip>}
+          {cup?.pours[0]?.tempC != null && <Chip icon='mdi:thermometer'>{Math.round(cup.pours[0].tempC)}°</Chip>}
+          {trial && !base && !adjust ? (
             <Chip icon='mdi:creation' tone='pur'>
               Grind {trial.to}
             </Chip>
           ) : (
-            usual?.grind != null && <Chip>Grind {usual.grind}</Chip>
+            cup?.grind != null && <Chip>Grind {cup.grind}</Chip>
           )}
           {!trial && plannedS != null && <Chip icon='mdi:clock-outline'>≈ {formatMinSec(plannedS)}</Chip>}
         </div>
@@ -261,7 +267,7 @@ function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
       <div className='cs-status'>
         <LinkChip state={state} big />
         <CupChip state={state} big />
-        <WaterChip state={state} usual={usual} big onOpen={() => setSheet('water')} />
+        <WaterChip state={state} usual={cup} big onOpen={() => setSheet('water')} />
         <NotifyChip state={state} variant='chip' />
       </div>
       {appHasMachine(state) && (
@@ -288,7 +294,15 @@ function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
               kind='brew'
               size='xl'
               className='cs-go'
-              label={trial ? (base ? `Hold 1 s · grind ${trial.from ?? usual?.grind ?? ''}` : 'Hold 1 s · trial') : 'Hold 1 s to brew'}
+              label={
+                adjust
+                  ? 'Hold 1 s · adjusted'
+                  : trial
+                    ? base
+                      ? `Hold 1 s · grind ${trial.from ?? usual?.grind ?? ''}`
+                      : 'Hold 1 s · trial'
+                    : 'Hold 1 s to brew'
+              }
               pending={pending}
               failed={pending ? null : failure}
               disabled={!pending && !canStart(state)}
@@ -316,7 +330,7 @@ function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
           )}
         </>
       )}
-      {sheet === 'tweak' && <TweakSheet recipe={usual} state={state} onClose={() => setSheet(null)} />}
+      {sheet === 'tweak' && <AdjustSheet recipe={usual} onClose={() => setSheet(null)} />}
       {sheet === 'recipes' && (
         <RecipesSheet recipes={recipes?.recipes ?? []} usualId={recipes?.usualId ?? null} onClose={() => setSheet(null)} />
       )}

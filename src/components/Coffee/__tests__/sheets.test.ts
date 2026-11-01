@@ -12,8 +12,9 @@ vi.mock('@hakit/core', () => {
 });
 vi.mock('@iconify/react', () => ({ Icon: () => null }));
 
-const { parseCoffeeRecipes, parseCoffeeState, usualRecipe } = await import('../../../coffee/model');
-const { RecipesSheet, TweakSheet } = await import('../sheets');
+const { parseCoffeeRecipes, usualRecipe } = await import('../../../coffee/model');
+const { AdjustSheet, RecipesSheet } = await import('../sheets');
+const { setCupAdjust, useCupAdjust } = await import('../../../coffee/adjust');
 
 const entity = (state: string, attributes: Record<string, string | object[]>) => ({ state, attributes: { v: '1', ...attributes } });
 const recipes = parseCoffeeRecipes(
@@ -34,8 +35,6 @@ const recipes = parseCoffeeRecipes(
   })
 );
 const USUAL = usualRecipe(recipes)!;
-const stateWith = (tankLeftMl: string) =>
-  parseCoffeeState(entity('idle', { machine: 'awake', link: 'connected', tank_ml: '760', tank_left_ml: tankLeftMl }))!;
 
 let root: Root;
 let sent: { op?: string; data?: string }[];
@@ -60,55 +59,47 @@ const ops = () => sent.map(command => command.op);
 const data = (index: number) => JSON.parse(sent[index].data ?? '{}');
 const tap = (element: Element | null) => act(() => (element as HTMLElement).click());
 
-const hold = () => {
-  act(() => {
-    document.querySelector('.hold-btn')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-  });
-  act(() => {
-    vi.advanceTimersByTime(1000);
-  });
-};
-
-describe('the this-cup sheet', () => {
-  const show = (tankLeftMl = '760', onClose = vi.fn()) => {
-    act(() => root.render(createElement(TweakSheet, { recipe: USUAL, state: stateWith(tankLeftMl), onClose })));
+describe('the adjust-cup sheet', () => {
+  const show = (onClose = vi.fn()) => {
+    act(() => root.render(createElement(AdjustSheet, { recipe: USUAL, onClose })));
     return onClose;
   };
+  const apply = () => tap([...document.querySelectorAll('button')].find(b => b.textContent === 'Apply') ?? null);
+  function Held() {
+    return createElement('output', null, JSON.stringify(useCupAdjust(USUAL)));
+  }
+  const held = () => {
+    act(() => root.render(createElement(Held)));
+    return JSON.parse(document.querySelector('output')?.textContent ?? '"missing"');
+  };
+  afterEach(() => setCupAdjust(null, null));
 
-  it('starts this cup with only the grind and temperature that changed, and closes', () => {
+  it('holds only what changed for the next cup, sends nothing and closes', () => {
     const onClose = show();
-    tap(document.querySelector('[aria-label="Grind down"]'));
-    tap(document.querySelector('[aria-label="Temp down"]'));
-    tap(document.querySelector('[aria-label="Temp down"]'));
-    hold();
-    expect(ops()).toEqual(['start']);
-    expect(data(0)).toEqual({ variant: 'tweak', grind_size: 45, temperature: 91 });
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it('leaves the temperature out when only the grind moved', () => {
-    show();
-    tap(document.querySelector('[aria-label="Grind up"]'));
-    hold();
-    expect(data(0)).toEqual({ variant: 'tweak', grind_size: 47 });
-  });
-
-  it('sends dose and ratio for this cup and checks the water against them', () => {
-    show();
     tap(document.querySelector('[aria-label="Dose up"]'));
     tap(document.querySelector('[aria-label="Ratio down"]'));
+    tap(document.querySelector('[aria-label="Grind down"]'));
+    tap(document.querySelector('[aria-label="Temp down"]'));
     expect(document.body.textContent).toContain('1:16.5');
     expect(document.body.textContent).toContain('256 ml water');
-    hold();
-    expect(data(0)).toEqual({ variant: 'tweak', dose: 15.5, ratio: 16.5 });
+    apply();
+    expect(sent).toEqual([]);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(held()).toEqual({ dose: 15.5, ratio: 16.5, grind_size: 45, temperature: 92 });
   });
 
-  it('holds the start for water when the tank cannot finish the cup', () => {
-    const onClose = show('200');
-    hold();
-    expect(ops()).toEqual([]);
-    expect(document.querySelector('.coffee-cupwait.is-water')).not.toBeNull();
-    expect(onClose).not.toHaveBeenCalled();
+  it('opens on what is held, and Reset lets it go', () => {
+    setCupAdjust(USUAL, { grind_size: 42 });
+    show();
+    expect(document.body.textContent).toContain('42');
+    tap([...document.querySelectorAll('button')].find(b => b.textContent === 'Reset') ?? null);
+    expect(held()).toBeNull();
+  });
+
+  it('holds nothing when nothing changed', () => {
+    show();
+    apply();
+    expect(held()).toBeNull();
   });
 });
 

@@ -20,6 +20,7 @@ vi.mock('@hakit/core', () => {
 vi.mock('@iconify/react', () => ({ Icon: () => null }));
 
 const { default: CoffeeStage } = await import('../CoffeeStage');
+const { setCupAdjust } = await import('../../../coffee/adjust');
 
 const coffeeState = (state: string, attributes: Record<string, string>) => ({
   'sensor.coffee_state': {
@@ -31,12 +32,14 @@ const coffeeState = (state: string, attributes: Record<string, string>) => ({
 
 let root: Root;
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
   sent.length = 0;
   root = createRoot(document.body.appendChild(document.createElement('div')));
 });
 afterEach(() => {
   act(() => root.unmount());
   document.body.innerHTML = '';
+  vi.useRealTimers();
 });
 
 const button = (label: string) => [...document.querySelectorAll('button')].find(b => b.textContent === label) ?? null;
@@ -74,5 +77,41 @@ describe('saving a tweaked cup', () => {
     entities.current = coffeeState('ready', { brew_id: 'c3', variant: 'usual', recipe_name: '3 Pour Recipe' });
     show();
     expect(button('Save to 3 Pour Recipe')).toBeNull();
+  });
+});
+
+describe('an adjusted cup', () => {
+  const recipes = {
+    'sensor.coffee_recipes': {
+      entity_id: 'sensor.coffee_recipes',
+      state: '3 Pour Recipe',
+      attributes: {
+        v: '1',
+        usual_id: '82726',
+        recipes: [
+          { id: '82726', name: '3 Pour Recipe', dose_g: '16', ratio: '17', grind: '45', total_ml: '272', pours: '117/93/3/circular/25' },
+        ],
+      },
+    },
+  };
+  afterEach(() => setCupAdjust(null, null));
+
+  it('shows the applied values and the brew button starts that cup with them, once', () => {
+    entities.current = { ...coffeeState('idle', { tank_ml: '760', tank_left_ml: '700' }), ...recipes };
+    show();
+    act(() => setCupAdjust({ id: '82726' }, { dose: 15, grind_size: 42, temperature: 90 }));
+    expect(document.body.textContent).toContain('adjusted for this cup');
+    expect(document.body.textContent).toContain('255 ml');
+    expect(document.body.textContent).toContain('90°');
+    act(() => {
+      document.querySelector('.hold-btn')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(sent.map(command => [command.op, JSON.parse(command.data ?? '{}')])).toEqual([
+      ['start', { variant: 'tweak', dose: 15, grind_size: 42, temperature: 90 }],
+    ]);
+    expect(document.body.textContent).not.toContain('adjusted for this cup');
   });
 });

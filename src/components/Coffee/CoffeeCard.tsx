@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
+import { adjusted, setCupAdjust, useCupAdjust } from '../../coffee/adjust';
 import { sendCoffeeCommand, type CoffeeCommands } from '../../coffee/command';
 import { COFFEE_TABLET_VIEWER, XBLOOM_INTEGRATION_PATH } from '../../coffee/entities';
 import {
@@ -69,7 +70,7 @@ import { CupWait } from './CupWait';
 import { Glyph } from './Glyph';
 import { HoldButton } from './HoldButton';
 import { Chip, LinkChip, NotifyChip, PersonFace, SaveToRecipe, StoryPill, VerdictPill } from './parts';
-import { BeansSheet, RecipeRow, TweakSheet } from './sheets';
+import { AdjustSheet, BeansSheet, RecipeRow } from './sheets';
 import { Spark } from './Spark';
 import { TasteDot, TasteRow } from './taste';
 import { useClock } from './useClock';
@@ -181,8 +182,13 @@ function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onS
     void sendCoffeeCommand('start', data).catch(() => setSent(null));
   };
   const failure = startFailure(state);
-  const water = useWaterGuard(state, usual);
-  const begin = () => start({ variant: 'usual' });
+  const adjust = useCupAdjust(usual);
+  const cup = usual && adjust ? adjusted(usual, adjust) : usual;
+  const water = useWaterGuard(state, cup);
+  const begin = () => {
+    start(adjust ? { variant: 'tweak', ...adjust } : { variant: 'usual' });
+    setCupAdjust(usual, null);
+  };
 
   if (trialBrewed && last) {
     return (
@@ -227,7 +233,7 @@ function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onS
   return (
     <>
       <div className='cc-usual-line'>
-        <span className='coffee-lab'>Selected</span>
+        <span className='coffee-lab'>{adjust ? 'Selected · adjusted' : 'Selected'}</span>
         <span>
           {[
             usual ? `${usual.pours.length} pours` : null,
@@ -240,15 +246,16 @@ function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onS
       </div>
       <ChartBox look={LOOK_MINI} mode='idle' height={116} className='cc-chart' label='The usual: its plan and band' {...inputs} />
       <div className='coffee-chips cc-chips'>
-        {usual?.doseG != null && <Chip glyph={<Glyph name='bean' />}>{usual.doseG} g</Chip>}
-        {usual?.ratio && <Chip>{usual.ratio}</Chip>}
-        {usual?.totalMl != null && <Chip icon='mdi:water-outline'>{Math.round(usual.totalMl)} ml</Chip>}
-        {trial ? (
+        {cup?.doseG != null && <Chip glyph={<Glyph name='bean' />}>{cup.doseG} g</Chip>}
+        {cup?.ratio && <Chip>{cup.ratio}</Chip>}
+        {cup?.totalMl != null && <Chip icon='mdi:water-outline'>{Math.round(cup.totalMl)} ml</Chip>}
+        {adjust && cup?.pours[0]?.tempC != null && <Chip icon='mdi:thermometer'>{Math.round(cup.pours[0].tempC)}°</Chip>}
+        {trial && !adjust ? (
           <Chip icon='mdi:creation' tone='pur'>
             Grind {trial.to}
           </Chip>
         ) : (
-          usual?.grind != null && <Chip>Grind {usual.grind}</Chip>
+          cup?.grind != null && <Chip>Grind {cup.grind}</Chip>
         )}
       </div>
       {shownAdvice && shownAdvice.status !== 'trial_brewed' && (
@@ -274,7 +281,7 @@ function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onS
           <HoldButton
             kind='brew'
             className='cc-hold'
-            label={trial ? 'Hold 1 s · trial' : 'Hold 1 s to brew'}
+            label={adjust ? 'Hold 1 s · adjusted' : trial ? 'Hold 1 s · trial' : 'Hold 1 s to brew'}
             pending={pending}
             failed={pending ? null : failure}
             disabled={!pending && !canStart(state)}
@@ -856,7 +863,7 @@ export function CoffeeCard({ onOpenStage }: CoffeeCardProps) {
             <button type='button' className='cc-ibtn' onClick={() => setSheet('stats')} aria-label='Coffee statistics'>
               <Icon icon='mdi:chart-bar' />
             </button>
-            <button type='button' className='cc-ibtn' onClick={() => setSheet('tweak')} aria-label='Grind and temperature for this cup'>
+            <button type='button' className='cc-ibtn' onClick={() => setSheet('tweak')} aria-label='Adjust cup'>
               <Icon icon='mdi:tune-variant' />
             </button>
           </div>
@@ -875,7 +882,7 @@ export function CoffeeCard({ onOpenStage }: CoffeeCardProps) {
         />
       )}
       {sheet === 'beans' && <BeansSheet beans={beans} onClose={() => setSheet(null)} />}
-      {sheet === 'tweak' && <TweakSheet recipe={usualRecipe(recipes)} state={state} onClose={() => setSheet(null)} />}
+      {sheet === 'tweak' && <AdjustSheet recipe={usualRecipe(recipes)} onClose={() => setSheet(null)} />}
     </div>
   );
 }

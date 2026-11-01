@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
+import { ratioOf, setCupAdjust, useCupAdjust } from '../../coffee/adjust';
 import { ADVISOR_REPLY_MAX, sendCoffeeCommand } from '../../coffee/command';
 import { BEANS_TOP_UP_G } from '../../coffee/entities';
 import {
@@ -9,20 +10,16 @@ import {
   type CoffeeAdvice,
   type CoffeeBaseline,
   type CoffeeBeans,
-  type CoffeeState,
   type Recipe,
 } from '../../coffee/model';
 import { useCoffeeRecent } from '../../coffee/useCoffee';
-import { canStart, formatDayMonth, recipeLine } from '../../coffee/view';
+import { formatDayMonth, recipeLine } from '../../coffee/view';
 import { formatHomeClock } from '../../energy/homeTime';
 import { series } from './chart';
 import { Glyph } from './Glyph';
-import { HoldButton } from './HoldButton';
 import { Chip, CoffeeSheet, PersonFace } from './parts';
 import { Spark } from './Spark';
 import { TasteDot } from './taste';
-import { useWaterGuard } from './useWaterGuard';
-import { WaterPrompt } from './WaterTank';
 
 function Stepper({
   label,
@@ -61,57 +58,60 @@ function Stepper({
   );
 }
 
-/** Dose, ratio, grind and temperature changed for this cup only; the recipe stays as it is. Dose times ratio scales
- * every pour, and temperature moves every pour by the same amount, so a cooler last pour stays cooler. */
-export function TweakSheet({ recipe, state, onClose }: { recipe: Recipe | null; state: CoffeeState; onClose: () => void }) {
+/** Dose, ratio, grind and temperature for the next cup only; the recipe stays as it is. Apply holds them, and the brew
+ * button starts that cup with them. */
+export function AdjustSheet({ recipe, onClose }: { recipe: Recipe | null; onClose: () => void }) {
   const base = {
     dose: recipe?.doseG ?? 15,
-    ratio: Number(recipe?.ratio?.split(':').pop()) || 16,
+    ratio: ratioOf(recipe) ?? 16,
     grind: recipe?.grind ?? 46,
     temp: Math.round(recipe?.pours[0]?.tempC ?? 93),
   };
-  const [dose, setDose] = useState(base.dose);
-  const [ratio, setRatio] = useState(base.ratio);
-  const [grind, setGrind] = useState(base.grind);
-  const [temp, setTemp] = useState(base.temp);
-  const changed = dose !== base.dose || ratio !== base.ratio || grind !== base.grind || temp !== base.temp;
-  const water = useWaterGuard(state, { totalMl: dose * ratio });
-  const start = () => {
-    void sendCoffeeCommand('start', {
-      variant: 'tweak',
+  const held = useCupAdjust(recipe);
+  const [dose, setDose] = useState(held?.dose ?? base.dose);
+  const [ratio, setRatio] = useState(held?.ratio ?? base.ratio);
+  const [grind, setGrind] = useState(held?.grind_size ?? base.grind);
+  const [temp, setTemp] = useState(held?.temperature ?? base.temp);
+  const apply = () => {
+    setCupAdjust(recipe, {
       ...(dose !== base.dose ? { dose } : {}),
       ...(ratio !== base.ratio ? { ratio } : {}),
       ...(grind !== base.grind ? { grind_size: grind } : {}),
       ...(temp !== base.temp ? { temperature: temp } : {}),
-    }).catch(() => {});
+    });
+    onClose();
+  };
+  const reset = () => {
+    setCupAdjust(recipe, null);
     onClose();
   };
   return (
-    <CoffeeSheet icon='mdi:tune-variant' title='This cup' subtitle={recipe?.name ?? undefined} historyKey='coffee-tweak' onClose={onClose}>
+    <CoffeeSheet
+      icon='mdi:tune-variant'
+      title='Adjust cup'
+      subtitle={recipe?.name ?? undefined}
+      historyKey='coffee-tweak'
+      onClose={onClose}
+    >
       <div className='coffee-sheet-stack'>
         <Stepper label='Dose' value={dose} unit='g' step={0.5} min={5} max={25} onChange={setDose} />
         <Stepper label='Ratio' value={ratio} step={0.5} min={10} max={20} format={value => `1:${value}`} onChange={setRatio} />
         <Stepper label='Grind' value={grind} step={1} min={1} max={80} onChange={setGrind} />
         <Stepper label='Temp' value={temp} unit='°' step={1} min={80} max={96} onChange={setTemp} />
         <p className='coffee-sheet-note'>
-          {Math.round(dose * ratio)} ml water. Lower grind is finer. Only this cup; save it to the recipe while it brews.
+          {Math.round(dose * ratio)} ml water. Lower grind is finer. Only the next cup; save it to the recipe while it brews.
         </p>
-        {water.short ? (
-          <WaterPrompt
-            short={water.short}
-            size='md'
-            busy={water.busy}
-            onFilled={() => water.filled(start)}
-            onAnyway={() => water.startAnyway(start)}
-          />
-        ) : (
-          <HoldButton
-            kind='brew'
-            label={changed ? 'Hold 1 s · this cup' : 'Hold 1 s to brew'}
-            disabled={!canStart(state)}
-            onConfirm={() => water.guard(start)}
-          />
-        )}
+        <div className='coffee-row'>
+          {held && (
+            <button type='button' className='coffee-btn is-ghost' onClick={reset}>
+              Reset
+            </button>
+          )}
+          <button type='button' className='coffee-btn is-green is-grow' onClick={apply}>
+            <Icon icon='mdi:check' aria-hidden='true' />
+            Apply
+          </button>
+        </div>
       </div>
     </CoffeeSheet>
   );
