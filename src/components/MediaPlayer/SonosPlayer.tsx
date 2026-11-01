@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Icon, loadIcons } from '@iconify/react';
 import { useHass } from '@hakit/core';
-import type { SonosPlayerProps } from '../../types';
+import type { CallServiceFunction, SonosPlayerProps } from '../../types';
 import { FAMILY_ZONE, SONOS_SPEAKERS, rawSonosEntityId } from '../../config/speakers';
 import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
 import { hapticTick } from '../../utils/haptics';
@@ -100,6 +100,41 @@ const SHEET_PAGES = {
   spotify: { icon: 'mdi:spotify', title: 'Spotify', glyphClass: 'is-spotify' },
 };
 type SheetPage = keyof typeof SHEET_PAGES;
+
+/**
+ * Mute toggle for one speaker in the group sheet. Hidden on purpose: holding it sends the speaker back to its
+ * configured volume (script.sonos_reset_volume), mute state untouched.
+ */
+function SpeakerMuteButton({
+  speakerId,
+  name,
+  muted,
+  callService,
+  onToggle,
+}: {
+  speakerId: string;
+  name: string;
+  muted: boolean;
+  callService: CallServiceFunction | undefined;
+  onToggle: () => void;
+}) {
+  const hold = useLongPress(() => {
+    if (!callService) return;
+    hapticTick();
+    callService({ domain: 'script', service: 'sonos_reset_volume', serviceData: { speaker: speakerId } });
+  });
+  return (
+    <button
+      type='button'
+      className={`sonos-mute ${muted ? 'is-muted' : ''}`}
+      onClick={onToggle}
+      aria-label={muted ? `Unmute ${name}` : `Mute ${name}`}
+      {...hold}
+    >
+      <Icon icon={muted ? 'mdi:volume-off' : 'mdi:volume-high'} aria-hidden='true' />
+    </button>
+  );
+}
 
 export function SonosPlayer({
   entityId,
@@ -1408,14 +1443,13 @@ export function SonosPlayer({
                     </div>
                     {shownIn && sp.available && (
                       <div className='sonos-sp-line sonos-sp-line--vol'>
-                        <button
-                          type='button'
-                          className={`sonos-mute ${sp.isMuted ? 'is-muted' : ''}`}
-                          onClick={() => handleSpeakerMuteToggle(sp.id)}
-                          aria-label={sp.isMuted ? `Unmute ${sp.name}` : `Mute ${sp.name}`}
-                        >
-                          <Icon icon={sp.isMuted ? 'mdi:volume-off' : 'mdi:volume-high'} aria-hidden='true' />
-                        </button>
+                        <SpeakerMuteButton
+                          speakerId={sp.id}
+                          name={sp.name}
+                          muted={sp.isMuted}
+                          callService={callService}
+                          onToggle={() => handleSpeakerMuteToggle(sp.id)}
+                        />
                         <VolumeStrip
                           mini
                           value={sliderValue}
