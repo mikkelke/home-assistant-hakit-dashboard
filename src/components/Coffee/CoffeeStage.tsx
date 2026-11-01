@@ -38,6 +38,7 @@ import {
   faultView,
   linkView,
   liveVerdict,
+  lowOnWater,
   pausedForWater,
   pourLine,
   pourStartS,
@@ -64,7 +65,7 @@ import { BeansSheet, RecipesSheet, TweakSheet } from './sheets';
 import { TasteRow } from './taste';
 import { useClock } from './useClock';
 import { useWaterGuard } from './useWaterGuard';
-import { PausedFill, WaterChip, WaterPrompt, WaterSheet } from './WaterTank';
+import { PausedFill, WaterChip, WaterLow, WaterPrompt, WaterSheet } from './WaterTank';
 import './Coffee.css';
 import './CoffeeStage.css';
 
@@ -400,6 +401,7 @@ function BrewingSide({
               <i style={{ width: `${Math.round((inPour ? pourShare : 1) * 100)}%` }} />
             </div>
           )}
+          {lowOnWater(state) && <WaterLow state={state} size='md' />}
         </Tile>
       )}
       {mode === 'paused' ? (

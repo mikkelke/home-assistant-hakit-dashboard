@@ -6,6 +6,7 @@ const SCENARIOS = [
   'building',
   'live',
   'paused_no_water',
+  'low_water',
   'lost_link',
   'ready',
   'trial',
@@ -17,7 +18,7 @@ const SCENARIOS = [
 type Scenario = (typeof SCENARIOS)[number];
 
 /** The scenarios worth a phone screen too: the phone's stage drops the long-term panels. */
-const ON_PHONE: readonly Scenario[] = ['idle', 'live', 'paused_no_water', 'ready', 'start_failed', 'awaiting_cup'];
+const ON_PHONE: readonly Scenario[] = ['idle', 'live', 'paused_no_water', 'low_water', 'ready', 'start_failed', 'awaiting_cup'];
 
 const slug = (value: string) => value.replace(/_/g, '-');
 
@@ -36,7 +37,7 @@ const stageFlows: Flow[] = SCENARIOS.map(scenario => ({
   },
 }));
 
-const cardFlows: Flow[] = (['idle', 'live', 'ready', 'awaiting_cup'] as const).flatMap((scenario): Flow[] => [
+const cardFlows: Flow[] = (['idle', 'live', 'low_water', 'ready', 'awaiting_cup'] as const).flatMap((scenario): Flow[] => [
   {
     name: `kitchen coffee card ${scenario}`,
     open: { search: `?coffee_demo=${scenario}`, hash: '#room=kitchen', expanded: true },

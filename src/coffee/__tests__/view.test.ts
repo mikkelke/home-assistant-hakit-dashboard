@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { maintenanceWord, pausedForWater, startFailure, waterCups, waterLine, waterShort, wantsConnect } from '../view';
+import { lowOnWater, maintenanceWord, pausedForWater, startFailure, waterCups, waterLine, waterShort, wantsConnect } from '../view';
 
 const row = (id: string, detail: string | null, atMs: number | null, title = 'xBloom brewer rinse') => ({ id, title, detail, atMs });
 
@@ -92,5 +92,11 @@ describe('a brew waiting for water', () => {
     expect(pausedForWater({ phase: 'paused', fault: 'no_beans' })).toBe(false);
     expect(pausedForWater({ phase: 'brewing', fault: 'no_water' })).toBe(false);
     expect(pausedForWater({ phase: 'idle', fault: 'no_water' })).toBe(false);
+  });
+
+  it('is low on water when the brew goes on after the warning', () => {
+    expect(lowOnWater({ phase: 'brewing', fault: 'no_water' })).toBe(true);
+    expect(lowOnWater({ phase: 'paused', fault: 'no_water' })).toBe(false);
+    expect(lowOnWater({ phase: 'brewing', fault: null })).toBe(false);
   });
 });

@@ -9,7 +9,7 @@ const connection = vi.hoisted(() => ({ current: null as { sendMessagePromise: (m
 vi.mock('@hakit/core', () => ({ useHass: { getState: () => ({ connection: connection.current }) } }));
 vi.mock('@iconify/react', () => ({ Icon: ({ icon }: { icon: string }) => createElement('i', { 'data-icon': icon }) }));
 
-const { PausedFill, WaterChip, WaterPrompt, WaterSheet } = await import('../WaterTank');
+const { PausedFill, WaterChip, WaterLow, WaterPrompt, WaterSheet } = await import('../WaterTank');
 
 const USUAL = { totalMl: 255 };
 const tank = (tankLeftMl: number | null) => ({ tankMl: 946, tankLeftMl });
@@ -170,5 +170,25 @@ describe('Filled on a brew paused for water', () => {
     show(null);
     expect(button().disabled).toBe(false);
     expect(button().querySelector('[data-icon="mdi:water-plus"]')).not.toBeNull();
+  });
+});
+
+describe('Filled after the low-water warning', () => {
+  const button = () => document.querySelector('.coffee-cupwait-btns button') as HTMLButtonElement;
+  const show = (tankLeftMl: number | null) => render(createElement(WaterLow, { state: { tankLeftMl }, size: 'md' }));
+
+  it('says the cup finishes and tells the coffee app the tank is full', async () => {
+    show(0);
+    expect(document.querySelector('.coffee-cupwait-tx b')?.textContent).toBe('Water low');
+    expect(button().disabled).toBe(false);
+    act(() => button().click());
+    await flush();
+    expect(sent).toEqual([{ op: 'water_filled', data: '{}' }]);
+  });
+
+  it('is dimmed with a check once the tank counts water again', () => {
+    show(820);
+    expect(button().disabled).toBe(true);
+    expect(button().querySelector('[data-icon="mdi:check"]')).not.toBeNull();
   });
 });
