@@ -483,7 +483,7 @@ function BrewingSide({
           </>
         )}
       </div>
-      <SaveToRecipe state={state} className='cs-save' />
+      <SaveToRecipe state={state} recipes={data.recipes?.recipes ?? []} className='cs-save' />
     </>
   );
 }
@@ -551,7 +551,7 @@ function ReadySide({ data, nowMs, onNewCup }: { data: StageData; nowMs: number; 
       <Tile label='How is it?' className='cs-taste'>
         <TasteRow brewId={state.brewId} rating={record?.rating ?? null} />
       </Tile>
-      <SaveToRecipe state={state} className='cs-save' />
+      <SaveToRecipe state={state} recipes={data.recipes?.recipes ?? []} className='cs-save' />
       {shownAdvice && (
         <AdviceCard advice={shownAdvice} brews={brews} beanName={beans?.beanName ?? state.beanName} forBrewId={state.brewId} size='lg' />
       )}

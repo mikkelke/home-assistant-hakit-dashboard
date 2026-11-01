@@ -480,7 +480,7 @@ function LiveBrew({ data, nowMs }: { data: CardData; nowMs: number }) {
           onConfirm={() => void sendCoffeeCommand('stop', {}).catch(() => {})}
         />
       </div>
-      <SaveToRecipe state={state} className='coffee-btn is-ghost cc-save' />
+      <SaveToRecipe state={state} recipes={data.recipes?.recipes ?? []} className='coffee-btn is-ghost cc-save' />
     </>
   );
 }
@@ -557,7 +557,7 @@ function ReadyBrew({ data }: { data: CardData }) {
           Picked up
         </button>
       )}
-      <SaveToRecipe state={state} className='coffee-btn is-ghost cc-save' />
+      <SaveToRecipe state={state} recipes={data.recipes?.recipes ?? []} className='coffee-btn is-ghost cc-save' />
     </>
   );
 }

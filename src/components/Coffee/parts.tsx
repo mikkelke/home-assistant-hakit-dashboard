@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import { sendCoffeeCommand } from '../../coffee/command';
-import { personName, type CoffeeState, type PersonKey } from '../../coffee/model';
+import { personName, type CoffeeState, type PersonKey, type Recipe } from '../../coffee/model';
 import { linkView, notifyPerson, type Tone, type VerdictView } from '../../coffee/view';
 import { HOUSEHOLD } from '../../home/household';
 import { ApplianceSheet } from '../Appliance';
@@ -205,21 +205,78 @@ export function NotifySheet({ current, onClose }: { current: PersonKey | null; o
   );
 }
 
-/** Writes what a tweaked cup changed (dose, ratio, grind, temperature) into its recipe, while it brews or after. */
-export function SaveToRecipe({ state, className }: { state: CoffeeState; className: string }) {
+/** Saves what an adjusted cup changed (dose, ratio, grind, temperature), while it brews or after: over its recipe once
+ * confirmed, or as a new recipe that becomes the selected one. */
+export function SaveToRecipe({ state, recipes, className }: { state: CoffeeState; recipes: Recipe[]; className: string }) {
   const [savedFor, setSavedFor] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
   const brewId = state.brewId;
   if (state.variant !== 'tweak' || !brewId) return null;
   const saved = savedFor === brewId;
-  const name = state.recipeName ?? 'the recipe';
-  const save = () => {
-    void sendCoffeeCommand('save_brew', { brew_id: brewId }).catch(() => {});
+  const save = (newName: string | null) => {
+    void sendCoffeeCommand('save_brew', newName ? { brew_id: brewId, new_name: newName } : { brew_id: brewId }).catch(() => {});
     setSavedFor(brewId);
+    setOpen(false);
   };
   return (
-    <button type='button' className={className} disabled={saved} onClick={save}>
-      <Icon icon={saved ? 'mdi:check' : 'mdi:content-save-outline'} aria-hidden='true' />
-      {saved ? `Saved to ${name}` : `Save to ${name}`}
-    </button>
+    <>
+      <button type='button' className={className} disabled={saved} onClick={() => setOpen(true)}>
+        <Icon icon={saved ? 'mdi:check' : 'mdi:content-save-outline'} aria-hidden='true' />
+        {saved ? 'Saved' : 'Save this cup…'}
+      </button>
+      {open && <SaveSheet name={state.recipeName ?? 'the recipe'} recipes={recipes} onSave={save} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function SaveSheet({
+  name,
+  recipes,
+  onSave,
+  onClose,
+}: {
+  name: string;
+  recipes: Recipe[];
+  onSave: (newName: string | null) => void;
+  onClose: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [newName, setNewName] = useState('');
+  const trimmed = newName.trim();
+  const taken = recipes.some(recipe => recipe.name === trimmed);
+  return (
+    <CoffeeSheet icon='mdi:content-save-outline' title='Save this cup' subtitle={name} historyKey='coffee-save' onClose={onClose}>
+      <div className='coffee-sheet-stack'>
+        <span className='coffee-lab'>As a new recipe</span>
+        <input
+          className='coffee-input'
+          value={newName}
+          maxLength={40}
+          placeholder={`Name, e.g. ${name} 90°`}
+          onChange={event => setNewName(event.target.value)}
+        />
+        {taken && <p className='coffee-sheet-note'>A recipe has that name already.</p>}
+        <button type='button' className='coffee-btn is-green' disabled={!trimmed || taken} onClick={() => onSave(trimmed)}>
+          <Icon icon='mdi:plus' aria-hidden='true' />
+          Save as new
+        </button>
+        <span className='coffee-lab'>Or over {name}</span>
+        {confirming ? (
+          <div className='coffee-row'>
+            <button type='button' className='coffee-btn is-rose is-grow' onClick={() => onSave(null)}>
+              Yes, overwrite {name}
+            </button>
+            <button type='button' className='coffee-btn is-ghost' onClick={() => setConfirming(false)}>
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button type='button' className='coffee-btn is-ghost' onClick={() => setConfirming(true)}>
+            <Icon icon='mdi:content-save-edit-outline' aria-hidden='true' />
+            Overwrite {name}
+          </button>
+        )}
+      </div>
+    </CoffeeSheet>
   );
 }

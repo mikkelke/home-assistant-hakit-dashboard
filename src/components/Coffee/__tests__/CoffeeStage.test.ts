@@ -65,18 +65,48 @@ describe('the stage after a brew', () => {
 });
 
 describe('saving a tweaked cup', () => {
-  it('saves the brew into its recipe while it brews, once', () => {
-    entities.current = coffeeState('brewing', { brew_id: 'c2', variant: 'tweak', recipe_name: '3 Pour Recipe', pour: '1' });
+  const brewing = () => {
+    entities.current = {
+      ...coffeeState('brewing', { brew_id: 'c2', variant: 'tweak', recipe_name: '3 Pour Recipe', pour: '1' }),
+      'sensor.coffee_recipes': {
+        entity_id: 'sensor.coffee_recipes',
+        state: '3 Pour Recipe',
+        attributes: { v: '1', usual_id: '82726', recipes: [{ id: '82726', name: '3 Pour Recipe', dose_g: '16', ratio: '17' }] },
+      },
+    };
     show();
-    act(() => (button('Save to 3 Pour Recipe') as HTMLElement).click());
-    expect(sent.map(command => [command.op, JSON.parse(command.data ?? '{}')])).toEqual([['save_brew', { brew_id: 'c2' }]]);
-    expect((button('Saved to 3 Pour Recipe') as HTMLButtonElement).disabled).toBe(true);
+    act(() => (button('Save this cup…') as HTMLElement).click());
+  };
+  const commands = () => sent.map(command => [command.op, JSON.parse(command.data ?? '{}')]);
+
+  it('overwrites the recipe only after a confirm, while it brews', () => {
+    brewing();
+    act(() => (button('Overwrite 3 Pour Recipe') as HTMLElement).click());
+    expect(sent).toEqual([]);
+    act(() => (button('Yes, overwrite 3 Pour Recipe') as HTMLElement).click());
+    expect(commands()).toEqual([['save_brew', { brew_id: 'c2' }]]);
+    expect((button('Saved') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('saves as a new recipe under a name not already taken', () => {
+    brewing();
+    const input = document.querySelector('.coffee-input') as HTMLInputElement;
+    const type = (value: string) =>
+      act(() => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    type('3 Pour Recipe');
+    expect((button('Save as new') as HTMLButtonElement).disabled).toBe(true);
+    type(' Fine 42 ');
+    act(() => (button('Save as new') as HTMLElement).click());
+    expect(commands()).toEqual([['save_brew', { brew_id: 'c2', new_name: 'Fine 42' }]]);
   });
 
   it('offers no save for a cup brewed as the recipe is', () => {
     entities.current = coffeeState('ready', { brew_id: 'c3', variant: 'usual', recipe_name: '3 Pour Recipe' });
     show();
-    expect(button('Save to 3 Pour Recipe')).toBeNull();
+    expect(button('Save this cup…')).toBeNull();
   });
 });
 
