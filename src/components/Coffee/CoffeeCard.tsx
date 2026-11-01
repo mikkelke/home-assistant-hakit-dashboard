@@ -698,7 +698,7 @@ function RecipesTab({
             {usual.totalMl != null && <Chip icon='mdi:water-outline'>{Math.round(usual.totalMl)}</Chip>}
             <button type='button' className='coffee-chip is-mute cc-tweak' onClick={onTweak}>
               <Icon icon='mdi:tune-variant' aria-hidden='true' />
-              Grind & temp
+              Adjust cup
             </button>
           </div>
         </div>

@@ -305,7 +305,7 @@ function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
               ) : (
                 <button type='button' onClick={() => setSheet('tweak')}>
                   <Icon icon='mdi:tune-variant' aria-hidden='true' />
-                  Grind & temp
+                  Adjust cup
                 </button>
               )}
               <button type='button' onClick={() => setSheet('recipes')}>
