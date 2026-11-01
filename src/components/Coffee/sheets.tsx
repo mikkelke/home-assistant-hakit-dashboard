@@ -9,16 +9,20 @@ import {
   type CoffeeAdvice,
   type CoffeeBaseline,
   type CoffeeBeans,
+  type CoffeeState,
   type Recipe,
 } from '../../coffee/model';
 import { useCoffeeRecent } from '../../coffee/useCoffee';
-import { formatDayMonth, recipeLine } from '../../coffee/view';
+import { canStart, formatDayMonth, recipeLine } from '../../coffee/view';
 import { formatHomeClock } from '../../energy/homeTime';
 import { series } from './chart';
 import { Glyph } from './Glyph';
+import { HoldButton } from './HoldButton';
 import { Chip, CoffeeSheet, PersonFace } from './parts';
 import { Spark } from './Spark';
 import { TasteDot } from './taste';
+import { useWaterGuard } from './useWaterGuard';
+import { WaterPrompt } from './WaterTank';
 
 function Stepper({
   label,
@@ -55,36 +59,44 @@ function Stepper({
   );
 }
 
-/** Grind and temperature of the recipe the button brews, saved into it. Temperature moves every pour by the same amount,
- * so a cooler last pour stays cooler. */
-export function AdjustSheet({ recipe, onClose }: { recipe: Recipe | null; onClose: () => void }) {
+/** Grind and temperature changed for this cup only; the recipe stays as it is. Temperature moves every pour by the
+ * same amount, so a cooler last pour stays cooler. */
+export function TweakSheet({ recipe, state, onClose }: { recipe: Recipe | null; state: CoffeeState; onClose: () => void }) {
   const base = { grind: recipe?.grind ?? 46, temp: Math.round(recipe?.pours[0]?.tempC ?? 93) };
   const [grind, setGrind] = useState(base.grind);
   const [temp, setTemp] = useState(base.temp);
   const changed = grind !== base.grind || temp !== base.temp;
-  const save = () => {
-    void sendCoffeeCommand('adjust', {
+  const water = useWaterGuard(state, recipe);
+  const start = () => {
+    void sendCoffeeCommand('start', {
+      variant: 'tweak',
       ...(grind !== base.grind ? { grind_size: grind } : {}),
       ...(temp !== base.temp ? { temperature: temp } : {}),
     }).catch(() => {});
     onClose();
   };
   return (
-    <CoffeeSheet
-      icon='mdi:tune-variant'
-      title='Grind & temperature'
-      subtitle={recipe?.name ?? undefined}
-      historyKey='coffee-adjust'
-      onClose={onClose}
-    >
+    <CoffeeSheet icon='mdi:tune-variant' title='This cup' subtitle={recipe?.name ?? undefined} historyKey='coffee-tweak' onClose={onClose}>
       <div className='coffee-sheet-stack'>
         <Stepper label='Grind' value={grind} step={1} min={1} max={80} onChange={setGrind} />
         <Stepper label='Temp' value={temp} unit='°' step={1} min={80} max={96} onChange={setTemp} />
-        <p className='coffee-sheet-note'>Lower grind is finer. Saved into {recipe?.name ?? 'the recipe'} for every brew from now on.</p>
-        <button type='button' className='coffee-btn is-copper' disabled={!recipe || !changed} onClick={save}>
-          <Icon icon='mdi:check' aria-hidden='true' />
-          Save
-        </button>
+        <p className='coffee-sheet-note'>Lower grind is finer. Only this cup; the recipe stays as it is.</p>
+        {water.short ? (
+          <WaterPrompt
+            short={water.short}
+            size='md'
+            busy={water.busy}
+            onFilled={() => water.filled(start)}
+            onAnyway={() => water.startAnyway(start)}
+          />
+        ) : (
+          <HoldButton
+            kind='brew'
+            label={changed ? 'Hold 1 s · this cup' : 'Hold 1 s to brew'}
+            disabled={!canStart(state)}
+            onConfirm={() => water.guard(start)}
+          />
+        )}
       </div>
     </CoffeeSheet>
   );

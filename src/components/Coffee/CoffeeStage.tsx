@@ -61,7 +61,7 @@ import { CupWait } from './CupWait';
 import { Glyph } from './Glyph';
 import { HoldButton } from './HoldButton';
 import { Chip, CupChip, Legend, LinkChip, NotifyChip, StoryPill, VerdictPill, type LegendItem } from './parts';
-import { AdjustSheet, BeansSheet, RecipesSheet } from './sheets';
+import { BeansSheet, RecipesSheet, TweakSheet } from './sheets';
 import { TasteRow } from './taste';
 import { useClock } from './useClock';
 import { useWaterGuard } from './useWaterGuard';
@@ -191,7 +191,7 @@ interface StageData {
 function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
   const { state, beans, recipes, advice, brews } = data;
   const usual = usualRecipe(recipes);
-  const [sheet, setSheet] = useState<'adjust' | 'recipes' | 'beans' | 'water' | null>(null);
+  const [sheet, setSheet] = useState<'tweak' | 'recipes' | 'beans' | 'water' | null>(null);
   const [base, setBase] = useState(false);
   const { pending, start } = useStart(state, nowMs);
   const water = useWaterGuard(state, usual);
@@ -303,7 +303,7 @@ function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
                   {base ? `Trial, grind ${trial.to}` : `Usual, grind ${trial.from ?? usual?.grind ?? ''}`}
                 </button>
               ) : (
-                <button type='button' onClick={() => setSheet('adjust')}>
+                <button type='button' onClick={() => setSheet('tweak')}>
                   <Icon icon='mdi:tune-variant' aria-hidden='true' />
                   Grind & temp
                 </button>
@@ -316,7 +316,7 @@ function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
           )}
         </>
       )}
-      {sheet === 'adjust' && <AdjustSheet recipe={usual} onClose={() => setSheet(null)} />}
+      {sheet === 'tweak' && <TweakSheet recipe={usual} state={state} onClose={() => setSheet(null)} />}
       {sheet === 'recipes' && (
         <RecipesSheet recipes={recipes?.recipes ?? []} usualId={recipes?.usualId ?? null} onClose={() => setSheet(null)} />
       )}

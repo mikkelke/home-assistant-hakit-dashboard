@@ -69,7 +69,7 @@ import { CupWait } from './CupWait';
 import { Glyph } from './Glyph';
 import { HoldButton } from './HoldButton';
 import { Chip, LinkChip, NotifyChip, PersonFace, StoryPill, VerdictPill } from './parts';
-import { AdjustSheet, BeansSheet, RecipeRow } from './sheets';
+import { BeansSheet, RecipeRow, TweakSheet } from './sheets';
 import { Spark } from './Spark';
 import { TasteDot, TasteRow } from './taste';
 import { useClock } from './useClock';
@@ -80,7 +80,7 @@ import './Coffee.css';
 import './CoffeeCard.css';
 
 type Tab = 'brew' | 'history' | 'recipes';
-type Sheet = 'stats' | 'beans' | 'adjust' | null;
+type Sheet = 'stats' | 'beans' | 'tweak' | null;
 
 function headerWord(
   state: CoffeeState,
@@ -657,12 +657,12 @@ function RecipesTab({
   data,
   isAdmin,
   hassUrl,
-  onAdjust,
+  onTweak,
 }: {
   data: CardData;
   isAdmin: boolean;
   hassUrl: string | null;
-  onAdjust: () => void;
+  onTweak: () => void;
 }) {
   const { recipes, baseline } = data;
   const usual = usualRecipe(recipes);
@@ -694,7 +694,7 @@ function RecipesTab({
             {usual.doseG != null && <Chip glyph={<Glyph name='bean' />}>{usual.doseG} g</Chip>}
             {usual.ratio && <Chip>{usual.ratio}</Chip>}
             {usual.totalMl != null && <Chip icon='mdi:water-outline'>{Math.round(usual.totalMl)}</Chip>}
-            <button type='button' className='coffee-chip is-mute cc-tweak' onClick={onAdjust}>
+            <button type='button' className='coffee-chip is-mute cc-tweak' onClick={onTweak}>
               <Icon icon='mdi:tune-variant' aria-hidden='true' />
               Grind & temp
             </button>
@@ -835,7 +835,7 @@ export function CoffeeCard({ onOpenStage }: CoffeeCardProps) {
             ))}
           {tab === 'history' && <HistoryTab data={data} nowMs={nowMs} />}
           {tab === 'recipes' && (
-            <RecipesTab data={data} isAdmin={viewer.isAdmin === true} hassUrl={hassUrl} onAdjust={() => setSheet('adjust')} />
+            <RecipesTab data={data} isAdmin={viewer.isAdmin === true} hassUrl={hassUrl} onTweak={() => setSheet('tweak')} />
           )}
           <div className='cc-foot'>
             {maintWord && (
@@ -854,7 +854,7 @@ export function CoffeeCard({ onOpenStage }: CoffeeCardProps) {
             <button type='button' className='cc-ibtn' onClick={() => setSheet('stats')} aria-label='Coffee statistics'>
               <Icon icon='mdi:chart-bar' />
             </button>
-            <button type='button' className='cc-ibtn' onClick={() => setSheet('adjust')} aria-label='Grind and temperature'>
+            <button type='button' className='cc-ibtn' onClick={() => setSheet('tweak')} aria-label='Grind and temperature for this cup'>
               <Icon icon='mdi:tune-variant' />
             </button>
           </div>
@@ -873,7 +873,7 @@ export function CoffeeCard({ onOpenStage }: CoffeeCardProps) {
         />
       )}
       {sheet === 'beans' && <BeansSheet beans={beans} onClose={() => setSheet(null)} />}
-      {sheet === 'adjust' && <AdjustSheet recipe={usualRecipe(recipes)} onClose={() => setSheet(null)} />}
+      {sheet === 'tweak' && <TweakSheet recipe={usualRecipe(recipes)} state={state} onClose={() => setSheet(null)} />}
     </div>
   );
 }
