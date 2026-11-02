@@ -300,11 +300,11 @@ export function IntercomCard({ entities, callService, showHeader = false, onUiTa
 
         {aptLock.present && guestRole && (
           <div className='access-row'>
-            <span className='access-row-name'>Guest codes</span>
+            <span className='access-row-name'>Door codes</span>
             <button
               type='button'
               className='access-ibtn'
-              aria-label='Guest codes'
+              aria-label='Door codes'
               onClick={() => {
                 setGuestCodesOpen(true);
                 onUiTap?.('guest_codes');
@@ -417,7 +417,7 @@ export function IntercomCard({ entities, callService, showHeader = false, onUiTa
           fallback={null}
           error={
             <button type='button' onClick={() => setGuestCodesOpen(false)}>
-              Could not load Guest codes. Close
+              Could not load Door codes. Close
             </button>
           }
         >

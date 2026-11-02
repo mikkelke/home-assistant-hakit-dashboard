@@ -221,8 +221,8 @@ describe('guest list', () => {
   });
 
   it.each([
-    ['admin', 'Lock users'],
-    ['guests', 'My guests'],
+    ['admin', 'Door codes'],
+    ['guests', 'Door codes'],
   ] as const)('titles the %s list %s', async (role, title) => {
     await open(role);
     expect(text()).toContain(title);

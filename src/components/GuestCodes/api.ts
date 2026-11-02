@@ -46,7 +46,7 @@ export async function fetchUsers(connection: Connection): Promise<GuestUser[]> {
 
 function requireCurrentConnection(connection: Connection) {
   requireConnection(connection);
-  if (useHass.getState().connection !== connection) throw new Error('The connection has changed. Open Guest codes again.');
+  if (useHass.getState().connection !== connection) throw new Error('The connection has changed. Open Door codes again.');
 }
 
 export async function createGuest(connection: Connection, name: string, period: Period, pin?: string) {

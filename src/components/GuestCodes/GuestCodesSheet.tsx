@@ -828,7 +828,7 @@ export function GuestCodesSheet({ role, onClose }: { role: GuestRole; onClose: (
   const expired = guests?.filter(user => user.status === 'expired') ?? [];
   return (
     <>
-      <GuestFrame title={role === 'admin' ? 'Lock users' : 'My guests'} historyKey='guest-codes' onClose={onClose} onDismiss={discard}>
+      <GuestFrame title='Door codes' historyKey='guest-codes' onClose={onClose} onDismiss={discard}>
         {own && pinLength !== null && (
           <section className='gc-my-code' aria-label='My code'>
             <div className='gc-my-code-head'>

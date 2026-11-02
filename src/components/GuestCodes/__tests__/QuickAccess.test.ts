@@ -80,7 +80,7 @@ const connection = {
 };
 
 let root: Root;
-const guestEntry = () => document.querySelector<HTMLButtonElement>('[aria-label="Guest codes"]');
+const guestEntry = () => document.querySelector<HTMLButtonElement>('[aria-label="Door codes"]');
 const showCard = async (showHeader = false) => {
   await act(async () => root.render(createElement(IntercomCard, { entities: {}, callService: vi.fn(), showHeader })));
   if (showHeader) await act(async () => document.querySelector<HTMLElement>('.access-top')!.click());
@@ -116,7 +116,7 @@ describe('Access card guest codes entry', () => {
     await act(async () => guestEntry()!.click());
     await vi.waitFor(() => expect(document.querySelector('.gc-sheet')).not.toBeNull());
     const sheet = document.querySelector('.gc-sheet')!;
-    expect(sheet.getAttribute('aria-label')).toBe(role === 'admin' ? 'Lock users' : 'My guests');
+    expect(sheet.getAttribute('aria-label')).toBe('Door codes');
     expect(sheet.closest('.rq-overlay')?.parentElement).toBe(document.body);
     await act(async () => sheet.querySelector<HTMLButtonElement>('[aria-label="Close"]')!.click());
     expect(document.querySelector('.gc-sheet')).toBeNull();
