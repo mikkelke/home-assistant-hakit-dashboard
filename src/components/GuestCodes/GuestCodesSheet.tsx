@@ -144,7 +144,15 @@ function CodeDisplay({ pin, user, role, shareable = true }: { pin: string; user:
   );
 }
 
-function CodeResult({ result, role, shareable = true }: { result: { pin: string; user: GuestUser }; role: GuestRole; shareable?: boolean }) {
+function CodeResult({
+  result,
+  role,
+  shareable = true,
+}: {
+  result: { pin: string; user: GuestUser };
+  role: GuestRole;
+  shareable?: boolean;
+}) {
   return (
     <div className='gc-success'>
       <h3>{result.user.name}</h3>
