@@ -1,4 +1,4 @@
-import { Fragment, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
@@ -24,6 +24,7 @@ import {
   visibleHouseEvents,
   type HouseEpisode,
 } from '../../home/houseEvents';
+import { mergeHouseEvents } from '../../home/houseEventsHistory';
 import { canViewerSeeUpcoming, hasSheet, opensRoom, parseHouseUpcoming } from '../../home/houseUpcoming';
 import { MARKERS } from '../../home/markers';
 import { MotionScopeContext, useMotionSlot } from '../../home/motionBudget';
@@ -59,6 +60,7 @@ import {
   type UpRow,
 } from './nowModel';
 import { MaintSheet } from './MaintSheet';
+import { useOlderHouseEvents } from './useOlderHouseEvents';
 import { useRoberMaps } from './useRoberMaps';
 import './NowView.css';
 
@@ -576,7 +578,10 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
   const viewer = useViewer();
   const nowMs = useNowMs();
   const feed = entities[HOUSE_EVENTS_ENTITY]?.attributes?.events;
-  const episodes = useMemo(() => houseEpisodes(visibleHouseEvents(parseHouseEvents(feed), viewer)), [feed, viewer]);
+  const live = useMemo(() => parseHouseEvents(feed), [feed]);
+  const { older, loadOlder, loading, pages, exhausted, failed } = useOlderHouseEvents(live);
+  const allEvents = useMemo(() => mergeHouseEvents(live, older), [live, older]);
+  const episodes = useMemo(() => houseEpisodes(visibleHouseEvents(allEvents, viewer)), [allEvents, viewer]);
   const coffeeDemo = useCoffeeDemo();
   const upcoming = useMemo(
     () =>
@@ -656,6 +661,7 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
   const railRef = useRef<HTMLDivElement>(null);
   const spacerRef = useRef<HTMLDivElement>(null);
   const userMovedRef = useRef(false);
+  const [moved, setMoved] = useState(false);
   useLayoutEffect(() => {
     const scroller = scrollRef.current;
     const rail = railRef.current;
@@ -676,6 +682,7 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
     observer.observe(rail);
     const stop = () => {
       userMovedRef.current = true;
+      setMoved(true);
     };
     const events = ['touchstart', 'wheel', 'pointerdown', 'keydown'] as const;
     events.forEach(name => scroller.addEventListener(name, stop, { passive: true }));
@@ -684,6 +691,39 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
       events.forEach(name => scroller.removeEventListener(name, stop));
     };
   }, [focusedId]);
+
+  // Older rows load as the viewer scrolls up to them, never while the view settles on the NOW line. Rows landing above the
+  // NOW line push it down by their height, and the view moves down by as much to stay where it was. The top row is no
+  // anchor: it can join an older row into one episode and take its id.
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const anchorRef = useRef<number | null>(null);
+  const requestOlder = useCallback(() => {
+    const line = scrollRef.current?.querySelector<HTMLElement>('[data-row-id="now"]');
+    if (loadOlder()) anchorRef.current = line ? line.offsetTop : null;
+  }, [loadOlder]);
+  // An observer reports once as it starts, so each page that lands starts a new one: the next page loads at once while the
+  // sentinel is still in range, as it is when the page held few or no rows this viewer sees.
+  const watchTop = moved && !loading && !exhausted && !failed;
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!watchTop || !sentinel || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries.some(entry => entry.isIntersecting)) requestOlder();
+      },
+      { root: scrollRef.current, rootMargin: '300px 0px 0px 0px' }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [watchTop, requestOlder, pages]);
+  useLayoutEffect(() => {
+    const before = anchorRef.current;
+    const scroller = scrollRef.current;
+    if (before == null || !scroller) return;
+    anchorRef.current = null;
+    const line = scroller.querySelector<HTMLElement>('[data-row-id="now"]');
+    if (line) scroller.scrollTop += line.offsetTop - before;
+  }, [pages]);
 
   const pastBreaks = dayBreaks(
     timeline.past.map(row => row.atMs),
@@ -707,6 +747,18 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
         />
         <div className='now-scroll' ref={scrollRef}>
           <div className='now-rail' ref={railRef}>
+            <div className='now-more' ref={sentinelRef} role='status'>
+              {loading ? (
+                <Icon icon='mdi:loading' className='now-spin' role='img' aria-label='Loading earlier events' />
+              ) : failed ? (
+                <button type='button' className='now-retry' onClick={requestOlder}>
+                  <Icon icon='mdi:refresh' aria-hidden='true' />
+                  Retry
+                </button>
+              ) : exhausted ? (
+                'Start of history'
+              ) : null}
+            </div>
             {timeline.past.map((row, index) => (
               <div key={row.id} className='now-group'>
                 {pastBreaks[index] && <div className='now-day'>{pastBreaks[index]}</div>}
