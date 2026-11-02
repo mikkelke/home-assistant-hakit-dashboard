@@ -63,6 +63,47 @@ function readPrevAssetFiles(): string[] {
   }
 }
 
+function git(...args: string[]): string {
+  return execFileSync('git', args, { stdio: ['ignore', 'pipe', 'ignore'] })
+    .toString()
+    .trim();
+}
+
+function gitSucceeds(...args: string[]): boolean {
+  try {
+    git(...args);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const shaOf = (version: string) => version.split('-')[0];
+
+/** A deploy must contain what is live: otherwise it silently rolls back work that was built elsewhere (an unpushed
+ * local commit, a sibling's deploy). DEPLOY_FORCE=1 overrides it for a deliberate rollback. */
+function assertContainsLive(remoteRoot: string) {
+  if (process.env.DEPLOY_FORCE === '1') return;
+  const built = shaOf((JSON.parse(readFileSync(join(LOCAL_DIRECTORY, 'version.json'), 'utf8')) as { version: string }).version);
+  const head = git('rev-parse', '--short', 'HEAD');
+  if (built !== head) {
+    throw new Error(`dist/ was built from ${built} but HEAD is ${head}: run \`npm run build\` first.`);
+  }
+  let live: string;
+  try {
+    live = shaOf((JSON.parse(ssh(`cat ${remoteRoot}/version.json`)) as { version: string }).version);
+  } catch {
+    return;
+  }
+  gitSucceeds('fetch', '-q');
+  if (gitSucceeds('merge-base', '--is-ancestor', live, built)) return;
+  const known = gitSucceeds('cat-file', '-e', `${live}^{commit}`);
+  throw new Error(
+    `Live is ${live}, which ${built} does not contain${known ? '' : ' (and this clone does not know it)'}: deploying would roll back what is live. ` +
+      'Merge or rebase the live commit into this build first, or set DEPLOY_FORCE=1 to roll back on purpose.'
+  );
+}
+
 async function deploy() {
   if (!FOLDER_NAME) throw new Error('Missing VITE_FOLDER_NAME in .env file');
   if (!USERNAME) throw new Error('Missing VITE_SSH_USERNAME in .env file');
@@ -77,6 +118,7 @@ async function deploy() {
   }
 
   const remoteRoot = findRemoteRoot();
+  assertContainsLive(remoteRoot);
   const remoteAssets = `${remoteRoot}/assets`;
   const prevAssetFiles = readPrevAssetFiles();
   // Keep this deploy's assets plus the immediately preceding deploy's, so a device with a
