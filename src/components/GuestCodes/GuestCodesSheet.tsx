@@ -24,6 +24,7 @@ function GuestFrame({
   onClose,
   onDismiss,
   back = false,
+  closed = false,
   children,
 }: {
   title: string;
@@ -31,6 +32,7 @@ function GuestFrame({
   onClose: () => void;
   onDismiss?: () => void;
   back?: boolean;
+  closed?: boolean;
   children: ReactNode | ((dismiss: () => void) => ReactNode);
 }) {
   const close = useCallback(() => {
@@ -38,6 +40,9 @@ function GuestFrame({
     onClose();
   }, [onClose, onDismiss]);
   const { requestClose } = useModalBackButton({ isOpen: true, onRequestClose: close, historyKey });
+  useEffect(() => {
+    if (closed) requestClose();
+  }, [closed, requestClose]);
   const dismiss = () => {
     onDismiss?.();
     requestClose();
@@ -517,12 +522,14 @@ function EndConfirmation({
   role,
   onClose,
   onChanged,
+  onEnded,
 }: {
   connection: Connection;
   user: GuestUser;
   role: GuestRole;
   onClose: () => void;
   onChanged: () => void;
+  onEnded: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -540,6 +547,7 @@ function EndConfirmation({
       await endAccess(connection, user.user_id);
       if (!active.current) return;
       onChanged();
+      onEnded();
       dismiss();
     } catch (error) {
       if (active.current) {
@@ -592,6 +600,7 @@ function GuestDetail({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [view, setView] = useState<'code' | 'period' | 'end' | null>(null);
+  const [ended, setEnded] = useState(false);
   const active = useActiveView();
   const request = useRef(0);
   const pending = useRef(false);
@@ -628,7 +637,14 @@ function GuestDetail({
   };
   return (
     <>
-      <GuestFrame title={user.name} historyKey='guest-code-detail' onClose={onClose} onDismiss={discard} back>
+      <GuestFrame
+        title={user.name}
+        historyKey='guest-code-detail'
+        onClose={onClose}
+        onDismiss={discard}
+        back
+        closed={ended && view === null}
+      >
         <section className='gc-code-panel' aria-label='Door code'>
           {pin ? (
             <CodeDisplay pin={pin} user={user} role={role} />
@@ -714,7 +730,14 @@ function GuestDetail({
         />
       )}
       {view === 'end' && (
-        <EndConfirmation connection={connection} user={user} role={role} onClose={() => setView(null)} onChanged={onChanged} />
+        <EndConfirmation
+          connection={connection}
+          user={user}
+          role={role}
+          onClose={() => setView(null)}
+          onChanged={onChanged}
+          onEnded={() => setEnded(true)}
+        />
       )}
     </>
   );

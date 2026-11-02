@@ -505,7 +505,8 @@ describe('one-time guest PIN', () => {
     await tap(button('End access'));
     await tap(button('End access'));
     expect(sent('yale_access/end')).toHaveLength(1);
-    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(2);
+    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+    expect(document.querySelector('.gc-row')).not.toBeNull();
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -618,8 +619,9 @@ describe('guest row actions', () => {
     expect(text()).toContain('This removes their code from the lock.');
     await tap(button('End access'));
     expect(sent('yale_access/end')).toEqual([{ type: 'yale_access/end', user_id: 'synthetic-guest' }]);
-    expect(window.history.back).toHaveBeenCalledOnce();
-    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(2);
+    expect(window.history.back).toHaveBeenCalledTimes(2);
+    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('surfaces backend mutation errors verbatim and does not send while offline', async () => {
