@@ -4,25 +4,6 @@ import type { HouseEventViewer } from './houseEvents';
 
 export type HouseUpcomingKind = 'rain' | 'train' | 'maint';
 
-/** One plant of a plants row (`plants`): what it gets, where it stands and how to tell it from the others. */
-export interface HousePlant {
-  /** What its Done and Undo events name as `row`. */
-  id: string;
-  name: string;
-  /** What it gets, such as `0.4 L`. */
-  amount: string | null;
-  /** Why it is listed, such as `due since 30.10`, or the soil reading of a plant a sensor closes. */
-  detail: string | null;
-  /** Where it stands: the line that tells it from the plants around it. */
-  where: string | null;
-  /** What it looks like. */
-  aka: string | null;
-  /** The key of its photo, which `plantPhoto` knows. */
-  photo: string | null;
-  /** An admin closes it with a Done button (`done: "tap"`); a plant a sensor closes has none. */
-  tapDone: boolean;
-}
-
 export interface HouseUpcomingRow {
   id: string;
   kind: HouseUpcomingKind;
@@ -49,13 +30,13 @@ export interface HouseUpcomingRow {
   warn: string | null;
   /** The short lines of an overview row, one per thing it covers (`items`); none without a list of strings. */
   items: string[];
-  /** The plants a plants row lists (`plants`), each with a Done button of its own where it has one. */
-  plants: HousePlant[];
+  /** The key of the photo of a plant (`photo`), which `plantPhoto` turns into a file. */
+  photo: string | null;
 }
 
-/** Whether a tap on the row opens its sheet instead of its room: it has a Done button, a guide, info lines, a list or plants. */
+/** Whether a tap on the row opens its sheet instead of its room: it has a Done button, a guide, info lines or a list. */
 export const hasSheet = (row: HouseUpcomingRow): boolean =>
-  row.tapDone || row.steps.length > 0 || row.info.length > 0 || row.items.length > 0 || row.plants.length > 0;
+  row.tapDone || row.steps.length > 0 || row.info.length > 0 || row.items.length > 0;
 
 /** Whether the row is due: it has no time, and does not ask the next chip to pass over it (a log row). */
 export const isDue = (row: HouseUpcomingRow): boolean => row.atMs == null && !row.skipNext;
@@ -72,7 +53,7 @@ export const opensRoom = (row: HouseUpcomingRow): boolean =>
 /** The publisher keeps at most this many rows. */
 export const MAX_HOUSE_UPCOMING_ROWS = 30;
 
-/** The most lines, or plants, an overview row lists. */
+/** The most lines an overview row lists. */
 export const MAX_ROW_ITEMS = 20;
 
 const KINDS: readonly string[] = ['rain', 'train', 'maint'];
@@ -87,43 +68,14 @@ const lines = (value: unknown): string[] =>
 const itemLines = (value: unknown): string[] =>
   Array.isArray(value) && value.every(item => typeof item === 'string') ? lines(value).slice(0, MAX_ROW_ITEMS) : [];
 
-/** One plant, or null when it breaks the contract: every value a string, an id and a name. */
-function parsePlant(raw: unknown): HousePlant | null {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
-  const plant = raw as Record<string, unknown>;
-  if (!Object.values(plant).every(v => typeof v === 'string')) return null;
-  const id = text(plant.id);
-  const name = text(plant.name);
-  if (!id || !name) return null;
-  return {
-    id,
-    name,
-    amount: text(plant.amount),
-    detail: text(plant.detail),
-    where: text(plant.where),
-    aka: text(plant.aka),
-    photo: text(plant.photo),
-    tapDone: plant.done === 'tap',
-  };
-}
-
-/** The plants of `plants` that keep the contract, at most MAX_ROW_ITEMS; none unless it is a list. */
-const plantEntries = (value: unknown): HousePlant[] =>
-  Array.isArray(value)
-    ? value
-        .map(parsePlant)
-        .filter((plant): plant is HousePlant => plant != null)
-        .slice(0, MAX_ROW_ITEMS)
-    : [];
-
 /** One row, or null when it breaks the contract: every value a string or a list of strings, an id,
  * a known kind and a title, an `at` that parses. A row that names an audience it gets wrong, or a
  * train row that names no one, is dropped rather than shown to everyone. */
 function parseRow(raw: unknown): HouseUpcomingRow | null {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
   const row = raw as Record<string, unknown>;
-  // A bad `items` or `plants` costs the row nothing: they are left out of the contract below and read on their own.
-  const { items, plants, ...rest } = row;
+  // A bad `items` costs the row nothing: it is left out of the contract below and read on its own.
+  const { items, ...rest } = row;
   const values = Object.values(rest);
   if (!values.every(v => typeof v === 'string' || (Array.isArray(v) && v.every(item => typeof item === 'string')))) return null;
   const id = text(row.id);
@@ -158,7 +110,7 @@ function parseRow(raw: unknown): HouseUpcomingRow | null {
     steps: sheet ? lines(row.steps) : [],
     warn: sheet ? text(row.warn) : null,
     items: sheet ? itemLines(items) : [],
-    plants: sheet ? plantEntries(plants) : [],
+    photo: sheet ? text(row.photo) : null,
   };
 }
 

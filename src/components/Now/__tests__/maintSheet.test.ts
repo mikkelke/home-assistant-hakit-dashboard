@@ -385,259 +385,90 @@ describe('an overview row', () => {
   });
 });
 
-describe('a plants row', () => {
+describe('a plant row', () => {
   const MONSTERA = {
     id: 'maint:plant:monstera',
-    name: 'Monstera',
-    amount: '1 L',
-    detail: 'due since 30.10',
-    where: 'Kitchen floor by the Rober2 dock',
-    aka: 'Big leaves with holes',
-    photo: 'monstera',
-    done: 'tap',
-  };
-  const LILY = {
-    id: 'maint:plant:peace_lily_kitchen',
-    name: 'Peace lily kitchen',
-    amount: '0.4 L',
-    detail: 'due since 27.10',
-    where: 'Coffee cart next to the xBloom',
-    aka: 'Small peace lily, droops when thirsty',
-    photo: 'peace_lily',
-    done: 'tap',
-  };
-  const IVY = {
-    id: 'maint:plant:ivy',
-    name: 'Ivy',
-    amount: '0.3 L + 1/4 tsp fertiliser',
-    detail: 'soil 20%, water at 20%',
-    where: 'Top of the wine fridge',
-    aka: 'Small trailing ivy',
-    photo: 'ivy',
-  };
-  const PLANTS = {
-    id: 'maint:plants',
     kind: 'maint',
     icon: 'mdi:watering-can-outline',
-    title: 'Water 3 plants',
-    detail: 'Monstera, Peace lily kitchen, Ivy',
+    title: 'Water the Monstera: 1 L',
+    detail: 'due since 30.10',
+    area: 'kitchen',
     audience: 'admin',
-    items: ['Fig: next 27.10, watered 20.10'],
-    plants: [MONSTERA, LILY, IVY],
+    done: 'tap',
+    photo: 'monstera',
+    info: ['Big leaves with holes', 'Kitchen floor by the Rober2 dock', 'Every 10 days', 'Counting from 20.10'],
   };
-  const rowOf = (...plants: Record<string, string>[]) => parse({ ...PLANTS, plants });
+  const withoutKeys = (...keys: string[]) => Object.fromEntries(Object.entries(MONSTERA).filter(([key]) => !keys.includes(key)));
 
-  const cards = () => [...document.body.querySelectorAll<HTMLElement>('.maint-plant')];
-  const names = () => cards().map(item => item.querySelector('.maint-plant-name')?.textContent);
-  const card = (name: string) => cards().find(item => item.querySelector('.maint-plant-name')?.textContent === name);
-  const dimmed = () => cards().map(item => item.classList.contains('is-done'));
-  const check = (name: string) => card(name)?.querySelector<HTMLButtonElement>('button');
-  const label = (name: string) => check(name)?.getAttribute('aria-label');
-  async function tap(name: string) {
-    const target = check(name);
-    expect(target, name).toBeDefined();
-    await act(async () => {
-      target?.click();
-    });
-  }
+  const picture = () => document.body.querySelector<HTMLImageElement>('.maint-body img');
+  const infoLines = () => [...document.body.querySelectorAll<HTMLElement>('.maint-info li')];
+  const pins = () => infoLines().map(line => line.querySelector('[data-icon="mdi:map-marker-outline"]') != null);
 
-  it('lists a card for each plant in order, in place of the lines and the detail of the row', async () => {
-    await open(parse(PLANTS));
-    expect(document.body.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Water 3 plants');
-    expect(names()).toEqual(['Monstera', 'Peace lily kitchen', 'Ivy']);
-    expect([...document.body.querySelectorAll('.maint-plant-amount')].map(chip => chip.textContent)).toEqual([
-      '1 L',
-      '0.4 L',
-      '0.3 L + 1/4 tsp fertiliser',
+  it('shows its photo first in the sheet, then what the row says and its info lines', async () => {
+    await open(parse(MONSTERA));
+    expect(picture()?.getAttribute('src')).toBe('/photos/monstera.webp');
+    expect(picture()?.getAttribute('alt')).toBe('');
+    expect(picture()?.getAttribute('loading')).toBe('lazy');
+    expect(picture()?.getAttribute('decoding')).toBe('async');
+    expect(document.body.querySelectorAll('.maint-body img')).toHaveLength(1);
+    expect([...(document.body.querySelector('.maint-body')?.children ?? [])].map(node => node.className)).toEqual([
+      'maint-photo',
+      'maint-detail',
+      'maint-info',
+      'maint-btn is-primary',
     ]);
-    expect([...document.body.querySelectorAll('.maint-plant-where')].map(line => line.textContent)).toEqual([
-      'Kitchen floor by the Rober2 dock',
-      'Coffee cart next to the xBloom',
-      'Top of the wine fridge',
-    ]);
-    expect(document.body.querySelectorAll('.maint-plant-where [data-icon="mdi:map-marker-outline"]')).toHaveLength(3);
-    expect([...document.body.querySelectorAll('.maint-plant-aka')].map(line => line.textContent)).toEqual([
-      'Big leaves with holes',
-      'Small peace lily, droops when thirsty',
-      'Small trailing ivy',
-    ]);
-    expect(text()).not.toContain('Fig: next 27.10');
-    expect([...(document.body.querySelector('.maint-body')?.children ?? [])].map(node => node.className)).toEqual(['maint-plants']);
+    expect(text()).toContain('due since 30.10');
+    expect(infoLines().map(line => line.textContent)).toEqual(MONSTERA.info);
   });
 
-  it('leaves out the amount, the place and the look of a plant that has none', async () => {
-    await open(parse({ ...PLANTS, plants: [{ id: 'maint:plant:fig', name: 'Fig', done: 'tap' }] }));
-    expect(card('Fig')?.querySelector('.maint-plant-amount')).toBeNull();
-    expect(card('Fig')?.querySelector('.maint-plant-where')).toBeNull();
-    expect(card('Fig')?.querySelector('.maint-plant-aka')).toBeNull();
-    expect(label('Fig')).toBe('Mark done: Fig');
+  it.each([
+    ['a key that has no file', { ...MONSTERA, photo: 'orchid' }],
+    ['no photo at all', withoutKeys('photo')],
+  ])('shows no picture for %s, and everything else', async (_, raw) => {
+    await open(parse(raw));
+    expect(picture()).toBeNull();
+    expect(document.body.querySelector('.maint-photo')).toBeNull();
+    expect(text()).toContain('due since 30.10');
+    expect(infoLines().map(line => line.textContent)).toEqual(MONSTERA.info);
+    expect(button('Done')).toBeDefined();
   });
 
-  it('shows the photo of a plant whose key has an image, and a sprout on a plain tile for any other', async () => {
-    await open(rowOf(MONSTERA, LILY, IVY, { id: 'maint:plant:fig', name: 'Fig' }));
-    expect(card('Monstera')?.querySelector('img')?.getAttribute('src')).toBe('/photos/monstera.webp');
-    expect(card('Monstera')?.querySelector('.is-blank')).toBeNull();
-    for (const name of ['Peace lily kitchen', 'Ivy', 'Fig']) {
-      expect(card(name)?.querySelector('img'), name).toBeNull();
-      expect(card(name)?.querySelector('.maint-plant-photo.is-blank [data-icon="mdi:sprout"]'), name).not.toBeNull();
-    }
+  it('marks the second info line, where the plant stands, with a pin and no other line', async () => {
+    await open(parse(MONSTERA));
+    expect(pins()).toEqual([false, true, false, false]);
+    expect(infoLines()[1].className).toBe('is-where');
+    expect(infoLines()[1].textContent).toBe('Kitchen floor by the Rober2 dock');
+    expect(document.body.querySelectorAll('.maint-info [data-icon]')).toHaveLength(1);
   });
 
-  it('has a check button for an admin on each plant that can be marked done, and the detail of the others in its place', async () => {
-    await open(parse(PLANTS));
-    expect(buttons().map(b => b.getAttribute('aria-label'))).toEqual(['Mark done: Monstera', 'Mark done: Peace lily kitchen']);
-    expect(buttons().every(b => !b.disabled && b.querySelector('[data-icon="mdi:check"]') != null)).toBe(true);
-    expect(check('Ivy')).toBeNull();
-    expect(card('Ivy')?.textContent).toContain('soil 20%, water at 20%');
-    expect(card('Monstera')?.textContent).not.toContain('due since 30.10');
-    expect(button('Done')).toBeUndefined();
+  it('keeps the pin on a plant whose photo has no file, since its lines are the same', async () => {
+    await open(parse({ ...MONSTERA, photo: 'orchid' }));
+    expect(pins()).toEqual([false, true, false, false]);
   });
 
-  it('has no button for anyone but an admin, and shows the detail of every plant', async () => {
-    await open(parse(PLANTS), false);
-    expect(buttons()).toEqual([]);
-    expect(card('Monstera')?.textContent).toContain('due since 30.10');
-    expect(card('Ivy')?.textContent).toContain('soil 20%, water at 20%');
+  it('puts no pin on the info lines of a row without a photo', async () => {
+    await open(parse(FILTERS));
+    expect(infoLines().map(line => line.textContent)).toEqual(FILTERS.info);
+    expect(pins()).toEqual([false, false]);
+    expect(document.body.querySelectorAll('.maint-info [data-icon]')).toHaveLength(0);
+  });
+
+  it('asks before it fires the Done of the plant, and keeps the photo in view', async () => {
+    await open(parse(MONSTERA));
+    await press('Done');
+    expect(text()).toContain('Mark it done? The count starts over.');
     expect(sent()).toEqual([]);
-  });
-
-  it('fires house_upcoming_done with the id of the plant at one tap, with no question, and dims the card to an Undo button', async () => {
-    await open(parse(PLANTS));
-    await tap('Monstera');
+    await press('Yes, done');
     expect(sent()).toEqual([{ type: 'fire_event', event_type: DONE_EVENT, event_data: { row: 'maint:plant:monstera' } }]);
-    expect(text()).not.toContain('Mark it done?');
-    expect(dimmed()).toEqual([true, false, false]);
-    expect(label('Monstera')).toBe('Undo: Monstera');
-    expect(check('Monstera')?.querySelector('[data-icon="mdi:undo"]')).not.toBeNull();
-    expect(check('Monstera')?.disabled).toBe(false);
-    expect(label('Peace lily kitchen')).toBe('Mark done: Peace lily kitchen');
+    expect(text()).toContain('Marked done');
+    expect(picture()?.getAttribute('src')).toBe('/photos/monstera.webp');
   });
 
-  it('shows a spinner on the card whose event is on its way, and the cards do not hold each other up', async () => {
-    const arrivals: ((value: unknown) => void)[] = [];
-    send.mockImplementation(() => new Promise(resolve => arrivals.push(resolve)));
-    await open(parse(PLANTS));
-    await tap('Monstera');
-    expect(check('Monstera')?.disabled).toBe(true);
-    expect(check('Monstera')?.getAttribute('aria-busy')).toBe('true');
-    expect(check('Monstera')?.querySelector('.appliance-spin[data-icon="mdi:loading"]')).not.toBeNull();
-    expect(dimmed()).toEqual([false, false, false]);
-    expect(check('Peace lily kitchen')?.disabled).toBe(false);
-    await tap('Peace lily kitchen');
-    expect(sent()).toHaveLength(2);
-    await act(async () => arrivals[1](null));
-    expect(dimmed()).toEqual([false, true, false]);
-    expect(check('Monstera')?.disabled).toBe(true);
-    await act(async () => arrivals[0](null));
-    expect(dimmed()).toEqual([true, true, false]);
-    expect(check('Monstera')?.disabled).toBe(false);
-    expect(check('Monstera')?.getAttribute('aria-busy')).toBeNull();
-  });
-
-  it('takes a Done back with Undo, which fires house_upcoming_undo for the plant and brings the check button back', async () => {
-    send.mockImplementation(() => Promise.resolve(null));
-    await open(parse(PLANTS));
-    await tap('Monstera');
-    await tap('Monstera');
-    expect(sent()[1]).toEqual({ type: 'fire_event', event_type: UNDO_EVENT, event_data: { row: 'maint:plant:monstera' } });
-    expect(dimmed()).toEqual([false, false, false]);
-    expect(label('Monstera')).toBe('Mark done: Monstera');
-  });
-
-  it('shows the Undo as busy while it is on its way, with the card still dimmed', async () => {
-    await open(parse(PLANTS));
-    await tap('Monstera');
-    let arrive: (value: unknown) => void = () => {};
-    send.mockImplementationOnce(() => new Promise(resolve => (arrive = resolve)));
-    await tap('Monstera');
-    expect(check('Monstera')?.disabled).toBe(true);
-    expect(check('Monstera')?.querySelector('.appliance-spin')).not.toBeNull();
-    expect(dimmed()).toEqual([true, false, false]);
-    await act(async () => arrive(null));
-    expect(dimmed()).toEqual([false, false, false]);
-  });
-
-  it('says so on the card when Home Assistant does not take a Done, and lets it be tried again', async () => {
-    send.mockRejectedValueOnce({ code: 'unauthorized', message: 'Unauthorized' });
-    await open(parse(PLANTS));
-    await tap('Monstera');
-    expect(card('Monstera')?.querySelector('[role="alert"]')?.textContent).toContain('Home Assistant did not take that');
-    expect(document.body.querySelectorAll('[role="alert"]')).toHaveLength(1);
-    expect(dimmed()).toEqual([false, false, false]);
-    expect(label('Monstera')).toBe('Mark done: Monstera');
-    expect(check('Monstera')?.disabled).toBe(false);
-    await tap('Monstera');
-    expect(document.body.querySelector('[role="alert"]')).toBeNull();
-    expect(dimmed()).toEqual([true, false, false]);
-    expect(sent()).toHaveLength(2);
-  });
-
-  it('stays marked when the Undo is refused', async () => {
-    await open(parse(PLANTS));
-    await tap('Monstera');
-    send.mockRejectedValueOnce(new Error('offline'));
-    await tap('Monstera');
-    expect(card('Monstera')?.querySelector('[role="alert"]')).not.toBeNull();
-    expect(dimmed()).toEqual([true, false, false]);
-    expect(label('Monstera')).toBe('Undo: Monstera');
-  });
-
-  it('says so without a connection to Home Assistant and fires nothing', async () => {
-    store.setState({ connection: null });
-    await open(parse(PLANTS));
-    await tap('Monstera');
-    expect(sent()).toEqual([]);
-    expect(card('Monstera')?.querySelector('[role="alert"]')).not.toBeNull();
-    expect(dimmed()).toEqual([false, false, false]);
-  });
-
-  it('keeps a plant the publisher has dropped after its Done, dimmed with its Undo and in its place, until the sheet closes', async () => {
-    await open(rowOf(MONSTERA, LILY, IVY));
-    await tap('Peace lily kitchen');
-    await open(rowOf(MONSTERA, IVY));
-    expect(names()).toEqual(['Monstera', 'Peace lily kitchen', 'Ivy']);
-    expect(dimmed()).toEqual([false, true, false]);
-    expect(label('Peace lily kitchen')).toBe('Undo: Peace lily kitchen');
-    await tap('Peace lily kitchen');
-    expect(sent()[1]).toEqual({ type: 'fire_event', event_type: UNDO_EVENT, event_data: { row: 'maint:plant:peace_lily_kitchen' } });
-    expect(names()).toEqual(['Monstera', 'Peace lily kitchen', 'Ivy']);
-    expect(dimmed()).toEqual([false, false, false]);
-    expect(label('Peace lily kitchen')).toBe('Mark done: Peace lily kitchen');
-    await open(rowOf(MONSTERA, LILY, IVY));
-    expect(names()).toEqual(['Monstera', 'Peace lily kitchen', 'Ivy']);
-  });
-
-  it('keeps the card of a plant the publisher drops while its Done is still on its way', async () => {
-    let arrive: (value: unknown) => void = () => {};
-    send.mockImplementationOnce(() => new Promise(resolve => (arrive = resolve)));
-    await open(rowOf(MONSTERA, LILY, IVY));
-    await tap('Monstera');
-    await open(rowOf(LILY, IVY));
-    expect(names()).toEqual(['Monstera', 'Peace lily kitchen', 'Ivy']);
-    expect(check('Monstera')?.disabled).toBe(true);
-    await act(async () => arrive(null));
-    expect(dimmed()).toEqual([true, false, false]);
-    expect(label('Monstera')).toBe('Undo: Monstera');
-  });
-
-  it('puts several dropped plants back where they stood, lets an unmarked one go and keeps the cards when none is left', async () => {
-    const ivy = { ...IVY, done: 'tap' };
-    await open(rowOf(MONSTERA, LILY, ivy));
-    await tap('Monstera');
-    await tap('Ivy');
-    await open(rowOf(LILY));
-    expect(names()).toEqual(['Monstera', 'Peace lily kitchen', 'Ivy']);
-    expect(dimmed()).toEqual([true, false, true]);
-    await open(rowOf());
-    expect(names()).toEqual(['Monstera', 'Ivy']);
-    expect(dimmed()).toEqual([true, true]);
-    expect(document.body.querySelector('.maint-items')).toBeNull();
-  });
-
-  it('shows the lines of the row again once no plant is listed and none was marked', async () => {
-    await open(rowOf());
-    expect(cards()).toEqual([]);
-    expect(document.body.querySelector('.maint-plants')).toBeNull();
-    expect([...document.body.querySelectorAll('.maint-items li')].map(li => li.textContent)).toEqual(['Fig: next 27.10, watered 20.10']);
+  it('shows the photo of a plant a sensor closes too, which has no Done button and offers its room while it is due', async () => {
+    await open(parse({ ...withoutKeys('done'), detail: 'soil 20%, water at 20%' }));
+    expect(picture()?.getAttribute('src')).toBe('/photos/monstera.webp');
+    expect(text()).toContain('soil 20%, water at 20%');
+    expect(pins()).toEqual([false, true, false, false]);
+    expect(buttons().map(b => b.textContent)).toEqual(['Open room']);
   });
 });

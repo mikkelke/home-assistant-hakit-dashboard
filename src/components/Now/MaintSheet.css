@@ -1,6 +1,6 @@
-/* The sheet of a maintenance row on the Now timeline: its numbers, the plants of a plants row, a how-to guide
-   behind the info button, and for a tapped row a Done button that asks first. It is built on the shared
-   ApplianceSheet shell and portaled to document.body, so it sets its own accent. */
+/* The sheet of a maintenance row on the Now timeline: the photo of a plant, its numbers, a how-to guide behind
+   the info button, and for a tapped row a Done button that asks first. It is built on the shared ApplianceSheet
+   shell and portaled to document.body, so it sets its own accent. */
 
 .maint-sheet {
   --appliance-accent: #94a3b8;
@@ -16,6 +16,18 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* The photo of a plant: a rounded square, 160px on a phone and at most 40% of the screen width. */
+.maint-photo {
+  flex-shrink: 0;
+  align-self: flex-start;
+  width: 160px;
+  max-width: 40vw;
+  aspect-ratio: 1;
+  border-radius: 20px;
+  object-fit: cover;
+  background: var(--surface-chip);
 }
 
 .maint-detail {
@@ -49,6 +61,18 @@
   font-size: 13px;
   line-height: 1.35;
   color: rgba(235, 235, 245, 0.6);
+}
+/* The line of a plant that says where it stands, marked with a pin. */
+.maint-info .is-where {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+.maint-info .is-where svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  font-size: 16px;
+  color: var(--accent-sky);
 }
 
 .maint-how {
@@ -197,118 +221,4 @@
   margin: 0;
   font-size: 13px;
   color: #fb7185;
-}
-
-/* The plants of a plants row: a card each, with the photo, what tells the plant from the others, and a round button.
-   A marked plant dims, and its button stays at full strength so the Undo reads as a button. */
-.maint-plants {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.maint-plant {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--surface-card);
-}
-.maint-plant-photo,
-.maint-plant-text {
-  transition: opacity 160ms;
-}
-.maint-plant.is-done .maint-plant-photo,
-.maint-plant.is-done .maint-plant-text {
-  opacity: 0.45;
-}
-
-.maint-plant-photo {
-  flex: 0 0 56px;
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  object-fit: cover;
-  background: var(--surface-chip);
-}
-.maint-plant-photo.is-blank {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-3);
-  font-size: 28px;
-}
-
-.maint-plant-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.maint-plant-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
-}
-.maint-plant-name {
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 1.25;
-  color: var(--text-1);
-  overflow-wrap: anywhere;
-}
-.maint-plant-amount {
-  padding: 2px 8px;
-  border-radius: var(--radius-chip);
-  background: var(--surface-chip);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--text-1);
-  font-variant-numeric: tabular-nums;
-}
-.maint-plant-detail {
-  font-size: 13px;
-  line-height: 1.3;
-  color: var(--text-2);
-}
-.maint-plant-where {
-  display: flex;
-  align-items: flex-start;
-  gap: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1.3;
-  color: var(--text-1);
-}
-.maint-plant-where svg {
-  flex-shrink: 0;
-  margin-top: 1px;
-  font-size: 16px;
-  color: var(--accent-sky);
-}
-.maint-plant-aka {
-  font-size: 12.5px;
-  line-height: 1.3;
-  color: var(--text-3);
-}
-
-.maint-plant-btn {
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
-  min-height: 44px;
-  padding: 0;
-  border-radius: 50%;
-}
-.maint-plant .maint-error {
-  flex: 0 0 100%;
 }
