@@ -70,6 +70,13 @@
 .gc-toolbar { justify-content: space-between; margin-bottom: 0.5rem; }
 .gc-toolbar > .gc-primary { padding-inline: 1rem; }
 .gc-toolbar > [aria-label='Refresh users'] { padding: 0; }
+.gc-my-code { margin-bottom: 1rem; padding: 0.75rem; border: 1px solid var(--line); border-radius: var(--radius-chip); }
+.gc-my-code-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.gc-my-code h3 { font-size: 1rem; font-weight: 600; }
+.gc-my-code-content { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
+.gc-my-code .gc-pin { font-size: 1.75rem; }
+.gc-my-code .gc-actions { margin: 0; }
+.gc-my-code-content .gc-error { grid-column: 1 / -1; }
 .gc-list { list-style: none; }
 .gc-row { border-bottom: 1px solid var(--line); }
 .guest-codes .gc-row > button {

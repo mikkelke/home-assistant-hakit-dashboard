@@ -18,12 +18,12 @@ export async function fetchRole(connection: Connection): Promise<GuestRole | nul
   return reply?.role === 'admin' || reply?.role === 'guests' ? reply.role : null;
 }
 
-export async function fetchPinLength(connection: Connection): Promise<number> {
+export async function fetchSettings(connection: Connection): Promise<{ pinLength: number; own: GuestUser | null }> {
   requireConnection(connection);
-  const reply = await connection.sendMessagePromise<{ pin_length?: number }>({ type: 'yale_access/me' });
+  const reply = await connection.sendMessagePromise<{ pin_length?: number; own?: GuestUser | null }>({ type: 'yale_access/me' });
   const length = reply?.pin_length ?? 6;
   if (!Number.isInteger(length) || length < 1) throw new Error('The lock returned an invalid code length.');
-  return length;
+  return { pinLength: length, own: reply?.own ?? null };
 }
 
 export async function fetchUsers(connection: Connection): Promise<GuestUser[]> {

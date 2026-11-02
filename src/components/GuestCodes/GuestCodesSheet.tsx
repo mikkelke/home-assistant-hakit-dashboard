@@ -4,7 +4,7 @@ import { useHass } from '@hakit/core';
 import type { Connection } from 'home-assistant-js-websocket';
 import { useModalBackButton, useSwipeToClose } from '../../hooks';
 import { Sheet } from '../Request/Sheet';
-import { createGuest, endAccess, errorMessage, fetchPin, fetchPinLength, fetchUsers, setPin, setValidity } from './api';
+import { createGuest, endAccess, errorMessage, fetchPin, fetchSettings, fetchUsers, setPin, setValidity } from './api';
 import {
   defaultPeriod,
   formatCompactValidity,
@@ -94,7 +94,7 @@ function validUser(user: GuestUser | undefined): user is GuestUser {
   );
 }
 
-function CodeDisplay({ pin, user, role }: { pin: string; user: GuestUser; role: GuestRole }) {
+function CodeDisplay({ pin, user, role, shareable = true }: { pin: string; user: GuestUser; role: GuestRole; shareable?: boolean }) {
   const [copied, setCopied] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const active = useActiveView();
@@ -128,10 +128,12 @@ function CodeDisplay({ pin, user, role }: { pin: string; user: GuestUser; role: 
           <Icon icon='mdi:content-copy' />
           {copied ? 'Copied' : 'Copy'}
         </button>
-        <button type='button' disabled={!navigator.share} onClick={() => void share()}>
-          <Icon icon='mdi:share-variant' />
-          Share
-        </button>
+        {shareable && (
+          <button type='button' disabled={!navigator.share} onClick={() => void share()}>
+            <Icon icon='mdi:share-variant' />
+            Share
+          </button>
+        )}
       </div>
       {message && (
         <p role='alert' className='gc-error'>
@@ -142,11 +144,11 @@ function CodeDisplay({ pin, user, role }: { pin: string; user: GuestUser; role: 
   );
 }
 
-function CodeResult({ result, role }: { result: { pin: string; user: GuestUser }; role: GuestRole }) {
+function CodeResult({ result, role, shareable = true }: { result: { pin: string; user: GuestUser }; role: GuestRole; shareable?: boolean }) {
   return (
     <div className='gc-success'>
       <h3>{result.user.name}</h3>
-      <CodeDisplay pin={result.pin} user={result.user} role={role} />
+      <CodeDisplay pin={result.pin} user={result.user} role={role} shareable={shareable} />
       <p>{formatValidity(result.user, role)}</p>
       <p className='gc-muted'>Europe/Copenhagen</p>
       <p className='gc-muted'>Closing this view hides the code.</p>
@@ -402,6 +404,7 @@ function ChangeCode({
   pinLength,
   onClose,
   onChanged,
+  own = false,
 }: {
   connection: Connection;
   user: GuestUser;
@@ -409,6 +412,7 @@ function ChangeCode({
   pinLength: number;
   onClose: () => void;
   onChanged: () => void;
+  own?: boolean;
 }) {
   const [pin, setCode] = useState('');
   const [result, setResult] = useState<{ pin: string; user: GuestUser } | null>(null);
@@ -453,11 +457,17 @@ function ChangeCode({
     }
   };
   return (
-    <GuestFrame title={result ? 'Guest code' : 'Change code'} historyKey='guest-code-change' onClose={onClose} onDismiss={discard} back>
+    <GuestFrame
+      title={result ? (own ? 'My code' : 'Guest code') : 'Change code'}
+      historyKey='guest-code-change'
+      onClose={onClose}
+      onDismiss={discard}
+      back
+    >
       {dismiss => (
         <>
           {result ? (
-            <CodeResult result={result} role={role} />
+            <CodeResult result={result} role={role} shareable={!own} />
           ) : uncertain ? null : (
             <form
               onSubmit={event => {
@@ -706,10 +716,27 @@ export function GuestCodesSheet({ role, onClose }: { role: GuestRole; onClose: (
   const connection = useHass(state => state.connection);
   const [users, setUsers] = useState<GuestUser[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [settings, setSettings] = useState<{ connection: Connection; pinLength: number } | null>(null);
+  const [settings, setSettings] = useState<{ connection: Connection; pinLength: number; own: GuestUser | null } | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
-  const [view, setView] = useState<{ type: 'create' } | { type: 'detail'; user: GuestUser } | null>(null);
+  const [view, setView] = useState<{ type: 'create' | 'own' } | { type: 'detail'; user: GuestUser } | null>(null);
+  const [ownCode, setOwnCode] = useState<{ connection: Connection; user_id: string; pin: string } | null>(null);
+  const [ownBusy, setOwnBusy] = useState(false);
+  const [ownError, setOwnError] = useState<string | null>(null);
+  const active = useActiveView();
+  const request = useRef(0);
+  const pending = useRef(false);
+  const clearOwnCode = useCallback(() => {
+    ++request.current;
+    pending.current = false;
+    setOwnCode(null);
+    setOwnBusy(false);
+    setOwnError(null);
+  }, []);
+  const discard = useCallback(() => {
+    active.current = false;
+    clearOwnCode();
+  }, [active, clearOwnCode]);
   useEffect(() => {
     if (!connection) return;
     let cancelled = false;
@@ -724,10 +751,10 @@ export function GuestCodesSheet({ role, onClose }: { role: GuestRole; onClose: (
         if (!cancelled) setMessage(errorMessage(error));
       }
     );
-    fetchPinLength(connection).then(
-      pinLength => {
+    fetchSettings(connection).then(
+      value => {
         if (!cancelled) {
-          setSettings({ connection, pinLength });
+          setSettings({ connection, ...value });
           setSettingsError(null);
         }
       },
@@ -740,7 +767,34 @@ export function GuestCodesSheet({ role, onClose }: { role: GuestRole; onClose: (
     };
   }, [connection, revision]);
   const pinLength = settings?.connection === connection ? settings.pinLength : null;
-  const refresh = () => setRevision(value => value + 1);
+  const own = settings?.connection === connection ? settings.own : null;
+  const ownPin = ownCode?.connection === connection && ownCode?.user_id === own?.user_id ? ownCode?.pin : null;
+  const refresh = () => {
+    clearOwnCode();
+    setRevision(value => value + 1);
+  };
+  const revealOwnCode = async () => {
+    if (!connection || !own || pending.current || !active.current) return;
+    pending.current = true;
+    const generation = ++request.current;
+    setOwnBusy(true);
+    setOwnError(null);
+    try {
+      const pin = await fetchPin(connection, own.user_id);
+      if (active.current && generation === request.current) setOwnCode({ connection, user_id: own.user_id, pin });
+    } catch (error) {
+      if (active.current && generation === request.current) setOwnError(errorMessage(error));
+    } finally {
+      if (generation === request.current) {
+        pending.current = false;
+        if (active.current) setOwnBusy(false);
+      }
+    }
+  };
+  const changeOwnCode = () => {
+    clearOwnCode();
+    setView({ type: 'own' });
+  };
   const row = (user: GuestUser) => (
     <li className='gc-row' key={user.user_id}>
       <button type='button' aria-label={`View ${user.name}`} onClick={() => setView({ type: 'detail', user })}>
@@ -761,11 +815,45 @@ export function GuestCodesSheet({ role, onClose }: { role: GuestRole; onClose: (
       </button>
     </li>
   );
-  const current = users?.filter(user => user.status !== 'expired') ?? [];
-  const expired = users?.filter(user => user.status === 'expired') ?? [];
+  const guests = users?.filter(user => user.user_id !== own?.user_id);
+  const current = guests?.filter(user => user.status !== 'expired') ?? [];
+  const expired = guests?.filter(user => user.status === 'expired') ?? [];
   return (
     <>
-      <GuestFrame title={role === 'admin' ? 'Lock users' : 'My guests'} historyKey='guest-codes' onClose={onClose}>
+      <GuestFrame title={role === 'admin' ? 'Lock users' : 'My guests'} historyKey='guest-codes' onClose={onClose} onDismiss={discard}>
+        {own && pinLength !== null && (
+          <section className='gc-my-code' aria-label='My code'>
+            <div className='gc-my-code-head'>
+              <h3>My code</h3>
+              <button type='button' onClick={changeOwnCode}>
+                <Icon icon='mdi:form-textbox-password' />
+                Change code
+              </button>
+            </div>
+            <div className='gc-my-code-content'>
+              {ownPin ? (
+                <CodeDisplay pin={ownPin} user={own} role={role} shareable={false} />
+              ) : (
+                <>
+                  <p className='gc-pin gc-pin--hidden' aria-label='Code hidden'>
+                    {'•'.repeat(pinLength)}
+                  </p>
+                  <div className='gc-actions'>
+                    <button type='button' disabled={ownBusy} onClick={() => void revealOwnCode()}>
+                      <Icon icon='mdi:eye-outline' />
+                      {ownBusy ? 'Loading code...' : 'Show code'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+            {ownError && (
+              <p role='alert' className='gc-error'>
+                {ownError}
+              </p>
+            )}
+          </section>
+        )}
         <div className='gc-toolbar'>
           <button type='button' className='gc-primary' disabled={pinLength === null} onClick={() => setView({ type: 'create' })}>
             <Icon icon='mdi:account-plus-outline' />
@@ -781,7 +869,7 @@ export function GuestCodesSheet({ role, onClose }: { role: GuestRole; onClose: (
           </p>
         )}
         {!users && !message && <p role='status'>Loading guests...</p>}
-        {users && users.length === 0 && (
+        {guests && guests.length === 0 && (
           <div className='gc-empty'>
             <Icon icon='mdi:account-key-outline' />
             <p>No guests yet</p>
@@ -799,7 +887,18 @@ export function GuestCodesSheet({ role, onClose }: { role: GuestRole; onClose: (
       {connection && view?.type === 'create' && pinLength !== null && (
         <GuestEditor connection={connection} role={role} pinLength={pinLength} onClose={() => setView(null)} onChanged={refresh} />
       )}
-      {connection && view?.type === 'detail' && (
+      {connection && view?.type === 'own' && own && pinLength !== null && (
+        <ChangeCode
+          connection={connection}
+          user={own}
+          role={role}
+          pinLength={pinLength}
+          onClose={() => setView(null)}
+          onChanged={refresh}
+          own
+        />
+      )}
+      {connection && view?.type === 'detail' && view.user.user_id !== own?.user_id && (
         <GuestDetail
           key={view.user.user_id}
           connection={connection}

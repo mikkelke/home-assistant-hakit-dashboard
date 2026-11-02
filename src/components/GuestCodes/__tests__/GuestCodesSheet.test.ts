@@ -66,6 +66,7 @@ let root: Root;
 let users: GuestUser[];
 let pin: string;
 let pinLength: number | undefined;
+let own: GuestUser | null;
 const send = vi.fn<(message: Message) => Promise<unknown>>();
 const onClose = vi.fn();
 const copy = vi.fn();
@@ -112,6 +113,7 @@ beforeEach(() => {
   pin = String(Math.floor(Math.random() * 900_000) + 100_000);
   users = [];
   pinLength = undefined;
+  own = null;
   copy.mockReset().mockResolvedValue(undefined);
   share.mockReset().mockResolvedValue(undefined);
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: copy } });
@@ -119,11 +121,11 @@ beforeEach(() => {
   send.mockReset().mockImplementation(async message => {
     switch (message.type) {
       case 'yale_access/me':
-        return { role: 'admin', pin_length: pinLength };
+        return { role: 'admin', pin_length: pinLength, own };
       case 'yale_access/pin':
         return { pin };
       case 'yale_access/set_pin':
-        return { user: row() };
+        return { user: message.user_id === own?.user_id ? own : row() };
       case 'yale_access/users':
         return { users };
       case 'yale_access/create':
@@ -261,6 +263,125 @@ describe('guest list', () => {
     users = [row({ created_by: 'Test creator' })];
     await open();
     expect(text()).not.toContain('Test creator');
+  });
+});
+
+describe('my code', () => {
+  it.each(['admin', 'guests'] as const)('hides the card when %s has no own user', async role => {
+    await open(role);
+    expect(document.querySelector('[aria-label="My code"]')).toBeNull();
+    expect(button('Show code')).toBeUndefined();
+    expect(button('Change code')).toBeUndefined();
+  });
+
+  it.each(['admin', 'guests'] as const)('reveals and copies the %s own code above the toolbar without guest actions', async role => {
+    own = row({ user_id: 'synthetic-own', name: 'Test resident' });
+    users = [own, row()];
+    pinLength = 4;
+    pin = '0123';
+    await open(role);
+    const card = document.querySelector('[aria-label="My code"]')!;
+    expect(document.querySelector('.gc-body')!.firstElementChild).toBe(card);
+    expect(card.nextElementSibling?.className).toBe('gc-toolbar');
+    expect(card.querySelector('[aria-label="Code hidden"]')?.textContent).toBe('••••');
+    expect(sent('yale_access/me')).toEqual([{ type: 'yale_access/me' }]);
+    expect(sent('yale_access/pin')).toEqual([]);
+    expect(document.querySelectorAll('.gc-row')).toHaveLength(1);
+    expect(button('View Test resident')).toBeUndefined();
+    expect(button('End access')).toBeUndefined();
+    expect(button('Change period')).toBeUndefined();
+    await tap(button('Show code'));
+    expect(sent('yale_access/pin')).toEqual([{ type: 'yale_access/pin', user_id: 'synthetic-own' }]);
+    expect(card.textContent).toContain(pin);
+    expect(button('Share')).toBeUndefined();
+    expect(copy).not.toHaveBeenCalled();
+    await tap(button('Copy'));
+    expect(copy).toHaveBeenCalledExactlyOnceWith(pin);
+    await tap(button('Close'));
+    await open(role);
+    expect(text()).not.toContain(pin);
+    expect(button('Copy')).toBeUndefined();
+  });
+
+  it.each(['admin', 'guests'] as const)('changes the %s own code and refreshes own settings', async role => {
+    own = row({ user_id: 'synthetic-own', name: 'Test resident', protected: true });
+    pinLength = 4;
+    await open(role);
+    await tap(button('Show code'));
+    await tap(button('Change code'));
+    expect(text()).not.toContain(pin);
+    expect(topDialog().getAttribute('aria-label')).toBe('Change code');
+    expect(input('Code')!.pattern).toBe('[0-9]{4}');
+    expect(button('Change period')).toBeUndefined();
+    expect(button('End access')).toBeUndefined();
+    await enter('Code', '0012');
+    own = { ...own, name: 'Updated resident' };
+    await tap(button('Save code'));
+    expect(sent('yale_access/set_pin')).toEqual([{ type: 'yale_access/set_pin', user_id: 'synthetic-own', pin: '0012' }]);
+    expect(sent('yale_access/me')).toHaveLength(2);
+    expect(topDialog().getAttribute('aria-label')).toBe('My code');
+    expect(topDialog().textContent).toContain('0012');
+    expect(button('Share')).toBeUndefined();
+    await tap(button('Done'));
+    expect(text()).not.toContain('0012');
+    expect(text()).not.toContain(pin);
+    await tap(button('Change code'));
+    expect(topDialog().textContent).toContain('Updated resident');
+  });
+
+  it('discards a late own reveal after closing and reopening the sheet', async () => {
+    own = row({ user_id: 'synthetic-own' });
+    await open();
+    const pending = deferred();
+    send.mockReturnValueOnce(pending.promise);
+    await tap(button('Show code'));
+    await tap(button('Close'));
+    await open();
+    await act(async () => pending.resolve({ pin }));
+    expect(text()).not.toContain(pin);
+    expect(button('Copy')).toBeUndefined();
+    expect(button('Show code')?.disabled).toBe(false);
+  });
+
+  it('shows an own reveal error and allows retrying', async () => {
+    own = row({ user_id: 'synthetic-own' });
+    await open();
+    send.mockRejectedValueOnce({ message: 'Could not load your code. Try again.' });
+    await tap(button('Show code'));
+    expect(document.querySelector('[aria-label="My code"] [role="alert"]')?.textContent).toBe('Could not load your code. Try again.');
+    await tap(button('Show code'));
+    expect(text()).toContain(pin);
+    expect(document.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('discards a late own reveal when changing the code and permits a fresh reveal', async () => {
+    own = row({ user_id: 'synthetic-own' });
+    await open();
+    const pending = deferred();
+    send.mockReturnValueOnce(pending.promise);
+    await tap(button('Show code'));
+    await tap(button('Change code'));
+    await act(async () => pending.resolve({ pin }));
+    expect(text()).not.toContain(pin);
+    await tap(button('Close'));
+    expect(text()).not.toContain(pin);
+    await tap(button('Show code'));
+    expect(sent('yale_access/pin')).toHaveLength(2);
+    expect(text()).toContain(pin);
+  });
+
+  it('removes guest detail actions when delayed settings identify the selected user as own', async () => {
+    own = row({ user_id: 'synthetic-own' });
+    users = [own];
+    const pending = deferred();
+    const original = send.getMockImplementation()!;
+    send.mockImplementation(message => (message.type === 'yale_access/me' ? pending.promise : original(message)));
+    await open('admin');
+    await openDetail();
+    await act(async () => pending.resolve({ pin_length: 6, own }));
+    expect(button('End access')).toBeUndefined();
+    expect(button('Change period')).toBeUndefined();
+    expect(document.querySelectorAll('.gc-row')).toHaveLength(0);
   });
 });
 
