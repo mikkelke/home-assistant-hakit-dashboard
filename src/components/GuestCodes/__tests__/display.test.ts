@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { defaultPeriod, formatLastUse, formatValidity, fromCopenhagenInput, toCopenhagenInput } from '../display';
+import {
+  defaultPeriod,
+  formatCompactValidity,
+  formatRelativeLastUse,
+  formatLastUse,
+  formatValidity,
+  fromCopenhagenInput,
+  toCopenhagenInput,
+} from '../display';
 import type { GuestUser } from '../types';
 
 const row = (patch: Partial<GuestUser> = {}): GuestUser => ({
@@ -51,5 +59,23 @@ describe('Copenhagen validity', () => {
   it('defaults the period from now to one day later', () => {
     const period = defaultPeriod(new Date('2026-07-15T10:15:00Z'));
     expect(period).toEqual({ from: '2026-07-15T12:15', to: '2026-07-16T12:15' });
+  });
+});
+
+describe('compact guest metadata', () => {
+  it('keeps active and scheduled periods short in Copenhagen time', () => {
+    const guest = row({ kind: 'temporary', from: '2026-11-02T17:00:00Z', to: '2026-11-04T17:00:00Z' });
+    expect(formatCompactValidity(guest, 'admin')).toBe('Until 4 Nov 18:00');
+    expect(formatCompactValidity({ ...guest, status: 'scheduled' }, 'admin')).toBe('From 2 Nov 18:00');
+    expect(formatValidity(row(), 'guests')).toBe('No end date');
+  });
+
+  it('shows relative last use without separate metadata lines', () => {
+    const now = Date.parse('2026-11-04T17:00:00Z');
+    expect(formatRelativeLastUse(null, now)).toBe('never used');
+    expect(formatRelativeLastUse('2026-11-04T16:59:40Z', now)).toBe('used just now');
+    expect(formatRelativeLastUse('2026-11-04T16:55:00Z', now)).toBe('used 5 min ago');
+    expect(formatRelativeLastUse('2026-11-04T15:00:00Z', now)).toBe('used 2 h ago');
+    expect(formatRelativeLastUse('2026-11-02T17:00:00Z', now)).toBe('used 2 d ago');
   });
 });

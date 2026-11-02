@@ -1,4 +1,4 @@
-import type { GuestUser } from './types';
+import type { GuestRole, GuestUser } from './types';
 
 const TIME_ZONE = 'Europe/Copenhagen';
 const inputFormat = new Intl.DateTimeFormat('en-GB', {
@@ -44,10 +44,40 @@ function dateLabel(value: string, withTime: boolean): string {
   return `${day}.${month}${withTime ? ` ${time}` : ''}`;
 }
 
-export function formatValidity(user: Pick<GuestUser, 'kind' | 'from' | 'to'>): string {
-  if (user.kind === 'always') return 'Always';
+export function formatValidity(user: Pick<GuestUser, 'kind' | 'from' | 'to'>, role: GuestRole = 'admin'): string {
+  if (user.kind === 'always') return role === 'admin' ? 'Always' : 'No end date';
   if (user.kind === 'recurring') return 'Recurring';
   return user.from && user.to ? `${dateLabel(user.from, true)}–${dateLabel(user.to, true)}` : 'Period unavailable';
+}
+
+export function formatCompactValidity(user: Pick<GuestUser, 'kind' | 'from' | 'to' | 'status'>, role: GuestRole): string {
+  if (user.kind !== 'temporary') return formatValidity(user, role);
+  if (!user.to) return 'Period unavailable';
+  const date = new Date(user.status === 'scheduled' && user.from ? user.from : user.to);
+  if (!Number.isFinite(date.getTime())) return 'Period unavailable';
+  const label = new Intl.DateTimeFormat('en-GB', {
+    timeZone: TIME_ZONE,
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  })
+    .format(date)
+    .replace(',', '');
+  return `${user.status === 'scheduled' ? 'From' : 'Until'} ${label}`;
+}
+
+export function formatRelativeLastUse(lastUse: string | null, now = Date.now()): string {
+  if (!lastUse) return 'never used';
+  const elapsed = now - Date.parse(lastUse);
+  if (!Number.isFinite(elapsed) || elapsed < 0) return formatLastUse(lastUse);
+  const minutes = Math.floor(elapsed / 60_000);
+  if (minutes < 1) return 'used just now';
+  if (minutes < 60) return `used ${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `used ${hours} h ago`;
+  return `used ${Math.floor(hours / 24)} d ago`;
 }
 
 export function formatLastUse(last_use: string | null): string {

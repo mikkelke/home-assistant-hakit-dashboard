@@ -65,6 +65,7 @@ function deferred() {
 let root: Root;
 let users: GuestUser[];
 let pin: string;
+let pinLength: number | undefined;
 const send = vi.fn<(message: Message) => Promise<unknown>>();
 const onClose = vi.fn();
 const copy = vi.fn();
@@ -95,7 +96,7 @@ const enter = async (label: string, value: string) => {
 };
 const open = (role: GuestRole = 'guests') => act(async () => root.render(createElement(GuestCodesSheet, { role, onClose })));
 const newGuest = async () => {
-  await tap(button('Create guest'));
+  await tap(button('New guest'));
   await enter('Name', 'Test guest');
 };
 const create = async () => {
@@ -104,20 +105,29 @@ const create = async () => {
 };
 const sent = (type: string) => send.mock.calls.filter(([message]) => message.type === type).map(([message]) => message);
 const text = () => document.body.textContent ?? '';
+const openDetail = () => tap(document.querySelector('.gc-row button'));
+const topDialog = () => [...document.querySelectorAll<HTMLElement>('[role="dialog"]')].at(-1)!;
 
 beforeEach(() => {
   pin = String(Math.floor(Math.random() * 900_000) + 100_000);
   users = [];
+  pinLength = undefined;
   copy.mockReset().mockResolvedValue(undefined);
   share.mockReset().mockResolvedValue(undefined);
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: copy } });
   Object.defineProperty(navigator, 'share', { configurable: true, value: share });
   send.mockReset().mockImplementation(async message => {
     switch (message.type) {
+      case 'yale_access/me':
+        return { role: 'admin', pin_length: pinLength };
+      case 'yale_access/pin':
+        return { pin };
+      case 'yale_access/set_pin':
+        return { user: row() };
       case 'yale_access/users':
         return { users };
       case 'yale_access/create':
-        return { user: row(), pin };
+        return { user: row(), pin: message.pin ?? pin };
       case 'yale_access/set_validity':
         return { user: row({ kind: 'temporary', from: message.from as string, to: message.to as string }) };
       case 'yale_access/end':
@@ -145,10 +155,11 @@ afterEach(() => {
 describe('guest list', () => {
   it('reserves the header and gives the body the remaining height for scrolling', async () => {
     const style = document.createElement('style');
-    style.textContent = readFileSync('src/components/GuestCodes/GuestCodes.css', 'utf8');
+    style.textContent = readFileSync('src/index.css', 'utf8') + readFileSync('src/components/GuestCodes/GuestCodes.css', 'utf8');
     document.head.appendChild(style);
     try {
       await open('admin');
+      expect(getComputedStyle(button('Close')!).position).toBe('relative');
       const header = getComputedStyle(document.querySelector('.gc-head')!);
       const body = getComputedStyle(document.querySelector('.gc-body')!);
       expect(header.flexShrink).toBe('0');
@@ -162,15 +173,15 @@ describe('guest list', () => {
     }
   });
 
-  it('keeps Create guest before a long owner list and opens the editor', async () => {
+  it('keeps New guest before a long owner list and opens the editor', async () => {
     users = Array.from({ length: 40 }, (_, index) => row({ user_id: `synthetic-${index}`, name: `Guest ${index}` }));
     await open('admin');
     const body = document.querySelector('.gc-body')!;
     expect(body.firstElementChild?.className).toBe('gc-toolbar');
-    expect(body.firstElementChild?.contains(button('Create guest')!)).toBe(true);
+    expect(body.firstElementChild?.contains(button('New guest')!)).toBe(true);
     expect(document.querySelectorAll('.gc-row')).toHaveLength(40);
     expect(document.querySelector('[role="dialog"]')?.closest('[inert]')).toBeNull();
-    await tap(button('Create guest'));
+    await tap(button('New guest'));
     expect(input('Name')).toBeTruthy();
   });
 
@@ -187,7 +198,7 @@ describe('guest list', () => {
     }));
     users = [row()];
     await open('admin');
-    const target = document.querySelector('.gc-row h3')!;
+    const target = document.querySelector('.gc-row-name')!;
     const touch = (type: string, clientX: number, clientY: number) => {
       const event = new Event(type, { bubbles: true, cancelable: true });
       const points = [{ clientX, clientY }];
@@ -203,7 +214,7 @@ describe('guest list', () => {
     expect(move.defaultPrevented).toBe(false);
     expect(window.history.back).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
-    await tap(button('Create guest'));
+    await tap(button('New guest'));
     expect(input('Name')).toBeTruthy();
   });
 
@@ -236,10 +247,14 @@ describe('guest list', () => {
     expect(expired.open).toBe(false);
     expect(expired.textContent).toContain('Expired guest');
     expect([...document.querySelectorAll('.gc-row')].filter(element => !element.closest('details'))).toHaveLength(4);
-    for (const value of ['Always', 'Recurring', 'active', 'scheduled', 'pending', 'failed', 'used 12.10', 'never used', 'Test creator']) {
+    for (const value of ['Always', 'Recurring', 'scheduled', 'pending', 'failed', 'never used']) {
       expect(text().toLowerCase()).toContain(value.toLowerCase());
     }
-    expect(text()).toContain('01.10 12:00–02.10 12:00');
+    expect(document.querySelector('.gc-status--active')).toBeNull();
+    expect(text()).not.toContain('Test creator');
+    await openDetail();
+    expect(topDialog().textContent).toContain('Created by');
+    expect(topDialog().textContent).toContain('Test creator');
   });
 
   it('omits creator metadata from a guests-role list', async () => {
@@ -276,13 +291,13 @@ describe('one-time guest PIN', () => {
     await open();
     await create();
     expect(text()).toContain('Creating');
-    expect(text()).toContain('3 minutes');
+    expect(text()).not.toContain('3 minutes');
     expect(sent('yale_access/create')).toHaveLength(1);
     expect(copy).not.toHaveBeenCalled();
     expect(share).not.toHaveBeenCalled();
     await act(async () => pending.resolve({ user: row(), pin }));
     expect(text()).toContain(pin);
-    expect(text()).toContain('Always');
+    expect(text()).not.toContain('Always');
     await tap(button('Copy'));
     expect(copy).toHaveBeenCalledOnce();
     expect(copy.mock.calls[0][0]).toContain(pin);
@@ -365,10 +380,11 @@ describe('one-time guest PIN', () => {
     expect(text()).toContain(pin);
     expect(sent('yale_access/create')).toHaveLength(1);
     await tap(button('Done'));
+    await openDetail();
     await tap(button('End access'));
     await tap(button('End access'));
     expect(sent('yale_access/end')).toHaveLength(1);
-    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(2);
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -389,9 +405,10 @@ describe('one-time guest PIN', () => {
     const last = button('Done')!;
     last.focus();
     await act(async () => last.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })));
-    expect(document.activeElement).toBe(button('Close'));
+    const first = dialog.querySelector('button')!;
+    expect(document.activeElement).toBe(first);
     await act(async () =>
-      button('Close')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }))
+      first.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }))
     );
     expect(document.activeElement).toBe(last);
   });
@@ -401,56 +418,39 @@ describe('one-time guest PIN', () => {
     send.mockImplementation(async command => (command.type === 'yale_access/create' ? pending.promise : { users }));
     await open('admin');
     await newGuest();
-    await tap(
-      [...document.querySelectorAll<HTMLInputElement>('input[type="radio"]')].find(
-        element => element.closest('label')?.textContent === 'From–to'
-      )
-    );
+    await tap(button('From–to'));
     await tap(button('Create guest'));
     const disabledField = input('To')!;
     const focusDisabled = vi.spyOn(disabledField, 'focus');
-    const close = button('Close')!;
-    close.focus();
+    const first = topDialog().querySelector<HTMLButtonElement>('button')!;
+    first.focus();
     await act(async () =>
-      close.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }))
+      first.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }))
     );
     expect(focusDisabled).not.toHaveBeenCalled();
-    expect(document.activeElement).toBe(close);
+    expect(document.activeElement).toBe(button('Close'));
   });
 });
 
 describe('guest row actions', () => {
-  it.each(['admin', 'guests'] as const)('labels protected users and omits their actions for %s', async role => {
-    users = [
-      row({ user_id: 'protected-active', protected: true }),
-      row({ user_id: 'protected-expired', protected: true, status: 'expired' }),
-      row({ user_id: 'ordinary-explicit', protected: false }),
-      row({ user_id: 'ordinary-legacy' }),
-    ];
+  it.each(['admin', 'guests'] as const)('opens protected users without mutation actions for %s', async role => {
+    users = [row({ protected: true })];
     await open(role);
-    const rows = [...document.querySelectorAll('.gc-row')];
-    const protectedRows = rows.filter(element => element.textContent?.includes('Protected'));
-    expect(protectedRows).toHaveLength(2);
-    expect(protectedRows.some(element => element.closest('details'))).toBe(true);
-    for (const protectedRow of protectedRows) expect(protectedRow.querySelector('button')).toBeNull();
-    const editableRows = rows.filter(element => !element.textContent?.includes('Protected'));
-    expect(editableRows).toHaveLength(2);
-    for (const editableRow of editableRows) {
-      expect([...editableRow.querySelectorAll('button')].map(element => element.textContent?.trim())).toEqual([
-        'Change period',
-        'End access',
-      ]);
-    }
+    const listRow = document.querySelector('.gc-row')!;
+    expect(listRow.querySelectorAll('button')).toHaveLength(1);
+    await openDetail();
+    expect(topDialog().textContent).toContain('Protected');
+    expect(button('Change code')).toBeUndefined();
+    expect(button('Change period')).toBeUndefined();
+    expect(button('End access')).toBeUndefined();
   });
 
   it('sends a changed period as Copenhagen instants and refreshes the list', async () => {
     users = [row()];
     await open('admin');
+    await openDetail();
     await tap(button('Change period'));
-    const timed = [...document.querySelectorAll<HTMLInputElement>('input[type="radio"]')].find(
-      element => element.closest('label')?.textContent === 'From–to'
-    );
-    await tap(timed);
+    await tap(button('From–to'));
     await enter('From', '2026-07-15T12:00');
     await enter('To', '2026-07-16T12:00');
     await tap(button('Save period'));
@@ -464,13 +464,14 @@ describe('guest row actions', () => {
     ]);
     expect(sent('yale_access/users').length).toBeGreaterThan(1);
     expect(window.history.back).toHaveBeenCalledOnce();
-    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(2);
     expect(onClose).not.toHaveBeenCalled();
   });
 
   it('rejects an inverted period before sending a command', async () => {
     users = [row({ kind: 'temporary', from: '2026-07-15T10:00:00Z', to: '2026-07-16T10:00:00Z' })];
     await open();
+    await openDetail();
     await tap(button('Change period'));
     await enter('To', '2026-07-14T12:00');
     await tap(button('Save period'));
@@ -481,6 +482,7 @@ describe('guest row actions', () => {
   it('keeps recurring schedules read-only while allowing access to be ended', async () => {
     users = [row({ kind: 'recurring' })];
     await open();
+    await openDetail();
     expect(button('Change period')?.disabled).toBe(true);
     expect(button('End access')?.disabled).toBe(false);
   });
@@ -488,6 +490,7 @@ describe('guest row actions', () => {
   it('confirms ending access by name and warns admins that the lock code is removed', async () => {
     users = [row()];
     await open('admin');
+    await openDetail();
     await tap(button('End access'));
     expect(sent('yale_access/end')).toEqual([]);
     expect(text()).toContain('End access for Test guest?');
@@ -495,12 +498,13 @@ describe('guest row actions', () => {
     await tap(button('End access'));
     expect(sent('yale_access/end')).toEqual([{ type: 'yale_access/end', user_id: 'synthetic-guest' }]);
     expect(window.history.back).toHaveBeenCalledOnce();
-    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(2);
   });
 
   it('surfaces backend mutation errors verbatim and does not send while offline', async () => {
     users = [row()];
     await open();
+    await openDetail();
     await tap(button('End access'));
     const message = 'Synthetic backend refusal: access could not be ended';
     send.mockRejectedValueOnce({ code: 'request_failed', message });
@@ -520,5 +524,163 @@ describe('guest row actions', () => {
     expect(onClose).not.toHaveBeenCalled();
     await act(async () => window.dispatchEvent(new Event('modalBackButton', { cancelable: true })));
     expect(onClose).toHaveBeenCalledOnce();
+  });
+});
+
+describe('guest details and chosen codes', () => {
+  it('opens a compact row with a hidden code and fetches only after Show code', async () => {
+    users = [row({ created_by: 'Test creator' })];
+    await open('admin');
+    const listRow = document.querySelector('.gc-row')!;
+    expect(listRow.querySelectorAll('button')).toHaveLength(1);
+    expect(listRow.textContent).toContain('Always · never used');
+    expect(button('Change period')).toBeUndefined();
+    await openDetail();
+    expect(topDialog().textContent).toContain('••••••');
+    expect(sent('yale_access/pin')).toEqual([]);
+    expect(text()).not.toContain(pin);
+    await tap(button('Show code'));
+    expect(sent('yale_access/pin')).toEqual([{ type: 'yale_access/pin', user_id: 'synthetic-guest' }]);
+    expect(topDialog().textContent).toContain(pin);
+    await tap(button('Copy'));
+    expect(copy).toHaveBeenCalledExactlyOnceWith(pin);
+    await tap(button('Share'));
+    expect(share).toHaveBeenCalledExactlyOnceWith({ title: 'Door code', text: `Door code: ${pin}\nValid Always` });
+    await tap(button('Close'));
+    expect(text()).not.toContain(pin);
+    await openDetail();
+    expect(topDialog().textContent).toContain('••••••');
+    expect(text()).not.toContain(pin);
+  });
+
+  it('discards a late PIN fetch after closing the detail', async () => {
+    users = [row()];
+    const pending = deferred();
+    const original = send.getMockImplementation()!;
+    send.mockImplementation(message => (message.type === 'yale_access/pin' ? pending.promise : original(message)));
+    await open('admin');
+    await openDetail();
+    await tap(button('Show code'));
+    await tap(button('Close'));
+    await openDetail();
+    await act(async () => pending.resolve({ pin }));
+    expect(text()).not.toContain(pin);
+  });
+
+  it('discards a late reveal while changing a code and permits a fresh reveal afterward', async () => {
+    users = [row()];
+    const pending = deferred();
+    await open('admin');
+    await openDetail();
+    send.mockReturnValueOnce(pending.promise);
+    await tap(button('Show code'));
+    await tap(button('Change code'));
+    await enter('Code', '001234');
+    await tap(button('Save code'));
+    await act(async () => pending.resolve({ pin }));
+    expect(text()).not.toContain(pin);
+    await tap(button('Done'));
+    expect(text()).not.toContain(pin);
+    await tap(button('Show code'));
+    expect(sent('yale_access/pin')).toHaveLength(2);
+    expect(topDialog().textContent).toContain(pin);
+  });
+
+  it('shows PIN errors and lets the user retry', async () => {
+    users = [row()];
+    await open('admin');
+    await openDetail();
+    send.mockRejectedValueOnce({ message: 'Could not load the code. Try again.' });
+    await tap(button('Show code'));
+    expect(topDialog().textContent).toContain('Could not load the code. Try again.');
+    await tap(button('Show code'));
+    expect(topDialog().textContent).toContain(pin);
+  });
+
+  it('changes a code preserving leading zeroes, then copies and shares the new code', async () => {
+    users = [row()];
+    await open('admin');
+    await openDetail();
+    await tap(button('Show code'));
+    await tap(button('Change code'));
+    expect(text()).not.toContain(pin);
+    await enter('Code', '001234');
+    await tap(button('Save code'));
+    expect(sent('yale_access/set_pin')).toEqual([{ type: 'yale_access/set_pin', user_id: 'synthetic-guest', pin: '001234' }]);
+    expect(topDialog().textContent).toContain('001234');
+    await tap(button('Copy'));
+    expect(copy).toHaveBeenCalledExactlyOnceWith('001234');
+    await tap(button('Share'));
+    expect(share).toHaveBeenCalledExactlyOnceWith({ title: 'Door code', text: 'Door code: 001234\nValid Always' });
+    await tap(button('Done'));
+    expect(text()).not.toContain('001234');
+    expect(text()).not.toContain(pin);
+    expect(topDialog().textContent).toContain('••••••');
+  });
+
+  it.each(['', '001234'])('includes the optional create PIN only when filled: %j', async code => {
+    await open('admin');
+    await newGuest();
+    if (code) await enter('Code', code);
+    await tap(button('Create guest'));
+    const request = sent('yale_access/create')[0];
+    expect(request).toEqual({ type: 'yale_access/create', name: 'Test guest', ...(code ? { pin: code } : {}) });
+    expect(Object.hasOwn(request, 'pin')).toBe(Boolean(code));
+  });
+
+  it.each(['create', 'change'] as const)('validates %s codes against pin_length rather than six', async mode => {
+    pinLength = 4;
+    users = [row()];
+    await open('admin');
+    if (mode === 'create') await newGuest();
+    else {
+      await openDetail();
+      await tap(button('Change code'));
+    }
+    const code = input('Code')!;
+    expect(code.inputMode).toBe('numeric');
+    expect(code.autocomplete).toBe('off');
+    expect(code.pattern).toBe('[0-9]{4}');
+    expect(code.required).toBe(mode === 'change');
+    for (const invalid of ['123', '123456', '12a4', '１２３４']) {
+      await enter('Code', invalid);
+      expect(code.checkValidity()).toBe(false);
+      await act(async () => code.form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+      expect(sent(mode === 'create' ? 'yale_access/create' : 'yale_access/set_pin')).toEqual([]);
+    }
+    await enter('Code', '0123');
+    await tap(button(mode === 'create' ? 'Create guest' : 'Save code'));
+    expect(sent(mode === 'create' ? 'yale_access/create' : 'yale_access/set_pin')[0].pin).toBe('0123');
+    expect(topDialog().textContent).toContain('0123');
+  });
+
+  it('uses six digits when pin_length is missing and Random fills a valid code', async () => {
+    users = [row()];
+    await open('admin');
+    await openDetail();
+    await tap(button('Change code'));
+    expect(input('Code')!.pattern).toBe('[0-9]{6}');
+    await tap(button('Random'));
+    expect(input('Code')!.value).toMatch(/^[0-9]{6}$/);
+    await tap(button('Save code'));
+    expect(sent('yale_access/set_pin')).toHaveLength(1);
+  });
+
+  it('keeps Always out of every guests-role screen', async () => {
+    users = [row()];
+    await open('guests');
+    expect(text()).not.toContain('Always');
+    await openDetail();
+    expect(text()).not.toContain('Always');
+    await tap(button('Change period'));
+    expect(text()).not.toContain('Always');
+    expect(button('Always')).toBeUndefined();
+    expect(input('From')).toBeTruthy();
+    await tap(button('Close'));
+    await tap(button('Change code'));
+    expect(text()).not.toContain('Always');
+    await enter('Code', '123456');
+    await tap(button('Save code'));
+    expect(text()).not.toContain('Always');
   });
 });

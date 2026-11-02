@@ -18,6 +18,14 @@ export async function fetchRole(connection: Connection): Promise<GuestRole | nul
   return reply?.role === 'admin' || reply?.role === 'guests' ? reply.role : null;
 }
 
+export async function fetchPinLength(connection: Connection): Promise<number> {
+  requireConnection(connection);
+  const reply = await connection.sendMessagePromise<{ pin_length?: number }>({ type: 'yale_access/me' });
+  const length = reply?.pin_length ?? 6;
+  if (!Number.isInteger(length) || length < 1) throw new Error('The lock returned an invalid code length.');
+  return length;
+}
+
 export async function fetchUsers(connection: Connection): Promise<GuestUser[]> {
   requireConnection(connection);
   const reply = await connection.sendMessagePromise<{ users: GuestUser[] }>({ type: 'yale_access/users' });
@@ -41,9 +49,27 @@ function requireCurrentConnection(connection: Connection) {
   if (useHass.getState().connection !== connection) throw new Error('The connection has changed. Open Guest codes again.');
 }
 
-export async function createGuest(connection: Connection, name: string, period: Period) {
+export async function createGuest(connection: Connection, name: string, period: Period, pin?: string) {
   requireCurrentConnection(connection);
-  return connection.sendMessagePromise<{ user: GuestUser; pin: string }>({ type: 'yale_access/create', name, ...period });
+  return connection.sendMessagePromise<{ user: GuestUser; pin: string }>({
+    type: 'yale_access/create',
+    name,
+    ...period,
+    ...(pin ? { pin } : {}),
+  });
+}
+
+export async function fetchPin(connection: Connection, user_id: string) {
+  requireCurrentConnection(connection);
+  const reply = await connection.sendMessagePromise<{ pin: string }>({ type: 'yale_access/pin', user_id });
+  requireCurrentConnection(connection);
+  if (typeof reply?.pin !== 'string' || !/^[0-9]+$/.test(reply.pin)) throw new Error('Could not read the code. Try again.');
+  return reply.pin;
+}
+
+export async function setPin(connection: Connection, user_id: string, pin: string) {
+  requireCurrentConnection(connection);
+  return connection.sendMessagePromise<{ user: GuestUser }>({ type: 'yale_access/set_pin', user_id, pin });
 }
 
 export async function setValidity(connection: Connection, user_id: string, period: Period) {
