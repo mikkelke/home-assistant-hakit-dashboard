@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities } from '../../types';
 import { HEAT_RELAY_POWER_SENSOR } from '../../utils/heatEnergy';
@@ -10,6 +10,8 @@ import {
   heatNum,
 } from '../../utils/heating';
 import { ApplianceSheet } from '../Appliance';
+import { InfoToggle, Legend } from './HeatInfo';
+import type { LegendRow } from './legend';
 import { Glyph } from './ZoneGlyph';
 import { loopRows } from './zoneMeta';
 import './HeatPlant.css';
@@ -98,6 +100,20 @@ function Delta({ icon, label, value }: { icon: string; label: string; value: num
   );
 }
 
+/** One row for each thing the plant view shows. */
+const PLANT_LEGEND: readonly LegendRow[] = [
+  { icon: 'mdi:home-import-outline', text: 'Building: the hot water the building delivers, and what goes back.' },
+  { icon: 'mdi:thermometer-chevron-up', text: 'Floor: the water sent into the floors, and what comes back from them.' },
+  { icon: 'mdi:valve', text: 'Building water is mixed with water back from the floors, so the floors get no hotter than they may.' },
+  { icon: 'mdi:home-outline', figure: 'Δ', text: 'How much the flat cools the building water: the bigger, the more heat it takes.' },
+  { icon: 'mdi:swap-vertical', figure: 'Δ', text: 'How much the floors cool their water on one round.' },
+  { icon: 'mdi:waves-arrow-right', text: 'The pump runs and water flows while a zone calls; paused when none does.' },
+  { figure: 'L/min', text: 'How much water a loop gets, set by hand at the manifold.' },
+  { figure: 'Return', text: "The water coming back from that loop's floor." },
+  { figure: 'ΔT', text: 'How much that floor cooled the water: the heat it gave the room.' },
+  { figure: 'W', text: 'The heat a loop gives the room now; only while its zone calls.' },
+];
+
 /** The plant view: the supply and return pairs of the building and of the floor circuit with the drop across each,
  * and one table row per floor loop. A loop's power shows only while its zone calls, since an idle loop's return just
  * reads the manifold. */
@@ -106,6 +122,7 @@ export function PlantSheet({ entities, onClose }: { entities: HassEntities; onCl
   const relayW = heatNum(entities[HEAT_RELAY_POWER_SENSOR]?.state);
   const flowing = waterFlows(entities);
   const loops = loopRows(entities);
+  const [infoOpen, setInfoOpen] = useState(false);
 
   return (
     <ApplianceSheet
@@ -113,9 +130,11 @@ export function PlantSheet({ entities, onClose }: { entities: HassEntities; onCl
       glyphIcon='mdi:pipe'
       title='Plant'
       historyKey='heating-plant'
+      headerAction={<InfoToggle open={infoOpen} onToggle={() => setInfoOpen(open => !open)} />}
       onClose={onClose}
     >
       <div className='climate-scroll' tabIndex={0} role='region' aria-label='Plant details'>
+        {infoOpen && <Legend rows={PLANT_LEGEND} />}
         <section className='heat-plant-chain' aria-label='Supply and return'>
           <Node label='Building supply' short='Building' icon='mdi:home-import-outline' tempC={buildingSupply} tone='supply' />
           <Icon className='heat-plant-link' icon='mdi:valve' aria-hidden='true' />
