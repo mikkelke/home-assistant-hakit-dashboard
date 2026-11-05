@@ -683,7 +683,7 @@ function RecipesTab({
         <div className='cc-usual'>
           <div className='cc-usual-h'>
             <Icon icon='mdi:check' aria-hidden='true' />
-            <b>Selected</b>
+            <b>{usual.name}</b>
             <span>
               {[`${usual.pours.length} pours`, usual.pours[0]?.tempC != null ? `${Math.round(usual.pours[0].tempC)}°` : null]
                 .filter(Boolean)
