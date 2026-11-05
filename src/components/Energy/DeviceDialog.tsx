@@ -5,6 +5,7 @@ import { useHass } from '@hakit/core';
 import { deviceCostExact, useEnergyConfig, type DeviceUsage, type Period } from '../../energy';
 import { labelFor, startOfLocalDay } from '../../energy/period';
 import { fetchStatistics } from '../../energy/ws';
+import { ENERGY_DEVICE_THERMOMETERS } from '../../config/energy';
 import { useModalBackButton } from '../../hooks';
 import { formatKr, formatKWh } from '../../utils/format';
 import './DeviceDialog.css';
@@ -38,6 +39,11 @@ export function DeviceDialog({ device, period, anchorStartMs, rangeEndMs, onClos
   const { requestClose } = useModalBackButton({ isOpen: true, onRequestClose: onClose, historyKey: 'energy-device' });
   const connection = useHass(s => s.connection);
   const { config } = useEnergyConfig();
+  const thermometerId = ENERGY_DEVICE_THERMOMETERS[device.statId];
+  const insideC = useHass(s => {
+    const value = thermometerId ? Number.parseFloat(s.entities[thermometerId]?.state ?? '') : Number.NaN;
+    return Number.isFinite(value) ? value : null;
+  });
 
   // Clock-in-state (purity lint forbids a bare Date.now() in render): read once at mount, used
   // only to phrase the period label ("Today" vs a weekday name) the same way the page itself does.
@@ -103,6 +109,12 @@ export function DeviceDialog({ device, period, anchorStartMs, rangeEndMs, onClos
         <p className='device-dialog-period'>{labelFor(period, anchorStartMs, todayStartMs)}</p>
 
         <div className='device-dialog-body'>
+          {insideC != null && (
+            <div className='device-dialog-row'>
+              <span className='device-dialog-label'>Inside now</span>
+              <span className='device-dialog-value'>{insideC.toFixed(1)} °C</span>
+            </div>
+          )}
           <div className='device-dialog-row'>
             <span className='device-dialog-label'>Consumption</span>
             <span className='device-dialog-value'>{formatKWh(device.kWh)}</span>

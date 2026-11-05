@@ -42,6 +42,13 @@ export const ENERGY_DEVICE_ICONS: Readonly<Record<string, string>> = {
   'sensor.technical_relay_energy': 'mdi:server-network',
 };
 
+/** The thermometer inside an energy device, by statistic id: its dialog shows the temperature next to the
+ * consumption. A device whose thermometer is not in Home Assistant shows no temperature. */
+export const ENERGY_DEVICE_THERMOMETERS: Readonly<Record<string, string>> = {
+  'sensor.fridge_plug_energy': 'sensor.fridge_thermometer_temperature',
+  'sensor.wine_fridge_energy': 'sensor.wine_fridge_thermometer_temperature',
+};
+
 /** First month the bill history shows (the meter's statistics start in December 2025). */
 export const BILL_HISTORY_START = { year: 2025, monthIndex: 11 } as const;
 export const BILL_HISTORY_MAX_MONTHS = 12;
