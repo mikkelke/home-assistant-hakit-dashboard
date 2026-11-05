@@ -13,6 +13,7 @@ import {
   zoneCallSensorId,
   type HeatingZone,
 } from '../../../utils/heating';
+import { clearZoneDayCache } from '../zoneDay';
 import { BEDROOM_FLOOR_ENTITY } from '../zoneMeta';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -115,6 +116,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date(2026, 10, 5, 11, 35));
   hass.history = vi.fn(() => new Promise(() => {}));
+  clearZoneDayCache();
   root = createRoot(document.body.appendChild(document.createElement('div')));
 });
 
@@ -1066,6 +1068,534 @@ describe('the bedroom row', () => {
     expect(document.querySelector('.heat-zone-sheet')).toBeNull();
     act(() => (document.querySelector('button.heat-zone-row') as HTMLElement).click());
     expect(document.querySelector('.heat-zone-sheet')).not.toBeNull();
+  });
+});
+
+const openZone = (index = 0) => act(() => (document.querySelectorAll('button.heat-zone-row')[index] as HTMLElement).click());
+const sheet = () => document.querySelector('.heat-zone-sheet') as HTMLElement;
+const infoToggle = (scope: ParentNode) => scope.querySelector('[aria-label="What do these mean?"]') as HTMLButtonElement;
+const legendTexts = (scope: ParentNode) => [...scope.querySelectorAll('.heat-legend-text')].map(text => text.textContent);
+
+describe('the zone sheet legend', () => {
+  const family = () =>
+    zone('family', '22.0', {
+      day_blocks: [
+        { start: '00:00', end: '06:00', mode: 'hold', setpoint: '21.5' },
+        { start: '06:00', end: '15:00', mode: 'sun_cut', setpoint: '21.0' },
+        { start: '15:00', end: '24:00', mode: 'hold', setpoint: '21.5' },
+      ],
+    });
+
+  it('opens from an (i) in the sheet header and closes again', () => {
+    renderPage(family());
+    openZone();
+    const toggle = infoToggle(sheet().querySelector('.appliance-sheet-top')!);
+    expect(toggle.classList.contains('heat-info-btn')).toBe(true);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(icons(toggle)).toEqual(['mdi:information-outline']);
+    expect(sheet().querySelector('.heat-legend')).toBeNull();
+    act(() => toggle.click());
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(sheet().querySelector('.heat-legend')).not.toBeNull();
+    act(() => toggle.click());
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(sheet().querySelector('.heat-legend')).toBeNull();
+  });
+
+  it('gives each thing on the sheet its icon and a plain sentence', () => {
+    renderPage(family());
+    openZone();
+    act(() => infoToggle(sheet()).click());
+    const legend = sheet().querySelector('.heat-legend') as HTMLElement;
+    expect(legendTexts(legend)).toEqual([
+      'Air: the room air the controller steers by.',
+      'Target: what the plan wants right now.',
+      'Setpoint: what the thermostat is set to. It can differ from the target to make up for where the thermostat sits and for the weather.',
+      'Floor: the floor surface, the warmer of the two in the family room.',
+      "Coloured blocks are the day's plan, with its target.",
+      'Mode: holding the plan.',
+      'Mode: sun cut.',
+      'Orange marks are when the floor called for heat.',
+      'The line is now.',
+      'The chart draws air, target and floor through the day. Drag over it to read a moment.',
+      'Hours the floor called for heat today / hours predicted.',
+      'Heating hours the sun should save today.',
+      'Yesterday: hours called / predicted, then the share of 07–23 the air stayed within 0.5° of the target.',
+      'The last person who turned this room up or down, and when.',
+      'Base: your base temperature. The schedule moves around it.',
+      'Solid: the controller steers this thermostat.',
+      'Dashed ring: shadow, it only calculates and the thermostat keeps its own setting.',
+    ]);
+    const rowIcons = [...legend.querySelectorAll('.heat-legend-row')].map(row => icons(row));
+    expect(rowIcons.slice(0, 4)).toEqual([['mdi:home-thermometer-outline'], ['mdi:target'], ['mdi:radiator'], ['mdi:heat-wave']]);
+    expect(rowIcons.slice(10, 15)).toEqual([
+      ['mdi:timer-sand'],
+      ['mdi:white-balance-sunny'],
+      ['mdi:calendar-arrow-left'],
+      ['mdi:account-outline'],
+      ['mdi:home-outline'],
+    ]);
+    expect(legend.querySelector('.heat-zone-glyph.is-live')).not.toBeNull();
+    expect(legend.querySelector('.heat-zone-glyph.is-shadow')).not.toBeNull();
+    expect(sheet().querySelector('[title]')).toBeNull();
+  });
+
+  it('names the floor plainly outside the family room', () => {
+    renderPage(zone('kristines_room', '21.5', {}));
+    openZone(1);
+    act(() => infoToggle(sheet()).click());
+    expect(legendTexts(sheet())).toContain('Floor: the floor surface.');
+    expect(legendTexts(sheet()).filter(text => text?.startsWith('Mode:'))).toEqual([]);
+  });
+
+  it('explains a past day by what that day shows, and the heat estimate only for a zone the meter can see', async () => {
+    hass.history = vi.fn().mockResolvedValue({});
+    renderPage(zone('guest_bathroom', '20.0', {}));
+    openZone(4);
+    act(() => infoToggle(sheet()).click());
+    act(() => (sheet().querySelector('[aria-label="Previous day"]') as HTMLElement).click());
+    await flush();
+    const texts = legendTexts(sheet());
+    expect(texts).toContain('Hours the floor called for heat that day.');
+    expect(texts).toContain('Lowest and highest air that day.');
+    expect(texts).not.toContain('Estimated district heat of those hours, in kWh.');
+    expect(texts).not.toContain('The line is now.');
+    expect(texts).not.toContain('Hours the floor called for heat today / hours predicted.');
+  });
+});
+
+describe('what the sheet says about the last signal, the shadow and stale inputs', () => {
+  const reasonTexts = () => [...sheet().querySelectorAll('.heat-reasons li')].map(item => item.textContent);
+
+  it('writes the last signal as a sentence in the reasons and keeps the chip', () => {
+    renderPage(
+      zone('family', '22.0', {
+        last_signal: { at: clock(6, 42).toISOString(), who: 'Mikkel', source: 'ha', direction: 'warmer', effect: 'target_set' },
+      })
+    );
+    openZone();
+    expect(reasonTexts()).toContain('Mikkel turned it up in the app at 06:42');
+    expect(sheet().querySelector('.heat-reasons')?.textContent).not.toMatch(/Last signal|target set|via/);
+    const chip = sheet().querySelector('.heat-chips [aria-label="Mikkel turned it up in the app at 06:42"]') as HTMLElement;
+    expect(chip.textContent).toBe('Mikkel06:42');
+    expect(icons(chip)).toEqual(['mdi:account-outline', 'mdi:arrow-up']);
+  });
+
+  it('falls back to plain words when the controller could not say who, which way or where', () => {
+    renderPage(
+      zone('family', '22.0', { last_signal: { at: clock(21, 5).toISOString(), who: 'unknown', source: 'keypad', effect: 'ignored' } })
+    );
+    openZone();
+    expect(reasonTexts()).toContain('Someone changed it on the thermostat at 21:05');
+    const chip = sheet().querySelector('.heat-chips .climate-chip:last-child') as HTMLElement;
+    expect(chip.textContent).toBe('21:05');
+    expect(icons(chip)).toEqual(['mdi:account-outline']);
+    expect(sheet().textContent).not.toMatch(/unknown|ignored/i);
+  });
+
+  it('shows a muted line first in the reasons of a zone that only calculates', () => {
+    renderPage(zone('family', '22.0', { live: 'false', reasons: ['Setpoint 21.5 (trim +0.00)'] }));
+    openZone();
+    expect(reasonTexts()).toEqual(['Shadow: only calculates, the thermostat keeps its own setting', 'Setpoint 21.5 (trim +0.00)']);
+    expect(sheet().querySelector('.heat-reasons li')?.className).toBe('is-shadow');
+  });
+
+  it.each(['true', true])('has no shadow line for a zone the controller steers (live: %s)', live => {
+    renderPage(zone('family', '22.0', { live, reasons: ['Setpoint 21.5 (trim +0.00)'] }));
+    openZone();
+    expect(reasonTexts()).toEqual(['Setpoint 21.5 (trim +0.00)']);
+  });
+
+  it('never shows the placeholder for no stale inputs, and shows a real one', () => {
+    renderPage(zone('family', '22.0', { stale_inputs: ['<none>'], reasons: ['Setpoint 21.5 (trim +0.00)'] }));
+    openZone();
+    expect(sheet().querySelector('.is-stale')).toBeNull();
+    expect(sheet().textContent).not.toContain('<none>');
+    expect(sheet().textContent).not.toContain('Stale');
+    act(() => (document.querySelector('.appliance-sheet-close') as HTMLElement).click());
+    renderPage(zone('family', '22.0', { stale_inputs: ['sensor.kitchen_feel', '<none>'] }));
+    openZone();
+    expect([...sheet().querySelectorAll('.is-stale')].map(item => item.textContent)).toEqual(['Stale: sensor.kitchen_feel']);
+  });
+});
+
+/** A moment on `date` November 2026, local time, as the unix seconds Home Assistant's history carries. */
+const unixOn = (date: number, hour: number, minute = 0) => new Date(2026, 10, date, hour, minute).getTime() / 1000;
+
+/** Everything the recorder holds of the family zone on `date`: a call from 06:00 to 08:00, the living room warming up at noon. */
+const familyDay = (date: number) => ({
+  [zoneCallSensorId('family')]: [
+    { s: 'off', lu: unixOn(date, 0) },
+    { s: 'on', lu: unixOn(date, 6) },
+    { s: 'off', lu: unixOn(date, 8) },
+  ],
+  'sensor.heating_zone_family': [
+    { s: '21.5', lu: unixOn(date, 0) },
+    { s: '22.0', lu: unixOn(date, 15) },
+  ],
+  'sensor.living_room_feel': [
+    { s: '21.0', lu: unixOn(date, 0) },
+    { s: '23.0', lu: unixOn(date, 12) },
+  ],
+  'sensor.dining_room_feel': [{ s: '21.0', lu: unixOn(date, 0) }],
+  'sensor.kitchen_feel': [{ s: '21.0', lu: unixOn(date, 0) }],
+  [LIVING_FLOOR]: [{ s: '23.0', lu: unixOn(date, 0) }],
+  [DINING_FLOOR]: [
+    { s: '22.5', lu: unixOn(date, 0) },
+    { s: '24.0', lu: unixOn(date, 9) },
+  ],
+});
+
+describe('the day browser in the zone sheet', () => {
+  const dayRequests = () =>
+    ((hass.history as Mock).mock.calls.map(call => call[0]) as Record<string, unknown>[]).filter(request =>
+      (request.entity_ids as string[]).includes('sensor.living_room_feel')
+    );
+  const label = () => sheet().querySelector('.heat-daynav-label')?.textContent;
+  const nav = (name: 'Previous day' | 'Next day') => sheet().querySelector(`[aria-label="${name}"]`) as HTMLButtonElement;
+  const goBack = async (days = 1) => {
+    for (let i = 0; i < days; i += 1) {
+      act(() => nav('Previous day').click());
+      await flush();
+    }
+  };
+  /** The recorder's answer: the family zone's day to a request that names its feel sensors, else today's calls for the page's own strip. */
+  const answer = (request: Record<string, unknown>) => {
+    const ids = request.entity_ids as string[];
+    if (!ids.includes('sensor.living_room_feel')) {
+      return {
+        [zoneCallSensorId('family')]: [
+          { s: 'off', lu: unixOn(5, 0) },
+          { s: 'on', lu: unixOn(5, 6) },
+          { s: 'off', lu: unixOn(5, 7, 30) },
+        ],
+      };
+    }
+    return familyDay(new Date(String(request.start_time)).getDate());
+  };
+  const open = async () => {
+    hass.history = vi.fn(request => Promise.resolve(answer(request)));
+    renderPage(
+      zone('family', '22.0', {
+        day_blocks: [{ start: '00:00', end: '24:00', mode: 'hold', setpoint: '21.5' }],
+        last_signal: { at: clock(6, 42).toISOString(), who: 'Mikkel', source: 'ha', direction: 'warmer' },
+      })
+    );
+    await flush();
+    openZone();
+    await flush();
+  };
+
+  it('starts on today with the strip, the chips and the reasons, and cannot go forward', async () => {
+    await open();
+    expect(label()).toBe('Today');
+    expect(nav('Next day').disabled).toBe(true);
+    expect(nav('Previous day').disabled).toBe(false);
+    expect(icons(nav('Previous day'))).toEqual(['mdi:chevron-left']);
+    expect(icons(nav('Next day'))).toEqual(['mdi:chevron-right']);
+    expect(sheet().querySelector('.heat-day')).not.toBeNull();
+    expect(sheet().querySelector('.heat-chips:not(.heat-day-summary)')).not.toBeNull();
+    expect(sheet().querySelector('.heat-reasons')).not.toBeNull();
+    expect(sheet().querySelector('.heat-day-summary')).toBeNull();
+  });
+
+  it('draws the chart of today as well, up to now, with the stretches the floor called along the bottom', async () => {
+    await open();
+    const svg = sheet().querySelector('svg.heat-chart-svg') as SVGElement;
+    expect(svg).not.toBeNull();
+    expect([...svg.querySelectorAll('path.heat-chart-line')].map(path => path.getAttribute('class'))).toEqual([
+      'heat-chart-line is-floor',
+      'heat-chart-line is-target',
+      'heat-chart-line is-air',
+    ]);
+    expect(svg.querySelector('.heat-chart-now')).not.toBeNull();
+    const marks = [...svg.querySelectorAll('.heat-chart-call')];
+    expect(marks).toHaveLength(1);
+    expect(parseFloat(marks[0].getAttribute('x') as string)).toBeCloseTo(38 + 0.25 * 552, 6);
+    expect(parseFloat(marks[0].getAttribute('width') as string)).toBeCloseTo((1.5 / 24) * 552, 6);
+    expect(icons(sheet().querySelector('.heat-chart-key')!)).toEqual(['mdi:home-thermometer-outline', 'mdi:target', 'mdi:heat-wave']);
+    const request = dayRequests().pop()!;
+    expect(request.start_time).toBe(clock(0).toISOString());
+    expect(request.end_time).toBe(clock(11, 35).toISOString());
+  });
+
+  it("reads the day before in one call for the zone's sensors and shows its calls, chart and summary", async () => {
+    await open();
+    await goBack();
+    expect(label()).toBe('Yesterday');
+    const requests = dayRequests().filter(request => request.start_time === new Date(2026, 10, 4).toISOString());
+    expect(requests).toEqual([
+      {
+        type: 'history/history_during_period',
+        start_time: new Date(2026, 10, 4).toISOString(),
+        end_time: new Date(2026, 10, 5).toISOString(),
+        entity_ids: [
+          zoneCallSensorId('family'),
+          'sensor.heating_zone_family',
+          'sensor.living_room_feel',
+          'sensor.dining_room_feel',
+          'sensor.kitchen_feel',
+          LIVING_FLOOR,
+          DINING_FLOOR,
+        ],
+        include_start_time_state: true,
+        significant_changes_only: false,
+        minimal_response: true,
+        no_attributes: true,
+      },
+    ]);
+    expect(nav('Next day').disabled).toBe(false);
+    const marks = [...sheet().querySelectorAll('.heat-chart-call')];
+    expect(marks).toHaveLength(1);
+    expect(parseFloat(marks[0].getAttribute('x') as string)).toBeCloseTo(38 + 0.25 * 552, 6);
+    expect(parseFloat(marks[0].getAttribute('width') as string)).toBeCloseTo((2 / 24) * 552, 6);
+    expect(sheet().querySelector('.heat-chart-now')).toBeNull();
+    const chips = [...sheet().querySelectorAll('.heat-day-summary .climate-chip')];
+    expect(chips.map(chip => chip.textContent)).toEqual(['2.0 h', '2.2 kWh', '21.0–21.7°']);
+    expect(chips.map(chip => icons(chip)[0])).toEqual(['mdi:timer-sand', 'mdi:flash-outline', 'mdi:home-thermometer-outline']);
+  });
+
+  it('leaves what is only true of now out of a past day, and brings it back with today', async () => {
+    await open();
+    await goBack();
+    expect(sheet().querySelector('.heat-day')).toBeNull();
+    expect(sheet().querySelector('.heat-chips:not(.heat-day-summary)')).toBeNull();
+    expect(sheet().querySelector('.heat-reasons')).toBeNull();
+    expect(sheet().querySelector('.heat-tiles')).not.toBeNull();
+    expect(sheet().querySelector('.climate-stepper')).not.toBeNull();
+    act(() => nav('Next day').click());
+    await flush();
+    expect(label()).toBe('Today');
+    expect(nav('Next day').disabled).toBe(true);
+    expect(sheet().querySelector('.heat-day')).not.toBeNull();
+    expect(sheet().querySelector('.heat-reasons')).not.toBeNull();
+    expect(sheet().querySelector('.heat-day-summary')).toBeNull();
+  });
+
+  it('remembers a day it has read, and reads today again', async () => {
+    await open();
+    await goBack();
+    const afterFirst = dayRequests().length;
+    act(() => nav('Next day').click());
+    await flush();
+    await goBack();
+    const yesterdays = dayRequests().filter(request => request.start_time === new Date(2026, 10, 4).toISOString());
+    expect(yesterdays).toHaveLength(1);
+    expect(dayRequests().length).toBe(afterFirst + 1);
+    expect(label()).toBe('Yesterday');
+  });
+
+  it('labels older days by weekday and date and stops 30 days back', async () => {
+    await open();
+    await goBack(2);
+    expect(label()).toBe('Tue 3 Nov');
+    await goBack(28);
+    expect(label()).toBe('Tue 6 Oct');
+    expect(nav('Previous day').disabled).toBe(true);
+    expect(nav('Next day').disabled).toBe(false);
+    act(() => nav('Next day').click());
+    await flush();
+    expect(label()).toBe('Wed 7 Oct');
+  });
+
+  it('holds the day it is on when midnight passes', async () => {
+    await open();
+    await goBack();
+    await act(async () => vi.advanceTimersByTimeAsync(13 * 3600 * 1000));
+    expect(label()).toBe('Wed 4 Nov');
+  });
+
+  it('shows a dimmed placeholder while the day loads', async () => {
+    hass.history = vi.fn(() => new Promise(() => {}));
+    renderPage(zone('family', '22.0', {}));
+    openZone();
+    expect(sheet().querySelector('svg.heat-chart-svg')).toBeNull();
+    expect(sheet().querySelector('.heat-chart-empty.is-loading')).not.toBeNull();
+    act(() => nav('Previous day').click());
+    expect(sheet().querySelector('.heat-chart-empty.is-loading')).not.toBeNull();
+    expect(sheet().querySelectorAll('.heat-day-summary .heat-chip-loading')).toHaveLength(3);
+    expect(sheet().querySelector('.heat-day-summary')?.textContent).toBe('');
+  });
+
+  it('shows a quiet dash, and nothing else changes, when the day cannot be read', async () => {
+    hass.history = vi.fn().mockRejectedValue(new Error('connection closed'));
+    renderPage(zone('family', '22.0', {}));
+    openZone();
+    await flush();
+    expect(sheet().querySelector('.heat-chart-empty')?.textContent).toBe('—');
+    expect(sheet().querySelector('.heat-chart-empty.is-loading')).toBeNull();
+    await goBack();
+    expect(label()).toBe('Yesterday');
+    expect(sheet().querySelector('.heat-chart-empty')?.textContent).toBe('—');
+    expect(sheet().querySelector('.heat-day-summary')?.textContent).toBe('—');
+    expect(sheet().querySelector('.heat-tiles')).not.toBeNull();
+    hass.history = vi.fn(request => Promise.resolve(answer(request)));
+    act(() => nav('Next day').click());
+    await flush();
+    await goBack();
+    expect(sheet().querySelector('svg.heat-chart-svg')).not.toBeNull();
+    expect(sheet().querySelector('.heat-chart-empty')).toBeNull();
+  });
+
+  it('shows a dash for a day with no history at all', async () => {
+    hass.history = vi.fn().mockResolvedValue({});
+    renderPage(zone('family', '22.0', {}));
+    openZone();
+    await flush();
+    await goBack();
+    expect(sheet().querySelector('.heat-chart-empty')?.textContent).toBe('—');
+    expect([...sheet().querySelectorAll('.heat-day-summary .climate-chip')].map(chip => chip.textContent)).toEqual(['—', '—']);
+  });
+
+  it('reads off the moment a tap lands on, and puts the callout away on a second tap', async () => {
+    await open();
+    await goBack();
+    const svg = sheet().querySelector('svg.heat-chart-svg') as SVGElement;
+    const press = (type: string) =>
+      svg.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 1, pointerType: 'touch', clientX: 0, clientY: 0 }));
+    act(() => {
+      press('pointerdown');
+      press('pointerup');
+    });
+    const callout = () => sheet().querySelector('.chart-callout');
+    expect(callout()?.querySelector('.chart-callout-title')?.textContent).toBe('00:02');
+    expect(callout()?.querySelector('.chart-callout-primary')?.textContent).toBe('21.0°');
+    expect(callout()?.querySelector('.chart-callout-secondary')?.textContent).toBe('Target 21.5° · Floor 23.0°');
+    expect(svg.querySelector('.heat-chart-guide')).not.toBeNull();
+    act(() => {
+      press('pointerdown');
+      press('pointerup');
+    });
+    expect(callout()).toBeNull();
+  });
+});
+
+describe('the legends of the heat card and the zone rows', () => {
+  const card = () => document.querySelector('.heat-demand') as HTMLElement;
+  const zones = () => document.querySelector('.heat-zones') as HTMLElement;
+
+  it('opens an explanation of the heat card from an (i) on it', () => {
+    renderPage(
+      ...heatDay(),
+      entity('sensor.ista_heat_price', '1.031'),
+      entity('sensor.floor_heating_relay_power', '16.3'),
+      calling('family_room')
+    );
+    const toggle = infoToggle(card());
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(card().querySelector('.heat-legend')).toBeNull();
+    act(() => toggle.click());
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(legendTexts(card())).toEqual([
+      'Heat used so far today, estimated from the hours each zone called.',
+      'About what that heat costs.',
+      'Hours the floors called for heat today, all zones together.',
+      'A lit zone is calling for heat now.',
+      'What the floor-heating pump draws; orange while a zone calls.',
+      'The bar is the heat used so far today.',
+      "Yesterday's total, in kWh.",
+      'What the controller planned for today, in kWh.',
+      'What a sunless day would need, in kWh.',
+      'Solid: the controller steers this thermostat.',
+      'Dashed ring: shadow, it only calculates and the thermostat keeps its own setting.',
+      'Orange marks are when a zone called for heat.',
+      'Faint colour is where the plan was in a special mode, such as sun cut or window open.',
+      'The line is now.',
+      'Hours a zone called / hours planned today.',
+    ]);
+    const legend = card().querySelector('.heat-legend') as HTMLElement;
+    expect(icons(legend)).toEqual(
+      expect.arrayContaining([
+        'mdi:cash',
+        'mdi:timer-sand',
+        'mdi:fire',
+        'mdi:calendar-arrow-left',
+        'mdi:robot-outline',
+        'mdi:weather-cloudy',
+      ])
+    );
+    expect(legend.querySelector('.heat-zone-glyph.is-calling')).not.toBeNull();
+    expect(legend.querySelector('.heat-zone-glyph.is-live')).not.toBeNull();
+    expect(legend.querySelector('.heat-zone-glyph.is-shadow')).not.toBeNull();
+    expect(card().querySelector('[title]')).toBeNull();
+    act(() => toggle.click());
+    expect(card().querySelector('.heat-legend')).toBeNull();
+  });
+
+  it('only explains the cost, the pump and the ticks the card shows', () => {
+    renderPage(
+      zone('family', '21.5', { call_hours_today: 1, budget_today_h: 4 }),
+      idle('kristines_room'),
+      entity('sensor.floor_heating_relay_power', '1.5')
+    );
+    act(() => infoToggle(card()).click());
+    const texts = legendTexts(card());
+    expect(texts).not.toContain('About what that heat costs.');
+    expect(texts).toContain('What the floor-heating pump draws; orange while a zone calls.');
+    expect(icons(card().querySelector('.heat-legend')!)).toContain('mdi:fire-off');
+    expect(texts).toContain('What the controller planned for today, in kWh.');
+    expect(texts).not.toContain("Yesterday's total, in kWh.");
+    expect(texts).not.toContain('What a sunless day would need, in kWh.');
+  });
+
+  it('opens an explanation of the zone rows from an (i) above them', () => {
+    renderPage(
+      zone('family', '21.5', {
+        control_air: 23.7,
+        plan_mode: 'floor_cap',
+        floor_temp: 24.5,
+        floor_max_c: 24.5,
+        next_setpoint: 21,
+        next_change_at: '23:00',
+      }),
+      zone('kristines_room', '21.5', {
+        control_air: 21.9,
+        plan_mode: 'window',
+        floor_temp: 22.1,
+        floor_max_c: 24.5,
+        setpoint_now: 19,
+        next_setpoint: 21.5,
+        next_change_at: '06:30',
+      })
+    );
+    const head = zones().querySelector('.heat-zones-head') as HTMLElement;
+    const toggle = infoToggle(head);
+    expect(head.nextElementSibling?.classList.contains('heat-zone-row')).toBe(true);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    act(() => toggle.click());
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(head.nextElementSibling?.classList.contains('heat-legend')).toBe(true);
+    expect(legendTexts(zones())).toEqual([
+      'Solid: the controller steers this thermostat.',
+      'Dashed ring: shadow, it only calculates and the thermostat keeps its own setting.',
+      'Air: the room air the controller steers by.',
+      'The air against the target: above it in gold, below it in blue, grey within half a degree.',
+      'The floor is at its cap: its temperature / the highest it may reach.',
+      'Mode: window open.',
+      'The next change on the plan: the setpoint it moves to and when. The arrow shows up or down.',
+      'The bedroom is never heated.',
+    ]);
+    expect(icons(zones().querySelector('.heat-legend')!)).toEqual(
+      expect.arrayContaining(['mdi:heating-coil', 'mdi:window-open-variant', 'mdi:arrow-up', 'mdi:radiator-off'])
+    );
+    expect(zones().querySelector('.heat-legend .heat-zone-glyph.is-shadow')).not.toBeNull();
+    expect(zones().querySelector('.heat-legend .heat-zone-glyph.is-live')).not.toBeNull();
+    expect(zones().querySelector('[title]')).toBeNull();
+    expect(zones().querySelectorAll('button.heat-zone-row')).toHaveLength(5);
+  });
+
+  it('adds the snowflake only while the A/C cools the bedroom, and leaves out chips no row shows', () => {
+    renderPage(
+      zone('family', '21.5', { control_air: 22 }),
+      entity('climate.air_conditioner_thermostat', 'cool', { hvac_action: 'cooling' })
+    );
+    act(() => infoToggle(zones()).click());
+    expect(legendTexts(zones())).toContain('The A/C is cooling the bedroom.');
+    expect(icons(zones().querySelector('.heat-legend')!)).toContain('mdi:snowflake');
+    expect(legendTexts(zones())).not.toContain('The floor is at its cap: its temperature / the highest it may reach.');
+    expect(legendTexts(zones()).filter(text => text?.startsWith('Mode:'))).toEqual([]);
+    renderPage(zone('family', '21.5', { control_air: 22 }));
+    expect(legendTexts(zones())).not.toContain('The A/C is cooling the bedroom.');
   });
 });
 

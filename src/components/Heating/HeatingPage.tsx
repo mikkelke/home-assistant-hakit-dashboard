@@ -29,7 +29,9 @@ import {
 } from '../../utils/heating';
 import { HeatDemand } from './HeatDemand';
 import { PlantSheet, PlantStrip } from './HeatPlant';
+import { InfoToggle, Legend } from './HeatInfo';
 import { HeatZoneSheet } from './HeatZoneSheet';
+import { RING_ROWS, type LegendRow } from './legend';
 import { Glyph, ZoneGlyph } from './ZoneGlyph';
 import { useCallHistory } from './useCallHistory';
 import { BEDROOM_FLOOR_ENTITY, BEDROOM_META, ZONE_META, bedroomAir, zoneAir } from './zoneMeta';
@@ -134,6 +136,30 @@ function SeasonAdvisor({ entities, seasonOn }: { entities: HassEntities; seasonO
 const gapText = ({ value }: AirGap) => (value === 0 ? '0.0' : `${value > 0 ? '+' : '−'}${Math.abs(value).toFixed(1)}`);
 const gapWords = ({ value }: AirGap) =>
   value === 0 ? 'on target' : `${Math.abs(value).toFixed(1)} °C ${value > 0 ? 'above' : 'below'} target`;
+
+/** One row for each thing the zone rows show: the glyph ring, the air and its gap from the target, the chips that
+ * appear on some rows, and the bedroom row. */
+function zoneListLegend(chips: readonly (ZoneChip | null)[], cooling: boolean): LegendRow[] {
+  const rows: LegendRow[] = [
+    ...RING_ROWS,
+    { figure: '22.1°', text: 'Air: the room air the controller steers by.' },
+    { figure: '+0.6', tone: 'warm', text: 'The air against the target: above it in gold, below it in blue, grey within half a degree.' },
+  ];
+  if (chips.some(chip => chip?.kind === 'floor')) {
+    rows.push({ icon: 'mdi:heating-coil', text: 'The floor is at its cap: its temperature / the highest it may reach.' });
+  }
+  const modes = new Set(chips.flatMap(chip => (chip?.kind === 'mode' ? [chip.mode] : [])));
+  for (const mode of modes) rows.push({ icon: planModeMeta(mode).icon, text: `Mode: ${planModeMeta(mode).label.toLowerCase()}.` });
+  if (chips.some(chip => chip && chip.kind !== 'floor')) {
+    rows.push({
+      icon: 'mdi:arrow-up',
+      text: 'The next change on the plan: the setpoint it moves to and when. The arrow shows up or down.',
+    });
+  }
+  rows.push({ icon: 'mdi:radiator-off', text: 'The bedroom is never heated.' });
+  if (cooling) rows.push({ icon: 'mdi:snowflake', text: 'The A/C is cooling the bedroom.' });
+  return rows;
+}
 
 function ZoneChipView({ chip }: { chip: ZoneChip }) {
   if (chip.kind === 'floor') {
@@ -248,6 +274,7 @@ function HeatingOverview({ onClose }: HeatingPageProps) {
   const callService = useHass(state => state.helpers?.callService) as CallServiceFunction | undefined;
   const [openZone, setOpenZone] = useState<HeatingZone | null>(null);
   const [plantOpen, setPlantOpen] = useState(false);
+  const [zonesInfoOpen, setZonesInfoOpen] = useState(false);
   const swipe = useSwipeToClose(onClose);
   const onPage = (handler: ((e: TouchEvent) => void) | undefined) =>
     handler && ((e: TouchEvent) => e.currentTarget.contains(e.target as Node) && handler(e));
@@ -309,6 +336,17 @@ function HeatingOverview({ onClose }: HeatingPageProps) {
         <div className='heating-col'>
           {zones.length > 0 ? (
             <section className='heat-card heat-zones'>
+              <div className='heat-zones-head'>
+                <InfoToggle open={zonesInfoOpen} onToggle={() => setZonesInfoOpen(open => !open)} />
+              </div>
+              {zonesInfoOpen && (
+                <Legend
+                  rows={zoneListLegend(
+                    zones.map(zone => zoneChip(entities[zoneSensorId(zone)]?.attributes, heatNum(entities[zoneSensorId(zone)]?.state))),
+                    entities[AC_THERMOSTAT_ENTITY]?.attributes?.hvac_action === 'cooling'
+                  )}
+                />
+              )}
               {zones.map(zone => (
                 <ZoneRow key={zone} zone={zone} entities={entities} onOpen={() => setOpenZone(zone)} />
               ))}

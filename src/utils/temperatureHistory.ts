@@ -25,7 +25,7 @@ export function rangeStartMs(range: TemperatureRange, nowMs: number): number {
 
 /** history/history_during_period entry - either its full shape or the abbreviated one HA sends
  * for every state after the first when `minimal_response` is set (state -> `s`, last_updated -> `lu`). */
-interface RawHistoryEntry {
+export interface RawHistoryEntry {
   state?: string;
   attributes?: Record<string, unknown>;
   last_updated?: string;
@@ -51,7 +51,7 @@ function toFiniteNumber(raw: unknown): number | null {
 
 /** `attribute` set reads that attribute off each entry instead of its state - used for a fallback
  * entity whose state isn't the temperature (e.g. a climate.*'s hvac mode). */
-function normalizeHistory(entries: RawHistoryEntry[] | undefined, attribute?: string | null): TempPoint[] {
+export function normalizeHistory(entries: RawHistoryEntry[] | undefined, attribute?: string | null): TempPoint[] {
   if (!entries?.length) return [];
   const points: TempPoint[] = [];
   let lastTs = Date.now();

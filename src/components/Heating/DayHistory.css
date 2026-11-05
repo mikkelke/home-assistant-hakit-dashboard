@@ -1,0 +1,150 @@
+/* The day browser of the zone sheet: the day label with its two buttons, the chart of air, target and floor, and the
+   chips that sum a past day up. */
+
+.heat-daynav {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.heat-daynav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-1);
+  font-size: 24px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.15s ease,
+    transform 120ms var(--ease-out);
+}
+.heat-daynav-btn:active:not(:disabled) {
+  background: var(--surface-chip);
+  transform: scale(0.97);
+}
+.heat-daynav-btn:disabled {
+  color: var(--text-3);
+  opacity: 0.35;
+  cursor: default;
+}
+.heat-daynav-label {
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+/* ---- Chart ---- */
+.heat-chart {
+  margin-top: 2px;
+}
+.heat-chart .energy-callout-lane {
+  height: 3.4rem;
+}
+.heat-chart-key {
+  position: absolute;
+  top: 2px;
+  left: calc(38 / 600 * 100%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 17px;
+}
+.heat-chart-key .is-air {
+  color: var(--tone, var(--text-1));
+}
+.heat-chart-key .is-target {
+  color: var(--text-2);
+}
+.heat-chart-key .is-floor {
+  color: var(--accent-gold);
+}
+.heat-chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: pan-y;
+}
+.heat-chart-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.heat-chart-label {
+  fill: var(--text-3);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.heat-chart-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.heat-chart-line.is-air {
+  stroke: var(--tone, var(--text-1));
+  stroke-width: 2.25;
+}
+.heat-chart-line.is-target {
+  stroke: var(--text-2);
+  stroke-width: 1.5;
+  opacity: 0.75;
+}
+.heat-chart-line.is-floor {
+  stroke: var(--accent-gold);
+  stroke-width: 1;
+}
+.heat-chart-call {
+  fill: var(--heat);
+}
+.heat-chart-now {
+  stroke: var(--text-1);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  opacity: 0.5;
+}
+.heat-chart-guide {
+  stroke: var(--text-2);
+  stroke-width: 1;
+}
+.heat-chart-dot {
+  fill: var(--text-1);
+  stroke: var(--surface-card);
+  stroke-width: 2;
+}
+.heat-chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 600 / 160;
+  border-radius: 12px;
+  color: var(--text-3);
+  font-size: 18px;
+}
+.heat-chart-empty.is-loading {
+  background: var(--surface-chip);
+  opacity: 0.5;
+}
+
+/* ---- Summary chips ---- */
+.heat-day-summary {
+  margin-top: 8px;
+}
+.heat-chip-loading {
+  width: 72px;
+  background: var(--surface-chip);
+  opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heat-daynav-btn {
+    transition: none;
+  }
+}

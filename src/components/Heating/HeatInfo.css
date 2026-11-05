@@ -1,0 +1,117 @@
+/* The (i) toggle and the legend it opens, shared by the zone sheet, the heat card and the zone list. */
+
+.heat-info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 22px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 120ms var(--ease-out);
+}
+.heat-info-btn:active {
+  transform: scale(0.97);
+}
+.heat-info-btn[aria-expanded='true'] {
+  background: color-mix(in srgb, var(--accent-sky) 16%, transparent);
+  color: var(--accent-sky);
+}
+.heat-info-btn:focus-visible {
+  outline: 2px solid var(--accent-sky);
+  outline-offset: 2px;
+}
+
+.heat-legend {
+  list-style: none;
+  margin: 10px 0;
+  padding: 2px 12px;
+  border-radius: 16px;
+  background: var(--surface-chip);
+}
+.heat-legend-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 40px;
+  padding: 6px 0;
+  font-size: 13.5px;
+  line-height: 1.35;
+  color: var(--text-2);
+}
+.heat-legend-row + .heat-legend-row {
+  border-top: 1px solid var(--line);
+}
+.heat-legend-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--text-1);
+  font-size: 18px;
+}
+.heat-legend-figure {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.heat-legend-figure.is-warm {
+  color: var(--accent-gold);
+}
+.heat-legend-figure.is-cold {
+  color: var(--accent-sky);
+}
+
+.heat-legend-swatch {
+  display: block;
+  flex-shrink: 0;
+}
+.heat-legend-swatch.is-plan {
+  width: 28px;
+  height: 12px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--mode-hold, var(--heat)) 55%, var(--surface-card));
+}
+.heat-legend-swatch.is-call {
+  width: 28px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--heat);
+}
+.heat-legend-swatch.is-now {
+  width: 2px;
+  height: 22px;
+  border-radius: 1px;
+  background: var(--text-1);
+}
+.heat-legend-swatch.is-band {
+  width: 28px;
+  height: 12px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--mode-sun_cut, var(--text-3)) 24%, transparent);
+}
+.heat-legend-swatch.is-bar {
+  width: 28px;
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--heat) 70%, var(--surface-card)), var(--heat));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heat-info-btn {
+    transition: none;
+  }
+}

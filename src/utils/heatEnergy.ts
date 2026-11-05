@@ -11,6 +11,9 @@ export const KW_FIT: Record<HeatingZone, number> = {
   guest_bathroom: 0,
 };
 
+/** The district heat a zone draws in `hours` of calling, in kWh. */
+export const zoneKwh = (zone: HeatingZone, hours: number): number => hours * KW_FIT[zone];
+
 /** DKK per kWh of district heat, the price the Energy page's Utilities tab uses. */
 export const HEAT_PRICE_SENSOR = 'sensor.ista_heat_price';
 
@@ -47,7 +50,7 @@ function total(entities: HassEntities, series: HeatSeries): HeatTotal | null {
     if (hours == null) continue;
     known = true;
     sum.hours += hours;
-    sum.kwh += hours * KW_FIT[zone];
+    sum.kwh += zoneKwh(zone, hours);
   }
   return known ? sum : null;
 }

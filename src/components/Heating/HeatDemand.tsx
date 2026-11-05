@@ -1,9 +1,11 @@
-import { Fragment, type CSSProperties } from 'react';
+import { Fragment, useState, type CSSProperties } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities } from '../../types';
 import type { CallSpan, LocalDay } from '../../utils/heatCalls';
 import { HEAT_PRICE_SENSOR, HEAT_RELAY_POWER_SENSOR, heatCostKr, heatEnergy, heatScale, spreadLabels } from '../../utils/heatEnergy';
 import { heatBool, heatNum, isHeating, parseDayBlocks, zoneSensorId, zoneThermostatId, type HeatingZone } from '../../utils/heating';
+import { InfoToggle, Legend } from './HeatInfo';
+import { RING_ROWS, type LegendRow } from './legend';
 import { ZONE_META } from './zoneMeta';
 import { ZoneGlyph } from './ZoneGlyph';
 import './HeatDemand.css';
@@ -20,9 +22,32 @@ const TICKS = {
   sunless: { icon: 'mdi:weather-cloudy', label: 'A sunless day' },
 } as const;
 
+const TICK_TEXT = {
+  yesterday: "Yesterday's total, in kWh.",
+  plan: 'What the controller planned for today, in kWh.',
+  sunless: 'What a sunless day would need, in kWh.',
+} as const;
+
 const oneDecimal = (value: number) => value.toFixed(1);
 const krText = (kr: number) => (kr < 10 ? kr.toFixed(1) : kr.toFixed(0));
 const wattsText = (watts: number) => (watts < 10 ? watts.toFixed(1) : watts.toFixed(0));
+
+/** One row for each thing the card shows; the cost, the pump and the reference ticks only while they are there. */
+function demandLegend(hasCost: boolean, pumpIcon: string | null, ticks: readonly (keyof typeof TICK_TEXT)[]): LegendRow[] {
+  const rows: LegendRow[] = [{ figure: 'kWh', text: 'Heat used so far today, estimated from the hours each zone called.' }];
+  if (hasCost) rows.push({ icon: 'mdi:cash', text: 'About what that heat costs.' });
+  rows.push({ icon: 'mdi:timer-sand', text: 'Hours the floors called for heat today, all zones together.' });
+  rows.push({ mark: 'lit', text: 'A lit zone is calling for heat now.' });
+  if (pumpIcon) rows.push({ icon: pumpIcon, text: 'What the floor-heating pump draws; orange while a zone calls.' });
+  rows.push({ mark: 'bar', text: 'The bar is the heat used so far today.' });
+  for (const key of ticks) rows.push({ icon: TICKS[key].icon, text: TICK_TEXT[key] });
+  rows.push(...RING_ROWS);
+  rows.push({ mark: 'call', text: 'Orange marks are when a zone called for heat.' });
+  rows.push({ mark: 'band', text: 'Faint colour is where the plan was in a special mode, such as sun cut or window open.' });
+  rows.push({ mark: 'now', text: 'The line is now.' });
+  rows.push({ figure: '3.8/5.2', text: 'Hours a zone called / hours planned today.' });
+  return rows;
+}
 
 interface HeatDemandProps {
   entities: HassEntities;
@@ -37,6 +62,7 @@ interface HeatDemandProps {
  * day, the zones calling now, and one lane per zone with the stretches it called today. Hidden while no zone
  * publishes its call hours. */
 export function HeatDemand({ entities, zones, calls, day, nowMs }: HeatDemandProps) {
+  const [infoOpen, setInfoOpen] = useState(false);
   const energy = heatEnergy(entities);
   const today = energy.today;
   if (!today) return null;
@@ -85,18 +111,31 @@ export function HeatDemand({ entities, zones, calls, day, nowMs }: HeatDemandPro
               <ZoneGlyph key={zone} zone={zone} className={`is-tiny ${glyphState(zone)}${calling.includes(zone) ? ' is-calling' : ''}`} />
             ))}
           </div>
-          {relayW != null && (
-            <span
-              className={`heat-demand-chip${calling.length > 0 ? ' is-calling' : ''}`}
-              role='img'
-              aria-label={`Floor heating pump ${wattsText(relayW)} watts`}
-            >
-              <Icon icon={calling.length > 0 ? 'mdi:fire' : 'mdi:fire-off'} aria-hidden='true' />
-              {wattsText(relayW)} W
-            </span>
-          )}
+          <div className='heat-demand-aside'>
+            {relayW != null && (
+              <span
+                className={`heat-demand-chip${calling.length > 0 ? ' is-calling' : ''}`}
+                role='img'
+                aria-label={`Floor heating pump ${wattsText(relayW)} watts`}
+              >
+                <Icon icon={calling.length > 0 ? 'mdi:fire' : 'mdi:fire-off'} aria-hidden='true' />
+                {wattsText(relayW)} W
+              </span>
+            )}
+            <InfoToggle open={infoOpen} onToggle={() => setInfoOpen(open => !open)} />
+          </div>
         </div>
       </div>
+
+      {infoOpen && (
+        <Legend
+          rows={demandLegend(
+            cost != null,
+            relayW == null ? null : calling.length > 0 ? 'mdi:fire' : 'mdi:fire-off',
+            scale.ticks.map(tick => tick.key)
+          )}
+        />
+      )}
 
       <div className='heat-demand-scale'>
         <div className='heat-demand-track'>

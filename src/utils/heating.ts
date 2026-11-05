@@ -261,6 +261,49 @@ export function clockOf(raw: unknown): string | null {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+/** The controller's `last_signal` as the sheet shows it: the last change somebody made to a zone. */
+export interface LastSignal {
+  /** Who made it, capitalised; null when the controller could not tell. */
+  who: string | null;
+  direction: 'warmer' | 'colder' | null;
+  /** `ha` is the app, `keypad` the thermostat itself; anything else is left unnamed. */
+  source: string | null;
+  /** "HH:MM" on the viewer's clock. */
+  clock: string | null;
+}
+
+const asText = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null);
+
+export function readLastSignal(raw: unknown): LastSignal | null {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
+  const signal = raw as Record<string, unknown>;
+  const name = asText(signal.who)?.replace(/_/g, ' ') ?? null;
+  return {
+    who: name && name.toLowerCase() !== 'unknown' ? name.charAt(0).toUpperCase() + name.slice(1) : null,
+    direction: signal.direction === 'warmer' || signal.direction === 'colder' ? signal.direction : null,
+    source: asText(signal.source),
+    clock: clockOf(signal.at),
+  };
+}
+
+function signalPlace(source: string | null): string {
+  switch (source) {
+    case 'ha':
+    case 'button':
+      return ' in the app';
+    case 'keypad':
+      return ' on the thermostat';
+    default:
+      return '';
+  }
+}
+
+/** "Mikkel turned it up in the app at 06:42"; whatever the controller did not say is left out. */
+export function lastSignalText({ who, direction, source, clock }: LastSignal): string {
+  const verb = direction === 'warmer' ? 'turned it up' : direction === 'colder' ? 'turned it down' : 'changed it';
+  return `${who ?? 'Someone'} ${verb}${signalPlace(source)}${clock ? ` at ${clock}` : ''}`;
+}
+
 /** How far air may sit from its target before the heating page calls it off, in °C. */
 export const AIR_GAP_BAND_C = 0.5;
 
