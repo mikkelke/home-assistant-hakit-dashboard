@@ -57,6 +57,16 @@ export const pageFlows: Flow[] = [
     },
   },
   {
+    name: 'heating plant',
+    open: { hash: '#heating' },
+    ready: '.heating-page .heat-zone-row',
+    run: async shots => {
+      await shots.page.locator('.heat-plant-strip').click();
+      await shots.page.waitForSelector('.heat-plant-sheet');
+      await shots.scrolling('.heat-plant-sheet .climate-scroll', 'heating-plant');
+    },
+  },
+  {
     name: 'map',
     open: { hash: '#map' },
     ready: '.sensor-map:not([data-gate])',

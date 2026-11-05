@@ -24,11 +24,14 @@ export const BEDROOM_THERMOSTAT = 'climate.bedroom_thermostat';
 /** One press of a nudge button moves the nudge this far (the controller's nudge step). */
 export const NUDGE_STEP_C = 0.5;
 
-const FAMILY_THERMOSTAT = 'climate.family_room_thermostat';
+/** The room a zone's thermostat and `heating_active` sensor are named after; the family zone's is the family room. */
+export const zoneRoomId = (zone: HeatingZone) => (zone === 'family' ? 'family_room' : zone);
 
 export const zoneSensorId = (zone: HeatingZone) => `sensor.heating_zone_${zone}`;
 export const zoneTargetHelperId = (zone: HeatingZone) => `input_number.heating_target_${zone}`;
-export const zoneThermostatId = (zone: HeatingZone) => (zone === 'family' ? FAMILY_THERMOSTAT : `climate.${zone}_thermostat`);
+export const zoneThermostatId = (zone: HeatingZone) => `climate.${zoneRoomId(zone)}_thermostat`;
+/** On while the zone's thermostat calls for heat; its history is the zone's call timeline. */
+export const zoneCallSensorId = (zone: HeatingZone) => `binary_sensor.${zoneRoomId(zone)}_heating_active`;
 export const nudgeButtonIds = (zone: HeatingZone) => ({
   warmer: `input_button.heating_${zone}_warmer`,
   colder: `input_button.heating_${zone}_colder`,
@@ -256,6 +259,69 @@ export function clockOf(raw: unknown): string | null {
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return null;
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/** How far air may sit from its target before the heating page calls it off, in °C. */
+export const AIR_GAP_BAND_C = 0.5;
+
+export interface AirGap {
+  /** Air minus target, rounded to a tenth: +2.0 is two degrees warmer than the target. */
+  value: number;
+  /** `ok` inside the band, `warm` above it, `cold` below it. */
+  tone: 'ok' | 'warm' | 'cold';
+}
+
+/** The air reading against the zone's target, null while either is unknown. */
+export function airGap(airC: number | null, targetC: number | null): AirGap | null {
+  if (airC == null || targetC == null) return null;
+  const raw = airC - targetC;
+  // Rounded away from zero on both sides, and never -0.
+  const value = (Math.sign(raw) * Math.round(Math.abs(raw) * 10)) / 10 || 0;
+  return { value, tone: value > AIR_GAP_BAND_C ? 'warm' : value < -AIR_GAP_BAND_C ? 'cold' : 'ok' };
+}
+
+/** A floor within this many °C of its maximum, or past it, counts as at the cap. */
+export const FLOOR_NEAR_CAP_C = 0.3;
+
+export interface NextChange {
+  setpoint: number | null;
+  /** "HH:MM" on the viewer's clock. */
+  at: string | null;
+  /** Against the setpoint now (else the target); null when either is unknown or they are equal. */
+  direction: 'up' | 'down' | null;
+}
+
+/** The one chip a zone row shows. */
+export type ZoneChip =
+  | { kind: 'floor'; floorC: number; maxC: number }
+  | { kind: 'mode'; mode: string; next: NextChange }
+  | { kind: 'next'; next: NextChange & { setpoint: number; at: string } };
+
+/** What a zone row says besides its air and gap, by priority: the floor at its cap, else a plan mode other than hold
+ * with its next change, else the next setpoint change, else nothing. */
+export function zoneChip(attrs: Record<string, unknown> | undefined, targetC: number | null): ZoneChip | null {
+  const floorC = heatNum(attrs?.floor_temp);
+  const maxC = heatNum(attrs?.floor_max_c);
+  if (floorC != null && maxC != null && floorC >= maxC - FLOOR_NEAR_CAP_C - EPS) return { kind: 'floor', floorC, maxC };
+
+  const setpoint = heatNum(attrs?.next_setpoint);
+  const at = clockOf(attrs?.next_change_at);
+  const from = heatNum(attrs?.setpoint_now) ?? targetC;
+  const direction = setpoint == null || from == null || setpoint === from ? null : setpoint > from ? 'up' : 'down';
+
+  const mode = typeof attrs?.plan_mode === 'string' ? attrs.plan_mode : '';
+  if (mode && mode !== 'hold') return { kind: 'mode', mode, next: { setpoint, at, direction } };
+  if (setpoint != null && at != null) return { kind: 'next', next: { setpoint, at, direction } };
+  return null;
+}
+
+/** Watts that one litre of water per minute carries for each kelvin it cools: 4.18 kJ per kg and K over 60 s. */
+export const WATER_W_PER_LPM_K = 69.8;
+
+/** What a floor loop hands to its room: its flow (L/min) x the temperature drop (floor supply - loop return) x 69.8.
+ * Never below 0; null while the drop is unknown. */
+export function loopPowerW(flowLpm: number, dropC: number | null): number | null {
+  return dropC == null ? null : Math.max(0, flowLpm * dropC * WATER_W_PER_LPM_K);
 }
 
 /** The person whose room a zone is; nobody else but an administrator adjusts it. */

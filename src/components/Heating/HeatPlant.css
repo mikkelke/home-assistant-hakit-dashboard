@@ -1,0 +1,191 @@
+/* The plant on the heating page: one line of pipe probes at the bottom of the page, and the sheet it opens with the
+   supply and return pairs and one table row per floor loop. */
+
+.heat-plant-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px 10px 12px 14px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
+}
+.heat-plant-strip:active {
+  background: color-mix(in srgb, var(--surface-card) 94%, var(--text-1));
+}
+.heat-plant-probe {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.heat-plant-probe svg {
+  font-size: 16px;
+  color: var(--text-3);
+}
+.heat-plant-probe.is-unavailable {
+  color: var(--text-3);
+}
+.heat-plant-sep {
+  flex-shrink: 0;
+  font-size: 14px;
+  color: var(--text-3);
+  opacity: 0.6;
+}
+.heat-plant-flow {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 18px;
+  color: var(--text-3);
+}
+.heat-plant-flow.is-flowing {
+  color: var(--heat);
+}
+.heat-plant-more {
+  flex-shrink: 0;
+  margin-left: -2px;
+  font-size: 20px;
+  color: var(--text-3);
+}
+
+/* ---- Plant sheet ---- */
+.heat-plant-sheet .climate-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.heat-plant-chain {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr);
+  gap: 8px 4px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--surface-chip);
+}
+.heat-plant-node {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 10px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-card) 70%, transparent);
+}
+.heat-plant-node-name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+.heat-plant-node b {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.heat-plant-node.is-supply b {
+  color: var(--heat);
+}
+.heat-plant-node.is-return b {
+  color: var(--accent-sky);
+}
+.heat-plant-link {
+  justify-self: center;
+  font-size: 18px;
+  color: var(--text-3);
+}
+.heat-plant-deltas {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 4px;
+}
+.heat-plant-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: var(--radius-chip);
+  background: var(--surface-chip);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.heat-plant-chip svg {
+  font-size: 14px;
+}
+.heat-plant-chip.is-flowing {
+  background: color-mix(in srgb, var(--heat) 14%, transparent);
+  color: var(--heat);
+}
+
+.heat-plant-table {
+  border-radius: 16px;
+  background: var(--surface-chip);
+  overflow: hidden;
+}
+.heat-plant-loops {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.heat-plant-loops th,
+.heat-plant-loops td {
+  padding: 7px 5px;
+  text-align: right;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.heat-plant-loops thead th {
+  padding: 9px 5px 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+.heat-plant-loops tbody tr + tr {
+  border-top: 1px solid var(--line);
+}
+.heat-plant-loops th:first-child,
+.heat-plant-loops td:first-child {
+  width: 28px;
+  padding-left: 14px;
+  text-align: left;
+}
+.heat-plant-loops tbody th {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.heat-plant-loops td:nth-child(2) {
+  width: 34px;
+  text-align: center;
+}
+.heat-plant-loops td:nth-child(2) .heat-zone-glyph {
+  display: inline-flex;
+  vertical-align: middle;
+}
+.heat-plant-loops th:last-child,
+.heat-plant-loops td:last-child {
+  padding-right: 14px;
+}
+.heat-plant-loops tr.is-idle td {
+  color: var(--text-3);
+}
+.heat-plant-loops tr.is-calling .heat-plant-watts {
+  color: var(--heat);
+}

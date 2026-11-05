@@ -3,20 +3,25 @@ import { roomThermostat } from '../../config/entities';
 import type { HassEntities } from '../../types';
 import {
   HEATING_ZONES,
+  airGap,
   blockIcons,
   canAdjustRoom,
   floorReadings,
   heatingSeasonOn,
   heatNum,
   liveZoneTarget,
+  loopPowerW,
   nudgeControl,
   nudgeButtonIds,
   parseDayBlocks,
   planModeMeta,
   setpointLimits,
   stepSetpoint,
+  zoneCallSensorId,
+  zoneChip,
   zoneHasNudge,
   zoneForThermostat,
+  zoneRoomId,
   zoneSensorId,
   zoneTargetHelperId,
   zoneThermostatId,
@@ -334,5 +339,152 @@ describe('canAdjustRoom', () => {
 
   it('adjusts nothing while the viewer is unresolved', () => {
     expect(canAdjustRoom(people, { isAdmin: null, id: null }, 'kristines_room')).toBe(false);
+  });
+});
+
+describe('the entities of a zone', () => {
+  it('names the thermostat and the call sensor after the room, which is the family room for the family zone', () => {
+    expect(HEATING_ZONES.map(zoneRoomId)).toEqual(['family_room', 'kristines_room', 'claudias_room', 'bathroom', 'guest_bathroom']);
+    expect(HEATING_ZONES.map(zoneThermostatId)).toEqual([
+      'climate.family_room_thermostat',
+      'climate.kristines_room_thermostat',
+      'climate.claudias_room_thermostat',
+      'climate.bathroom_thermostat',
+      'climate.guest_bathroom_thermostat',
+    ]);
+    expect(HEATING_ZONES.map(zoneCallSensorId)).toEqual([
+      'binary_sensor.family_room_heating_active',
+      'binary_sensor.kristines_room_heating_active',
+      'binary_sensor.claudias_room_heating_active',
+      'binary_sensor.bathroom_heating_active',
+      'binary_sensor.guest_bathroom_heating_active',
+    ]);
+  });
+});
+
+describe('airGap', () => {
+  it('is the air minus the target to a tenth, signed', () => {
+    expect(airGap(22.1, 22.5)).toEqual({ value: -0.4, tone: 'ok' });
+    expect(airGap(23.7, 21.5)).toEqual({ value: 2.2, tone: 'warm' });
+    expect(airGap(19.6, 21.5)).toEqual({ value: -1.9, tone: 'cold' });
+  });
+
+  it('is unknown while the air or the target is', () => {
+    expect(airGap(null, 21.5)).toBeNull();
+    expect(airGap(21.5, null)).toBeNull();
+    expect(airGap(null, null)).toBeNull();
+  });
+
+  it('keeps half a degree either way as on target and calls anything past it warm or cold', () => {
+    expect(airGap(23, 22.5)?.tone).toBe('ok');
+    expect(airGap(22, 22.5)?.tone).toBe('ok');
+    expect(airGap(23.1, 22.5)).toEqual({ value: 0.6, tone: 'warm' });
+    expect(airGap(21.9, 22.5)).toEqual({ value: -0.6, tone: 'cold' });
+  });
+
+  it('judges the gap as shown, so a reading that rounds into the band is inside it', () => {
+    expect(airGap(23.04, 22.5)).toEqual({ value: 0.5, tone: 'ok' });
+    expect(airGap(21.96, 22.5)).toEqual({ value: -0.5, tone: 'ok' });
+  });
+
+  it('rounds a half tenth away from zero on both sides', () => {
+    expect(airGap(22.75, 22.5)?.value).toBe(0.3);
+    expect(airGap(22.25, 22.5)?.value).toBe(-0.3);
+  });
+
+  it('is a plain zero, never negative zero, when the air is on the target', () => {
+    for (const air of [22.5, 22.52, 22.48]) {
+      const gap = airGap(air, 22.5);
+      expect(Object.is(gap?.value, 0)).toBe(true);
+      expect(gap?.tone).toBe('ok');
+    }
+  });
+});
+
+describe('zoneChip', () => {
+  const floorAtCap = { floor_temp: 24.3, floor_max_c: 24.5 };
+  const sunCut = { plan_mode: 'sun_cut', setpoint_now: 21, next_setpoint: 22, next_change_at: '06:00' };
+
+  it('shows the floor against its cap first, over a plan mode and a next change', () => {
+    expect(zoneChip({ ...floorAtCap, ...sunCut }, 21.5)).toEqual({ kind: 'floor', floorC: 24.3, maxC: 24.5 });
+  });
+
+  it('counts a floor within 0.3 of its cap, at it or past it, as at the cap', () => {
+    const chip = (floorC: number) => zoneChip({ floor_temp: floorC, floor_max_c: 24.5 }, 21.5)?.kind;
+    expect(chip(24.1)).toBeUndefined();
+    expect(chip(24.2)).toBe('floor');
+    expect(chip(24.5)).toBe('floor');
+    expect(chip(25.1)).toBe('floor');
+  });
+
+  it('has no floor chip without both the floor and its cap', () => {
+    expect(zoneChip({ floor_temp: 26, floor_max_c: null }, 21.5)).toBeNull();
+    expect(zoneChip({ floor_temp: 26 }, 21.5)).toBeNull();
+    expect(zoneChip({ floor_max_c: 24.5 }, 21.5)).toBeNull();
+    expect(zoneChip({ floor_temp: 'unavailable', floor_max_c: 24.5, ...sunCut }, 21.5)?.kind).toBe('mode');
+  });
+
+  it('shows a plan mode other than hold, with the next change and which way it goes', () => {
+    expect(zoneChip(sunCut, 21.5)).toEqual({ kind: 'mode', mode: 'sun_cut', next: { setpoint: 22, at: '06:00', direction: 'up' } });
+    expect(zoneChip({ plan_mode: 'window', setpoint_now: 21.5, next_setpoint: 19, next_change_at: '23:00' }, 21.5)).toEqual({
+      kind: 'mode',
+      mode: 'window',
+      next: { setpoint: 19, at: '23:00', direction: 'down' },
+    });
+  });
+
+  it('shows a plan mode alone when nothing is planned next', () => {
+    expect(zoneChip({ plan_mode: 'party' }, 21.5)).toEqual({
+      kind: 'mode',
+      mode: 'party',
+      next: { setpoint: null, at: null, direction: null },
+    });
+  });
+
+  it('shows the next setpoint change while the plan is held, and prefers a mode over it', () => {
+    const held = { plan_mode: 'hold', setpoint_now: 21.5, next_setpoint: 19, next_change_at: '23:00' };
+    expect(zoneChip(held, 21.5)).toEqual({ kind: 'next', next: { setpoint: 19, at: '23:00', direction: 'down' } });
+    expect(zoneChip({ ...held, plan_mode: 'guard' }, 21.5)?.kind).toBe('mode');
+    expect(zoneChip({ ...held, plan_mode: undefined }, 21.5)?.kind).toBe('next');
+    expect(zoneChip({ ...held, plan_mode: '' }, 21.5)?.kind).toBe('next');
+  });
+
+  it('judges the direction against the target when the setpoint now is unknown, and has none when they are equal', () => {
+    const next = { plan_mode: 'hold', next_setpoint: 22, next_change_at: '07:00' };
+    expect(zoneChip(next, 21.5)).toEqual({ kind: 'next', next: { setpoint: 22, at: '07:00', direction: 'up' } });
+    expect(zoneChip(next, null)).toEqual({ kind: 'next', next: { setpoint: 22, at: '07:00', direction: null } });
+    expect(zoneChip({ ...next, setpoint_now: 22 }, 21.5)).toEqual({ kind: 'next', next: { setpoint: 22, at: '07:00', direction: null } });
+  });
+
+  it("reads the time of the next change on the viewer's clock", () => {
+    const at = new Date(2026, 10, 6, 6, 5);
+    const chip = zoneChip({ next_setpoint: 22, next_change_at: at.toISOString() }, 21.5);
+    expect(chip).toEqual({ kind: 'next', next: { setpoint: 22, at: '06:05', direction: 'up' } });
+  });
+
+  it('shows nothing when the plan is held and no change is known', () => {
+    expect(zoneChip({ plan_mode: 'hold' }, 21.5)).toBeNull();
+    expect(zoneChip({ plan_mode: 'hold', next_setpoint: 22 }, 21.5)).toBeNull();
+    expect(zoneChip({ plan_mode: 'hold', next_change_at: '06:00' }, 21.5)).toBeNull();
+    expect(zoneChip({ plan_mode: 'hold', next_setpoint: '<none>', next_change_at: '<none>' }, 21.5)).toBeNull();
+    expect(zoneChip({}, 21.5)).toBeNull();
+    expect(zoneChip(undefined, null)).toBeNull();
+  });
+});
+
+describe('loopPowerW', () => {
+  it('is the flow times the drop times what a litre a minute carries per kelvin', () => {
+    expect(loopPowerW(1.2, 8.9)).toBeCloseTo(745.464, 3);
+    expect(loopPowerW(1.7, 6.6)).toBeCloseTo(783.156, 3);
+    expect(loopPowerW(1, 1)).toBeCloseTo(69.8, 9);
+  });
+
+  it('is unknown while the drop is', () => {
+    expect(loopPowerW(1.2, null)).toBeNull();
+  });
+
+  it('is never below zero when the loop returns warmer than the supply', () => {
+    expect(loopPowerW(1.2, -2)).toBe(0);
+    expect(loopPowerW(0, 5)).toBe(0);
   });
 });

@@ -1,16 +1,40 @@
 // @vitest-environment happy-dom
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import type { CallServiceFunction, HassEntities } from '../../../types';
+import {
+  BUILDING_RETURN_TEMP_SENSOR,
+  BUILDING_SUPPLY_TEMP_SENSOR,
+  HEATING_RETURN_TEMP_SENSOR,
+  HEATING_SUPPLY_TEMP_SENSOR,
+  HEATING_ZONES,
+  loopReturnSensorId,
+  zoneCallSensorId,
+  type HeatingZone,
+} from '../../../utils/heating';
+import { BEDROOM_FLOOR_ENTITY } from '../zoneMeta';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const hass = vi.hoisted(() => ({ entities: {} as Record<string, unknown>, callService: (() => {}) as unknown }));
+const hass = vi.hoisted(() => {
+  const state: {
+    entities: Record<string, unknown>;
+    callService: unknown;
+    history: (request: Record<string, unknown>) => Promise<unknown>;
+    connection: { sendMessagePromise: (request: Record<string, unknown>) => Promise<unknown> };
+  } = {
+    entities: {},
+    callService: () => {},
+    history: () => new Promise(() => {}),
+    connection: { sendMessagePromise: request => state.history(request) },
+  };
+  return state;
+});
 
 vi.mock('@hakit/core', () => ({
-  useHass: <T>(selector: (state: { helpers: { callService: unknown } }) => T): T =>
-    selector({ helpers: { callService: hass.callService } }),
+  useHass: <T>(selector: (state: { helpers: { callService: unknown }; connection: unknown }) => T): T =>
+    selector({ helpers: { callService: hass.callService }, connection: hass.connection }),
 }));
 vi.mock('@iconify/react', async () => {
   const { createElement: h } = await import('react');
@@ -89,6 +113,8 @@ let root: Root;
 
 beforeEach(() => {
   vi.useFakeTimers();
+  vi.setSystemTime(new Date(2026, 10, 5, 11, 35));
+  hass.history = vi.fn(() => new Promise(() => {}));
   root = createRoot(document.body.appendChild(document.createElement('div')));
 });
 
@@ -115,7 +141,7 @@ describe('the heating page', () => {
     expect(document.querySelector('.heating-page-header')?.textContent).toContain('Shadow');
   });
 
-  it('shows the open family room as one row, with the warmer floor and both floors in its label', () => {
+  it('shows the open family room as one row, with the floor at its cap and both floors in its label', () => {
     renderPage(
       zone('family', '21.5', {
         control_air: 23.7,
@@ -134,22 +160,20 @@ describe('the heating page', () => {
       'Bathroom',
       'Guest bathroom',
     ]);
-    expect(icons(rows[0])).toEqual(['mdi:sofa-outline', 'mdi:fire', 'mdi:heat-wave', 'mdi:target', 'mdi:heating-coil']);
-    const floor = rows[0].querySelector('.heat-zone-floor');
-    expect(floor?.textContent).toBe('24.5');
-    expect(floor?.classList.contains('is-hot')).toBe(true);
+    expect(icons(rows[0])).toEqual(['mdi:sofa-outline', 'mdi:heating-coil', 'mdi:chevron-right']);
     expect(rows[0].getAttribute('aria-label')).toBe(
-      'Family, air 23.7 °C, target 21.5 °C, floor 24.5 °C (living room 24.0 °C, dining room 24.5 °C), heating, Floor too warm'
+      'Family, air 23.7 °C, target 21.5 °C, 2.2 °C above target, floor 24.5 °C (living room 24.0 °C, dining room 24.5 °C), heating, Floor too warm'
     );
   });
 
-  it('shows the floor of a zone with one floor thermometer without a breakdown', () => {
+  it('keeps the floor of a zone with one floor thermometer in its label, and off the row while it is below its cap', () => {
     renderPage(zone('kristines_room', '21.5', { control_air: 24.2, floor_temp: 22.1, floor_max_c: 24.5 }));
     const row = document.querySelectorAll('button.heat-zone-row')[1];
-    const floor = row.querySelector('.heat-zone-floor');
-    expect(floor?.textContent).toBe('22.1');
-    expect(floor?.classList.contains('is-hot')).toBe(false);
-    expect(row.getAttribute('aria-label')).toBe("Kristine's room, air 24.2 °C, target 21.5 °C, floor 22.1 °C, heating");
+    expect(row.getAttribute('aria-label')).toBe(
+      "Kristine's room, air 24.2 °C, target 21.5 °C, 2.7 °C above target, floor 22.1 °C, heating"
+    );
+    expect(row.querySelector('.heat-zone-chips')).toBeNull();
+    expect(row.textContent).not.toContain('22.1');
   });
 
   it('opens the floor-cap plan of the family zone, and writes nothing without its target helper', async () => {
@@ -397,77 +421,592 @@ function renderPage(...extra: Published[]) {
   act(() => root.render(createElement(HeatingPage, { onClose: () => {} })));
 }
 
-describe('the pipe probes', () => {
-  const SUPPLY = 'sensor.heating_room_floor_heating_supply';
-  const RETURN = 'sensor.heating_room_floor_heating_return';
+const clock = (hour: number, minute = 0) => new Date(2026, 10, 5, hour, minute);
+const unixSeconds = (hour: number, minute = 0) => clock(hour, minute).getTime() / 1000;
+/** A moment of 5 November as a share of the day, in percent. */
+const percent = (minutes: number) => (minutes / 1440) * 100;
+const flush = () => act(async () => {});
+
+/** Call hours of 5 November per zone: so far today, yesterday, the plan for today and a sunless day. */
+const HEAT_HOURS: Record<string, [number, number, number, number]> = {
+  family: [3.8, 5.1, 5.2, 9],
+  kristines_room: [0.6, 0.4, 1.6, 2],
+  claudias_room: [0.5, 0.9, 3.2, 3.5],
+  bathroom: [1.5, 2, 2.4, 3],
+  guest_bathroom: [0.9, 1, 1, 1],
+};
+
+const heatDay = () =>
+  Object.entries(HEAT_HOURS).map(([id, [today, yesterday, plan, sunless]]) =>
+    zone(id, '21.5', {
+      control_air: 21.5,
+      call_hours_today: today,
+      budget_today_h: plan,
+      budget_dull_h: sunless,
+      yesterday: { day: '2026-11-04', call_hours: yesterday },
+    })
+  );
+
+const calling = (room: string) => entity(`climate.${room}_thermostat`, 'heat', { hvac_action: 'heating' });
+const idle = (room: string) => entity(`climate.${room}_thermostat`, 'heat', { hvac_action: 'idle' });
+
+describe('the header', () => {
   const header = () => document.querySelector('.heating-page-header') as HTMLElement;
-  const probeIcons = () => icons(header()).filter(icon => icon?.startsWith('mdi:thermometer-chevron'));
+  const pills = () => [...header().querySelectorAll('.heat-pill')].map(pill => pill.getAttribute('aria-label'));
 
-  it('shows supply and return in the header with one decimal', () => {
-    renderPage(entity(SUPPLY, '28.34'), entity(RETURN, '24.06'));
-    expect(header().querySelector('[aria-label="Supply pipe 28.3 °C"]')?.textContent).toBe('28.3°');
-    expect(header().querySelector('[aria-label="Return pipe 24.1 °C"]')?.textContent).toBe('24.1°');
-    expect(probeIcons()).toEqual(['mdi:thermometer-chevron-up', 'mdi:thermometer-chevron-down']);
-    expect(header().textContent).toContain('Shadow');
+  it('has the live pill, the writes and the alerts, and none of the pipe probes', () => {
+    renderPage(
+      entity('sensor.heating_controller', 'off_season', { alerts_active: ['stale input', 'no reading'], would_writes_today: '9' }),
+      entity(HEATING_SUPPLY_TEMP_SENSOR, '28.34'),
+      entity(HEATING_RETURN_TEMP_SENSOR, '24.06'),
+      entity(BUILDING_SUPPLY_TEMP_SENSOR, '48.6'),
+      entity(BUILDING_RETURN_TEMP_SENSOR, '33.9')
+    );
+    expect(pills()).toEqual(['Shadow mode', '9 would-writes today', '2 active alerts']);
+    expect(icons(header())).toEqual(['mdi:radiator-off', 'mdi:eye-outline', 'mdi:pencil-outline', 'mdi:alert']);
+    expect(header().querySelector('.heat-probes')).toBeNull();
+    expect(header().querySelector('[aria-label*="pipe"], [aria-label*="Building"]')).toBeNull();
   });
 
-  it('keeps a probe without a reading in place as a dash', () => {
-    renderPage(entity(SUPPLY, 'unavailable'), entity(RETURN, 'unknown'));
-    expect(probeIcons()).toEqual(['mdi:thermometer-chevron-up', 'mdi:thermometer-chevron-down']);
-    const supply = header().querySelector('[aria-label="Supply pipe unavailable"]');
-    expect(supply?.textContent).toBe('—');
-    expect(supply?.classList.contains('is-unavailable')).toBe(true);
-    expect(header().querySelector('[aria-label="Return pipe unavailable"]')?.textContent).toBe('—');
-  });
-
-  const hidden: [string, Published[], string[]][] = [
-    ['a missing supply', [entity(RETURN, '24.1')], ['mdi:thermometer-chevron-down']],
-    ['a missing return', [entity(SUPPLY, '28.3')], ['mdi:thermometer-chevron-up']],
-    ['both probes when neither exists', [], []],
-  ];
-  it.each(hidden)('hides %s', (_name, probes, shown) => {
-    renderPage(...probes);
-    expect(probeIcons()).toEqual(shown);
-    expect(header().querySelector('.heat-probes') !== null).toBe(shown.length > 0);
+  it('counts the zones that are live', () => {
+    renderPage(zone('family', '21.5', { live: 'true' }));
+    expect(pills()).toEqual(['1 of 5 zones live', '9 writes today']);
+    expect(header().textContent).toContain('1/5');
+    expect(icons(header())).toContain('mdi:access-point');
   });
 });
 
-describe('the plant probes', () => {
-  const header = () => document.querySelector('.heating-page-header') as HTMLElement;
-  const probeLabels = () => [...header().querySelectorAll('.heat-probes .heat-pill')].map(pill => pill.getAttribute('aria-label'));
+describe('the heat card', () => {
+  const card = () => document.querySelector('.heat-demand') as HTMLElement;
+  const labelled = (text: string) => card().querySelector(`[aria-label="${text}"]`) as HTMLElement | null;
 
-  it('orders the header probes along the flow: building in, floor supply, floor return, building out', () => {
-    renderPage(
-      entity('sensor.heating_room_primary_return', '21.06'),
-      entity('sensor.heating_room_floor_heating_return', '24.4'),
-      entity('sensor.heating_room_primary_supply', '22.69'),
-      entity('sensor.heating_room_floor_heating_supply', '25.1')
-    );
-    expect(probeLabels()).toEqual(['Building supply 22.7 °C', 'Supply pipe 25.1 °C', 'Return pipe 24.4 °C', 'Building return 21.1 °C']);
+  it('shows the estimated kWh so far today with its cost and the hours called', () => {
+    renderPage(...heatDay(), entity('sensor.ista_heat_price', '1.031'));
+    expect(card().getAttribute('aria-label')).toBe('Heat today');
+    expect(card().querySelector('.heat-demand-kwh')?.textContent).toBe('4.9kWh');
+    expect(labelled('About 5.1 kroner')?.textContent).toBe('5.1 kr');
+    expect(labelled('7.3 hours called today')?.textContent).toBe('7.3 h');
   });
 
-  it('puts each loop return on its zone row, a dash for a dead probe and nothing for a missing one', () => {
-    renderPage(
-      entity('sensor.heating_room_zone_1_return', '20.04'),
-      entity('sensor.heating_room_zone_4_return', '20.31'),
-      entity('sensor.heating_room_zone_2_return', 'unavailable'),
-      entity('sensor.heating_room_zone_5_return', '20.19')
-    );
-    const rows = [...document.querySelectorAll('.heat-zones > .heat-zone-row')];
-    const badges = (row: Element) => [...row.querySelectorAll('.heat-loop')].map(badge => badge.textContent);
-    expect(badges(rows[0])).toEqual(['20.0', '20.3']);
-    expect([...rows[0].querySelectorAll('.heat-loop')].flatMap(badge => icons(badge))).toEqual([
-      'mdi:sofa-outline',
-      'mdi:silverware-fork-knife',
+  it('leaves the cost out while the heat price is unknown', () => {
+    renderPage(...heatDay(), entity('sensor.ista_heat_price', 'unavailable'));
+    expect(card().querySelector('[aria-label^="About"]')).toBeNull();
+    expect(labelled('7.3 hours called today')).not.toBeNull();
+  });
+
+  it('puts yesterday, the plan and a sunless day on the scale of today as ticks in kWh', () => {
+    renderPage(...heatDay());
+    const values = [...card().querySelectorAll('.heat-demand-tick-value')];
+    expect(values.map(value => value.textContent)).toEqual(['6.5', '8.2', '12.8']);
+    expect(values.map(value => value.getAttribute('aria-label'))).toEqual([
+      'Yesterday 6.5 kilowatt hours',
+      'Planned for today 8.2 kilowatt hours',
+      'A sunless day 12.8 kilowatt hours',
     ]);
-    expect(rows[0].getAttribute('aria-label')).toContain('loop 1 return 20.0 °C, loop 4 return 20.3 °C');
-    expect(badges(rows[1])).toEqual(['—']);
-    expect(rows[1].querySelector('.heat-loop')?.classList.contains('is-unavailable')).toBe(true);
-    expect(rows[1].getAttribute('aria-label')).toContain('loop 2 return unavailable');
-    expect(badges(rows[2])).toEqual([]);
-    expect(rows[0].querySelectorAll('.heat-zone-loops > .heat-loop')).toHaveLength(2);
-    expect(badges(rows[5])).toEqual(['20.2']);
-    expect(rows[5].getAttribute('aria-label')).toContain('loop 5 return 20.2 °C');
+    expect(icons(card().querySelector('.heat-demand-scale')!)).toEqual([
+      'mdi:calendar-arrow-left',
+      'mdi:robot-outline',
+      'mdi:weather-cloudy',
+    ]);
+    expect(card().querySelectorAll('.heat-demand-tick')).toHaveLength(3);
+    const fill = card().querySelector('.heat-demand-fill') as HTMLElement;
+    expect(parseFloat(fill.style.width)).toBeCloseTo((4.905 / 12.785) * 100, 3);
+    const ticks = [...card().querySelectorAll<HTMLElement>('.heat-demand-tick')].map(tick => parseFloat(tick.style.left));
+    expect(ticks[2]).toBe(100);
+    expect(ticks[1]).toBeCloseTo((8.188 / 12.785) * 100, 3);
+  });
+
+  it('leaves out a tick whose series no zone publishes', () => {
+    renderPage(zone('family', '21.5', { call_hours_today: 1, budget_today_h: 4 }));
+    expect([...card().querySelectorAll('.heat-demand-tick-value')].map(value => value.textContent)).toEqual(['4.4']);
+  });
+
+  it('is hidden while no zone publishes its call hours today, and the rest of the page stays', () => {
+    renderPage(zone('family', '21.5', { budget_today_h: 4 }));
+    expect(document.querySelector('.heat-demand')).toBeNull();
+    expect(document.querySelectorAll('button.heat-zone-row')).toHaveLength(5);
+  });
+
+  it('lights the zones that call now and shows what the pump draws', () => {
+    renderPage(...heatDay(), entity('sensor.floor_heating_relay_power', '16.3'), calling('family_room'));
+    const callers = card().querySelector('.heat-demand-callers') as HTMLElement;
+    expect(callers.getAttribute('aria-label')).toBe("Calling now: Family, Kristine's room");
+    expect([...callers.querySelectorAll('.heat-zone-glyph')].map(glyph => glyph.classList.contains('is-calling'))).toEqual([
+      true,
+      true,
+      false,
+      false,
+      false,
+    ]);
+    const pump = labelled('Floor heating pump 16 watts');
+    expect(pump?.textContent).toBe('16 W');
+    expect(pump?.classList.contains('is-calling')).toBe(true);
+    expect(icons(pump!)).toEqual(['mdi:fire']);
+  });
+
+  it('shows the pump at rest, with nothing lit, while no zone calls', () => {
+    renderPage(...heatDay(), idle('kristines_room'), entity('sensor.floor_heating_relay_power', '1.5'));
+    const callers = card().querySelector('.heat-demand-callers') as HTMLElement;
+    expect(callers.getAttribute('aria-label')).toBe('Calling now: none');
+    expect(callers.querySelector('.is-calling')).toBeNull();
+    const pump = labelled('Floor heating pump 1.5 watts');
+    expect(pump?.textContent).toBe('1.5 W');
+    expect(pump?.classList.contains('is-calling')).toBe(false);
+    expect(icons(pump!)).toEqual(['mdi:fire-off']);
+  });
+
+  it('has no pump chip without the relay sensor', () => {
+    renderPage(...heatDay());
+    expect(card().querySelector('[aria-label^="Floor heating pump"]')).toBeNull();
+  });
+
+  it('draws one lane per zone with its hours against its budget, and where the day is now', () => {
+    renderPage(...heatDay(), idle('kristines_room'));
+    const lanes = [...card().querySelectorAll('.heat-demand-lane')];
+    expect(lanes.map(lane => lane.getAttribute('aria-label'))).toEqual([
+      'Family, called 3.8 h today, of 5.2 h planned',
+      "Kristine's room, called 0.6 h today, of 1.6 h planned",
+      "Claudia's room, called 0.5 h today, of 3.2 h planned",
+      'Bathroom, called 1.5 h today, of 2.4 h planned',
+      'Guest bathroom, called 0.9 h today, of 1.0 h planned',
+    ]);
+    expect([...card().querySelectorAll('.heat-demand-hours')].map(hours => hours.textContent)).toEqual([
+      '3.8/5.2',
+      '0.6/1.6',
+      '0.5/3.2',
+      '1.5/2.4',
+      '0.9/1.0',
+    ]);
+    expect([...card().querySelectorAll('.heat-demand-axis span')].map(tick => tick.textContent)).toEqual(['00', '06', '12', '18', '24']);
+    const lanesBox = card().querySelector('.heat-demand-lanes') as HTMLElement;
+    expect(parseFloat(lanesBox.style.getPropertyValue('--now'))).toBeCloseTo(percent(11 * 60 + 35), 6);
+  });
+
+  it('marks the lane of a zone that is calling now', () => {
+    renderPage(...heatDay(), idle('kristines_room'), calling('bathroom'));
+    const labels = [...card().querySelectorAll('.heat-demand-lane')].map(lane => lane.getAttribute('aria-label'));
+    expect(labels.filter(label => label?.endsWith('calling now'))).toEqual(['Bathroom, called 1.5 h today, of 2.4 h planned, calling now']);
+  });
+
+  it('draws the planned cuts of a zone faintly behind its calls, and the holds not at all', () => {
+    renderPage(
+      ...heatDay(),
+      zone('family', '21.5', {
+        call_hours_today: 3.8,
+        day_blocks: [
+          { start: '00:00', end: '06:00', mode: 'hold', setpoint: '21.5' },
+          { start: '06:00', end: '15:00', mode: 'sun_cut', setpoint: '21.0' },
+          { start: '15:00', end: '24:00', mode: 'hold', setpoint: '21.5' },
+        ],
+      })
+    );
+    const bands = [...document.querySelectorAll<HTMLElement>('.heat-demand-lane')[0].querySelectorAll<HTMLElement>('.heat-demand-band')];
+    expect(bands.map(band => band.className)).toEqual(['heat-demand-band mode-sun_cut']);
+    expect(parseFloat(bands[0].style.left)).toBeCloseTo(25, 6);
+    expect(parseFloat(bands[0].style.width)).toBeCloseTo(37.5, 6);
+  });
+});
+
+describe('the call lanes', () => {
+  const lane = (index: number) => document.querySelectorAll('.heat-demand-lane')[index];
+  const spans = (index: number) =>
+    [...lane(index).querySelectorAll<HTMLElement>('.heat-demand-call')].map(span => [
+      parseFloat(span.style.left),
+      parseFloat(span.style.width),
+    ]);
+  const expectSpans = (actual: number[][], expected: number[][]) => {
+    expect(actual).toHaveLength(expected.length);
+    actual.forEach((span, i) => {
+      expect(span[0]).toBeCloseTo(expected[i][0], 6);
+      expect(span[1]).toBeCloseTo(expected[i][1], 6);
+    });
+  };
+  const live = (zoneId: HeatingZone, state: string, changedAt: Date) => ({
+    ...entity(zoneCallSensorId(zoneId), state),
+    last_changed: changedAt.toISOString(),
+  });
+  const requests = () => (hass.history as Mock).mock.calls;
+  const lastRequest = () => requests()[requests().length - 1][0];
+
+  it("reads today's history of the five call sensors when the page opens", async () => {
+    renderPage(...heatDay());
+    await flush();
+    expect(lastRequest()).toEqual({
+      type: 'history/history_during_period',
+      start_time: clock(0).toISOString(),
+      end_time: clock(11, 35).toISOString(),
+      entity_ids: HEATING_ZONES.map(zoneCallSensorId),
+      include_start_time_state: true,
+      significant_changes_only: false,
+      minimal_response: true,
+      no_attributes: true,
+    });
+  });
+
+  it('draws the stretches each zone called from its history', async () => {
+    hass.history = vi.fn().mockResolvedValue({
+      [zoneCallSensorId('family')]: [
+        { s: 'off', lu: unixSeconds(0) },
+        { s: 'on', lu: unixSeconds(6) },
+        { s: 'off', lu: unixSeconds(7, 30) },
+        { s: 'on', lu: unixSeconds(9) },
+        { s: 'off', lu: unixSeconds(9, 20) },
+      ],
+      [zoneCallSensorId('bathroom')]: [
+        { s: 'on', lu: unixSeconds(0) },
+        { s: 'off', lu: unixSeconds(1) },
+      ],
+    });
+    renderPage(...heatDay(), idle('kristines_room'));
+    await flush();
+    expectSpans(spans(0), [
+      [percent(360), percent(90)],
+      [percent(540), percent(20)],
+    ]);
+    expectSpans(spans(1), []);
+    expectSpans(spans(3), [[0, percent(60)]]);
+  });
+
+  it('extends a call in progress to now, and ends one that stopped since the history was read', async () => {
+    hass.history = vi.fn().mockResolvedValue({
+      [zoneCallSensorId('family')]: [
+        { s: 'off', lu: unixSeconds(0) },
+        { s: 'on', lu: unixSeconds(10) },
+      ],
+      [zoneCallSensorId('bathroom')]: [
+        { s: 'off', lu: unixSeconds(0) },
+        { s: 'on', lu: unixSeconds(10) },
+      ],
+    });
+    renderPage(...heatDay(), live('family', 'on', clock(10)), live('bathroom', 'off', clock(11)));
+    await flush();
+    expectSpans(spans(0), [[percent(600), percent(95)]]);
+    expectSpans(spans(3), [[percent(600), percent(60)]]);
+  });
+
+  it('draws the call in progress from the live sensor before the history arrives', () => {
+    renderPage(...heatDay(), live('family', 'on', clock(10)));
+    expectSpans(spans(0), [[percent(600), percent(95)]]);
+    expectSpans(spans(1), []);
+  });
+
+  it('reads the history again every five minutes and moves the call in progress along', async () => {
+    hass.history = vi.fn().mockResolvedValue({
+      [zoneCallSensorId('family')]: [
+        { s: 'off', lu: unixSeconds(0) },
+        { s: 'on', lu: unixSeconds(10) },
+      ],
+    });
+    renderPage(...heatDay(), live('family', 'on', clock(10)));
+    await flush();
+    const before = requests().length;
+    await act(async () => vi.advanceTimersByTimeAsync(5 * 60 * 1000));
+    expect(requests()).toHaveLength(before + 1);
+    expectSpans(spans(0), [[percent(600), percent(100)]]);
+  });
+
+  it('keeps what it has when a read fails', async () => {
+    hass.history = vi.fn().mockRejectedValue(new Error('connection closed'));
+    renderPage(...heatDay(), live('family', 'on', clock(10)));
+    await flush();
+    expectSpans(spans(0), [[percent(600), percent(95)]]);
+  });
+
+  it('reads the history of the new day when the day turns', async () => {
+    vi.setSystemTime(new Date(2026, 10, 5, 23, 58));
+    renderPage(...heatDay());
+    await flush();
+    expect(lastRequest().start_time).toBe(clock(0).toISOString());
+    await act(async () => vi.advanceTimersByTimeAsync(3 * 60 * 1000));
+    expect(lastRequest().start_time).toBe(new Date(2026, 10, 6).toISOString());
+  });
+
+  it('draws the calls of a zone under the plan strip of its sheet', async () => {
+    hass.history = vi.fn().mockResolvedValue({
+      [zoneCallSensorId('family')]: [
+        { s: 'off', lu: unixSeconds(0) },
+        { s: 'on', lu: unixSeconds(6) },
+        { s: 'off', lu: unixSeconds(7, 30) },
+      ],
+    });
+    renderPage(
+      ...heatDay(),
+      zone('family', '21.5', { call_hours_today: 3.8, day_blocks: [{ start: '00:00', end: '24:00', mode: 'hold', setpoint: '21.5' }] })
+    );
+    await flush();
+    act(() => (document.querySelector('button.heat-zone-row') as HTMLElement).click());
+    const sheet = document.querySelector('.heat-zone-sheet') as HTMLElement;
+    const calls = [...sheet.querySelectorAll<HTMLElement>('.heat-day-calls .heat-day-call')];
+    expectSpans(
+      calls.map(call => [parseFloat(call.style.left), parseFloat(call.style.width)]),
+      [[percent(360), percent(90)]]
+    );
+  });
+});
+
+describe('the zone rows', () => {
+  const rows = () => [...document.querySelectorAll('button.heat-zone-row')];
+  const chips = (row: Element) => [...row.querySelectorAll('.heat-badge')];
+  const gapOf = (row: Element) => row.querySelector('.heat-zone-gap');
+
+  it('shows the air big and under it how far it is from the target, with the sign', () => {
+    renderPage(
+      zone('family', '22.5', { control_air: 22.1 }),
+      zone('kristines_room', '22.5', { control_air: 23.1 }),
+      zone('claudias_room', '22.5', { control_air: 21.9 }),
+      zone('bathroom', '22.5', { control_air: 22.5 }),
+      zone('guest_bathroom', 'unavailable', { control_air: 22.4 })
+    );
+    expect(rows().map(row => row.querySelector('.heat-zone-air')?.textContent)).toEqual(['22.1°', '23.1°', '21.9°', '22.5°', '22.4°']);
+    expect(rows().map(row => gapOf(row)?.textContent ?? null)).toEqual(['−0.4', '+0.6', '−0.6', '0.0', null]);
+    expect(rows().map(row => gapOf(row)?.className ?? null)).toEqual([
+      'heat-zone-gap is-ok',
+      'heat-zone-gap is-warm',
+      'heat-zone-gap is-cold',
+      'heat-zone-gap is-ok',
+      null,
+    ]);
+    expect(rows().map(row => row.getAttribute('aria-label'))).toEqual([
+      'Family, air 22.1 °C, target 22.5 °C, 0.4 °C below target',
+      "Kristine's room, air 23.1 °C, target 22.5 °C, 0.6 °C above target, heating",
+      "Claudia's room, air 21.9 °C, target 22.5 °C, 0.6 °C below target",
+      'Bathroom, air 22.5 °C, target 22.5 °C, on target',
+      'Guest bathroom, air 22.4 °C',
+    ]);
+  });
+
+  it('keeps half a degree either way as on target, grey', () => {
+    renderPage(zone('family', '22.5', { control_air: 23 }), zone('kristines_room', '22.5', { control_air: 22 }));
+    const [warmest, coldest] = rows();
+    expect([warmest, coldest].map(row => gapOf(row)?.className)).toEqual(['heat-zone-gap is-ok', 'heat-zone-gap is-ok']);
+    expect([warmest, coldest].map(row => gapOf(row)?.textContent)).toEqual(['+0.5', '−0.5']);
+  });
+
+  it('shows the floor against its cap and nothing else when the floor is at the cap', () => {
+    renderPage(
+      zone('family', '21.5', {
+        control_air: 23.7,
+        plan_mode: 'floor_cap',
+        floor_temp: 24.3,
+        floor_max_c: 24.5,
+        setpoint_now: 19,
+        next_setpoint: 21.5,
+        next_change_at: '23:00',
+      })
+    );
+    const [family] = rows();
+    expect(chips(family)).toHaveLength(1);
+    expect(chips(family)[0].className).toBe('heat-badge is-floor');
+    expect(chips(family)[0].textContent).toBe('24.3/24.5');
+    expect(icons(chips(family)[0])).toEqual(['mdi:heating-coil']);
+  });
+
+  it('shows the plan mode with its next change when the floor is not at its cap', () => {
+    renderPage(
+      zone('kristines_room', '21.5', {
+        control_air: 21.9,
+        plan_mode: 'window',
+        floor_temp: 22.1,
+        floor_max_c: 24.5,
+        setpoint_now: 19,
+        next_setpoint: 21.5,
+        next_change_at: '06:30',
+      })
+    );
+    const chip = chips(rows()[1]);
+    expect(chip).toHaveLength(1);
+    expect(chip[0].className).toBe('heat-badge is-mode mode-window');
+    expect(chip[0].textContent).toBe('21.5 06:30');
+    expect(icons(chip[0])).toEqual(['mdi:window-open-variant', 'mdi:arrow-up']);
+  });
+
+  it('shows the next setpoint change as an arrow and a time while the plan is held', () => {
+    renderPage(zone('claudias_room', '21.5', { setpoint_now: 21.5, next_setpoint: 19, next_change_at: '23:00' }));
+    const chip = chips(rows()[2]);
+    expect(chip).toHaveLength(1);
+    expect(chip[0].className).toBe('heat-badge');
+    expect(chip[0].textContent).toBe('19.0 23:00');
+    expect(icons(chip[0])).toEqual(['mdi:arrow-down']);
+  });
+
+  it('shows no chip when the plan is held and nothing is coming', () => {
+    renderPage(zone('bathroom', '21.5', {}));
+    expect(chips(rows()[3])).toEqual([]);
+    expect(rows()[3].querySelector('.heat-zone-chips')).toBeNull();
+  });
+
+  it('never shows more than one chip on a row, and no loop returns or floor trio', () => {
+    renderPage(
+      zone('family', '21.5', {
+        control_air: 23.7,
+        plan_mode: 'floor_cap',
+        floor_temp: 24.5,
+        floor_max_c: 24.5,
+        floor_temps: { [LIVING_FLOOR]: 24, [DINING_FLOOR]: 24.5 },
+        next_setpoint: 21,
+        next_change_at: '23:00',
+      }),
+      zone('kristines_room', '21.5', { plan_mode: 'guard', floor_temp: 22, floor_max_c: 24.5, next_setpoint: 19, next_change_at: '23:00' }),
+      entity(loopReturnSensorId(1), '32.4'),
+      entity(loopReturnSensorId(4), '34.7'),
+      entity(HEATING_SUPPLY_TEMP_SENSOR, '41.3')
+    );
+    for (const row of rows()) expect(chips(row).length).toBeLessThanOrEqual(1);
+    expect(document.querySelector('.heat-loop, .heat-zone-floor, .heat-zone-target, .heat-zone-loops')).toBeNull();
+  });
+});
+
+describe('the plant strip', () => {
+  const strip = () => document.querySelector('.heat-plant-strip') as HTMLElement;
+  const readings = () => [...strip().querySelectorAll('.heat-plant-probe')].map(probe => probe.textContent);
+
+  it('lists the four probes in the order the water passes them, with an icon for whether it flows', () => {
+    renderPage(
+      entity(BUILDING_RETURN_TEMP_SENSOR, '21.06'),
+      entity(HEATING_RETURN_TEMP_SENSOR, '24.4'),
+      entity(BUILDING_SUPPLY_TEMP_SENSOR, '22.69'),
+      entity(HEATING_SUPPLY_TEMP_SENSOR, '25.1'),
+      idle('kristines_room')
+    );
+    expect(readings()).toEqual(['22.7', '25.1', '24.4', '21.1']);
+    expect([...strip().querySelectorAll('.heat-plant-probe')].flatMap(probe => icons(probe))).toEqual([
+      'mdi:home-import-outline',
+      'mdi:thermometer-chevron-up',
+      'mdi:thermometer-chevron-down',
+      'mdi:home-export-outline',
+    ]);
+    expect(icons(strip())).toContain('mdi:pause');
+    expect(icons(strip())).not.toContain('mdi:waves-arrow-right');
+    expect(strip().getAttribute('aria-label')).toBe(
+      'Plant: building supply 22.7 °C, floor supply 25.1 °C, floor return 24.4 °C, building return 21.1 °C, idle'
+    );
+  });
+
+  it('shows the water flowing while a zone calls', () => {
+    renderPage(entity(HEATING_SUPPLY_TEMP_SENSOR, '25.1'));
+    expect(icons(strip())).toContain('mdi:waves-arrow-right');
+    expect(icons(strip())).not.toContain('mdi:pause');
+    expect(strip().getAttribute('aria-label')).toMatch(/, water flowing$/);
+  });
+
+  it('keeps a probe without a reading in place as a dash', () => {
+    renderPage(
+      entity(BUILDING_SUPPLY_TEMP_SENSOR, '22.7'),
+      entity(HEATING_SUPPLY_TEMP_SENSOR, 'unavailable'),
+      entity(HEATING_RETURN_TEMP_SENSOR, 'unknown'),
+      idle('kristines_room')
+    );
+    expect(readings()).toEqual(['22.7', '—', '—', '—']);
+    expect([...strip().querySelectorAll('.heat-plant-probe.is-unavailable')]).toHaveLength(3);
+    expect(strip().getAttribute('aria-label')).toBe(
+      'Plant: building supply 22.7 °C, floor supply unavailable, floor return unavailable, building return unavailable, idle'
+    );
+  });
+
+  it('is hidden when the flat has none of the probes', () => {
+    renderPage();
+    expect(strip()).toBeNull();
+  });
+
+  it('closes the page below the zone rows, and opens the plant view', () => {
+    renderPage(entity(HEATING_SUPPLY_TEMP_SENSOR, '25.1'));
+    expect(strip().previousElementSibling?.classList.contains('heat-zones')).toBe(true);
+    expect(strip().nextElementSibling).toBeNull();
+    expect(document.querySelector('.heat-plant-sheet')).toBeNull();
+    act(() => strip().click());
+    expect(document.querySelector('.heat-plant-sheet [role="dialog"][aria-label="Plant"]')).not.toBeNull();
+  });
+});
+
+describe('the plant view', () => {
+  const RETURNS = [32.4, 31.1, 30.2, 34.7, 22.1, 33, 36.8];
+  const plant = (...extra: Published[]) => {
+    renderPage(
+      entity(BUILDING_SUPPLY_TEMP_SENSOR, '48.6'),
+      entity(HEATING_SUPPLY_TEMP_SENSOR, '41.3'),
+      entity(HEATING_RETURN_TEMP_SENSOR, '33.8'),
+      entity(BUILDING_RETURN_TEMP_SENSOR, '33.9'),
+      ...RETURNS.map((tempC, index) => entity(loopReturnSensorId(index + 1), String(tempC))),
+      idle('kristines_room'),
+      ...extra
+    );
+    act(() => (document.querySelector('.heat-plant-strip') as HTMLElement).click());
+  };
+  const loops = () =>
+    [...document.querySelectorAll('.heat-plant-loops tbody tr')].map(row =>
+      [...row.querySelectorAll('th, td')].map(cell => cell.textContent)
+    );
+  const watts = () => loops().map(cells => cells[5]);
+
+  it('shows the supply and return of the building and of the floor with the drop across each', () => {
+    plant();
+    const label = (text: string) => document.querySelector(`.heat-plant-sheet [aria-label="${text}"]`);
+    expect(label('Building supply 48.6 °C')?.textContent).toBe('Building48.6');
+    expect(label('Floor supply 41.3 °C')?.textContent).toBe('Floor41.3');
+    expect(label('Floor return 33.8 °C')?.textContent).toBe('Floor33.8');
+    expect(label('Building return 33.9 °C')?.textContent).toBe('Building33.9');
+    expect(label('Building supply to return 14.7 °C')?.textContent).toBe('Δ 14.7');
+    expect(label('Building supply to floor supply 7.3 °C')?.textContent).toBe('Δ 7.3');
+    expect(label('Floor supply to return 7.5 °C')?.textContent).toBe('Δ 7.5');
+  });
+
+  it('has one row per loop with its flow, its return, the drop from the floor supply and its power', () => {
+    plant(calling('family_room'));
+    expect(loops()).toEqual([
+      ['1', '', '1.2', '32.4', '8.9', '745'],
+      ['2', 'K', '1.0', '31.1', '10.2', '—'],
+      ['3', 'C', '0.8', '30.2', '11.1', '—'],
+      ['4', '', '1.7', '34.7', '6.6', '783'],
+      ['5', '', '1.1', '22.1', '19.2', '—'],
+      ['6', '', '0.3', '33.0', '8.3', '—'],
+      ['7', '', '1.2', '36.8', '4.5', '—'],
+    ]);
+    expect([...document.querySelectorAll('.heat-plant-loops tbody tr')].map(row => row.className)).toEqual([
+      'is-calling',
+      'is-idle',
+      'is-idle',
+      'is-calling',
+      'is-idle',
+      'is-idle',
+      'is-idle',
+    ]);
+  });
+
+  it('gives a loop a power only while its zone calls', () => {
+    plant(calling('claudias_room'), calling('guest_bathroom'));
+    expect(watts()).toEqual([
+      '—',
+      '—',
+      String(Math.round(0.8 * (41.3 - 30.2) * 69.8)),
+      '—',
+      '—',
+      String(Math.round(0.3 * (41.3 - 33) * 69.8)),
+      '—',
+    ]);
+  });
+
+  it('reads the bedroom loop from the bedroom thermostat', () => {
+    plant(calling('bedroom'));
+    expect(watts()).toEqual(['—', '—', '—', '—', String(Math.round(1.1 * (41.3 - 22.1) * 69.8)), '—', '—']);
+  });
+
+  it('gives no loop a power while no zone calls, however warm its return reads', () => {
+    plant();
+    expect(watts()).toEqual(['—', '—', '—', '—', '—', '—', '—']);
+    expect(document.querySelector('.heat-plant-loops tr.is-calling')).toBeNull();
+  });
+
+  it('gives a calling loop a dash while its return has no reading', () => {
+    plant(calling('bathroom'), entity(loopReturnSensorId(7), 'unavailable'));
+    expect(loops()[6]).toEqual(['7', '', '1.2', '—', '—', '—']);
+  });
+
+  it('shows the pump with whether the water flows', () => {
+    plant(entity('sensor.floor_heating_relay_power', '1.5'));
+    const pump = () => document.querySelector('.heat-plant-sheet [aria-label^="Pump"]') as HTMLElement;
+    expect(pump().getAttribute('aria-label')).toBe('Pump 1.5 watts, idle');
+    plant(entity('sensor.floor_heating_relay_power', '16.3'), calling('family_room'));
+    expect(pump().getAttribute('aria-label')).toBe('Pump 16 watts, water flowing');
   });
 });
 
@@ -488,8 +1027,15 @@ describe('the bedroom row', () => {
     expect(air()).toBe('21.3°');
     expect(row().querySelector('.heat-zone-temps')?.classList.contains('tone-fresh')).toBe(true);
     expect(icons(row())).toEqual(['mdi:bed-outline', 'mdi:radiator-off']);
-    expect(row().querySelector('.heat-zone-target, .heat-badge')).toBeNull();
+    expect([...row().querySelectorAll('.heat-badge')].map(chip => chip.className)).toEqual(['heat-badge is-off']);
+    expect(row().querySelector('.heat-zone-gap, .heat-zone-target, .heat-zone-floor')).toBeNull();
     expect(row().getAttribute('aria-label')).toBe('Bedroom, air 21.3 °C, not heated');
+  });
+
+  it('keeps the floor of the room in its label and off the row', () => {
+    renderPage(feel, entity(BEDROOM_FLOOR_ENTITY, '22.34'));
+    expect(row().getAttribute('aria-label')).toBe('Bedroom, air 21.3 °C, floor 22.3 °C, not heated');
+    expect(row().textContent).not.toContain('22.3');
   });
 
   it('reads the thermostat when the feel sensor has no reading', () => {

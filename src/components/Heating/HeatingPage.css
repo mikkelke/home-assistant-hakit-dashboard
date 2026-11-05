@@ -1,7 +1,7 @@
 /* Admin heating overview (#heating): a full-screen page in the Energy page's shell, one card per
-   concern, one row per controller zone and a monitor-only row for the bedroom. Mode colours: hold
-   orange, floor cap the heat colour, sun cut yellow, window and settle cyan, party violet, guard indigo,
-   fallback grey. */
+   concern: the heat called today, one row per controller zone with a monitor-only row for the bedroom,
+   and the plant in one line. Mode colours: hold orange, floor cap the heat colour, sun cut yellow,
+   window and settle cyan, party violet, guard indigo, fallback grey. */
 
 .heating-page {
   position: fixed;
@@ -119,16 +119,6 @@
   background: rgba(251, 113, 133, 0.14);
   color: #fb7185;
 }
-.heat-probes {
-  display: flex;
-  gap: 8px;
-  margin-left: auto;
-}
-.heat-pill.is-unavailable,
-.heat-badge.is-unavailable {
-  color: var(--text-3);
-}
-
 .heating-page-content {
   flex: 1;
   overflow-y: auto;
@@ -141,6 +131,25 @@
   margin: 0 auto;
   padding: 12px 12px calc(5.5rem + env(safe-area-inset-bottom));
 }
+.heating-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.heating-col:empty {
+  display: none;
+}
+@media (min-width: 900px) {
+  .heating-page-content {
+    flex-direction: row;
+    align-items: flex-start;
+    max-width: 1100px;
+  }
+  .heating-col {
+    flex: 1 1 0;
+  }
+}
 .heating-page-empty {
   padding: 24px 8px;
   text-align: center;
@@ -148,8 +157,8 @@
   font-size: 14px;
 }
 .heat-card {
-  background: #1c1c1e;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--surface-card);
+  border: 1px solid var(--line);
   border-radius: 20px;
 }
 
@@ -247,7 +256,7 @@
   height: 12px;
   margin-left: -6px;
   border-radius: 50%;
-  border: 2px solid #1c1c1e;
+  border: 2px solid var(--surface-card);
   background: #34d399;
 }
 .heat-scale-dot.is-low {
@@ -267,12 +276,12 @@
 }
 .heat-zone-row {
   display: grid;
-  grid-template-columns: 40px 1fr auto;
+  grid-template-columns: 36px minmax(0, 1fr) auto 18px;
   align-items: center;
   gap: 0 12px;
   width: 100%;
-  min-height: 68px;
-  padding: 10px 14px;
+  min-height: 58px;
+  padding: 8px 12px 8px 16px;
   border: 0;
   background: none;
   color: inherit;
@@ -283,16 +292,18 @@
   transition: background 0.15s ease;
 }
 .heat-zone-row + .heat-zone-row {
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--line);
 }
 .heat-zone-row:active:not(:disabled) {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface-chip);
 }
 .heat-zone-row:disabled {
   cursor: default;
   opacity: 0.5;
 }
 .heat-zone-row.is-monitor {
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  padding-right: 42px;
   cursor: default;
 }
 .heat-zone-row.is-monitor:active {
@@ -300,6 +311,7 @@
 }
 .heat-zone-row:focus-visible,
 .heat-advisor-top:focus-visible,
+.heat-plant-strip:focus-visible,
 .heating-page-exit:focus-visible {
   outline: 2px solid #b8dfff;
   outline-offset: -2px;
@@ -309,19 +321,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.07);
-  color: #c4c4cc;
-  font-size: 19px;
+  background: var(--surface-chip);
+  color: var(--text-2);
+  font-size: 18px;
 }
 .heat-zone-glyph.is-shadow::after {
   content: '';
   position: absolute;
   inset: -3px;
   border-radius: 50%;
-  border: 1.5px dashed rgba(255, 255, 255, 0.22);
+  border: 1.5px dashed color-mix(in srgb, var(--text-1) 22%, transparent);
 }
 .heat-zone-glyph.is-small {
   width: 28px;
@@ -331,9 +344,26 @@
 .heat-zone-glyph.is-small::after {
   display: none;
 }
+.heat-zone-glyph.is-tiny {
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
+}
+.heat-zone-glyph.is-tiny.is-shadow::after {
+  inset: -2.5px;
+  border-width: 1.25px;
+}
+.heat-zone-glyph.is-calling {
+  background: var(--heat);
+  color: var(--surface-card);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--heat) 50%, transparent);
+}
 .heat-zone-letter {
   font-size: 15px;
   font-weight: 700;
+}
+.heat-zone-glyph.is-tiny .heat-zone-letter {
+  font-size: 11.5px;
 }
 .heat-zone-mid {
   display: flex;
@@ -350,83 +380,71 @@
 }
 .heat-zone-chips {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  min-height: 22px;
-}
-.heat-zone-flame {
-  font-size: 18px;
-  color: var(--heat);
-}
-.heat-zone-mode {
-  font-size: 18px;
-  color: var(--mode);
-}
-.heat-zone-noheat {
-  font-size: 18px;
-  color: #a1a1aa;
-}
-.heat-zone-cooling {
-  font-size: 18px;
-  color: var(--cool);
 }
 .heat-badge {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   height: 22px;
-  padding: 0 7px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
-  color: #d4d4d8;
+  padding: 0 8px;
+  border-radius: var(--radius-chip);
+  background: var(--surface-chip);
+  color: var(--text-2);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .heat-badge svg {
-  font-size: 13px;
+  font-size: 14px;
 }
-.heat-zone-loops {
-  display: inline-flex;
-  flex-wrap: nowrap;
-  gap: 6px;
+.heat-badge i {
+  font-style: normal;
+  opacity: 0.6;
 }
-.heat-badge.is-up {
-  background: rgba(255, 159, 10, 0.16);
+.heat-badge.is-floor {
+  background: color-mix(in srgb, var(--heat) 14%, transparent);
   color: var(--heat);
 }
-.heat-badge.is-down {
-  background: rgba(100, 210, 255, 0.16);
-  color: var(--cool);
+.heat-badge.is-mode {
+  background: color-mix(in srgb, var(--mode, var(--text-2)) 12%, transparent);
+  color: var(--mode, var(--text-2));
+}
+.heat-badge.is-off {
+  color: var(--text-3);
+}
+.heat-badge .is-cooling {
+  color: var(--accent-sky);
 }
 .heat-zone-temps {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
+  gap: 1px;
   font-variant-numeric: tabular-nums;
 }
 .heat-zone-air {
-  font-size: 20px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--tone, var(--text-1));
+}
+.heat-zone-gap {
+  font-size: 12.5px;
   font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--tone, #c5c5cc);
+  color: var(--text-3);
 }
-.heat-zone-target {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 13px;
-  font-weight: 500;
-  color: rgba(235, 235, 245, 0.6);
+.heat-zone-gap.is-warm {
+  color: var(--accent-gold);
 }
-.heat-zone-target svg {
-  font-size: 14px;
+.heat-zone-gap.is-cold {
+  color: var(--accent-sky);
 }
-.heat-zone-floor.is-hot {
-  color: var(--heat);
+.heat-zone-chevron {
+  font-size: 18px;
+  color: var(--text-3);
 }
 
 .heating-page-exit {
@@ -565,6 +583,21 @@
   border-radius: 1px;
   background: #fff;
   box-shadow: 0 0 0 2px #1c1c1e;
+}
+.heat-day-calls {
+  position: relative;
+  height: 8px;
+  margin-top: 4px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--text-1) 7%, transparent);
+}
+.heat-day-call {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 3px;
+  background: var(--heat);
 }
 .heat-day-ticks {
   position: relative;

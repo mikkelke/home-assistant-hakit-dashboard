@@ -3,15 +3,14 @@ import { Icon } from '@iconify/react';
 import { useHass } from '@hakit/core';
 import type { CallServiceFunction, HassEntities } from '../../types';
 import { useSwipeToClose, useViewer } from '../../hooks';
+import { useNowMs } from '../../hooks/useNowMs';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { AC_THERMOSTAT_ENTITY } from '../../config/entities';
+import { callSpans, localDay, zoneCallSegments, type CallSpan } from '../../utils/heatCalls';
 import {
-  BUILDING_RETURN_TEMP_SENSOR,
-  BUILDING_SUPPLY_TEMP_SENSOR,
   HEATING_CONTROLLER_SENSOR,
-  HEATING_RETURN_TEMP_SENSOR,
-  HEATING_SUPPLY_TEMP_SENSOR,
   HEATING_ZONES,
+  airGap,
   clockOf,
   floorReadings,
   heatBool,
@@ -20,12 +19,20 @@ import {
   heatingSeasonOn,
   isHeating,
   planModeMeta,
+  zoneCallSensorId,
+  zoneChip,
   zoneSensorId,
   zoneThermostatId,
+  type AirGap,
   type HeatingZone,
+  type ZoneChip,
 } from '../../utils/heating';
+import { HeatDemand } from './HeatDemand';
+import { PlantSheet, PlantStrip } from './HeatPlant';
 import { HeatZoneSheet } from './HeatZoneSheet';
-import { BEDROOM_FLOOR_ENTITY, BEDROOM_META, ZONE_META, bedroomAir, loopReturns, zoneAir } from './zoneMeta';
+import { Glyph, ZoneGlyph } from './ZoneGlyph';
+import { useCallHistory } from './useCallHistory';
+import { BEDROOM_FLOOR_ENTITY, BEDROOM_META, ZONE_META, bedroomAir, zoneAir } from './zoneMeta';
 import '../Appliance/Appliance.css';
 import '../RoomDetail/RoomClimateHeader.css';
 import './HeatingPage.css';
@@ -45,15 +52,6 @@ const SEASON_REASONS: Record<string, { icon: string; text: string }> = {
   forecast_cool: { icon: 'mdi:snowflake-thermometer', text: 'The next 72 h look cool' },
   asked_recently: { icon: 'mdi:bell-check-outline', text: 'Asked recently' },
 };
-
-function ZoneGlyph({ zone, className = '' }: { zone: HeatingZone; className?: string }) {
-  const meta = ZONE_META[zone];
-  return (
-    <span className={`heat-zone-glyph ${className}`} aria-hidden='true'>
-      {meta.letter ? <span className='heat-zone-letter'>{meta.letter}</span> : <Icon icon={meta.icon ?? 'mdi:radiator'} />}
-    </span>
-  );
-}
 
 function SeasonAdvisor({ entities, seasonOn }: { entities: HassEntities; seasonOn: boolean }) {
   const [open, setOpen] = useState(false);
@@ -132,22 +130,32 @@ function SeasonAdvisor({ entities, seasonOn }: { entities: HassEntities; seasonO
   );
 }
 
-function LoopBadges({ loops }: { loops: ReturnType<typeof loopReturns> }) {
-  if (loops.length === 0) return null;
+/** Air minus target with its sign: "+2.0", "−0.4", "0.0". */
+const gapText = ({ value }: AirGap) => (value === 0 ? '0.0' : `${value > 0 ? '+' : '−'}${Math.abs(value).toFixed(1)}`);
+const gapWords = ({ value }: AirGap) =>
+  value === 0 ? 'on target' : `${Math.abs(value).toFixed(1)} °C ${value > 0 ? 'above' : 'below'} target`;
+
+function ZoneChipView({ chip }: { chip: ZoneChip }) {
+  if (chip.kind === 'floor') {
+    return (
+      <span className='heat-badge is-floor'>
+        <Icon icon='mdi:heating-coil' />
+        {chip.floorC.toFixed(1)}
+        <i>/{chip.maxC.toFixed(1)}</i>
+      </span>
+    );
+  }
+  const { next } = chip;
+  const arrow = next.direction === 'up' ? 'mdi:arrow-up' : next.direction === 'down' ? 'mdi:arrow-down' : null;
+  const text = [next.setpoint?.toFixed(1), next.at].filter(Boolean).join(' ');
   return (
-    <span className='heat-zone-loops'>
-      {loops.map(({ loop, icon, tempC }) => (
-        <span key={loop} className={`heat-badge heat-loop${tempC == null ? ' is-unavailable' : ''}`}>
-          <Icon icon={icon} />
-          {tempC == null ? '—' : tempC.toFixed(1)}
-        </span>
-      ))}
+    <span className={`heat-badge${chip.kind === 'mode' ? ` is-mode mode-${chip.mode}` : ''}`}>
+      {chip.kind === 'mode' && <Icon icon={planModeMeta(chip.mode).icon} />}
+      {arrow && <Icon icon={arrow} />}
+      {text}
     </span>
   );
 }
-
-const loopLabels = (loops: ReturnType<typeof loopReturns>) =>
-  loops.map(({ loop, tempC }) => `loop ${loop} return ${tempC == null ? 'unavailable' : `${tempC.toFixed(1)} °C`}`);
 
 function ZoneRow({ zone, entities, onOpen }: { zone: HeatingZone; entities: HassEntities; onOpen: () => void }) {
   const meta = ZONE_META[zone];
@@ -155,26 +163,23 @@ function ZoneRow({ zone, entities, onOpen }: { zone: HeatingZone; entities: Hass
   const attrs = sensor?.attributes ?? {};
   const { airC, tone } = zoneAir(entities, zone);
   const target = heatNum(sensor?.state);
+  const gap = airGap(airC, target);
+  const chip = zoneChip(attrs, target);
   const heating = isHeating(entities[zoneThermostatId(zone)]);
   const planMode = typeof attrs.plan_mode === 'string' ? attrs.plan_mode : '';
   const mode = planMode && planMode !== 'hold' ? planModeMeta(planMode) : null;
   const nudge = heatNum(attrs.nudge) ?? 0;
   const nextSetpoint = heatNum(attrs.next_setpoint);
   const nextAt = clockOf(attrs.next_change_at);
-  const setpointNow = heatNum(attrs.setpoint_now);
   const floorC = heatNum(attrs.floor_temp);
-  const floorMax = heatNum(attrs.floor_max_c);
-  const floorHot = floorC != null && floorMax != null && floorC >= floorMax;
   const floors = floorReadings(attrs.floor_temps).map(floor => `${floor.room} ${floor.tempC.toFixed(1)} °C`);
-  const nextUp = nextSetpoint != null && setpointNow != null && nextSetpoint > setpointNow;
-  const loops = loopReturns(entities, meta);
 
   const label = [
     meta.name,
     airC == null ? 'air unknown' : `air ${airC.toFixed(1)} °C`,
     target == null ? null : `target ${target.toFixed(1)} °C`,
+    gap && gapWords(gap),
     floorC == null ? null : `floor ${floorC.toFixed(1)} °C${floors.length > 0 ? ` (${floors.join(', ')})` : ''}`,
-    ...loopLabels(loops),
     heating ? 'heating' : null,
     mode?.label,
     nudge !== 0 ? `nudged ${nudge > 0 ? '+' : ''}${nudge.toFixed(1)}` : null,
@@ -188,37 +193,17 @@ function ZoneRow({ zone, entities, onOpen }: { zone: HeatingZone; entities: Hass
       <ZoneGlyph zone={zone} className={heatBool(attrs.live) ? 'is-live' : 'is-shadow'} />
       <span className='heat-zone-mid'>
         <span className='heat-zone-name'>{meta.name}</span>
-        <span className='heat-zone-chips' aria-hidden='true'>
-          {heating && <Icon className='heat-zone-flame' icon='mdi:fire' />}
-          {mode && <Icon className={`heat-zone-mode mode-${planMode}`} icon={mode.icon} />}
-          {nudge !== 0 && (
-            <span className={`heat-badge ${nudge > 0 ? 'is-up' : 'is-down'}`}>
-              <Icon icon={nudge > 0 ? 'mdi:arrow-up' : 'mdi:arrow-down'} />
-              {Math.abs(nudge).toFixed(1)}
-            </span>
-          )}
-          {nextSetpoint != null && nextAt && (
-            <span className='heat-badge'>
-              <Icon icon={nextUp ? 'mdi:arrow-up' : 'mdi:arrow-down'} />
-              {nextSetpoint.toFixed(1)} {nextAt}
-            </span>
-          )}
-          <LoopBadges loops={loops} />
-        </span>
-      </span>
-      <span className={`heat-zone-temps tone-${tone}`} aria-hidden='true'>
-        <span className='heat-zone-air'>{airC == null ? '—' : `${airC.toFixed(1)}°`}</span>
-        <span className='heat-zone-target'>
-          <Icon icon='mdi:target' />
-          {target == null ? '—' : target.toFixed(1)}
-        </span>
-        {floorC != null && (
-          <span className={`heat-zone-target heat-zone-floor${floorHot ? ' is-hot' : ''}`}>
-            <Icon icon='mdi:heating-coil' />
-            {floorC.toFixed(1)}
+        {chip && (
+          <span className='heat-zone-chips' aria-hidden='true'>
+            <ZoneChipView chip={chip} />
           </span>
         )}
       </span>
+      <span className={`heat-zone-temps tone-${tone}`} aria-hidden='true'>
+        <span className='heat-zone-air'>{airC == null ? '—' : `${airC.toFixed(1)}°`}</span>
+        {gap && <span className={`heat-zone-gap is-${gap.tone}`}>{gapText(gap)}</span>}
+      </span>
+      <Icon className='heat-zone-chevron' icon='mdi:chevron-right' aria-hidden='true' />
     </button>
   );
 }
@@ -228,13 +213,11 @@ function BedroomRow({ entities }: { entities: HassEntities }) {
   const { airC, tone } = bedroomAir(entities);
   const cooling = entities[AC_THERMOSTAT_ENTITY]?.attributes?.hvac_action === 'cooling';
   const floorC = heatNum(entities[BEDROOM_FLOOR_ENTITY]?.state);
-  const loops = loopReturns(entities, BEDROOM_META);
 
   const label = [
     BEDROOM_META.name,
     airC == null ? 'air unknown' : `air ${airC.toFixed(1)} °C`,
     floorC == null ? null : `floor ${floorC.toFixed(1)} °C`,
-    ...loopLabels(loops),
     'not heated',
     cooling ? 'A/C cooling' : null,
   ]
@@ -243,40 +226,20 @@ function BedroomRow({ entities }: { entities: HassEntities }) {
 
   return (
     <div className='heat-zone-row is-monitor' role='img' aria-label={label}>
-      <span className='heat-zone-glyph' aria-hidden='true'>
-        <Icon icon={BEDROOM_META.icon} />
-      </span>
+      <Glyph icon={BEDROOM_META.icon} />
       <span className='heat-zone-mid'>
         <span className='heat-zone-name'>{BEDROOM_META.name}</span>
         <span className='heat-zone-chips' aria-hidden='true'>
-          <Icon className='heat-zone-noheat' icon='mdi:radiator-off' />
-          {cooling && <Icon className='heat-zone-cooling' icon='mdi:snowflake' />}
-          <LoopBadges loops={loops} />
+          <span className='heat-badge is-off'>
+            <Icon icon='mdi:radiator-off' />
+            {cooling && <Icon className='is-cooling' icon='mdi:snowflake' />}
+          </span>
         </span>
       </span>
       <span className={`heat-zone-temps tone-${tone}`} aria-hidden='true'>
         <span className='heat-zone-air'>{airC == null ? '—' : `${airC.toFixed(1)}°`}</span>
-        {floorC != null && (
-          <span className='heat-zone-target heat-zone-floor'>
-            <Icon icon='mdi:heating-coil' />
-            {floorC.toFixed(1)}
-          </span>
-        )}
       </span>
     </div>
-  );
-}
-
-function PipeProbe({ icon, label, tempC }: { icon: string; label: string; tempC: number | null }) {
-  return (
-    <span
-      className={`heat-pill${tempC == null ? ' is-unavailable' : ''}`}
-      role='img'
-      aria-label={tempC == null ? `${label} unavailable` : `${label} ${tempC.toFixed(1)} °C`}
-    >
-      <Icon icon={icon} aria-hidden='true' />
-      {tempC == null ? '—' : `${tempC.toFixed(1)}°`}
-    </span>
   );
 }
 
@@ -284,9 +247,14 @@ function HeatingOverview({ onClose }: HeatingPageProps) {
   const entities = useTrackedEntities();
   const callService = useHass(state => state.helpers?.callService) as CallServiceFunction | undefined;
   const [openZone, setOpenZone] = useState<HeatingZone | null>(null);
+  const [plantOpen, setPlantOpen] = useState(false);
   const swipe = useSwipeToClose(onClose);
   const onPage = (handler: ((e: TouchEvent) => void) | undefined) =>
     handler && ((e: TouchEvent) => e.currentTarget.contains(e.target as Node) && handler(e));
+
+  const nowMs = useNowMs();
+  const day = localDay(nowMs);
+  const history = useCallHistory(day.startMs);
 
   const controller = entities[HEATING_CONTROLLER_SENSOR];
   const ctl = controller?.attributes ?? {};
@@ -295,15 +263,10 @@ function HeatingOverview({ onClose }: HeatingPageProps) {
   const live = zones.filter(zone => heatBool(entities[zoneSensorId(zone)]?.attributes?.live)).length;
   const writes = heatNum(ctl.would_writes_today);
   const alerts = heatList(ctl.alerts_active).length;
-  const probes = [
-    { entity: BUILDING_SUPPLY_TEMP_SENSOR, icon: 'mdi:home-import-outline', label: 'Building supply' },
-    { entity: HEATING_SUPPLY_TEMP_SENSOR, icon: 'mdi:thermometer-chevron-up', label: 'Supply pipe' },
-    { entity: HEATING_RETURN_TEMP_SENSOR, icon: 'mdi:thermometer-chevron-down', label: 'Return pipe' },
-    { entity: BUILDING_RETURN_TEMP_SENSOR, icon: 'mdi:home-export-outline', label: 'Building return' },
-  ].flatMap(({ entity, icon, label }) => {
-    const probe = entities[entity];
-    return probe ? [{ icon, label, tempC: heatNum(probe.state) }] : [];
-  });
+  const calls: Partial<Record<HeatingZone, CallSpan[]>> = {};
+  for (const zone of zones) {
+    calls[zone] = callSpans(zoneCallSegments(history?.[zone], entities[zoneCallSensorId(zone)], day, nowMs), day);
+  }
 
   return (
     <div
@@ -336,34 +299,42 @@ function HeatingOverview({ onClose }: HeatingPageProps) {
             {alerts}
           </span>
         )}
-        {probes.length > 0 && (
-          <div className='heat-probes'>
-            {probes.map(probe => (
-              <PipeProbe key={probe.label} {...probe} />
-            ))}
-          </div>
-        )}
       </header>
 
       <div className='heating-page-content'>
-        <SeasonAdvisor entities={entities} seasonOn={seasonOn} />
-        {zones.length > 0 ? (
-          <section className='heat-card heat-zones'>
-            {zones.map(zone => (
-              <ZoneRow key={zone} zone={zone} entities={entities} onOpen={() => setOpenZone(zone)} />
-            ))}
-            <BedroomRow entities={entities} />
-          </section>
-        ) : (
-          <p className='heating-page-empty'>The heating controller publishes nothing yet.</p>
-        )}
+        <div className='heating-col'>
+          <HeatDemand entities={entities} zones={zones} calls={calls} day={day} nowMs={nowMs} />
+          <SeasonAdvisor entities={entities} seasonOn={seasonOn} />
+        </div>
+        <div className='heating-col'>
+          {zones.length > 0 ? (
+            <section className='heat-card heat-zones'>
+              {zones.map(zone => (
+                <ZoneRow key={zone} zone={zone} entities={entities} onOpen={() => setOpenZone(zone)} />
+              ))}
+              <BedroomRow entities={entities} />
+            </section>
+          ) : (
+            <p className='heating-page-empty'>The heating controller publishes nothing yet.</p>
+          )}
+          <PlantStrip entities={entities} onOpen={() => setPlantOpen(true)} />
+        </div>
       </div>
 
       <button type='button' className='heating-page-exit' onClick={onClose} aria-label='Close heating'>
         <Icon icon='mdi:close' />
       </button>
 
-      {openZone && <HeatZoneSheet zone={openZone} entities={entities} callService={callService} onClose={() => setOpenZone(null)} />}
+      {openZone && (
+        <HeatZoneSheet
+          zone={openZone}
+          entities={entities}
+          callService={callService}
+          calls={calls[openZone]}
+          onClose={() => setOpenZone(null)}
+        />
+      )}
+      {plantOpen && <PlantSheet entities={entities} onClose={() => setPlantOpen(false)} />}
     </div>
   );
 }

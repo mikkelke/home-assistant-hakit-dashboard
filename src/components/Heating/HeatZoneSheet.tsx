@@ -4,6 +4,7 @@ import type { CallServiceFunction, HassEntities } from '../../types';
 import { usePendingWrite } from '../../hooks/usePendingWrite';
 import { useNowMs } from '../../hooks/useNowMs';
 import { hapticTick } from '../../utils/haptics';
+import type { CallSpan } from '../../utils/heatCalls';
 import {
   blockIcons,
   clockOf,
@@ -25,7 +26,7 @@ const pct = (min: number) => `${(min / DAY_MIN) * 100}%`;
 const LABEL_MIN = 0.12 * DAY_MIN;
 const ICON_GAP = 0.06 * DAY_MIN;
 
-function DayStrip({ blocks, nowMs }: { blocks: DayBlock[]; nowMs: number }) {
+function DayStrip({ blocks, calls, nowMs }: { blocks: DayBlock[]; calls: CallSpan[]; nowMs: number }) {
   const now = new Date(nowMs);
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const icons = blockIcons(blocks, ICON_GAP);
@@ -49,6 +50,11 @@ function DayStrip({ blocks, nowMs }: { blocks: DayBlock[]; nowMs: number }) {
           </span>
         ))}
         <span className='heat-day-now' style={{ left: pct(nowMin) }} />
+      </div>
+      <div className='heat-day-calls'>
+        {calls.map(span => (
+          <span key={span.left} className='heat-day-call' style={{ left: `${span.left}%`, width: `${span.width}%` }} />
+        ))}
       </div>
       <div className='heat-day-ticks'>
         {[0, 3, 6, 9, 12, 15, 18, 21, 24].map(hour => (
@@ -79,12 +85,14 @@ interface HeatZoneSheetProps {
   zone: HeatingZone;
   entities: HassEntities;
   callService: CallServiceFunction | undefined;
+  /** The stretches the zone called for heat today, drawn under the plan strip. */
+  calls?: CallSpan[];
   onClose: () => void;
 }
 
-/** One zone in full: today's plan strip, the controller's own reasons, budget and the last human
- * signal, and the owner's base-target stepper. */
-export function HeatZoneSheet({ zone, entities, callService, onClose }: HeatZoneSheetProps) {
+/** One zone in full: today's plan strip with the calls under it, the controller's own reasons, budget and the last
+ * human signal, and the owner's base-target stepper. */
+export function HeatZoneSheet({ zone, entities, callService, calls = [], onClose }: HeatZoneSheetProps) {
   const meta = ZONE_META[zone];
   const sensor = entities[zoneSensorId(zone)];
   const attrs = sensor?.attributes ?? {};
@@ -144,7 +152,7 @@ export function HeatZoneSheet({ zone, entities, callService, onClose }: HeatZone
 
         {blocks.length > 0 && (
           <section className='heat-sheet-section'>
-            <DayStrip blocks={blocks} nowMs={nowMs} />
+            <DayStrip blocks={blocks} calls={calls} nowMs={nowMs} />
           </section>
         )}
 
