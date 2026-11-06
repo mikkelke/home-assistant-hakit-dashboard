@@ -11,7 +11,7 @@ vi.hoisted(() => {
 const store = vi.hoisted(() => {
   type State = { areas: Record<string, { area_id: string; name: string }>; hassUrl: string; helpers: { callService: () => void } };
   const state: State = {
-    areas: { kitchen: { area_id: 'kitchen', name: 'Kitchen' } },
+    areas: { kitchen: { area_id: 'kitchen', name: 'Kitchen' }, living_room: { area_id: 'living_room', name: 'Living room' } },
     hassUrl: '',
     helpers: { callService: () => {} },
   };
@@ -39,7 +39,17 @@ vi.mock('../../Home/HomeHeader', () => ({ HomeHeader: () => null }));
 vi.mock('../../Home/MotionConditions', () => ({ MotionConditions: () => null }));
 vi.mock('../../Home/PulseRow', () => ({ PulseRow: () => null }));
 vi.mock('../../HomePulse', () => ({ HomePulse: () => null }));
-vi.mock('../../RoomGrid', () => ({ RoomGrid: () => null }));
+const grid = vi.hoisted(() => ({ props: null as { onRoomClick: (area: { area_id: string; name: string }) => void } | null }));
+vi.mock('../../RoomGrid', () => ({
+  RoomGrid: (props: { onRoomClick: (area: { area_id: string; name: string }) => void }): ReactNode => {
+    grid.props = props;
+    return null;
+  },
+}));
+const viewer = vi.hoisted(() => ({ name: null as string | null, isAdmin: false as boolean | null, id: null as string | null }));
+vi.mock('../../../hooks/useViewer', () => ({ useViewer: () => viewer }));
+const taps = vi.hoisted(() => vi.fn());
+vi.mock('../../../utils/trackUiTap', async importOriginal => ({ ...(await importOriginal<object>()), trackUiTap: taps }));
 vi.mock('../../FireSafety', () => ({ FireAlarmTakeover: () => null }));
 vi.mock('../../QuickAccess/QuickAccess', () => ({ QuickAccess: () => createElement('div', { id: 'quick-access' }) }));
 vi.mock('../../RoomDetail', () => ({
@@ -79,6 +89,9 @@ beforeEach(() => {
   vi.useFakeTimers();
   window.history.replaceState(null, '', '/dashboard');
   stage.props = null;
+  grid.props = null;
+  viewer.name = null;
+  taps.mockClear();
   layout.overlay = true;
   root = createRoot(document.body.appendChild(document.createElement('div')));
 });
@@ -148,6 +161,7 @@ describe('the #coffee route', () => {
     expect(push).toHaveBeenCalledTimes(1);
     expect(window.location.hash).toBe('#coffee');
     expect(window.history.state).toMatchObject({ coffee: true, coffeeOverKitchen: true });
+    expect(taps).toHaveBeenCalledWith('coffee.stage', 'card');
     const back = vi.spyOn(window.history, 'back');
     act(() => stage.props?.onClose());
     expect(back).toHaveBeenCalledTimes(1);
@@ -192,5 +206,65 @@ describe('the #coffee route', () => {
     await settle();
     expect(has('#coffee-stage')).toBe(false);
     expect(has('#sensor-map')).toBe(true);
+  });
+});
+
+describe('the Kitchen tile on Home', () => {
+  const KITCHEN = { area_id: 'kitchen', name: 'Kitchen' };
+  const LIVING = { area_id: 'living_room', name: 'Living room' };
+  const tap = async (area: typeof KITCHEN) => {
+    act(() => grid.props?.onRoomClick(area));
+    await settle();
+  };
+
+  it('opens the stage as one entry on the wine-fridge tablet, not the room panel', async () => {
+    viewer.name = 'Rooftop';
+    await mount();
+    const push = vi.spyOn(window.history, 'pushState');
+    await tap(KITCHEN);
+    expect(has('#coffee-stage')).toBe(true);
+    expect(has('#room-detail')).toBe(false);
+    expect(window.location.hash).toBe('#coffee');
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(taps).toHaveBeenCalledWith('coffee.stage', 'tile');
+    expect(taps).toHaveBeenCalledWith('home.room', 'kitchen');
+  });
+
+  it('still opens the room panel for the other rooms on the tablet', async () => {
+    viewer.name = 'Rooftop';
+    await mount();
+    await tap(LIVING);
+    expect(has('#coffee-stage')).toBe(false);
+    expect(document.querySelector('#room-detail')?.getAttribute('data-area')).toBe('living_room');
+    expect(window.location.hash).toBe('#room=living_room');
+  });
+
+  it('opens the Kitchen room panel on a phone, as before', async () => {
+    viewer.name = 'Kristine';
+    await mount();
+    await tap(KITCHEN);
+    expect(has('#coffee-stage')).toBe(false);
+    expect(document.querySelector('#room-detail')?.getAttribute('data-area')).toBe('kitchen');
+    expect(window.location.hash).toBe('#room=kitchen');
+    expect(taps).not.toHaveBeenCalledWith('coffee.stage', expect.anything());
+    expect(taps).toHaveBeenCalledWith('home.room', 'kitchen');
+  });
+
+  it('lets the stage go back to the Kitchen panel without bouncing into the stage again', async () => {
+    viewer.name = 'Rooftop';
+    await mount();
+    await tap(KITCHEN);
+    const push = vi.spyOn(window.history, 'pushState');
+    act(() => stage.props?.onClose());
+    await settle();
+    expect(has('#coffee-stage')).toBe(false);
+    expect(document.querySelector('#room-detail')?.getAttribute('data-area')).toBe('kitchen');
+    expect(window.location.hash).toBe('#room=kitchen');
+    expect(push).not.toHaveBeenCalled();
+    await settle();
+    expect(has('#coffee-stage')).toBe(false);
+    await tap(KITCHEN);
+    expect(has('#room-detail')).toBe(false);
+    expect(has('#coffee-stage')).toBe(false);
   });
 });

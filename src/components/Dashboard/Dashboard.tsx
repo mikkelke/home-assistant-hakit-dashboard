@@ -73,6 +73,9 @@ const CoffeeStage = lazy(() => import('../Coffee/CoffeeStage'));
 /** History state of a #coffee entry pushed over the Kitchen, which the stage's back button returns to. */
 const COFFEE_OVER_KITCHEN_KEY = 'coffeeOverKitchen';
 
+/** What opened the coffee stage: the Kitchen's Coffee card, the Kitchen tile, the Home ticker, or a brew on the machine. */
+type CoffeeStageVia = 'card' | 'tile' | 'ticker' | 'takeover';
+
 // The #now timeline is warmed on idle like room detail, and fetched at once when the app opens on a
 // #now link (a tapped push), so the timeline is the first thing that renders.
 const NowView = lazy(() => import('../Now').then(module => ({ default: module.NowView })));
@@ -795,14 +798,39 @@ export function Dashboard() {
     return () => targetWindow.removeEventListener('popstate', handlePopState, { capture: true });
   }, [syncStateFromHash]);
 
+  const viewer = useViewer();
+  const isCoffeeTablet = viewer.name === COFFEE_TABLET_VIEWER;
+
+  // The stage opens over what shows; from the Kitchen it goes back there, from anywhere else its back button opens it.
+  // `via` says what opened it, for the tap count.
+  const openCoffeeStage = useCallback(
+    (fromKitchen: boolean, via: CoffeeStageVia) => {
+      pushRouteHistory('coffee', '#coffee', fromKitchen ? { [COFFEE_OVER_KITCHEN_KEY]: true } : {});
+      setCoffeeOpen(true);
+      setSelectedRoom(null);
+      setEnergyOpen(false);
+      setMapOpen(false);
+      setHeatingOpen(false);
+      setListsOpen(false);
+      showNow(null);
+      trackUiTap('coffee.stage', via);
+    },
+    [pushRouteHistory, showNow]
+  );
+
   const handleRoomClick = (area: Area) => {
     if (selectedRoomRef.current?.area_id === area.area_id) {
       handleCloseRoom();
       return;
     }
 
-    setSelectedRoom(area);
-    pushRoomHistory(area.area_id);
+    // The tablet on the wine fridge goes from the Kitchen tile to the stage, not to the room panel.
+    if (isCoffeeTablet && area.area_id === COFFEE_AREA_ID) {
+      openCoffeeStage(false, 'tile');
+    } else {
+      setSelectedRoom(area);
+      pushRoomHistory(area.area_id);
+    }
     trackUiTap('home.room', area.area_id);
   };
 
@@ -889,21 +917,6 @@ export function Dashboard() {
     replaceRouteHistory('lists');
   }, [replaceRouteHistory]);
 
-  // The stage opens over what shows; from the Kitchen it goes back there, from anywhere else its back button opens it.
-  const openCoffeeStage = useCallback(
-    (fromKitchen: boolean) => {
-      pushRouteHistory('coffee', '#coffee', fromKitchen ? { [COFFEE_OVER_KITCHEN_KEY]: true } : {});
-      setCoffeeOpen(true);
-      setSelectedRoom(null);
-      setEnergyOpen(false);
-      setMapOpen(false);
-      setHeatingOpen(false);
-      setListsOpen(false);
-      showNow(null);
-    },
-    [pushRouteHistory, showNow]
-  );
-
   const handleCloseCoffee = useCallback(() => {
     const targetWindow = getAccessibleHistoryWindow();
     if (targetWindow && historyFlag(targetWindow.history.state, COFFEE_OVER_KITCHEN_KEY)) {
@@ -920,15 +933,13 @@ export function Dashboard() {
     replaceRoomHistory(kitchen.area_id);
   }, [findRoomById, replaceRoomHistory, replaceRouteHistory]);
 
-  const viewer = useViewer();
-  const isCoffeeTablet = viewer.name === COFFEE_TABLET_VIEWER;
   // Home's coffee pieces: the stage on the tablet, the Kitchen with its Coffee card on top on a phone.
   const handleOpenCoffee = () => {
-    if (isCoffeeTablet) openCoffeeStage(false);
+    if (isCoffeeTablet) openCoffeeStage(false, 'ticker');
     else handlePulseRoomSelect(COFFEE_AREA_ID);
     trackUiTap('home.coffee');
   };
-  const takeOverForCoffee = useCallback(() => openCoffeeStage(false), [openCoffeeStage]);
+  const takeOverForCoffee = useCallback(() => openCoffeeStage(false, 'takeover'), [openCoffeeStage]);
   const returnFromCoffee = useCallback(
     (to: 'back' | 'grid') => {
       const targetWindow = getAccessibleHistoryWindow();
@@ -1078,7 +1089,7 @@ export function Dashboard() {
                 isMobile={isMobile}
                 autoOpenClimate={climateAutoOpenAreaId === selectedRoom.area_id}
                 onAutoOpenClimateHandled={() => setClimateAutoOpenAreaId(null)}
-                onOpenCoffee={() => openCoffeeStage(true)}
+                onOpenCoffee={() => openCoffeeStage(true, 'card')}
               />
             </Suspense>
           </>

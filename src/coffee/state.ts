@@ -180,8 +180,8 @@ export function parseCoffeeState(entity: CoffeeEntity): CoffeeState | null {
 export const isBrewing = (phase: CoffeePhase | null | undefined): boolean =>
   phase === 'grinding' || phase === 'brewing' || phase === 'paused';
 
-/** Shown on Home: a brew under way, or ready and not yet picked up. */
-export const isOnHome = (phase: CoffeePhase | null | undefined): boolean => isBrewing(phase) || phase === 'ready';
+/** Shown on Home: a brew under way, or a finished one until it lapses back to idle. */
+export const isOnHome = (phase: CoffeePhase | null | undefined): boolean => isBrewing(phase) || phase === 'ready' || phase === 'picked_up';
 
 /** Anything but a quiet machine: the Kitchen card opens on top while this holds. */
 export const isEventful = (phase: CoffeePhase | null | undefined): boolean => phase != null && phase !== 'idle' && phase !== 'asleep';

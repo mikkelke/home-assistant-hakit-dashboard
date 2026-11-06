@@ -31,6 +31,8 @@ const PLAN = [
 const PLAN_POURS = PLAN.map(pour => `${pour.start}-${pour.end}:${pour.pattern}:93:${pour.ml}`).join(';');
 const PLAN_END_S = 116;
 const MAX_S = 300;
+/** How long a stopped brew ran before the stop, during its second pour. */
+const STOPPED_S = 58;
 
 /** The tank's capacity in ml, as the coffee app publishes it. */
 const TANK_ML = '946';
@@ -278,7 +280,7 @@ function ledger(newestAtMs: number, newest: Partial<LedgerSpec> & { brew?: Brew;
     const brew = inBaseline ? USUAL[usualSeen++] : index === 0 && newest.brew ? newest.brew : brewFor(spec);
     const atMs = newestAtMs - spec.hoursAgo * HOUR;
     const stopped = spec.stopped === true;
-    const total = stopped ? 58 : brew.ready;
+    const total = stopped ? STOPPED_S : brew.ready;
     const cup = stopped ? 31 : Math.round(brew.cup[brew.ready]);
     const drawdown = brew.ready - PLAN_END_S - brew.shift;
     const usual = !spec.recipe;
@@ -568,15 +570,53 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
       recent = recentFor(brews);
       break;
     }
-    case 'ready': {
+    case 'ready':
+    case 'ready_cup_unknown':
+    case 'picked_up': {
       const readyMs = anchorMs - 12 * S;
       const brews = ledger(readyMs);
-      entities[COFFEE_STATE_ENTITY] = readyState(readyMs - TODAY.ready * S, brews[0].id, nowMs);
+      const extra: Attributes =
+        scenario === 'picked_up' ? { cup: 'absent', picked_up_at: iso(anchorMs - 4 * S) } : scenario === 'ready' ? {} : { cup: 'unknown' };
+      entities[COFFEE_STATE_ENTITY] = readyState(
+        readyMs - TODAY.ready * S,
+        brews[0].id,
+        nowMs,
+        scenario === 'picked_up' ? 'picked_up' : 'ready',
+        extra
+      );
       entities[COFFEE_LIVE_ENTITY] = liveEntity('ended', TODAY, readyMs - TODAY.ready * S, TODAY.ready);
       entities[COFFEE_BREWS_ENTITY] = brewsEntity(brews);
       entities[COFFEE_BASELINE_ENTITY] = baselineEntity(false, anchorMs, baselineIds(brews));
       entities[COFFEE_BEANS_ENTITY] = beansEntity(97, 6, anchorMs);
       entities[COFFEE_ADVICE_ENTITY] = adviceEntity('suggested', brews);
+      recent = recentFor(brews);
+      break;
+    }
+    case 'stopped': {
+      const stoppedMs = anchorMs - 20 * S;
+      const bloomMs = stoppedMs - STOPPED_S * S;
+      const brews = ledger(stoppedMs, { stopped: true, rating: undefined });
+      entities[COFFEE_STATE_ENTITY] = stateEntity(
+        {
+          phase: 'stopped',
+          machine: 'awake',
+          powerW: '2.4',
+          link: 'connected',
+          brewId: brews[0].id,
+          extra: {
+            ...brewingBase(bloomMs),
+            pour: '2',
+            stopped_at: iso(stoppedMs),
+            stop_reason: 'home_assistant',
+            tank_left_ml: '470',
+          },
+        },
+        nowMs
+      );
+      entities[COFFEE_LIVE_ENTITY] = liveEntity('ended', TODAY, bloomMs, STOPPED_S);
+      entities[COFFEE_BREWS_ENTITY] = brewsEntity(brews);
+      entities[COFFEE_BASELINE_ENTITY] = baselineEntity(false, anchorMs, baselineIds(brews));
+      entities[COFFEE_BEANS_ENTITY] = beansEntity(97, 6, anchorMs);
       recent = recentFor(brews);
       break;
     }
@@ -699,10 +739,10 @@ function brewingBase(bloomMs: number): Attributes {
   };
 }
 
-function readyState(bloomMs: number, brewId: string, nowMs: number): CoffeeEntity {
+function readyState(bloomMs: number, brewId: string, nowMs: number, phase = 'ready', extra: Attributes = {}): CoffeeEntity {
   return stateEntity(
     {
-      phase: 'ready',
+      phase,
       machine: 'awake',
       powerW: '2.4',
       link: 'connected',
@@ -718,6 +758,7 @@ function readyState(bloomMs: number, brewId: string, nowMs: number): CoffeeEntit
         total_s: String(TODAY.ready),
         drawdown_s: String(TODAY.ready - PLAN_END_S - TODAY.shift),
         tank_left_ml: '385',
+        ...extra,
       },
     },
     nowMs

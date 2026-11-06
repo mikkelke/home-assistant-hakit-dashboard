@@ -3,11 +3,11 @@ import { brewProgressPct, faultView, phaseWord, type CoffeeState } from '../../c
 import { formatHomeClock } from '../../energy/homeTime';
 import { useNowMs } from '../../hooks/useNowMs';
 
-/** The brew on the sky's ground while it runs, its stage with a hairline of how far it got; green once ready. Nothing
- * on an ordinary day. */
+/** The brew on the sky's ground while it runs, its stage with a hairline of how far it got; green once ready, and
+ * through the pickup. Nothing on an ordinary day. */
 export function CoffeeTickerChip({ state, onOpen }: { state: CoffeeState; onOpen: () => void }) {
   const nowMs = useNowMs();
-  const ready = state.phase === 'ready';
+  const ready = state.phase === 'ready' || state.phase === 'picked_up';
   const paused = state.phase === 'paused';
   const fault = paused ? faultView(state.fault) : null;
   const word = fault?.text ?? phaseWord(state) ?? 'Coffee';

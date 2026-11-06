@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
-import { adjusted, setCupAdjust, useCupAdjust } from '../../coffee/adjust';
-import { sendCoffeeCommand, type CoffeeCommands } from '../../coffee/command';
+import { useCupAdjustSettle } from '../../coffee/adjust';
+import { sendCoffeeCommand } from '../../coffee/command';
 import { COFFEE_TABLET_VIEWER, XBLOOM_INTEGRATION_PATH } from '../../coffee/entities';
 import {
   advisorShown,
@@ -39,8 +39,8 @@ import {
   brewDayWord,
   maintenanceWord,
   brewName,
+  brewView,
   brewWhen,
-  canStart,
   deltaTone,
   faultView,
   liveVerdict,
@@ -49,7 +49,6 @@ import {
   pausedForWater,
   pourStartS,
   staleFromS,
-  startFailure,
   wantsConnect,
   type Tone,
 } from '../../coffee/view';
@@ -62,20 +61,20 @@ import { useNowMs } from '../../hooks/useNowMs';
 import { useViewer } from '../../hooks/useViewer';
 import { ApplianceCard } from '../Appliance';
 import { AdviceCard } from './advice';
+import { BrewAction } from './BrewAction';
 import { LOOK_CARD, LOOK_HIST, LOOK_MINI } from './looks';
 import { chartInputs, lastValidS, planOf, series, valueAt } from './chart';
 import { ChartBox } from './ChartBox';
 import { BeansUndo, BrewStrip, StatsSheet } from './CoffeeStats';
-import { CupWait } from './CupWait';
 import { Glyph } from './Glyph';
 import { HoldButton } from './HoldButton';
 import { Chip, LinkChip, NotifyChip, PersonFace, SaveToRecipe, StoryPill, VerdictPill } from './parts';
 import { AdjustSheet, BeansSheet, RecipeRow } from './sheets';
 import { Spark } from './Spark';
 import { TasteDot, TasteRow } from './taste';
+import { useBrewStart } from './useBrewStart';
 import { useClock } from './useClock';
-import { useWaterGuard } from './useWaterGuard';
-import { PausedFill, WaterLow, WaterPrompt, WaterRow } from './WaterTank';
+import { PausedFill, WaterLow, WaterRow } from './WaterTank';
 import '../Appliance/Appliance.css';
 import './Coffee.css';
 import './CoffeeCard.css';
@@ -167,28 +166,15 @@ function LastBrewRow({
 function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onSheet: (sheet: Sheet) => void }) {
   const { state, baseline, beans, brews, recipes, advice } = data;
   const usual = usualRecipe(recipes);
-  const [sent, setSent] = useState<{ atMs: number; phase: string } | null>(null);
-  const pending = state.phase === 'starting' || (sent != null && sent.phase === state.phase && nowMs - sent.atMs < 50_000);
+  const brew = useBrewStart(state, usual, advice, nowMs);
+  const { adjust, cup, trial, water } = brew;
   const shownAdvice = advisorShown(advice) ? advice : null;
-  const trial = shownAdvice?.status === 'trial_queued' ? shownAdvice : null;
   const last = brews?.brews[0] ?? null;
   const { data: recent } = useCoffeeRecent(true, last?.id ?? null);
   const banded = hasBand(baseline);
   const total = banded ? baseline?.totalSMedian : null;
   const inputs = chartInputs({ plan: planOf(null, baseline, usual), baseline });
   const trialBrewed = shownAdvice?.status === 'trial_brewed' && last != null && shownAdvice.trialBrewId === last.id;
-  const start = (data: CoffeeCommands['start']) => {
-    setSent({ atMs: Date.now(), phase: state.phase });
-    void sendCoffeeCommand('start', data).catch(() => setSent(null));
-  };
-  const failure = startFailure(state);
-  const adjust = useCupAdjust(usual);
-  const cup = usual && adjust ? adjusted(usual, adjust) : usual;
-  const water = useWaterGuard(state, cup);
-  const begin = () => {
-    start(adjust ? { variant: 'tweak', ...adjust } : { variant: 'usual' });
-    setCupAdjust(usual, null);
-  };
 
   if (trialBrewed && last) {
     return (
@@ -261,34 +247,7 @@ function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onS
       {shownAdvice && shownAdvice.status !== 'trial_brewed' && (
         <AdviceCard advice={shownAdvice} brews={brews} beanName={beans?.beanName ?? state.beanName} size='sm' />
       )}
-      {state.phase === 'awaiting_cup' ? (
-        <div className='cc-wait'>
-          <CupWait state={state} size='md' />
-        </div>
-      ) : water.short ? (
-        <div className='cc-wait'>
-          <WaterPrompt
-            short={water.short}
-            size='md'
-            busy={water.busy}
-            onFilled={() => water.filled(begin)}
-            onAnyway={() => water.startAnyway(begin)}
-          />
-        </div>
-      ) : (
-        <div className='cc-go'>
-          <LinkChip state={state} />
-          <HoldButton
-            kind='brew'
-            className='cc-hold'
-            label={adjust ? 'Hold 1 s · adjusted' : trial ? 'Hold 1 s · trial' : 'Hold 1 s to brew'}
-            pending={pending}
-            failed={pending ? null : failure}
-            disabled={!pending && !canStart(state)}
-            onConfirm={() => water.guard(begin)}
-          />
-        </div>
-      )}
+      <BrewAction brew={brew} size='md' />
       {beans && beans.remainingG == null && (
         <>
           <div className='cc-sep' />
@@ -496,9 +455,10 @@ function deltaChip(label: string, value: string, delta: number | null, unit: str
   );
 }
 
-function ReadyBrew({ data }: { data: CardData }) {
+function ReadyBrew({ data, nowMs }: { data: CardData; nowMs: number }) {
   const { state, live, baseline, brews, advice, beans } = data;
-  const record = brews?.brews.find(brew => brew.id === state.brewId) ?? null;
+  const brew = useBrewStart(state, usualRecipe(data.recipes), advice, nowMs);
+  const record = brews?.brews.find(item => item.id === state.brewId) ?? null;
   const cup = live ? series(live.cup, live.stepS) : null;
   const water = live ? series(live.water, live.stepS) : null;
   const readyS = live?.endS ?? state.totalS ?? lastValidS(cup);
@@ -547,16 +507,7 @@ function ReadyBrew({ data }: { data: CardData }) {
       {shownAdvice && (
         <AdviceCard advice={shownAdvice} brews={brews} beanName={beans?.beanName ?? state.beanName} forBrewId={state.brewId} size='sm' />
       )}
-      {state.phase === 'ready' && (
-        <button
-          type='button'
-          className='coffee-btn is-green cc-picked'
-          onClick={() => state.brewId && void sendCoffeeCommand('picked_up', { brew_id: state.brewId }).catch(() => {})}
-        >
-          <Icon icon='mdi:check' aria-hidden='true' />
-          Picked up
-        </button>
-      )}
+      <BrewAction brew={brew} size='md' />
       <SaveToRecipe state={state} recipes={data.recipes?.recipes ?? []} className='coffee-btn is-ghost cc-save' />
     </>
   );
@@ -759,12 +710,13 @@ export function CoffeeCard({ onOpenStage }: CoffeeCardProps) {
   const [sheet, setSheet] = useState<Sheet>(null);
   const eventful = state != null && isEventful(state.phase);
   const brewKey = state?.brewId ?? 'brew';
-  const collapsed = eventful ? collapsedBrew === brewKey : storedCollapsed;
+  const stageOpener = viewer.name === COFFEE_TABLET_VIEWER ? onOpenStage : undefined;
+  const collapsed = stageOpener != null || (eventful ? collapsedBrew === brewKey : storedCollapsed);
   const ticking = !collapsed && state != null && (isBrewing(state.phase) || state.phase === 'starting');
   const fastNow = useClock(1000, ticking);
   const nowMs = ticking ? fastNow : slowNow;
   const { data: recent } = useCoffeeRecent(sheet === 'stats', brews?.brews[0]?.id ?? null);
-  const tablet = viewer.name === COFFEE_TABLET_VIEWER;
+  useCupAdjustSettle(state);
 
   const connected = useRef<string | null>(null);
   const connectWanted = state != null && wantsConnect(state);
@@ -785,15 +737,16 @@ export function CoffeeCard({ onOpenStage }: CoffeeCardProps) {
   const lastAtMs = last?.atMs ?? null;
   const { word, tone } = headerWord(state, beans, lastAtMs, nowMs);
   const toggle = () => {
-    if (tablet && onOpenStage) {
-      onOpenStage();
+    if (stageOpener) {
+      stageOpener();
       return;
     }
     if (eventful) setCollapsedBrew(collapsed ? null : brewKey);
     else setStoredCollapsed(!storedCollapsed);
   };
-  const brewing = isBrewing(state.phase);
-  const ready = state.phase === 'ready' || state.phase === 'picked_up';
+  const view = brewView(state, staleFromS(live, state, nowMs) != null);
+  const brewing = view === 'live' || view === 'paused' || view === 'stale';
+  const ready = view === 'ready';
 
   return (
     <div className='coffee-card'>
@@ -803,6 +756,7 @@ export function CoffeeCard({ onOpenStage }: CoffeeCardProps) {
         title='Coffee'
         collapsed={collapsed}
         onToggleCollapsed={toggle}
+        opensScreen={stageOpener != null}
         quickButton={
           collapsed && !brewing && !ready && last && lastBrewCurve(brews, null, last.id) ? (
             <button type='button' className='cc-spark-btn' onClick={toggle} aria-label='Coffee, the last brew'>
@@ -838,7 +792,7 @@ export function CoffeeCard({ onOpenStage }: CoffeeCardProps) {
             (brewing ? (
               <LiveBrew data={data} nowMs={nowMs} />
             ) : ready ? (
-              <ReadyBrew data={data} />
+              <ReadyBrew data={data} nowMs={nowMs} />
             ) : (
               <IdleBrew data={data} nowMs={nowMs} onSheet={setSheet} />
             ))}

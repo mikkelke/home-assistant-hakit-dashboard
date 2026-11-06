@@ -49,7 +49,7 @@ const COFFEE_ICON = 'mdi:coffee';
 
 /** The newest few things the house did, on the sky's ground after the people: the newest shows in
  * full, older ones scroll in from under the fade, and a tap opens the timeline on one. A brew under way leads,
- * standing in for its own ready row until it is picked up. */
+ * standing in for its own ready row until the finished brew lapses back to idle. */
 export function HouseTicker({ onOpenNow, onOpenCoffee }: { onOpenNow: OpenNow; onOpenCoffee?: () => void }) {
   const feed = useHass(s => s.entities[HOUSE_EVENTS_ENTITY]?.attributes?.events);
   const viewer = useViewer();

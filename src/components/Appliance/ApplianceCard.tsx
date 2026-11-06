@@ -11,6 +11,8 @@ export interface ApplianceCardProps {
   title: string;
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  /** The header opens another screen instead of expanding: it draws a right chevron and claims no expanded state. */
+  opensScreen?: boolean;
   /** Collapsed-row quick-action button (announce bell / mark-emptied basket), or omitted when
    * expanded or when the current state has no quick action. Callers gate this themselves. */
   quickButton?: ReactNode;
@@ -35,6 +37,7 @@ export function ApplianceCard({
   title,
   collapsed,
   onToggleCollapsed,
+  opensScreen = false,
   quickButton,
   stateWord,
   stateWordClass,
@@ -64,7 +67,7 @@ export function ApplianceCard({
         }}
         role='button'
         tabIndex={0}
-        aria-expanded={!collapsed}
+        aria-expanded={opensScreen ? undefined : !collapsed}
       >
         <span className='appliance-glyph'>
           <Icon icon={glyphIcon} aria-hidden='true' />
@@ -77,7 +80,11 @@ export function ApplianceCard({
         )}
         <span className='appliance-header-right'>
           <span className={`appliance-word ${stateWordClass}`}>{stateWord}</span>
-          <Icon icon={collapsed ? 'mdi:chevron-down' : 'mdi:chevron-up'} aria-hidden='true' className='appliance-chevron' />
+          <Icon
+            icon={opensScreen ? 'mdi:chevron-right' : collapsed ? 'mdi:chevron-down' : 'mdi:chevron-up'}
+            aria-hidden='true'
+            className='appliance-chevron'
+          />
         </span>
       </div>
 

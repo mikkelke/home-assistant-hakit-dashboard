@@ -28,11 +28,15 @@ vi.mock('@hakit/core', async () => {
     useSyncExternalStore(store.subscribe, () => selector(store.getState()));
   return { useHass: Object.assign(useHass, store) };
 });
-vi.mock('@iconify/react', () => ({ Icon: () => null }));
+vi.mock('@iconify/react', async () => {
+  const { createElement } = await import('react');
+  return { Icon: ({ icon, className }: { icon: string; className?: string }) => createElement('i', { 'data-icon': icon, className }) };
+});
 const viewer = vi.hoisted(() => ({ name: 'Kristine' as string | null, isAdmin: false as boolean | null }));
 vi.mock('../../../hooks/useViewer', () => ({ useViewer: () => viewer }));
 
 const { CoffeeCard } = await import('../CoffeeCard');
+const { COFFEE_PHASES } = await import('../../../coffee/state');
 
 const IDLE = {
   'sensor.coffee_state': {
@@ -84,6 +88,38 @@ describe('the Kitchen Coffee entry', () => {
     tapHeader();
     expect(open).toHaveBeenCalledTimes(1);
     expect(document.querySelector('.cc-tabs')).toBeNull();
+  });
+
+  it('never expands on the wine-fridge tablet, in a quiet phase or an eventful one', () => {
+    viewer.name = 'Rooftop';
+    for (const phase of COFFEE_PHASES) {
+      store.setState({
+        entities: {
+          'sensor.coffee_state': {
+            entity_id: 'sensor.coffee_state',
+            state: phase,
+            attributes: { v: '1', machine: 'awake', link: 'connected', brew_id: 'c1', pour: '2', pours_total: '4' },
+          },
+        },
+      });
+      const open = show();
+      expect(document.querySelector('.cc-tabs'), phase).toBeNull();
+      expect(document.querySelector('.cc-hold'), phase).toBeNull();
+      expect(document.querySelector('.appliance-header')?.hasAttribute('aria-expanded'), phase).toBe(false);
+      expect(document.querySelector('.appliance-chevron')?.getAttribute('data-icon'), phase).toBe('mdi:chevron-right');
+      tapHeader();
+      expect(open, phase).toHaveBeenCalledTimes(1);
+      expect(document.querySelector('.cc-tabs'), phase).toBeNull();
+    }
+  });
+
+  it('expands in place on the tablet when it has no stage to open', () => {
+    viewer.name = 'Rooftop';
+    act(() => root.render(createElement(CoffeeCard, {})));
+    expect(document.querySelector('.appliance-chevron')?.getAttribute('data-icon')).toBe('mdi:chevron-down');
+    tapHeader();
+    expect(document.querySelector('.cc-tabs')).not.toBeNull();
+    expect(document.querySelector('.appliance-chevron')?.getAttribute('data-icon')).toBe('mdi:chevron-up');
   });
 
   it('opens on its own while a brew runs, with the stage as its word', () => {

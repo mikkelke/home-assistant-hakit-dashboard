@@ -120,6 +120,28 @@ export const canStart = (state: Pick<CoffeeState, 'machine' | 'phase'>): boolean
   (state.machine === 'awake' || state.machine === 'working') &&
   (state.phase === 'idle' || state.phase === 'start_failed' || state.phase === 'stopped' || state.phase === 'picked_up');
 
+/** The screen a brew is on, the same for the Kitchen card and the stage: a quiet machine or a start on its way is
+ * `idle`, a brew under way is `live`, `paused` or, with its link lost, `stale`, and a finished one is `ready` through
+ * the pickup until it lapses. */
+export type BrewView = 'idle' | 'live' | 'paused' | 'stale' | 'ready' | 'stopped';
+
+export function brewView(state: Pick<CoffeeState, 'phase'>, stale: boolean): BrewView {
+  switch (state.phase) {
+    case 'grinding':
+    case 'brewing':
+      return stale ? 'stale' : 'live';
+    case 'paused':
+      return stale ? 'stale' : 'paused';
+    case 'ready':
+    case 'picked_up':
+      return 'ready';
+    case 'stopped':
+      return 'stopped';
+    default:
+      return 'idle';
+  }
+}
+
 /** The official app holds the machine: it is awake, but HA could not have it. */
 export function appHasMachine(state: Pick<CoffeeState, 'phase' | 'startError' | 'machine'>): boolean {
   return (

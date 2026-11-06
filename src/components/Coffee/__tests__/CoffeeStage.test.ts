@@ -2,6 +2,7 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Recipe } from '../../../coffee/model';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -20,7 +21,8 @@ vi.mock('@hakit/core', () => {
 vi.mock('@iconify/react', () => ({ Icon: () => null }));
 
 const { default: CoffeeStage } = await import('../CoffeeStage');
-const { setCupAdjust } = await import('../../../coffee/adjust');
+const { setCupAdjust, useCupAdjust } = await import('../../../coffee/adjust');
+const { parseCoffeeRecipes, usualRecipe } = await import('../../../coffee/model');
 
 const coffeeState = (state: string, attributes: Record<string, string>) => ({
   'sensor.coffee_state': {
@@ -44,23 +46,60 @@ afterEach(() => {
 
 const button = (label: string) => [...document.querySelectorAll('button')].find(b => b.textContent === label) ?? null;
 const show = () => act(() => root.render(createElement(CoffeeStage, { onClose: () => {} })));
+const commands = () => sent.map(command => [command.op, JSON.parse(command.data ?? '{}')]);
+const hold = () => {
+  act(() => {
+    document.querySelector('.hold-btn')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  });
+  act(() => {
+    vi.advanceTimersByTime(1000);
+  });
+};
 
 describe('the stage after a brew', () => {
-  it('goes back to the brew screen on New cup and counts a waiting cup as picked up', () => {
-    entities.current = coffeeState('ready', { brew_id: 'c1', ready_at: new Date().toISOString() });
+  const finished = (phase: string, attributes: Record<string, string> = {}) => {
+    entities.current = coffeeState(phase, { brew_id: 'c1', ready_at: new Date().toISOString(), ...attributes });
     show();
-    expect(button('Hold 1 s to brew')).toBeNull();
-    act(() => (button('New cup') as HTMLElement).click());
-    expect(sent.map(command => command.op)).toEqual(['picked_up']);
-    expect(document.querySelector('.cs-side.is-idle')).not.toBeNull();
+  };
+  const follows = (first: Element | null, second: Element | null) =>
+    first != null && second != null && (first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+
+  it('offers no new cup while the brew is ready and its cup stands on the scale', () => {
+    finished('ready', { cup: 'present' });
+    expect(document.querySelector('.cs-side.is-ready')).not.toBeNull();
+    expect(document.querySelector('.hold-btn')).toBeNull();
+    expect(button('Picked up')).toBeNull();
   });
 
-  it('goes back without a pickup once the cup is already taken', () => {
-    entities.current = coffeeState('picked_up', { brew_id: 'c1' });
-    show();
-    act(() => (button('New cup') as HTMLElement).click());
-    expect(sent).toEqual([]);
-    expect(document.querySelector('.cs-side.is-idle')).not.toBeNull();
+  it('counts a cup the scale cannot see as picked up on a tap, and starts nothing', () => {
+    finished('ready', { cup: 'unknown' });
+    expect(document.querySelector('.hold-btn')).toBeNull();
+    act(() => (button('Picked up') as HTMLElement).click());
+    expect(commands()).toEqual([['picked_up', { brew_id: 'c1' }]]);
+  });
+
+  it.each([
+    ['picked_up', 'is-ready'],
+    ['stopped', 'is-stopped'],
+  ])('starts the next cup straight from %s, with the result still on show', (phase, side) => {
+    finished(phase, { cup: 'absent' });
+    expect(button('Picked up')).toBeNull();
+    expect(button('New cup')).toBeNull();
+    expect(document.querySelector(`.cs-side.${side}`)).not.toBeNull();
+    hold();
+    expect(commands()).toEqual([['start', { variant: 'usual' }]]);
+    expect(document.querySelector(`.cs-side.${side}`)).not.toBeNull();
+  });
+
+  it('puts the hold under the taste row, outside what scrolls, with the links to change the cup beside it', () => {
+    finished('picked_up', { cup: 'absent' });
+    const taste = document.querySelector('.cs-taste');
+    const start = document.querySelector('.hold-btn.cs-go');
+    expect(follows(taste, start)).toBe(true);
+    expect(document.querySelector('.cs-scroll')?.contains(taste)).toBe(true);
+    expect(document.querySelector('.cs-scroll')?.contains(start)).toBe(false);
+    expect(button('Adjust cup')).not.toBeNull();
+    expect(button('Recipes')).not.toBeNull();
   });
 });
 
@@ -77,7 +116,6 @@ describe('saving a tweaked cup', () => {
     show();
     act(() => (button('Save this cup…') as HTMLElement).click());
   };
-  const commands = () => sent.map(command => [command.op, JSON.parse(command.data ?? '{}')]);
 
   it('overwrites the recipe only after a confirm, while it brews', () => {
     brewing();
@@ -124,24 +162,92 @@ describe('an adjusted cup', () => {
       },
     },
   };
-  afterEach(() => setCupAdjust(null, null));
+  const phase = (state: string, brewId: string, attributes: Record<string, string> = {}) => {
+    entities.current = { ...coffeeState(state, { brew_id: brewId, tank_ml: '760', tank_left_ml: '700', ...attributes }), ...recipes };
+    show();
+  };
+  const tile = () => document.querySelector('.cs-usual')?.textContent ?? '';
+  const label = () => document.querySelector('.hold-btn')?.getAttribute('aria-label');
+  const held = () => {
+    const recipe = usualRecipe(parseCoffeeRecipes(entities.current['sensor.coffee_recipes'] as never));
+    act(() => root.render(createElement('div', null, createElement(CoffeeStage, { onClose: () => {} }), createElement(Held, { recipe }))));
+    return JSON.parse(document.querySelector('output')?.textContent ?? '"missing"');
+  };
+  function Held({ recipe }: { recipe: Recipe | null }) {
+    return createElement('output', null, JSON.stringify(useCupAdjust(recipe)));
+  }
+  afterEach(() => act(() => setCupAdjust(null, null)));
 
   it('shows the applied values and the brew button starts that cup with them, once', () => {
-    entities.current = { ...coffeeState('idle', { tank_ml: '760', tank_left_ml: '700' }), ...recipes };
-    show();
+    phase('idle', 'c1');
     act(() => setCupAdjust({ id: '82726' }, { dose: 15, grind_size: 42, temperature: 90 }));
     expect(document.body.textContent).toContain('adjusted for this cup');
     expect(document.body.textContent).toContain('255 ml');
     expect(document.body.textContent).toContain('90°');
-    act(() => {
-      document.querySelector('.hold-btn')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    });
-    act(() => {
-      vi.advanceTimersByTime(1000);
-    });
-    expect(sent.map(command => [command.op, JSON.parse(command.data ?? '{}')])).toEqual([
-      ['start', { variant: 'tweak', dose: 15, grind_size: 42, temperature: 90 }],
-    ]);
-    expect(document.body.textContent).not.toContain('adjusted for this cup');
+    hold();
+    expect(commands()).toEqual([['start', { variant: 'tweak', dose: 15, grind_size: 42, temperature: 90 }]]);
+  });
+
+  it('keeps the values through the whole brew and lets go when it is ready', () => {
+    phase('idle', 'c1');
+    act(() => setCupAdjust({ id: '82726' }, { dose: 5.5 }));
+    expect(tile()).toContain('5.5 g');
+    hold();
+    expect(commands()).toEqual([['start', { variant: 'tweak', dose: 5.5 }]]);
+
+    phase('idle', 'c1');
+    expect(tile()).toContain('5.5 g');
+    phase('starting', 'c2', { variant: 'tweak' });
+    expect(tile()).toContain('5.5 g');
+    expect(label()).toBe('Starting…');
+    phase('awaiting_cup', 'c2', { variant: 'tweak' });
+    expect(held()).toEqual({ dose: 5.5 });
+    phase('brewing', 'c2', { variant: 'tweak', pour: '1' });
+    expect(held()).toEqual({ dose: 5.5 });
+    phase('paused', 'c2', { variant: 'tweak', pour: '2' });
+    expect(held()).toEqual({ dose: 5.5 });
+    phase('ready', 'c2', { variant: 'tweak', cup: 'present' });
+    expect(held()).toBeNull();
+    phase('picked_up', 'c2', { variant: 'tweak', cup: 'absent' });
+    expect(held()).toBeNull();
+    expect(label()).toBe('Hold 1 s to brew');
+  });
+
+  it('lets go when the brew is stopped', () => {
+    phase('idle', 'c1');
+    act(() => setCupAdjust({ id: '82726' }, { dose: 5.5 }));
+    hold();
+    phase('brewing', 'c2', { variant: 'tweak', pour: '1' });
+    expect(held()).toEqual({ dose: 5.5 });
+    phase('stopped', 'c2', { variant: 'tweak', cup: 'present' });
+    expect(held()).toBeNull();
+  });
+
+  it('keeps the values for another try when the machine refuses the start', () => {
+    phase('idle', 'c1');
+    act(() => setCupAdjust({ id: '82726' }, { dose: 5.5 }));
+    hold();
+    phase('starting', 'c2', { variant: 'tweak' });
+    phase('start_failed', 'c2', { variant: 'tweak', start_error: 'machine_busy' });
+    expect(held()).toEqual({ dose: 5.5 });
+    expect(tile()).toContain('5.5 g');
+    expect(label()).toBe('Held by the xBloom app');
+    phase('idle', 'c2');
+    sent.length = 0;
+    hold();
+    expect(commands()).toEqual([['start', { variant: 'tweak', dose: 5.5 }]]);
+    phase('grinding', 'c3', { variant: 'tweak' });
+    phase('ready', 'c3', { variant: 'tweak', cup: 'present' });
+    expect(held()).toBeNull();
+  });
+
+  it('keeps the values when the wait for the cup is dropped', () => {
+    phase('idle', 'c1');
+    act(() => setCupAdjust({ id: '82726' }, { dose: 5.5 }));
+    hold();
+    phase('awaiting_cup', 'c2', { variant: 'tweak' });
+    phase('idle', 'c1');
+    expect(held()).toEqual({ dose: 5.5 });
+    expect(label()).toBe('Hold 1 s · adjusted');
   });
 });

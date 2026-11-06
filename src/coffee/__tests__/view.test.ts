@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { lowOnWater, maintenanceWord, pausedForWater, startFailure, waterCups, waterLine, waterShort, wantsConnect } from '../view';
+import { COFFEE_PHASES, isOnHome, type CoffeePhase } from '../state';
+import {
+  brewView,
+  canStart,
+  lowOnWater,
+  maintenanceWord,
+  pausedForWater,
+  startFailure,
+  waterCups,
+  waterLine,
+  waterShort,
+  wantsConnect,
+  type BrewView,
+} from '../view';
 
 const row = (id: string, detail: string | null, atMs: number | null, title = 'xBloom brewer rinse') => ({ id, title, detail, atMs });
 
@@ -98,5 +111,46 @@ describe('a brew waiting for water', () => {
     expect(lowOnWater({ phase: 'brewing', fault: 'no_water' })).toBe(true);
     expect(lowOnWater({ phase: 'paused', fault: 'no_water' })).toBe(false);
     expect(lowOnWater({ phase: 'brewing', fault: null })).toBe(false);
+  });
+});
+
+describe('the screen a brew is on', () => {
+  const VIEWS: Record<CoffeePhase, [BrewView, BrewView]> = {
+    asleep: ['idle', 'idle'],
+    idle: ['idle', 'idle'],
+    awaiting_cup: ['idle', 'idle'],
+    starting: ['idle', 'idle'],
+    start_failed: ['idle', 'idle'],
+    grinding: ['live', 'stale'],
+    brewing: ['live', 'stale'],
+    paused: ['paused', 'stale'],
+    ready: ['ready', 'ready'],
+    picked_up: ['ready', 'ready'],
+    stopped: ['stopped', 'stopped'],
+  };
+
+  it('is named for every phase, with a lost link only touching a brew under way', () => {
+    expect(Object.keys(VIEWS).sort()).toEqual([...COFFEE_PHASES].sort());
+    for (const phase of COFFEE_PHASES) {
+      expect([brewView({ phase }, false), brewView({ phase }, true)]).toEqual(VIEWS[phase]);
+    }
+  });
+
+  it('keeps the finished brew on show through the pickup, and starts the next cup from it', () => {
+    expect(brewView({ phase: 'picked_up' }, false)).toBe(brewView({ phase: 'ready' }, false));
+    const awake = { machine: 'awake' as const };
+    expect(canStart({ ...awake, phase: 'ready' })).toBe(false);
+    for (const phase of ['picked_up', 'stopped', 'idle', 'start_failed'] as const) expect(canStart({ ...awake, phase })).toBe(true);
+    for (const phase of ['awaiting_cup', 'starting', 'grinding', 'brewing', 'paused', 'asleep'] as const) {
+      expect(canStart({ ...awake, phase })).toBe(false);
+    }
+  });
+});
+
+describe('the coffee chip on Home', () => {
+  it('shows a brew under way and a finished one until it lapses back to idle', () => {
+    const shown = COFFEE_PHASES.filter(phase => isOnHome(phase));
+    expect(shown).toEqual(['grinding', 'brewing', 'paused', 'ready', 'picked_up']);
+    expect(isOnHome(null)).toBe(false);
   });
 });

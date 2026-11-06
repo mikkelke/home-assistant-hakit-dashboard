@@ -213,6 +213,27 @@
 .cs-side.is-ready {
   gap: 10px;
 }
+.cs-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.cs-scroll::-webkit-scrollbar {
+  display: none;
+}
+.cs-scroll > .cs-save {
+  flex: none;
+}
+.cs-side.is-ready .cs-go,
+.cs-side.is-ready .cs-lowlinks,
+.cs-side.is-ready .cs-bottom {
+  flex-shrink: 0;
+}
 .cs-tile {
   padding: 16px 20px;
   border-radius: 24px;
@@ -379,13 +400,6 @@
   background: var(--cof-green-bg);
   color: var(--cof-green);
 }
-.cs-wide.is-new {
-  height: 56px;
-  border-radius: 18px;
-  font-size: 18px;
-  background: #2c2c30;
-  color: inherit;
-}
 .cs-wide-hold {
   flex: 1;
   height: 84px;
@@ -543,10 +557,6 @@
   line-height: 1.35;
   color: var(--cof-t3);
 }
-.cs-note.is-center {
-  flex: 1;
-  text-align: center;
-}
 
 /* ready */
 .cs-ready {
@@ -646,6 +656,26 @@
   }
 }
 
+/* ---- the finished brew over the next cup's controls: one tablet screen, the rest of the result scrolls ---- */
+@media (min-width: 769px) {
+  .cs-side.is-ready,
+  .cs-scroll {
+    gap: 8px;
+  }
+  .cs-side.is-ready .cs-ready {
+    padding: 10px 18px;
+  }
+  .cs-side.is-ready .cs-vc {
+    padding: 8px 14px;
+  }
+  .cs-side.is-ready .cs-taste {
+    padding: 10px 14px;
+  }
+  .cs-side.is-ready .cs-lowlinks button {
+    height: 46px;
+  }
+}
+
 /* ---- phone: one column that scrolls ---- */
 .coffee-stage.is-phone {
   gap: 10px;
@@ -707,6 +737,10 @@
 .is-phone .cs-side {
   width: auto;
   gap: 10px;
+}
+.is-phone .cs-scroll {
+  flex: none;
+  overflow: visible;
 }
 .is-phone .cs-tile {
   padding: 14px 16px;

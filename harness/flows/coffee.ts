@@ -9,6 +9,9 @@ const SCENARIOS = [
   'low_water',
   'lost_link',
   'ready',
+  'ready_cup_unknown',
+  'picked_up',
+  'stopped',
   'trial',
   'trial_brewed',
   'start_failed',
@@ -18,7 +21,18 @@ const SCENARIOS = [
 type Scenario = (typeof SCENARIOS)[number];
 
 /** The scenarios worth a phone screen too: the phone's stage drops the long-term panels. */
-const ON_PHONE: readonly Scenario[] = ['idle', 'live', 'paused_no_water', 'low_water', 'ready', 'start_failed', 'awaiting_cup'];
+const ON_PHONE: readonly Scenario[] = [
+  'idle',
+  'live',
+  'paused_no_water',
+  'low_water',
+  'ready',
+  'ready_cup_unknown',
+  'picked_up',
+  'stopped',
+  'start_failed',
+  'awaiting_cup',
+];
 
 const slug = (value: string) => value.replace(/_/g, '-');
 
