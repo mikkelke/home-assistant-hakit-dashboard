@@ -94,20 +94,28 @@ function homeAssistant() {
       }
       if (message.type === 'call_service') {
         const entityId = (message.target as { entity_id: string }).entity_id;
-        const data = message.service_data as { item?: string; status?: Raw['status'] };
+        const data = message.service_data as { item?: string; status?: Raw['status']; rename?: string };
         const list = items.get(entityId) ?? [];
         if (message.service === 'add_item') list.push({ uid: `new-${list.length + 1}`, summary: data.item ?? '', status: 'needs_action' });
         if (message.service === 'update_item') {
           const found = list.find(item => item.uid === data.item);
           if (!found) throw new Error('Item not found');
           found.status = data.status ?? found.status;
+          found.summary = data.rename ?? found.summary;
         }
         if (message.service === 'remove_completed_items')
           items.set(
             entityId,
             list.filter(item => item.status !== 'completed')
           );
-        else items.set(entityId, list);
+        else if (message.service === 'remove_item') {
+          const gone = (message.service_data as { item: string[] }).item;
+          if (!gone.every(uid => list.some(item => item.uid === uid))) throw new Error('Item not found');
+          items.set(
+            entityId,
+            list.filter(item => !gone.includes(item.uid))
+          );
+        } else items.set(entityId, list);
         later(() => ha.emitItems(entityId));
       }
       return null;
@@ -181,6 +189,14 @@ function type(input: HTMLInputElement, value: string) {
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
 }
+
+const rowOf = (list: string, label: string) => byText(card(list), '.list-item', label)?.closest('li') as HTMLElement;
+const editor = (list: string) => card(list).querySelector<HTMLFormElement>('.list-edit');
+const field = (list: string) => card(list).querySelector<HTMLInputElement>('.list-edit input') as HTMLInputElement;
+const button = (scope: ParentNode, label: string) => scope.querySelector<HTMLElement>(`[aria-label="${label}"]`) ?? undefined;
+const edit = (list: string, label: string) => click(button(rowOf(list, label), 'Edit'));
+const submit = (form: Element | null) => act(() => void form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+const press = (node: Element, key: string) => act(() => void node.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true })));
 
 describe('which lists the page shows', () => {
   it('is every todo list in Home Assistant, by name, for an administrator, who also gets the visibility control', async () => {
@@ -488,6 +504,262 @@ describe('one list', () => {
     click(card('Indkøb').querySelector('.list-note-btn') ?? undefined);
     await settle();
     expect(rows(card('Indkøb'))).toEqual(['Mælk', 'Smør']);
+  });
+
+  describe('editing an item', () => {
+    const renameCall = (uid: string, summary: string) => ({
+      type: 'call_service',
+      domain: 'todo',
+      service: 'update_item',
+      service_data: { item: uid, rename: summary },
+      target: { entity_id: 'todo.indkob' },
+    });
+
+    const iconOf = (node: Element | undefined) => node?.querySelector('[data-icon]')?.getAttribute('data-icon');
+
+    it('puts a pencil beside every row, open or done, and a tap on the row itself still checks it off', async () => {
+      await mount();
+      const indkob = card('Indkøb');
+      expect(indkob.querySelectorAll('[aria-label="Edit"]')).toHaveLength(2);
+      click(indkob.querySelector('.list-done-toggle') ?? undefined);
+      expect(indkob.querySelectorAll('[aria-label="Edit"]')).toHaveLength(4);
+      expect(iconOf(button(rowOf('Indkøb', 'Mælk'), 'Edit'))).toBe('mdi:pencil-outline');
+      expect(indkob.querySelector('button button')).toBeNull();
+      click(byText(indkob, '.list-item', 'Mælk'));
+      await settle();
+      expect(rows(indkob)).toEqual(['Smør', 'Mælk', 'Kaffe', 'Brød']);
+      expect(editor('Indkøb')).toBeNull();
+    });
+
+    it('turns the row into a field holding its text, focused with the cursor at the end, when the pencil is tapped', async () => {
+      await mount();
+      edit('Indkøb', 'Mælk');
+      const input = field('Indkøb');
+      expect(input.value).toBe('Mælk');
+      expect(document.activeElement).toBe(input);
+      expect([input.selectionStart, input.selectionEnd]).toEqual([4, 4]);
+      expect(rows(card('Indkøb'))).toEqual(['Smør']);
+      expect(iconOf(button(editor('Indkøb') as HTMLElement, 'Delete'))).toBe('mdi:trash-can-outline');
+      expect(iconOf(button(editor('Indkøb') as HTMLElement, 'Save'))).toBe('mdi:check');
+      expect(ha.calls()).toEqual([]);
+    });
+
+    it('renames with todo.update_item on Enter, and shows the new text before Home Assistant has answered', async () => {
+      await mount();
+      ha.hold = true;
+      edit('Indkøb', 'Mælk');
+      type(field('Indkøb'), '  Mælk 1 l ');
+      submit(editor('Indkøb'));
+      await settle();
+      expect(ha.calls()).toEqual([renameCall('a', 'Mælk 1 l')]);
+      expect(editor('Indkøb')).toBeNull();
+      expect(rows(card('Indkøb'))).toEqual(['Mælk 1 l', 'Smør']);
+      ha.hold = false;
+      ha.release();
+      await settle();
+      expect(rows(card('Indkøb'))).toEqual(['Mælk 1 l', 'Smør']);
+      expect(ha.itemsOf('todo.indkob')[0].summary).toBe('Mælk 1 l');
+    });
+
+    it('renames from the Save button too', async () => {
+      await mount();
+      edit('Indkøb', 'Smør');
+      type(field('Indkøb'), 'Smør 250 g');
+      click(button(editor('Indkøb') as HTMLElement, 'Save'));
+      await settle();
+      expect(ha.calls()).toEqual([renameCall('b', 'Smør 250 g')]);
+      expect(rows(card('Indkøb'))).toEqual(['Mælk', 'Smør 250 g']);
+    });
+
+    it('renames when the focus leaves the row, and not while it only moves to a button of the row', async () => {
+      await mount();
+      edit('Indkøb', 'Mælk');
+      type(field('Indkøb'), 'Mælk 1 l');
+      act(() => button(editor('Indkøb') as HTMLElement, 'Delete')?.focus());
+      await settle();
+      expect(ha.calls()).toEqual([]);
+      expect(editor('Indkøb')).not.toBeNull();
+      act(() => button(editor('Indkøb') as HTMLElement, 'Delete')?.blur());
+      await settle();
+      expect(ha.calls()).toEqual([renameCall('a', 'Mælk 1 l')]);
+      expect(editor('Indkøb')).toBeNull();
+      expect(rows(card('Indkøb'))).toEqual(['Mælk 1 l', 'Smør']);
+    });
+
+    it('keeps the focus in the field when Delete or Save is pressed, so the edit does not end before the tap lands', async () => {
+      await mount();
+      edit('Indkøb', 'Mælk');
+      for (const label of ['Delete', 'Save']) {
+        const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+        act(() => void button(editor('Indkøb') as HTMLElement, label)?.dispatchEvent(down));
+        expect(down.defaultPrevented).toBe(true);
+      }
+    });
+
+    it('sends nothing on Escape, and the row keeps its text', async () => {
+      await mount();
+      edit('Indkøb', 'Mælk');
+      type(field('Indkøb'), 'Something else');
+      press(field('Indkøb'), 'Escape');
+      await settle();
+      expect(ha.calls()).toEqual([]);
+      expect(editor('Indkøb')).toBeNull();
+      expect(rows(card('Indkøb'))).toEqual(['Mælk', 'Smør']);
+      expect(card('Indkøb').querySelector('.list-note.is-error')).toBeNull();
+      edit('Indkøb', 'Mælk');
+      expect(field('Indkøb').value).toBe('Mælk');
+    });
+
+    it('sends nothing for a blank text or the text the item already has', async () => {
+      await mount();
+      for (const typed of ['   ', 'Mælk', ' Mælk ']) {
+        edit('Indkøb', 'Mælk');
+        type(field('Indkøb'), typed);
+        submit(editor('Indkøb'));
+        await settle();
+        expect(editor('Indkøb')).toBeNull();
+        expect(rows(card('Indkøb'))).toEqual(['Mælk', 'Smør']);
+      }
+      expect(ha.calls()).toEqual([]);
+      expect(card('Indkøb').querySelector('.list-note.is-error')).toBeNull();
+    });
+
+    it('deletes with todo.remove_item, and the row is gone before Home Assistant has answered', async () => {
+      await mount();
+      ha.hold = true;
+      edit('Indkøb', 'Mælk');
+      click(button(editor('Indkøb') as HTMLElement, 'Delete'));
+      await settle();
+      expect(ha.calls()).toEqual([
+        {
+          type: 'call_service',
+          domain: 'todo',
+          service: 'remove_item',
+          service_data: { item: ['a'] },
+          target: { entity_id: 'todo.indkob' },
+        },
+      ]);
+      expect(editor('Indkøb')).toBeNull();
+      expect(rows(card('Indkøb'))).toEqual(['Smør']);
+      expect(text(card('Indkøb').querySelector('.list-count'))).toBe('1');
+      ha.hold = false;
+      ha.release();
+      await settle();
+      expect(rows(card('Indkøb'))).toEqual(['Smør']);
+      expect(ha.itemsOf('todo.indkob').map(item => item.uid)).toEqual(['b', 'c', 'd']);
+    });
+
+    it('puts the old text back and says it was not saved when Home Assistant refuses a rename', async () => {
+      await mount();
+      ha.refuse = true;
+      edit('Indkøb', 'Mælk');
+      type(field('Indkøb'), 'Mælk 1 l');
+      submit(editor('Indkøb'));
+      await settle();
+      expect(ha.calls()).toEqual([renameCall('a', 'Mælk 1 l')]);
+      expect(rows(card('Indkøb'))).toEqual(['Mælk', 'Smør']);
+      expect(text(card('Indkøb').querySelector('.list-note.is-error'))).toBe('Not saved. Try again.');
+      ha.refuse = false;
+      edit('Indkøb', 'Mælk');
+      type(field('Indkøb'), 'Mælk 1 l');
+      submit(editor('Indkøb'));
+      await settle();
+      expect(card('Indkøb').querySelector('.list-note.is-error')).toBeNull();
+      expect(rows(card('Indkøb'))).toEqual(['Mælk 1 l', 'Smør']);
+    });
+
+    it('brings the row back and says it was not saved when Home Assistant refuses a deletion', async () => {
+      await mount();
+      ha.refuse = true;
+      edit('Indkøb', 'Mælk');
+      click(button(editor('Indkøb') as HTMLElement, 'Delete'));
+      await settle();
+      expect(ha.calls()).toHaveLength(1);
+      expect(rows(card('Indkøb'))).toEqual(['Mælk', 'Smør']);
+      expect(text(card('Indkøb').querySelector('.list-count'))).toBe('2');
+      expect(text(card('Indkøb').querySelector('.list-note.is-error'))).toBe('Not saved. Try again.');
+      ha.refuse = false;
+      edit('Indkøb', 'Mælk');
+      click(button(editor('Indkøb') as HTMLElement, 'Delete'));
+      await settle();
+      expect(card('Indkøb').querySelector('.list-note.is-error')).toBeNull();
+      expect(rows(card('Indkøb'))).toEqual(['Smør']);
+    });
+
+    it('edits one row of a list at a time', async () => {
+      await mount();
+      edit('Indkøb', 'Mælk');
+      edit('Indkøb', 'Smør');
+      expect(card('Indkøb').querySelectorAll('.list-edit')).toHaveLength(1);
+      expect(field('Indkøb').value).toBe('Smør');
+      expect(rows(card('Indkøb'))).toEqual(['Mælk']);
+    });
+
+    it('edits a done row too, and it stays done', async () => {
+      await mount();
+      click(card('Indkøb').querySelector('.list-done-toggle') ?? undefined);
+      edit('Indkøb', 'Kaffe');
+      type(field('Indkøb'), 'Kaffe, 1 kg');
+      submit(editor('Indkøb'));
+      await settle();
+      expect(ha.calls()).toEqual([renameCall('c', 'Kaffe, 1 kg')]);
+      expect(rows(card('Indkøb'))).toEqual(['Mælk', 'Smør', 'Kaffe, 1 kg', 'Brød']);
+      expect(byText(card('Indkøb'), '.list-item', 'Kaffe, 1 kg')?.getAttribute('aria-checked')).toBe('true');
+      expect(text(card('Indkøb').querySelector('.list-count'))).toBe('2');
+    });
+
+    it('closes the done items when the last of them is deleted', async () => {
+      ha.setItems('todo.indkob', [
+        { uid: 'a', summary: 'Mælk', status: 'needs_action' },
+        { uid: 'c', summary: 'Kaffe', status: 'completed' },
+      ]);
+      await mount();
+      click(card('Indkøb').querySelector('.list-done-toggle') ?? undefined);
+      edit('Indkøb', 'Kaffe');
+      click(button(editor('Indkøb') as HTMLElement, 'Delete'));
+      await settle();
+      expect(card('Indkøb').querySelector('.list-done')).toBeNull();
+      click(byText(card('Indkøb'), '.list-item', 'Mælk'));
+      await settle();
+      expect(card('Indkøb').querySelector('.list-done-toggle')?.getAttribute('aria-expanded')).toBe('false');
+      expect(rows(card('Indkøb'))).toEqual([]);
+    });
+
+    it('shows the last of two quick renames of one item', async () => {
+      await mount();
+      ha.hold = true;
+      edit('Indkøb', 'Mælk');
+      type(field('Indkøb'), 'Letmælk');
+      submit(editor('Indkøb'));
+      edit('Indkøb', 'Letmælk');
+      type(field('Indkøb'), 'Sødmælk');
+      submit(editor('Indkøb'));
+      await settle();
+      expect(ha.calls()).toEqual([renameCall('a', 'Letmælk'), renameCall('a', 'Sødmælk')]);
+      expect(rows(card('Indkøb'))).toEqual(['Sødmælk', 'Smør']);
+      ha.hold = false;
+      ha.release();
+      await settle();
+      expect(rows(card('Indkøb'))).toEqual(['Sødmælk', 'Smør']);
+    });
+
+    it('believes Home Assistant once it has moved on from the old name, also when it goes back to it', async () => {
+      await mount();
+      ha.hold = true;
+      edit('Indkøb', 'Mælk');
+      type(field('Indkøb'), 'Mælk 1 l');
+      submit(editor('Indkøb'));
+      await settle();
+      expect(rows(card('Indkøb'))).toEqual(['Mælk 1 l', 'Smør']);
+      ha.itemsOf('todo.indkob')[0].summary = 'Letmælk';
+      ha.emitItems('todo.indkob');
+      await settle();
+      expect(rows(card('Indkøb'))).toEqual(['Letmælk', 'Smør']);
+      ha.itemsOf('todo.indkob')[0].summary = 'Mælk';
+      ha.emitItems('todo.indkob');
+      await settle();
+      expect(rows(card('Indkøb'))).toEqual(['Mælk', 'Smør']);
+    });
   });
 });
 

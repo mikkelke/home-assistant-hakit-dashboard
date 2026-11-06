@@ -50,3 +50,32 @@ export function withoutWanted(wanted: Wanted, uid: string): Wanted {
   delete rest[uid];
   return rest;
 }
+
+/** The name the viewer has just given an item, by item uid, with the `base` name it replaces. It shows for as long as Home Assistant's
+ * own list still has the item under `base`. */
+export type Renamed = Record<string, { summary: string; base: string }>;
+
+export function applyRenamed(items: readonly TodoItem[], renamed: Renamed): TodoItem[] {
+  return items.map(item => {
+    const pending = renamed[item.uid];
+    return pending && pending.base === item.summary && pending.summary !== item.summary ? { ...item, summary: pending.summary } : item;
+  });
+}
+
+/** `renamed` without the entries whose item is gone or no longer has the `base` name. The same object when nothing changes. */
+export function settleRenamed(renamed: Renamed, items: readonly TodoItem[]): Renamed {
+  const summary = new Map(items.map(item => [item.uid, item.summary]));
+  const pending = Object.entries(renamed).filter(([uid, { base }]) => summary.get(uid) === base);
+  return pending.length === Object.keys(renamed).length ? renamed : Object.fromEntries(pending);
+}
+
+export function withoutRenamed(renamed: Renamed, uid: string): Renamed {
+  if (!Object.hasOwn(renamed, uid)) return renamed;
+  const rest = { ...renamed };
+  delete rest[uid];
+  return rest;
+}
+
+/** `items` without those the viewer has just deleted, by uid. */
+export const applyRemoved = (items: readonly TodoItem[], removed: ReadonlySet<string>): TodoItem[] =>
+  items.filter(item => !removed.has(item.uid));

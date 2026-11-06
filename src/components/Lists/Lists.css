@@ -250,15 +250,21 @@
   margin: 0;
   padding: 0;
 }
+.list-row {
+  display: flex;
+  align-items: stretch;
+  min-height: 48px;
+  padding-right: 2px;
+  border-top: 1px solid var(--line);
+}
 .list-item {
   display: flex;
+  flex: 1;
   align-items: center;
   gap: 12px;
-  width: 100%;
-  min-height: 48px;
+  min-width: 0;
   padding: 8px 14px;
   border: 0;
-  border-top: 1px solid var(--line);
   background: none;
   color: var(--text-1);
   font: inherit;
@@ -289,6 +295,60 @@
   text-decoration: line-through;
 }
 .list-item.is-done svg {
+  color: var(--accent-sky);
+}
+
+.list-edit {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+  padding-left: 12px;
+}
+.list-edit input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px;
+  background: var(--surface-chip);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-chip);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 1rem; /* 16px keeps iOS from zooming the page on focus */
+  transition: border-color 0.2s;
+}
+.list-edit input:focus {
+  border-color: color-mix(in srgb, var(--accent-sky) 60%, transparent);
+}
+.list-edit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  align-self: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-3);
+  font-size: 20px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+.list-edit-btn:active {
+  transform: scale(0.94);
+}
+.list-edit-btn.is-delete {
+  color: var(--accent-rose);
+}
+.list-edit-btn.is-save {
   color: var(--accent-sky);
 }
 
@@ -476,6 +536,8 @@
   .lists-icon-btn,
   .lists-page-exit,
   .list-add-btn,
+  .list-edit input,
+  .list-edit-btn,
   .list-clear,
   .lists-vis-chip {
     transition: none;

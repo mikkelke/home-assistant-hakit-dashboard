@@ -25,7 +25,7 @@ const SERVICES: Record<string, Record<string, unknown>> = Object.fromEntries(
     vacuum: ['start', 'pause', 'return_to_base'],
     lock: ['lock', 'unlock'],
     script: ['turn_on'],
-    todo: ['add_item', 'update_item', 'remove_completed_items'],
+    todo: ['add_item', 'update_item', 'remove_item', 'remove_completed_items'],
     weather: ['get_forecasts'],
     shell_command: ['coffee_recent'],
   }).map(([domain, services]) => [domain, Object.fromEntries(services.map(name => [name, { name, description: '', fields: {} }]))])

@@ -38,6 +38,14 @@ export const addTodoItem = (connection: TodoConnection, entityId: string, summar
 export const setTodoItemDone = (connection: TodoConnection, entityId: string, uid: string, done: boolean) =>
   callTodo(connection, entityId, 'update_item', { item: uid, status: done ? 'completed' : 'needs_action' });
 
+/** Gives an item a new name. `uid` stands in for the item's current name, which `todo.update_item` also takes. */
+export const renameTodoItem = (connection: TodoConnection, entityId: string, uid: string, summary: string) =>
+  callTodo(connection, entityId, 'update_item', { item: uid, rename: summary });
+
+/** Deletes one item. `uid` stands in for the item's name, which `todo.remove_item` also takes. */
+export const removeTodoItem = (connection: TodoConnection, entityId: string, uid: string) =>
+  callTodo(connection, entityId, 'remove_item', { item: [uid] });
+
 export const clearDoneItems = (connection: TodoConnection, entityId: string) => callTodo(connection, entityId, 'remove_completed_items');
 
 /** Every Home Assistant user. Only an administrator may ask. */

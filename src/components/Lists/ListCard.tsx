@@ -1,17 +1,84 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FocusEvent, type FormEvent, type KeyboardEvent, type MouseEvent } from 'react';
 import { Icon } from '@iconify/react';
 import type { TodoItem } from '../../todo/items';
 import type { TodoList } from '../../todo/lists';
 import { useTodoItems } from '../../todo/useTodoItems';
 
-function ItemRow({ item, onToggle }: { item: TodoItem; onToggle: () => void }) {
+/** Keeps a tap on a button from taking the focus off the text field, which would end the edit before the tap lands. */
+const keepFocus = (event: MouseEvent) => event.preventDefault();
+
+/** Focuses the text field with the cursor after the text. A ref function that changed would run again on every render and move the
+ * cursor back to the end, so this one is defined once. */
+function focusAtEnd(input: HTMLInputElement | null) {
+  if (!input) return;
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+}
+
+interface ItemEditorProps {
+  summary: string;
+  onSave: (summary: string) => void;
+  onDelete: () => void;
+  onCancel: () => void;
+}
+
+/** Enter, Save and moving the focus out of the row save the new text. Escape drops it. */
+function ItemEditor({ summary, onSave, onDelete, onCancel }: ItemEditorProps) {
+  const [draft, setDraft] = useState(summary);
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    onSave(draft);
+  };
+
+  const leave = (event: FocusEvent<HTMLFormElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) onSave(draft);
+  };
+
+  const keyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') onCancel();
+  };
+
+  return (
+    <form className='list-edit' onSubmit={submit} onBlur={leave} onKeyDown={keyDown}>
+      <input ref={focusAtEnd} value={draft} aria-label='Item text' autoComplete='off' onChange={event => setDraft(event.target.value)} />
+      <button type='button' className='list-edit-btn is-delete' aria-label='Delete' onMouseDown={keepFocus} onClick={onDelete}>
+        <Icon icon='mdi:trash-can-outline' aria-hidden='true' />
+      </button>
+      <button type='submit' className='list-edit-btn is-save' aria-label='Save' onMouseDown={keepFocus}>
+        <Icon icon='mdi:check' aria-hidden='true' />
+      </button>
+    </form>
+  );
+}
+
+interface ItemRowProps {
+  item: TodoItem;
+  editing: boolean;
+  onToggle: () => void;
+  onEdit: () => void;
+  onSave: (summary: string) => void;
+  onDelete: () => void;
+  onCancel: () => void;
+}
+
+function ItemRow({ item, editing, onToggle, onEdit, onSave, onDelete, onCancel }: ItemRowProps) {
   const done = item.status === 'completed';
   return (
-    <li>
-      <button type='button' role='checkbox' aria-checked={done} className={`list-item ${done ? 'is-done' : ''}`} onClick={onToggle}>
-        <Icon icon={done ? 'mdi:check-circle' : 'mdi:circle-outline'} aria-hidden='true' />
-        <span>{item.summary}</span>
-      </button>
+    <li className='list-row'>
+      {editing ? (
+        <ItemEditor summary={item.summary} onSave={onSave} onDelete={onDelete} onCancel={onCancel} />
+      ) : (
+        <>
+          <button type='button' role='checkbox' aria-checked={done} className={`list-item ${done ? 'is-done' : ''}`} onClick={onToggle}>
+            <Icon icon={done ? 'mdi:check-circle' : 'mdi:circle-outline'} aria-hidden='true' />
+            <span>{item.summary}</span>
+          </button>
+          <button type='button' className='list-edit-btn' aria-label='Edit' onClick={onEdit}>
+            <Icon icon='mdi:pencil-outline' aria-hidden='true' />
+          </button>
+        </>
+      )}
     </li>
   );
 }
@@ -20,6 +87,7 @@ export function ListCard({ list }: { list: TodoList }) {
   const todo = useTodoItems(list.id);
   const [draft, setDraft] = useState('');
   const [doneOpen, setDoneOpen] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   const ready = todo.status === 'ready';
 
   const submit = (event: FormEvent) => {
@@ -35,10 +103,28 @@ export function ListCard({ list }: { list: TodoList }) {
     todo.check(uid, false);
   };
 
+  const remove = (item: TodoItem) => {
+    if (item.status === 'completed' && todo.done.length <= 1) setDoneOpen(false);
+    setEditing(null);
+    todo.remove(item.uid);
+  };
+
   const clearDone = () => {
     setDoneOpen(false);
     todo.clearDone();
   };
+
+  const rowProps = (item: TodoItem) => ({
+    item,
+    editing: editing === item.uid,
+    onEdit: () => setEditing(item.uid),
+    onSave: (summary: string) => {
+      setEditing(null);
+      todo.rename(item.uid, summary);
+    },
+    onDelete: () => remove(item),
+    onCancel: () => setEditing(null),
+  });
 
   return (
     <section className='list-card'>
@@ -101,7 +187,7 @@ export function ListCard({ list }: { list: TodoList }) {
       {todo.open.length > 0 && (
         <ul className='list-items'>
           {todo.open.map(item => (
-            <ItemRow key={item.uid} item={item} onToggle={() => todo.check(item.uid, true)} />
+            <ItemRow key={item.uid} {...rowProps(item)} onToggle={() => todo.check(item.uid, true)} />
           ))}
         </ul>
       )}
@@ -121,7 +207,7 @@ export function ListCard({ list }: { list: TodoList }) {
           {doneOpen && (
             <ul className='list-items'>
               {todo.done.map(item => (
-                <ItemRow key={item.uid} item={item} onToggle={() => uncheck(item.uid)} />
+                <ItemRow key={item.uid} {...rowProps(item)} onToggle={() => uncheck(item.uid)} />
               ))}
             </ul>
           )}

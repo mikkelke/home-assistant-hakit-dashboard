@@ -1,5 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
-import { addTodoItem, clearDoneItems, fetchAuthUsers, setTodoItemDone, subscribeTodoItems, type TodoConnection } from '../api';
+import {
+  addTodoItem,
+  clearDoneItems,
+  fetchAuthUsers,
+  removeTodoItem,
+  renameTodoItem,
+  setTodoItemDone,
+  subscribeTodoItems,
+  type TodoConnection,
+} from '../api';
 
 function connection(reply: unknown = null) {
   const sent: unknown[] = [];
@@ -63,6 +72,34 @@ describe('the to-do websocket calls', () => {
         domain: 'todo',
         service: 'update_item',
         service_data: { item: 'uid-1', status: 'needs_action' },
+        target: { entity_id: 'todo.indkob' },
+      },
+    ]);
+  });
+
+  it('renames an item with todo.update_item by uid, and leaves its status alone', async () => {
+    const { conn, sent } = connection();
+    await renameTodoItem(conn, 'todo.indkob', 'uid-1', 'Mælk 1 l');
+    expect(sent).toEqual([
+      {
+        type: 'call_service',
+        domain: 'todo',
+        service: 'update_item',
+        service_data: { item: 'uid-1', rename: 'Mælk 1 l' },
+        target: { entity_id: 'todo.indkob' },
+      },
+    ]);
+  });
+
+  it('deletes an item with todo.remove_item by uid', async () => {
+    const { conn, sent } = connection();
+    await removeTodoItem(conn, 'todo.indkob', 'uid-1');
+    expect(sent).toEqual([
+      {
+        type: 'call_service',
+        domain: 'todo',
+        service: 'remove_item',
+        service_data: { item: ['uid-1'] },
         target: { entity_id: 'todo.indkob' },
       },
     ]);
