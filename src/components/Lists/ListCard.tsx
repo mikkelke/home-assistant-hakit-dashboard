@@ -25,6 +25,20 @@ interface ItemEditorProps {
 /** Enter, Save and moving the focus out of the row save the new text. Escape drops it. */
 function ItemEditor({ summary, onSave, onDelete, onCancel }: ItemEditorProps) {
   const [draft, setDraft] = useState(summary);
+  const [copied, setCopied] = useState(false);
+
+  /** The Clipboard API exists only on a secure origin, so the dashboard opened over plain http on the LAN copies the selected field. */
+  const copy = async (event: MouseEvent<HTMLButtonElement>) => {
+    const input = event.currentTarget.form?.querySelector('input');
+    try {
+      await navigator.clipboard.writeText(draft);
+    } catch {
+      input?.select();
+      if (!document.execCommand('copy')) return;
+    }
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
+  };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -42,6 +56,15 @@ function ItemEditor({ summary, onSave, onDelete, onCancel }: ItemEditorProps) {
   return (
     <form className='list-edit' onSubmit={submit} onBlur={leave} onKeyDown={keyDown}>
       <input ref={focusAtEnd} value={draft} aria-label='Item text' autoComplete='off' onChange={event => setDraft(event.target.value)} />
+      <button
+        type='button'
+        className={`list-edit-btn ${copied ? 'is-copied' : ''}`}
+        aria-label={copied ? 'Copied' : 'Copy'}
+        onMouseDown={keepFocus}
+        onClick={event => void copy(event)}
+      >
+        <Icon icon={copied ? 'mdi:clipboard-check-outline' : 'mdi:content-copy'} aria-hidden='true' />
+      </button>
       <button type='button' className='list-edit-btn is-delete' aria-label='Delete' onMouseDown={keepFocus} onClick={onDelete}>
         <Icon icon='mdi:trash-can-outline' aria-hidden='true' />
       </button>

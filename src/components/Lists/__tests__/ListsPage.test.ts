@@ -589,10 +589,50 @@ describe('one list', () => {
     it('keeps the focus in the field when Delete or Save is pressed, so the edit does not end before the tap lands', async () => {
       await mount();
       edit('Indkøb', 'Mælk');
-      for (const label of ['Delete', 'Save']) {
+      for (const label of ['Copy', 'Delete', 'Save']) {
         const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
         act(() => void button(editor('Indkøb') as HTMLElement, label)?.dispatchEvent(down));
         expect(down.defaultPrevented).toBe(true);
+      }
+    });
+
+    it('copies the text in the field, says so for a moment, and stays in the edit', async () => {
+      const writeText = vi.fn(async () => {});
+      vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+      try {
+        await mount();
+        edit('Indkøb', 'Mælk');
+        type(field('Indkøb'), 'Mælk 1 l');
+        click(button(editor('Indkøb') as HTMLElement, 'Copy'));
+        await settle();
+        expect(writeText).toHaveBeenCalledWith('Mælk 1 l');
+        expect(iconOf(button(editor('Indkøb') as HTMLElement, 'Copied'))).toBe('mdi:clipboard-check-outline');
+        expect(ha.calls()).toEqual([]);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+
+    it('copies the selected field where the Clipboard API is missing, as on plain http', async () => {
+      vi.stubGlobal('navigator', { ...navigator, clipboard: undefined });
+      let selected = '';
+      const execCommand = vi.fn(() => {
+        const input = document.activeElement as HTMLInputElement;
+        selected = input.value.slice(input.selectionStart ?? 0, input.selectionEnd ?? 0);
+        return true;
+      });
+      Object.defineProperty(document, 'execCommand', { value: execCommand, configurable: true });
+      try {
+        await mount();
+        edit('Indkøb', 'Mælk');
+        click(button(editor('Indkøb') as HTMLElement, 'Copy'));
+        await settle();
+        expect(execCommand).toHaveBeenCalledWith('copy');
+        expect(selected).toBe('Mælk');
+        expect(button(editor('Indkøb') as HTMLElement, 'Copied')).toBeTruthy();
+      } finally {
+        vi.unstubAllGlobals();
+        delete (document as { execCommand?: unknown }).execCommand;
       }
     });
 

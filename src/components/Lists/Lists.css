@@ -348,7 +348,8 @@
 .list-edit-btn.is-delete {
   color: var(--accent-rose);
 }
-.list-edit-btn.is-save {
+.list-edit-btn.is-save,
+.list-edit-btn.is-copied {
   color: var(--accent-sky);
 }
 
