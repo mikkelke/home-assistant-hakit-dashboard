@@ -415,12 +415,12 @@ describe('one list', () => {
     expect(card('Indkøb').querySelector('.list-done-toggle')?.getAttribute('aria-expanded')).toBe('true');
     expect(rows(card('Indkøb'))).toEqual(['Mælk', 'Smør', 'Kaffe', 'Brød']);
     const kaffe = byText(card('Indkøb'), '.list-item', 'Kaffe');
-    expect(kaffe?.getAttribute('aria-checked')).toBe('true');
+    expect(kaffe?.querySelector('[role="checkbox"]')?.getAttribute('aria-checked')).toBe('true');
     click(kaffe);
     await settle();
     expect(ha.calls().at(-1)).toMatchObject({ service: 'update_item', service_data: { item: 'c', status: 'needs_action' } });
     expect(rows(card('Indkøb'))).toEqual(['Mælk', 'Smør', 'Kaffe', 'Brød']);
-    expect(byText(card('Indkøb'), '.list-item', 'Kaffe')?.getAttribute('aria-checked')).toBe('false');
+    expect(byText(card('Indkøb'), '.list-item', 'Kaffe')?.querySelector('[role="checkbox"]')?.getAttribute('aria-checked')).toBe('false');
     expect(text(card('Indkøb').querySelector('.list-count'))).toBe('3');
   });
 
@@ -504,6 +504,29 @@ describe('one list', () => {
     click(card('Indkøb').querySelector('.list-note-btn') ?? undefined);
     await settle();
     expect(rows(card('Indkøb'))).toEqual(['Mælk', 'Smør']);
+  });
+
+  it('leaves the text free to select with a mouse, and checks off from the circle', async () => {
+    await mount();
+    const melk = byText(card('Indkøb'), '.list-item', 'Mælk') as HTMLElement;
+    const span = melk.querySelector('span') as HTMLElement;
+    expect(span.closest('button')).toBeNull();
+    act(() => void span.dispatchEvent(new PointerEvent('click', { bubbles: true, pointerType: 'mouse' })));
+    await settle();
+    expect(ha.calls()).toEqual([]);
+    const circle = melk.querySelector('[role="checkbox"]') as HTMLElement;
+    expect(circle.getAttribute('aria-label')).toBe('Mælk');
+    act(() => void circle.dispatchEvent(new PointerEvent('click', { bubbles: true, pointerType: 'mouse' })));
+    await settle();
+    expect(ha.calls()).toEqual([expect.objectContaining({ service: 'update_item', service_data: { item: 'a', status: 'completed' } })]);
+  });
+
+  it('checks off from a finger on the text', async () => {
+    await mount();
+    const span = byText(card('Indkøb'), '.list-item', 'Mælk')?.querySelector('span') as HTMLElement;
+    act(() => void span.dispatchEvent(new PointerEvent('click', { bubbles: true, pointerType: 'touch' })));
+    await settle();
+    expect(ha.calls()).toEqual([expect.objectContaining({ service: 'update_item', service_data: { item: 'a', status: 'completed' } })]);
   });
 
   describe('editing an item', () => {
@@ -744,7 +767,9 @@ describe('one list', () => {
       await settle();
       expect(ha.calls()).toEqual([renameCall('c', 'Kaffe, 1 kg')]);
       expect(rows(card('Indkøb'))).toEqual(['Mælk', 'Smør', 'Kaffe, 1 kg', 'Brød']);
-      expect(byText(card('Indkøb'), '.list-item', 'Kaffe, 1 kg')?.getAttribute('aria-checked')).toBe('true');
+      expect(byText(card('Indkøb'), '.list-item', 'Kaffe, 1 kg')?.querySelector('[role="checkbox"]')?.getAttribute('aria-checked')).toBe(
+        'true'
+      );
       expect(text(card('Indkøb').querySelector('.list-count'))).toBe('2');
     });
 

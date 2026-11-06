@@ -87,16 +87,34 @@ interface ItemRowProps {
 
 function ItemRow({ item, editing, onToggle, onEdit, onSave, onDelete, onCancel }: ItemRowProps) {
   const done = item.status === 'completed';
+
+  /** A finger on the text checks the item off; a mouse leaves the text free to select and copy, and checks off on the circle. */
+  const tapText = (event: MouseEvent) => {
+    if ((event.nativeEvent as PointerEvent).pointerType !== 'mouse') onToggle();
+  };
+
   return (
     <li className='list-row'>
       {editing ? (
         <ItemEditor summary={item.summary} onSave={onSave} onDelete={onDelete} onCancel={onCancel} />
       ) : (
         <>
-          <button type='button' role='checkbox' aria-checked={done} className={`list-item ${done ? 'is-done' : ''}`} onClick={onToggle}>
-            <Icon icon={done ? 'mdi:check-circle' : 'mdi:circle-outline'} aria-hidden='true' />
+          <div className={`list-item ${done ? 'is-done' : ''}`} onClick={tapText}>
+            <button
+              type='button'
+              role='checkbox'
+              aria-checked={done}
+              aria-label={item.summary}
+              className='list-check'
+              onClick={event => {
+                event.stopPropagation();
+                onToggle();
+              }}
+            >
+              <Icon icon={done ? 'mdi:check-circle' : 'mdi:circle-outline'} aria-hidden='true' />
+            </button>
             <span>{item.summary}</span>
-          </button>
+          </div>
           <button type='button' className='list-edit-btn' aria-label='Edit' onClick={onEdit}>
             <Icon icon='mdi:pencil-outline' aria-hidden='true' />
           </button>
