@@ -250,7 +250,7 @@ Icon plus a short value on the chip fill. Shipped chip heights run from 22 to 44
 Header on the card colour with a hairline underneath: glyph disc, title, 44 px icon buttons. Body on the ground. Exit button bottom-left. Lists is the cleanest page: tokens for every colour except the backdrop and one shadow.
 
 ### List row
-48 px minimum height, 15 px text, a 1 px hairline above, a 20 px circle control on the left. Rows in one list look alike; a state difference is content (a check, a badge, a count), not a different shape.
+48 px minimum height, 15 px text, a 1 px hairline above, a 20 px circle control on the left. Rows in one list look alike; a state difference is content (a check, a badge, a count), not a different shape. On the Lists page the circle is the check-off button (44 px target) and the text sits outside it, so a mouse can select and copy it while a finger on the text still checks the item off. A trailing pencil turns the row into an edit field with Copy, Delete and Save; Escape drops the edit, leaving the row saves it.
 
 ### Sheet
 A centred overlay on device charcoal, max 420 px wide and 85vh, 24 px corners, a 32 px round close button with its hit area extended by 6 px. The climate sheet anchors to the bottom instead.
