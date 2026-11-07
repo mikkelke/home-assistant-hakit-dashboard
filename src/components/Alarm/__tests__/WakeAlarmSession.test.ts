@@ -55,7 +55,11 @@ describe('wake alarm sheet', () => {
     await settle();
     expect(document.querySelector('[role="dialog"]')).toBeTruthy();
     click('Snooze 15 min');
-    expect(callService).toHaveBeenCalledWith({ domain: 'script', service: 'wake_snooze', serviceData: { minutes: 15, curtain: 'open', session_id: 'morning' } });
+    expect(callService).toHaveBeenCalledWith({
+      domain: 'script',
+      service: 'wake_snooze',
+      serviceData: { minutes: 15, curtain: 'open', session_id: 'morning' },
+    });
     expect(document.body.textContent).toContain('Sending');
     expect(document.body.textContent).not.toContain('A little more sleep.');
     show(world('snoozing', { snooze_minutes: 15, snooze_curtain: 'open', snooze_until: '2026-11-01T05:45:00Z' }));
@@ -72,7 +76,11 @@ describe('wake alarm sheet', () => {
     expect(callService).not.toHaveBeenCalled();
     act(() => document.querySelector<HTMLButtonElement>('[aria-label="Back to alarm"]')!.click());
     click('Snooze 10 min');
-    expect(callService).toHaveBeenCalledWith({ domain: 'script', service: 'wake_snooze', serviceData: { minutes: 10, curtain: 'closed', session_id: 'morning' } });
+    expect(callService).toHaveBeenCalledWith({
+      domain: 'script',
+      service: 'wake_snooze',
+      serviceData: { minutes: 10, curtain: 'closed', session_id: 'morning' },
+    });
   });
 
   it('keeps radio-stop separate and waits for the dismissed state', async () => {
@@ -85,6 +93,20 @@ describe('wake alarm sheet', () => {
     expect(document.body.textContent).toContain('Radio stopped.');
     expect(document.body.textContent).toContain('Curtain and light stay as they are.');
     expect([...document.querySelectorAll('button')].some(item => item.textContent?.includes('Snooze'))).toBe(false);
+  });
+
+  it('dismisses the alarm and leaves the radio playing', async () => {
+    show(world('ringing'));
+    await settle();
+    click('Dismiss');
+    expect(callService).toHaveBeenCalledWith({
+      domain: 'script',
+      service: 'wake_dismiss',
+      serviceData: { keep_radio: true, session_id: 'morning' },
+    });
+    show(world('dismissed', { reason: 'radio_kept' }));
+    expect(document.body.textContent).toContain('Alarm dismissed.');
+    expect(document.body.textContent).toContain('The radio keeps playing.');
   });
 
   it('cancels snooze and starts a full wake through the existing button', async () => {
@@ -100,7 +122,11 @@ describe('wake alarm sheet', () => {
     show(world('ringing', { session_id: 'next' }));
     show(sleeping);
     click('Cancel snooze');
-    expect(callService).toHaveBeenLastCalledWith({ domain: 'script', service: 'wake_snooze_cancel', serviceData: { session_id: 'morning' } });
+    expect(callService).toHaveBeenLastCalledWith({
+      domain: 'script',
+      service: 'wake_snooze_cancel',
+      serviceData: { session_id: 'morning' },
+    });
     show(world('dismissed'));
     expect(document.body.textContent).toContain('Snooze cancelled.');
   });
@@ -122,7 +148,11 @@ describe('wake alarm sheet', () => {
     expect(document.body.textContent).toContain('Snooze your way.');
     expect(document.querySelector('[aria-pressed="true"]')?.textContent).toContain('Keep room');
     click('Snooze 5 min');
-    expect(callService).toHaveBeenCalledWith({ domain: 'script', service: 'wake_snooze', serviceData: { minutes: 5, curtain: 'open', session_id: 'morning' } });
+    expect(callService).toHaveBeenCalledWith({
+      domain: 'script',
+      service: 'wake_snooze',
+      serviceData: { minutes: 5, curtain: 'open', session_id: 'morning' },
+    });
   });
 
   it('closing the sheet sends no command and foreground reopens the active session', async () => {

@@ -5,7 +5,7 @@ export const WAKE_ALARM_OPEN_EVENT = 'wakeAlarmOpen';
 export const WAKE_ALARM_HASH = '#wake-alarm';
 export type SnoozeMinutes = 5 | 10 | 15;
 export type SnoozeCurtain = 'closed' | 'open';
-export type WakeAction = 'snooze' | 'dismiss' | 'cancel' | 'wake';
+export type WakeAction = 'snooze' | 'dismiss' | 'keep' | 'cancel' | 'wake';
 export interface SnoozeChoice {
   minutes: SnoozeMinutes;
   curtain: SnoozeCurtain;
@@ -62,6 +62,7 @@ export function wakeActionCall(action: WakeAction, choice: SnoozeChoice, session
   if (action === 'wake') return { domain: 'input_button', service: 'press', target: { entity_id: 'input_button.wake_up_now' } };
   const serviceData = {
     ...(action === 'snooze' ? { minutes: choice.minutes, curtain: choice.curtain } : {}),
+    ...(action === 'keep' ? { keep_radio: true } : {}),
     ...(sessionId ? { session_id: sessionId } : {}),
   };
   return {

@@ -42,6 +42,8 @@ export function WakeAlarmSession({ entities, callService }: Props) {
   const options = draft != null && session.state === 'ringing';
   const choice = options ? draft : session.choice;
   const snoozing = session.state === 'snoozing';
+  const radioKept =
+    session.reason === 'radio_kept' || (pending?.completed && pending.action === 'keep' && pending.before.id === session.id);
   const cancelled =
     session.reason === 'snooze_cancelled' || (pending?.completed && pending.action === 'cancel' && pending.before.id === session.id);
 
@@ -287,16 +289,20 @@ export function WakeAlarmSession({ entities, callService }: Props) {
                 ? 'Alarm status unavailable.'
                 : cancelled
                   ? 'Snooze cancelled.'
-                  : session.state === 'dismissed'
-                    ? 'Radio stopped.'
-                    : 'The radio has already stopped.'}
+                  : radioKept
+                    ? 'Alarm dismissed.'
+                    : session.state === 'dismissed'
+                      ? 'Radio stopped.'
+                      : 'The radio has already stopped.'}
             </h2>
             <p className='wake-alarm-description'>
               {unavailable
                 ? 'Reconnect to see the current alarm.'
                 : cancelled
                   ? 'No snooze return. The room stays as it is.'
-                  : 'Curtain and light stay as they are.'}
+                  : radioKept
+                    ? 'The radio keeps playing. Curtain and light stay as they are.'
+                    : 'Curtain and light stay as they are.'}
             </p>
             {!unavailable && <p className='wake-alarm-quiet'>Your next scheduled alarm is unchanged.</p>}
           </div>
@@ -354,11 +360,26 @@ export function WakeAlarmSession({ entities, callService }: Props) {
                   <p className='wake-alarm-return'>
                     At {wakeClock(now + choice.minutes * 60000)} · {returnWords.toLowerCase()}
                   </p>
-                  <button type='button' className='wake-alarm-stop' disabled={busy || !callService} onClick={() => act('dismiss')}>
-                    <Icon icon={radioStopped ? 'mdi:check' : 'mdi:stop'} aria-hidden='true' />
-                    {radioStopped ? 'Finish wake session' : 'Stop radio'}
-                  </button>
-                  <p className='wake-alarm-footnote'>Curtain & light stay as they are</p>
+                  {radioStopped ? (
+                    <button type='button' className='wake-alarm-stop' disabled={busy || !callService} onClick={() => act('dismiss')}>
+                      <Icon icon='mdi:check' aria-hidden='true' />
+                      Finish wake session
+                    </button>
+                  ) : (
+                    <div className='wake-alarm-ends'>
+                      <button type='button' className='wake-alarm-stop' disabled={busy || !callService} onClick={() => act('dismiss')}>
+                        <Icon icon='mdi:stop' aria-hidden='true' />
+                        Stop radio
+                      </button>
+                      <button type='button' className='wake-alarm-stop' disabled={busy || !callService} onClick={() => act('keep')}>
+                        <Icon icon='mdi:check' aria-hidden='true' />
+                        Dismiss
+                      </button>
+                    </div>
+                  )}
+                  <p className='wake-alarm-footnote'>
+                    {radioStopped ? 'Curtain & light stay as they are' : 'Dismiss keeps the radio on · curtain & light stay'}
+                  </p>
                 </>
               )}
             </>
