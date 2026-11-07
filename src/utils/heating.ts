@@ -270,11 +270,23 @@ export interface LastSignal {
   source: string | null;
   /** "HH:MM" on the viewer's clock. */
   clock: string | null;
+  /** Null when it happened today; "Thu" within the last week; "5 Nov" before that. */
+  day: string | null;
 }
 
 const asText = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null);
 
-export function readLastSignal(raw: unknown): LastSignal | null {
+function signalDay(raw: unknown, now: Date): string | null {
+  if (typeof raw !== 'string') return null;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime()) || d.toDateString() === now.toDateString()) return null;
+  const daysAgo = (now.getTime() - d.getTime()) / 86_400_000;
+  return daysAgo < 6
+    ? d.toLocaleDateString('en-GB', { weekday: 'short' })
+    : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+export function readLastSignal(raw: unknown, now: Date = new Date()): LastSignal | null {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
   const signal = raw as Record<string, unknown>;
   const name = asText(signal.who)?.replace(/_/g, ' ') ?? null;
@@ -283,6 +295,7 @@ export function readLastSignal(raw: unknown): LastSignal | null {
     direction: signal.direction === 'warmer' || signal.direction === 'colder' ? signal.direction : null,
     source: asText(signal.source),
     clock: clockOf(signal.at),
+    day: signalDay(signal.at, now),
   };
 }
 
@@ -299,9 +312,10 @@ function signalPlace(source: string | null): string {
 }
 
 /** "Mikkel turned it up in the app at 06:42"; whatever the controller did not say is left out. */
-export function lastSignalText({ who, direction, source, clock }: LastSignal): string {
+export function lastSignalText({ who, direction, source, clock, day }: LastSignal): string {
   const verb = direction === 'warmer' ? 'turned it up' : direction === 'colder' ? 'turned it down' : 'changed it';
-  return `${who ?? 'Someone'} ${verb}${signalPlace(source)}${clock ? ` at ${clock}` : ''}`;
+  const when = clock ? `${day ? ` on ${day}` : ''} at ${clock}` : '';
+  return `${who ?? 'Someone'} ${verb}${signalPlace(source)}${when}`;
 }
 
 /** How far air may sit from its target before the heating page calls it off, in °C. */

@@ -270,7 +270,7 @@ export function HeatZoneSheet({ zone, entities, callService, calls = [], onClose
                 {signal.who}
                 {signal.direction === 'warmer' && <Icon icon='mdi:arrow-up' aria-hidden='true' />}
                 {signal.direction === 'colder' && <Icon icon='mdi:arrow-down' aria-hidden='true' />}
-                {signal.clock}
+                {signal.day ? `${signal.day} ${signal.clock ?? ''}`.trim() : signal.clock}
               </span>
             )}
           </section>

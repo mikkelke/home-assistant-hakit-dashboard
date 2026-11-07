@@ -33,7 +33,7 @@ const today = localDay(at(11, 35));
 
 describe('the last signal sentence', () => {
   const signal = (raw: Record<string, unknown>) => {
-    const read = readLastSignal(raw);
+    const read = readLastSignal(raw, new Date(2026, 10, 5, 23, 0));
     return read ? lastSignalText(read) : null;
   };
   const when = new Date(2026, 10, 5, 6, 42).toISOString();
@@ -44,6 +44,15 @@ describe('the last signal sentence', () => {
     );
     expect(signal({ who: 'Kristine', source: 'keypad', direction: 'colder', at: new Date(2026, 10, 5, 21, 15).toISOString() })).toBe(
       'Kristine turned it down on the thermostat at 21:15'
+    );
+  });
+
+  it('names the day when it was not today', () => {
+    expect(signal({ who: 'Mikkel', source: 'ha', direction: 'colder', at: new Date(2026, 10, 3, 12, 32).toISOString() })).toBe(
+      'Mikkel turned it down in the app on Tue at 12:32'
+    );
+    expect(signal({ who: 'Mikkel', source: 'ha', direction: 'colder', at: new Date(2026, 9, 20, 12, 32).toISOString() })).toBe(
+      'Mikkel turned it down in the app on 20 Oct at 12:32'
     );
   });
 
@@ -82,13 +91,14 @@ describe('the last signal sentence', () => {
   });
 
   it('keeps the person and the direction for the chip', () => {
-    expect(readLastSignal({ who: 'mikkel', source: 'ha', direction: 'warmer', at: when })).toEqual({
+    expect(readLastSignal({ who: 'mikkel', source: 'ha', direction: 'warmer', at: when }, new Date(2026, 10, 7, 9, 0))).toEqual({
       who: 'Mikkel',
       direction: 'warmer',
       source: 'ha',
       clock: '06:42',
+      day: 'Thu',
     });
-    expect(readLastSignal({ who: 'unknown', direction: 'sideways' })).toEqual({ who: null, direction: null, source: null, clock: null });
+    expect(readLastSignal({ who: 'unknown', direction: 'sideways' })).toEqual({ who: null, direction: null, source: null, clock: null, day: null });
   });
 });
 
