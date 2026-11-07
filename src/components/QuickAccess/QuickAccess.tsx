@@ -638,43 +638,44 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
-            <div className='qa-modal-header'>
-              <span className='qa-title'>
-                {openModal === 'intercom' && 'Apartment access'}
-                {openModal === 'media' && 'Media'}
-                {openModal === 'transit' && 'Transit'}
-                {openModal === 'weather' && 'Weather'}
-              </span>
-              <div className='qa-header-actions'>
-                {openModal === 'transit' && (
-                  <button
-                    className={`info-refresh-btn ${isTransitRefreshing ? 'spinning' : ''}`}
-                    onClick={handleTransitRefresh}
-                    disabled={isTransitRefreshing}
-                    title='Refresh transit data'
-                    aria-label='Refresh transit data'
-                  >
-                    <Icon icon='mdi:refresh' />
+            {openModal !== 'weather' && (
+              <div className='qa-modal-header'>
+                <span className='qa-title'>
+                  {openModal === 'intercom' && 'Apartment access'}
+                  {openModal === 'media' && 'Media'}
+                  {openModal === 'transit' && 'Transit'}
+                </span>
+                <div className='qa-header-actions'>
+                  {openModal === 'transit' && (
+                    <button
+                      className={`info-refresh-btn ${isTransitRefreshing ? 'spinning' : ''}`}
+                      onClick={handleTransitRefresh}
+                      disabled={isTransitRefreshing}
+                      title='Refresh transit data'
+                      aria-label='Refresh transit data'
+                    >
+                      <Icon icon='mdi:refresh' />
+                    </button>
+                  )}
+                  {openModal === 'media' && mediaTab === 'audio' && !selectedSpeakerForQuickStart && !showSpeakerSelector && (
+                    <button
+                      className='qa-add-speaker-icon-btn'
+                      onClick={() => {
+                        setShowSpeakerSelector(true);
+                        trackMedia('add_speaker');
+                      }}
+                      title='Start music on a speaker'
+                    >
+                      <Icon icon='mdi:cast-audio' />
+                      <Icon icon='mdi:plus' className='qa-plus-icon-small' />
+                    </button>
+                  )}
+                  <button className='qa-close modal-close-button' onClick={requestCloseQuickAccess}>
+                    <Icon icon='mdi:close' />
                   </button>
-                )}
-                {openModal === 'media' && mediaTab === 'audio' && !selectedSpeakerForQuickStart && !showSpeakerSelector && (
-                  <button
-                    className='qa-add-speaker-icon-btn'
-                    onClick={() => {
-                      setShowSpeakerSelector(true);
-                      trackMedia('add_speaker');
-                    }}
-                    title='Start music on a speaker'
-                  >
-                    <Icon icon='mdi:cast-audio' />
-                    <Icon icon='mdi:plus' className='qa-plus-icon-small' />
-                  </button>
-                )}
-                <button className='qa-close modal-close-button' onClick={requestCloseQuickAccess}>
-                  <Icon icon='mdi:close' />
-                </button>
+                </div>
               </div>
-            </div>
+            )}
             <div className={`qa-modal-body ${openModal ?? ''}`}>
               {openModal === 'intercom' && <IntercomCard entities={entities} callService={callService} onUiTap={trackAccess} />}
               {openModal === 'media' && (
@@ -1085,6 +1086,19 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
               )}
             </div>
           </div>
+          {openModal === 'weather' && (
+            <button
+              type='button'
+              className='qa-floating-close'
+              onClick={e => {
+                e.stopPropagation();
+                requestCloseQuickAccess();
+              }}
+              aria-label='Close'
+            >
+              <Icon icon='mdi:close' />
+            </button>
+          )}
         </div>
       )}
 

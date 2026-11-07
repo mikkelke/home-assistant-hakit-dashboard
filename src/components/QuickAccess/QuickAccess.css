@@ -114,6 +114,41 @@
   width: min(1000px, 90vw);
   max-height: 85vh;
   max-width: 90vw;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 24px;
+}
+
+.qa-modal-body.weather,
+.qa-modal-body.weather .quick-weather-wrapper {
+  padding: 0;
+}
+
+/* The weather sheet is only the card, so its close floats: top-right beside the card on wide
+   screens, bottom-right at thumb reach on phones. */
+.qa-floating-close {
+  position: fixed;
+  top: max(1rem, env(safe-area-inset-top));
+  right: max(1rem, env(safe-area-inset-right));
+  z-index: 2001;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  background: rgba(24, 25, 28, 0.92);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  color: #e4e4e7;
+  font-size: 1.3rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.qa-floating-close:active {
+  background: rgba(40, 42, 46, 0.95);
 }
 
 .qa-modal.media {
@@ -144,10 +179,6 @@
     width: min(1100px, 90vw);
     max-height: 85vh;
   }
-  
-  .qa-modal-body.weather {
-    padding: 1rem 1.25rem;
-  }
 }
 
 @media (min-width: 1600px) {
@@ -155,20 +186,12 @@
     width: min(1200px, 90vw);
     max-height: 85vh;
   }
-  
-  .qa-modal-body.weather {
-    padding: 1.25rem 1.5rem;
-  }
 }
 
 @media (min-width: 2000px) {
   .qa-modal.weather {
     width: min(1300px, 90vw);
     max-height: 85vh;
-  }
-  
-  .qa-modal-body.weather {
-    padding: 1.5rem 2rem;
   }
 }
 
@@ -214,11 +237,6 @@
 
 .qa-modal-body {
   padding: 1rem;
-}
-
-.qa-modal-body.weather {
-  padding: 1rem 1.25rem;
-  /* No inner scroll: modal itself is the scroll container (same pattern as RoomDetail) */
 }
 
 .qa-modal-body.intercom .intercom-card {
@@ -728,12 +746,6 @@
   color: #3b82f6;
 }
 
-@media (min-width: 1200px) {
-  .quick-weather-wrapper {
-    padding: 0.75rem;
-  }
-}
-
 /* QuickWeatherCard layout is defined in Weather/QuickWeatherCard.css - do not override flex/display here */
 .quick-weather-wrapper .quick-weather-card {
   width: 100%;
@@ -845,12 +857,17 @@
     width: 100%;
     max-height: 92vh;
   }
-  /* Fixed height so modal is the scroll container (same pattern as RoomDetail mobile) */
   .qa-modal.weather {
     width: 100%;
-    height: 92vh;
     max-height: 92vh;
     min-height: 0;
+  }
+  .qa-floating-close {
+    top: auto;
+    bottom: max(1.25rem, env(safe-area-inset-bottom));
+  }
+  .qa-modal-body.weather {
+    padding-bottom: 4.5rem;
   }
 }
 
@@ -1157,7 +1174,6 @@
   color: #52525b;
   font-style: italic;
 }
-
 
 .info-transit-last-checked {
   font-size: 0.65rem;
