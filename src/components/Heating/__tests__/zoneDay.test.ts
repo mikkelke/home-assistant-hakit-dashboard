@@ -98,7 +98,13 @@ describe('the last signal sentence', () => {
       clock: '06:42',
       day: 'Thu',
     });
-    expect(readLastSignal({ who: 'unknown', direction: 'sideways' })).toEqual({ who: null, direction: null, source: null, clock: null, day: null });
+    expect(readLastSignal({ who: 'unknown', direction: 'sideways' })).toEqual({
+      who: null,
+      direction: null,
+      source: null,
+      clock: null,
+      day: null,
+    });
   });
 });
 
