@@ -1153,6 +1153,12 @@
   font-style: italic;
 }
 
+.info-transit-operator-note {
+  margin: 0.35rem 0 0 1.6rem;
+  font-size: 0.75rem;
+  color: #f97316;
+}
+
 .info-transit-last-checked {
   font-size: 0.65rem;
   color: #3f3f46;

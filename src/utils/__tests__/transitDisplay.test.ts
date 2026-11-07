@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { TRANSIT_LINES, type TransitStatus } from '../../config/transit';
-import { formatTravelTime, groupTransitRows, transitBadgeLabel, type TransitRowLine } from '../transitDisplay';
+import type { HassEntities } from '../../types';
+import {
+  OPERATOR_STATUS_NORMAL,
+  formatTravelTime,
+  getTransitLineDisplayStatus,
+  groupTransitRows,
+  isOperatorDisruption,
+  readOperatorStatus,
+  transitBadgeLabel,
+  transitEmptyMessage,
+  transitOperatorNote,
+  type TransitRowLine,
+} from '../transitDisplay';
 
 describe('formatTravelTime', () => {
   it('shows bare minutes under an hour', () => {
@@ -126,5 +138,117 @@ describe('groupTransitRows', () => {
       enabled: false,
       displayStatus: 'Disrupted',
     });
+  });
+});
+
+describe('readOperatorStatus', () => {
+  it('trims the text', () => {
+    expect(readOperatorStatus('  Normal togdrift ')).toBe('Normal togdrift');
+  });
+
+  it('is empty when the sensor has none: absent, null or not text', () => {
+    for (const raw of [undefined, null, '', '   ', 0, false, ['Normal togdrift']]) {
+      expect(readOperatorStatus(raw)).toBe('');
+    }
+  });
+});
+
+describe('isOperatorDisruption', () => {
+  it('is false without a status and for the normal one', () => {
+    expect(isOperatorDisruption('')).toBe(false);
+    expect(isOperatorDisruption(OPERATOR_STATUS_NORMAL)).toBe(false);
+  });
+
+  it('is true for any other text', () => {
+    expect(isOperatorDisruption('Driftsforstyrrelse på M3')).toBe(true);
+    expect(isOperatorDisruption('Normal togdrift | Sporarbejde')).toBe(true);
+  });
+});
+
+describe('transitEmptyMessage', () => {
+  it('says the service is normal when the operator does and there are no times', () => {
+    expect(transitEmptyMessage(false, 'Normal togdrift')).toBe('Normal service · no times');
+  });
+
+  it('says no data when the operator says nothing or announces a disruption', () => {
+    expect(transitEmptyMessage(false, '')).toBe('No data');
+    expect(transitEmptyMessage(false, 'Driftsforstyrrelse på M3')).toBe('No data');
+  });
+
+  it('asks for a refresh when the departures it has are all past, whatever the operator says', () => {
+    expect(transitEmptyMessage(true, '')).toBe('Please refresh data');
+    expect(transitEmptyMessage(true, 'Normal togdrift')).toBe('Please refresh data');
+  });
+});
+
+describe('transitOperatorNote', () => {
+  const line = (operatorStatus: string, enabled = true) => ({ enabled, operatorStatus });
+
+  it('is empty without a disruption text', () => {
+    expect(transitOperatorNote([line(''), line('Normal togdrift')])).toBe('');
+  });
+
+  it('names a disruption once when both directions carry it', () => {
+    expect(transitOperatorNote([line('Driftsforstyrrelse på M3'), line('Driftsforstyrrelse på M3')])).toBe('Driftsforstyrrelse på M3');
+  });
+
+  it('joins different texts', () => {
+    expect(transitOperatorNote([line('Sporarbejde'), line('Driftsforstyrrelse')])).toBe('Sporarbejde · Driftsforstyrrelse');
+  });
+
+  it('leaves out the routes that are off', () => {
+    expect(transitOperatorNote([line('Driftsforstyrrelse', false)])).toBe('');
+  });
+});
+
+describe('getTransitLineDisplayStatus with the operator status', () => {
+  const now = new Date(2026, 10, 7, 12, 0, 0);
+  const metro = { sensorEntityId: 'sensor.transit_metro', statusEntityId: 'input_select.transit_metro_status', highFrequency: true };
+  const sparse = { sensorEntityId: 'sensor.transit_metro', statusEntityId: 'input_select.transit_metro_status' };
+  const departure = (time: string, cancelled = false) => ({
+    time,
+    scheduled_time: time,
+    delay_min: 0,
+    cancelled,
+    problematic: cancelled,
+  });
+  const healthy = [departure('12:02'), departure('12:05'), departure('12:08')];
+  const entities = (attributes: Record<string, unknown>, backend = 'OK'): HassEntities => ({
+    'sensor.transit_metro': { entity_id: 'sensor.transit_metro', state: backend, attributes },
+    'input_select.transit_metro_status': { entity_id: 'input_select.transit_metro_status', state: backend, attributes: {} },
+  });
+
+  it('is Disrupted whatever the departures say when the operator announces a disruption', () => {
+    const live = entities({ departures: healthy, operator_status: 'Driftsforstyrrelse på M3' });
+    expect(getTransitLineDisplayStatus(metro, live, now)).toBe('Disrupted');
+    expect(getTransitLineDisplayStatus(sparse, live, now)).toBe('Disrupted');
+  });
+
+  it('is Disrupted for a route without times when the operator announces a disruption', () => {
+    expect(getTransitLineDisplayStatus(metro, entities({ departures: [], operator_status: 'Driftsforstyrrelse' }), now)).toBe('Disrupted');
+  });
+
+  it('keeps the status of the backend for a route without times when the operator says normal', () => {
+    const normal = { departures: [], operator_status: OPERATOR_STATUS_NORMAL };
+    expect(getTransitLineDisplayStatus(metro, entities(normal), now)).toBe('OK');
+    expect(getTransitLineDisplayStatus(metro, entities(normal, 'Unavailable'), now)).toBe('Unavailable');
+  });
+
+  it('does not let a normal operator hide the cancellations the departures show', () => {
+    const cancelled = [
+      departure('12:02', true),
+      departure('12:04', true),
+      departure('12:06', true),
+      departure('12:18'),
+      departure('12:20'),
+    ];
+    expect(getTransitLineDisplayStatus(metro, entities({ departures: cancelled, operator_status: OPERATOR_STATUS_NORMAL }), now)).toBe(
+      'Disrupted'
+    );
+  });
+
+  it('is what the departures say without an operator status', () => {
+    expect(getTransitLineDisplayStatus(metro, entities({ departures: healthy }), now)).toBe('OK');
+    expect(getTransitLineDisplayStatus(metro, entities({ departures: healthy, operator_status: null }), now)).toBe('OK');
   });
 });
