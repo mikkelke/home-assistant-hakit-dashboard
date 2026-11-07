@@ -125,8 +125,8 @@
   padding: 0;
 }
 
-/* The weather sheet is only the card, so its close floats: top-right beside the card on wide
-   screens, bottom-right at thumb reach on phones. */
+/* Quick-access close floats outside the sheet: top-right on wide screens, bottom-right at thumb
+   reach on phones. */
 .qa-floating-close {
   position: fixed;
   top: max(1rem, env(safe-area-inset-top));
@@ -214,25 +214,6 @@
   font-size: 1rem;
   font-weight: 600;
   color: #e4e4e7;
-}
-
-.qa-close {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.4rem;
-  color: #a1a1aa;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .qa-close:hover {
-    background: rgba(255, 255, 255, 0.15);
-  }
 }
 
 .qa-modal-body {
@@ -866,9 +847,6 @@
     top: auto;
     bottom: max(1.25rem, env(safe-area-inset-bottom));
   }
-  .qa-modal-body.weather {
-    padding-bottom: 4.5rem;
-  }
 }
 
 /* ── Transit refresh button ───────────────────────────────── */
@@ -1359,4 +1337,13 @@
   color: #ff9f0a;
   font-size: 13px;
   line-height: 1.4;
+}
+
+/* Phone: room below each sheet's content so its end scrolls clear of the floating close. */
+@media (max-width: 600px) {
+  .qa-modal-body,
+  .qa-modal-body.weather,
+  .qa-modal-body.transit {
+    padding-bottom: 4.5rem;
+  }
 }

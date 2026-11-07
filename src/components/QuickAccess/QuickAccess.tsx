@@ -670,9 +670,6 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                       <Icon icon='mdi:plus' className='qa-plus-icon-small' />
                     </button>
                   )}
-                  <button className='qa-close modal-close-button' onClick={requestCloseQuickAccess}>
-                    <Icon icon='mdi:close' />
-                  </button>
                 </div>
               </div>
             )}
@@ -1086,19 +1083,17 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
               )}
             </div>
           </div>
-          {openModal === 'weather' && (
-            <button
-              type='button'
-              className='qa-floating-close'
-              onClick={e => {
-                e.stopPropagation();
-                requestCloseQuickAccess();
-              }}
-              aria-label='Close'
-            >
-              <Icon icon='mdi:close' />
-            </button>
-          )}
+          <button
+            type='button'
+            className='qa-floating-close'
+            onClick={e => {
+              e.stopPropagation();
+              requestCloseQuickAccess();
+            }}
+            aria-label='Close'
+          >
+            <Icon icon='mdi:close' />
+          </button>
         </div>
       )}
 
