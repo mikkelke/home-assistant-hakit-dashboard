@@ -103,7 +103,7 @@ export function RoomDetail({
   const dryerStateEntity = entities?.['sensor.dryer_state'];
   const dishwasherStateEntity = entities?.['sensor.dishwasher_state'];
   const vacuum = entities?.[VACUUM_ENTITY];
-  // Coffee is the Kitchen's last row on an ordinary day, and its first while a brew runs or waits.
+  // Coffee sits above the Kitchen's lights and Rober2 on an ordinary day, and first while a brew runs or waits.
   const coffee = useCoffeeState();
   const coffeeFirst = isKitchen && coffee != null && isEventful(coffee.phase);
 
@@ -232,6 +232,8 @@ export function RoomDetail({
         {/* Wake-up Alarm (Bedroom) */}
         <WakeupAlarm areaName={area.name} entities={entities} callService={callService} />
 
+        {isKitchen && !coffeeFirst && <CoffeeCard onOpenStage={onOpenCoffee} />}
+
         {/* Light Controls (bedroom moves this below the blind - see the Light Controls line after Cover) */}
         {!isBedroom && <LightCard areaName={area.name} entities={entities} callService={callService} />}
 
@@ -246,8 +248,6 @@ export function RoomDetail({
 
         {/* Room Cleaning Toggle - for rooms that have it */}
         {cleaningToggle && <RoomCleaningToggle areaName={area.name} entities={entities} callService={callService} />}
-
-        {isKitchen && !coffeeFirst && <CoffeeCard onOpenStage={onOpenCoffee} />}
 
         {/* Humidity (only when RoomClimateHeader isn't already showing one, incl. via a shared
             thermostat) */}
