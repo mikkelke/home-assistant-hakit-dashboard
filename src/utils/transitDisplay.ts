@@ -42,6 +42,31 @@ function readPositiveNumber(raw: unknown): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
+/** What the operator's status page (m.dk) says while the network runs as planned. */
+export const OPERATOR_STATUS_NORMAL = 'Normal togdrift';
+
+/** The route sensor's `operator_status` as text: trimmed, and empty when the sensor has none (the operator's page could not be read). */
+export function readOperatorStatus(raw: unknown): string {
+  return typeof raw === 'string' ? raw.trim() : '';
+}
+
+/** Any operator status but the normal one: a disruption the operator announces in its own words. */
+export function isOperatorDisruption(status: string): boolean {
+  return status !== '' && status !== OPERATOR_STATUS_NORMAL;
+}
+
+/** What a route shows in place of its departure chips when it has none. */
+export function transitEmptyMessage(departuresStale: boolean, operatorStatus: string): string {
+  if (departuresStale) return 'Please refresh data';
+  return operatorStatus === OPERATOR_STATUS_NORMAL ? 'Normal service · no times' : 'No data';
+}
+
+/** The operator's disruption texts for the routes of a row that are on, each once (both Metro directions carry the same text). */
+export function transitOperatorNote(lines: readonly { enabled: boolean; operatorStatus: string }[]): string {
+  const texts = lines.filter(line => line.enabled && isOperatorDisruption(line.operatorStatus)).map(line => line.operatorStatus);
+  return [...new Set(texts)].join(' · ');
+}
+
 export interface TransitDepartureForDisplay {
   time: string;
   delay_min: number;
@@ -274,6 +299,9 @@ export function getTransitLineDisplayStatus(
   now: Date
 ): TransitStatus {
   const sensor = entities?.[line.sensorEntityId];
+  if (isOperatorDisruption(readOperatorStatus(sensor?.attributes?.operator_status))) {
+    return 'Disrupted';
+  }
   const departures = (sensor?.attributes?.departures ?? []) as TransitDepartureForDisplay[];
   const backend = (entities?.[line.statusEntityId]?.state ?? 'Unavailable') as TransitStatus;
   const rescueWindow = readPositiveNumber(sensor?.attributes?.rescue_window_min) ?? TRANSIT_RESCUE_WINDOW_FALLBACK_MINUTES;

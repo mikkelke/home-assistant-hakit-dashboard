@@ -20,7 +20,10 @@ import {
   getTransitLineDisplayStatus,
   groupTransitRows,
   minsFromNow,
+  readOperatorStatus,
   transitBadgeLabel,
+  transitEmptyMessage,
+  transitOperatorNote,
   TRANSIT_UPCOMING_MIN_MINS,
   type TransitRow,
 } from '../../utils/transitDisplay';
@@ -74,6 +77,7 @@ type TransitLineState = TransitLine & {
   status: TransitStatus;
   displayStatus: TransitStatus;
   departures: Departure[];
+  operatorStatus: string;
   lastChecked: string;
   enabled: boolean;
 };
@@ -427,6 +431,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
         status,
         displayStatus: getTransitLineDisplayStatus(line, entities, now),
         departures,
+        operatorStatus: readOperatorStatus(sensor?.attributes?.operator_status),
         lastChecked: (sensor?.attributes?.data_as_of ?? sensor?.attributes?.last_checked ?? '') as string,
         enabled: entities?.[line.enabledEntityId]?.state !== 'off',
       };
@@ -935,6 +940,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                           {group.rows.map(row => {
                             const isExpanded = expandedLine === row.key;
                             const merged = row.lines.length > 1;
+                            const operatorNote = transitOperatorNote(row.lines);
                             return (
                               <div
                                 key={row.key}
@@ -983,6 +989,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                                       </div>
                                     );
                                   })}
+                                {operatorNote && <div className='info-transit-operator-note'>{operatorNote}</div>}
                                 {row.lines
                                   .filter(line => line.enabled)
                                   .map(line => {
@@ -993,7 +1000,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                                     const allDepartedOver2Min =
                                       line.departures.length > 0 && line.departures.every(d => minsFromNow(d.time, now) < -2);
                                     const noIssues = !isTransitAlert(line.displayStatus);
-                                    const emptyMessage = allDepartedOver2Min && noIssues ? 'Please refresh data' : 'No data';
+                                    const emptyMessage = transitEmptyMessage(allDepartedOver2Min && noIssues, line.operatorStatus);
                                     return (
                                       <div key={line.statusEntityId} className='info-transit-departures'>
                                         {merged && (
