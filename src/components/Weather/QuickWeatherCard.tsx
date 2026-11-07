@@ -1573,8 +1573,9 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
         <div className='quick-weather-facts'>
           {rainDaily !== undefined && (
             <button type='button' className='quick-weather-fact' onClick={() => setHistoryEntityId(SENSOR_IDS.rainDaily)}>
-              <span className='quick-weather-fact-label'>Rain today</span>
-              <span className='quick-weather-fact-value'>{rainDaily.toFixed(1)} mm</span>
+              <span className='quick-weather-fact-label'>Rain</span>
+              <span className='quick-weather-fact-value'>{rainDaily.toFixed(1)}</span>
+              <span className='quick-weather-fact-sub'>mm</span>
             </button>
           )}
           {uvIndex !== undefined && (
