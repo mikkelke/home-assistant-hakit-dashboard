@@ -3,6 +3,7 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HassEntities } from '../../../types';
+import { ROUTE_ADOPTED_EVENT } from '../../../utils/navigation';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -269,3 +270,18 @@ for (const surface of ['quick access', 'intercom'] as const) {
     });
   });
 }
+
+describe('the quick access doors popover', () => {
+  it('closes in place when the dashboard follows a route or returns to Home', async () => {
+    store.setState({ entities: world('locked', 'locked'), connection: { connected: true, sendMessagePromise: sendCommand } });
+    await act(async () => {
+      root.render(createElement(QuickAccess, { hassUrl: null, callService, onOpenNow: vi.fn() }));
+    });
+    const back = vi.spyOn(window.history, 'back');
+    act(() => document.querySelector<HTMLButtonElement>('[title="Access"]')!.click());
+    expect(document.querySelector('.qa-doors')).not.toBeNull();
+    act(() => void window.dispatchEvent(new Event(ROUTE_ADOPTED_EVENT)));
+    expect(document.querySelector('.qa-doors')).toBeNull();
+    expect(back).not.toHaveBeenCalled();
+  });
+});

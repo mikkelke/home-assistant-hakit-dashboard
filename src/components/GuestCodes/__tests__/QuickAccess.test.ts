@@ -36,6 +36,7 @@ vi.mock('../../../hooks', async () => {
   const { useState } = await import('react');
   return {
     useViewer: () => ({ name: null, id: null, isAdmin: false }),
+    useCloseOnRouteAdopted: () => {},
     useModalBackButton: ({ onRequestClose }: { onRequestClose: () => void }) => ({ requestClose: onRequestClose }),
     useSwipeToClose: () => ({}),
     useLocalStorageBoolean: (_key: string, initial: boolean) => useState(initial),

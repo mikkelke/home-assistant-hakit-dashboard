@@ -25,7 +25,7 @@ import {
   type TransitRow,
 } from '../../utils/transitDisplay';
 import { SONOS_SPEAKERS } from '../../config/speakers';
-import { useModalBackButton, useSwipeToClose, useViewer } from '../../hooks';
+import { useCloseOnRouteAdopted, useModalBackButton, useSwipeToClose, useViewer } from '../../hooks';
 import { availablePhonePlayer, isPhonePlayer } from '../../home/household';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { onIdle } from '../../utils/idle';
@@ -489,6 +489,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
   // one step back: the popover's last button opens it, since the doors are what you actually
   // came for. Doors are one tap each, same rule as the Access card's collapsed row.
   const [doorsOpen, setDoorsOpen] = useState(false);
+  useCloseOnRouteAdopted(doorsOpen, () => setDoorsOpen(false));
   const [doorFired, setDoorFired] = useState<string | null>(null);
   const firedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(

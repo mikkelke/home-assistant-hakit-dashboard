@@ -30,7 +30,11 @@ import {
 import { onIdle } from '../../utils/idle';
 import { trackUiTap } from '../../utils/trackUiTap';
 import { COFFEE_AREA_ID, COFFEE_TABLET_VIEWER } from '../../coffee/entities';
+import { isEventful } from '../../coffee/state';
+import { useCoffeeState } from '../../coffee/useCoffeeState';
+import { IDLE_RESET_MS, useIdleReset } from '../../hooks/useIdleReset';
 import { useViewer } from '../../hooks/useViewer';
+import { WAKE_SESSION_ENTITY, activeWakeSession, readWakeSession } from '../Alarm/wakeSession';
 import { useCoffeeTakeover } from '../Coffee/useCoffeeTakeover';
 import type { EnergyTab } from '../Energy/energyTab';
 import { HomeHeader } from '../Home/HomeHeader';
@@ -1013,6 +1017,33 @@ export function Dashboard() {
     },
     [findRoomById, pushRoomHistory, showNow]
   );
+
+  // Views close by state and the current entry becomes the bare Home URL, as closing them by hand leaves it; modals close in
+  // place on the route event. A hash the router has not followed yet is a link arriving, and it wins.
+  const resetToHome = useCallback(() => {
+    const targetWindow = getAccessibleHistoryWindow();
+    if (targetWindow && targetWindow.location.hash !== lastHandledHashRef.current) return;
+    setIsMenuOpen(false);
+    setSelectedRoom(null);
+    setEnergyOpen(false);
+    setMapOpen(false);
+    setHeatingOpen(false);
+    setListsOpen(false);
+    setCoffeeOpen(false);
+    showNow(null);
+    roomOverNowRef.current = false;
+    window.dispatchEvent(new Event(ROUTE_ADOPTED_EVENT));
+    if (targetWindow && parseDashboardHash(targetWindow.location.hash).kind !== 'none') replaceRoomHistory(null);
+  }, [replaceRoomHistory, showNow]);
+
+  const coffee = useCoffeeState();
+  const wakeSessionActive = activeWakeSession(readWakeSession(displayEntities[WAKE_SESSION_ENTITY]));
+  // The wine-fridge tablet watches a brew untouched, a wake session is answered on its own sheet, and the map holds edit drafts.
+  useIdleReset({
+    timeoutMs: IDLE_RESET_MS,
+    blocked: mapOpen || wakeSessionActive || (coffeeOpen && isEventful(coffee?.phase)),
+    onIdle: resetToHome,
+  });
 
   const motionScope = nowRoute
     ? 'timeline'
