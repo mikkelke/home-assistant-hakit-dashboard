@@ -325,7 +325,8 @@
 .quick-weather-facts {
   margin-top: 1.1rem;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 0.5rem;
 }
 
@@ -523,7 +524,8 @@
     padding: 0.9rem;
   }
   .quick-weather-facts {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
     gap: 0.4rem;
   }
   .quick-weather-fact {

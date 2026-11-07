@@ -104,6 +104,23 @@ export function addWeather(h: HouseBuilder): void {
     { friendly_name: 'Harbour water temperature', unit_of_measurement: '°C', device_class: 'temperature' },
     { ago: 20 }
   );
+  const iceBath = dailyWave(8.6, 0.9, 83);
+  const iceBathNow = iceBath(now);
+  h.put(
+    'sensor.ice_bath_temperature',
+    iceBathNow,
+    { friendly_name: 'Ice bath temperature', unit_of_measurement: '°C', device_class: 'temperature', state_class: 'measurement' },
+    { ago: 2 }
+  );
+  h.history['sensor.ice_bath_temperature'] = Array.from({ length: 24 * 6 + 1 }, (_, step) => {
+    const t = now - 24 * HOUR + step * 10 * MINUTE;
+    return { t, state: String(step === 24 * 6 ? iceBathNow : iceBath(t)) };
+  });
+  h.statistics['sensor.ice_bath_temperature'] = (start, end) => {
+    if (end > now || start < now - 8 * DAY) return null;
+    const mean = iceBath(start + 30 * MINUTE);
+    return { mean, min: mean - 0.3, max: mean + 0.3 };
+  };
   h.put('binary_sensor.weather_opening_alert_active', 'off', { friendly_name: 'Opening alert' });
   h.put('binary_sensor.weather_opening_alert_window_rain', 'off', { friendly_name: 'Window rain alert' });
   h.put('binary_sensor.weather_opening_alert_rooftop_rain', 'off', { friendly_name: 'Rooftop rain alert' });

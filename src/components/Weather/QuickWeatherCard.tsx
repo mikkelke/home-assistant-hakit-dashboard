@@ -5,6 +5,7 @@ import { Icon } from '@iconify/react';
 import type { HassEntities, HassEntity } from '../../types';
 import { useModalBackButton, useSwipeToClose } from '../../hooks';
 import { LazyTimeline } from '../Timeline';
+import { TemperatureHistoryChart } from '../RoomDetail/TemperatureHistoryChart';
 import { getWeatherConditionIcon } from './weatherIcons';
 import './QuickWeatherCard.css';
 
@@ -57,14 +58,13 @@ interface ConnectionWithAuth {
 const SENSOR_IDS = {
   outdoorTemp: 'sensor.gw2000a_outdoor_temperature',
   seaTemperature: 'sensor.kobenhavns_havn_ii_water_temperature',
+  iceBath: 'sensor.ice_bath_temperature',
   dewpoint: 'sensor.gw2000a_dewpoint',
   windSpeed: 'sensor.gw2000a_wind_speed',
   windGust: 'sensor.gw2000a_wind_gust',
   windDirection: 'sensor.gw2000a_wind_direction',
   rainDaily: 'sensor.gw2000a_daily_rain_piezo',
   uv: 'sensor.gw2000a_uv_index',
-  pressureRelative: 'sensor.gw2000a_relative_pressure',
-  pressureAbsolute: 'sensor.gw2000a_absolute_pressure',
 } as const;
 /** HA automation's own opening/rain call - when it says so, the rain alert always shows. */
 const WINDOW_RAIN_ALERT_ENTITY = 'binary_sensor.weather_opening_alert_window_rain';
@@ -79,6 +79,11 @@ const HISTORY_LABELS: Record<string, string> = {
   [SENSOR_IDS.rainDaily]: 'Rain today',
   [SENSOR_IDS.uv]: 'UV',
   [SENSOR_IDS.seaTemperature]: 'Sea temperature',
+  [SENSOR_IDS.iceBath]: 'Ice bath',
+};
+const WATER_CHART_LABELS: Record<string, string> = {
+  [SENSOR_IDS.seaTemperature]: 'Sea',
+  [SENSOR_IDS.iceBath]: 'Ice bath',
 };
 
 /** The roof stops being the headline once it has said nothing for this long - a dead station
@@ -853,9 +858,9 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
 
   const selectedDayHasCoarseBuckets = selectedDayHourly.some(entry => (entry.bucketHours ?? 1) > 1);
 
-  // Shared entity-history modal (wind row + facts tiles) - one Timeline popup, whichever
-  // entityId was last tapped. Same push/back-button pattern as WeatherCard's old per-row
-  // modal, generalized to a single instance instead of one per row.
+  // Shared entity-history modal (wind row + facts tiles) - one popup (Timeline, or the temperature
+  // chart for the water tiles), whichever entityId was last tapped. Same push/back-button pattern
+  // as WeatherCard's old per-row modal, generalized to a single instance instead of one per row.
   const [historyEntityId, setHistoryEntityId] = useState<string | null>(null);
   const closeHistory = useCallback(() => setHistoryEntityId(null), []);
   const { requestClose: requestCloseHistory } = useModalBackButton({
@@ -1274,13 +1279,13 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   // Facts row.
   const rainDaily = getNumber(getState(entities, SENSOR_IDS.rainDaily));
   const uvIndex = getNumber(getState(entities, SENSOR_IDS.uv));
-  const pressureEntityId = entities?.[SENSOR_IDS.pressureRelative] ? SENSOR_IDS.pressureRelative : SENSOR_IDS.pressureAbsolute;
-  const pressure = getNumber(getState(entities, pressureEntityId));
+  const iceBathTemperature = getNumber(getState(entities, SENSOR_IDS.iceBath));
 
   // Only while the sheet is up - otherwise the minute tick would re-walk both series for nothing.
   const compareStats = compareOpen && compareSeries ? computeCompareStats(compareSeries) : null;
 
   const historyEntity = historyEntityId ? entities?.[historyEntityId] : undefined;
+  const waterChartLabel = historyEntityId ? WATER_CHART_LABELS[historyEntityId] : undefined;
   const historyTitle = historyEntityId
     ? (HISTORY_LABELS[historyEntityId] ??
       (typeof historyEntity?.attributes?.friendly_name === 'string' ? historyEntity.attributes.friendly_name : historyEntityId))
@@ -1564,7 +1569,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
         </div>
       )}
 
-      {(rainDaily !== undefined || uvIndex !== undefined || pressure !== undefined) && (
+      {(rainDaily !== undefined || uvIndex !== undefined || seaTemperature !== undefined || iceBathTemperature !== undefined) && (
         <div className='quick-weather-facts'>
           {rainDaily !== undefined && (
             <button type='button' className='quick-weather-fact' onClick={() => setHistoryEntityId(SENSOR_IDS.rainDaily)}>
@@ -1584,6 +1589,12 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
               <span className='quick-weather-fact-label'>Sea</span>
               <span className='quick-weather-fact-value'>{Math.round(seaTemperature)}°</span>
               {seaTemperatureFeel && <span className='quick-weather-fact-sub'>{seaTemperatureFeel.toLowerCase()}</span>}
+            </button>
+          )}
+          {iceBathTemperature !== undefined && (
+            <button type='button' className='quick-weather-fact' onClick={() => setHistoryEntityId(SENSOR_IDS.iceBath)}>
+              <span className='quick-weather-fact-label'>Ice bath</span>
+              <span className='quick-weather-fact-value'>{Math.round(iceBathTemperature)}°</span>
             </button>
           )}
         </div>
@@ -1615,13 +1626,26 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
                 </button>
               </div>
               <div className='modal-timeline-content'>
-                <LazyTimeline
-                  entityId={historyEntityId}
-                  entity={historyEntity ?? ({ entity_id: historyEntityId, state: '', attributes: {} } as HassEntity)}
-                  hassUrl={hassUrl}
-                  hours={168}
-                  limit={100}
-                />
+                {waterChartLabel ? (
+                  <TemperatureHistoryChart
+                    roomSensorId={historyEntityId}
+                    outdoorSensorId={SENSOR_IDS.outdoorTemp}
+                    historyEntityId={null}
+                    historyAttribute={null}
+                    toneColor='var(--accent-sky)'
+                    label={waterChartLabel}
+                    roomNow={getNumber(historyEntity?.state)}
+                    outdoorNow={stationTemp}
+                  />
+                ) : (
+                  <LazyTimeline
+                    entityId={historyEntityId}
+                    entity={historyEntity ?? ({ entity_id: historyEntityId, state: '', attributes: {} } as HassEntity)}
+                    hassUrl={hassUrl}
+                    hours={168}
+                    limit={100}
+                  />
+                )}
               </div>
             </div>
           </div>,

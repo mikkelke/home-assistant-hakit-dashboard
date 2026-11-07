@@ -17,6 +17,8 @@ interface TemperatureHistoryChartProps {
   /** The chip's comfort-tone CSS value (e.g. `var(--tone)`) - the room series carries that colour
    * everywhere else in the sheet, so the chart matches rather than inventing a new hue. */
   toneColor: string;
+  /** Legend name of the primary series. */
+  label?: string;
   /** Live readings: change-only sensors record nothing while steady, so each line is held from
    * its last recorded point to now at the current value (only when that value is known). */
   roomNow?: number | null;
@@ -107,6 +109,7 @@ export function TemperatureHistoryChart({
   historyEntityId,
   historyAttribute,
   toneColor,
+  label = 'Room',
   roomNow,
   outdoorNow,
 }: TemperatureHistoryChartProps) {
@@ -175,7 +178,7 @@ export function TemperatureHistoryChart({
         <div className='temp-history-legend'>
           <span className='temp-history-legend-item'>
             <span className='temp-history-swatch' style={{ background: toneColor }} />
-            Room
+            {label}
           </span>
           {outdoorSeries.length > 0 && (
             <span className='temp-history-legend-item temp-history-legend-item--muted'>

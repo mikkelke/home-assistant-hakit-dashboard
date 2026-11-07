@@ -89,7 +89,7 @@ export const homeFlows: Flow[] = [
     run: async shots => {
       await shots.page.locator('.quick-access .qa-button').last().click();
       await shots.page.waitForSelector('.qa-modal.weather');
-      await shots.scrolling('.qa-modal-body', 'quick-weather');
+      await shots.scrolling('.qa-modal.weather', 'quick-weather');
     },
   },
   {
