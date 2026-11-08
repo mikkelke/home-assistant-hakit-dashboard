@@ -61,7 +61,8 @@ describe('past rows from the fixture feed', () => {
 
   it('colours a row by what it is about', () => {
     expect(rowTone({ icon: 'mdi:bell-ring' })).toBe('gold');
-    expect(rowTone({ icon: 'mdi:washing-machine' })).toBe('sky');
+    expect(rowTone({ icon: 'mdi:washing-machine' })).toBe('washer');
+    expect(rowTone({ icon: 'mdi:tumble-dryer' })).toBe('dryer');
     expect(rowTone({ icon: 'mdi:door-open' })).toBe('rose');
     expect(rowTone({ icon: 'mdi:robot-vacuum' })).toBe('green');
     expect(rowTone({ icon: 'mdi:information-outline' })).toBe('slate');

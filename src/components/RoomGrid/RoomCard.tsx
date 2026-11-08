@@ -193,7 +193,7 @@ function ApplianceRing({ appliances, houseAsleep }: { appliances: readonly RingA
   const label = `${appliance.config.label} ${ready ? doneWords : cycle.status === 'paused' ? 'paused' : 'running'}${text ? `, ${text}` : ''}`;
   return (
     <span
-      className={`room-ring is-${cycle.status} ${coffee ? 'is-coffee' : ''} ${night && !ready && !coffee ? 'is-night' : ''} ${readyPulse ? 'is-anim' : ''}`}
+      className={`room-ring is-${cycle.status} is-${appliance.kind} ${coffee ? 'is-coffee' : ''} ${night && !ready && !coffee ? 'is-night' : ''} ${readyPulse ? 'is-anim' : ''}`}
       role='img'
       aria-label={label}
     >
@@ -207,10 +207,7 @@ function ApplianceRing({ appliances, houseAsleep }: { appliances: readonly RingA
         {text && <b>{text}</b>}
       </span>
       {second && (
-        <span
-          className={`room-ring-badge is-${second.cycle.status} ${second.appliance.kind === 'coffee' ? 'is-coffee' : ''}`}
-          title={second.appliance.config.label}
-        >
+        <span className={`room-ring-badge is-${second.cycle.status} is-${second.appliance.kind}`} title={second.appliance.config.label}>
           <Icon icon={second.appliance.config.icon} />
         </span>
       )}

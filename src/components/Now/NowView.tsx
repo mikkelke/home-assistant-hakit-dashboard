@@ -366,9 +366,14 @@ function ApplianceRunningCard({
   ];
   return (
     <RowShell id={row.id} time={null} tone={null} focused={focused} className='is-live'>
-      <RowBody areaId={row.areaId} onOpenRoom={onOpenRoom} className='now-card is-run' label={`${appliance.config.label}, ${pct} %`}>
+      <RowBody
+        areaId={row.areaId}
+        onOpenRoom={onOpenRoom}
+        className={`now-card is-run tone-${appliance.kind}`}
+        label={`${appliance.config.label}, ${pct} %`}
+      >
         <span className='now-ph'>
-          <span className='now-ico tone-sky'>
+          <span className={`now-ico tone-${appliance.kind}`}>
             <Icon icon={appliance.config.icon} />
           </span>
           <span className='now-pt'>

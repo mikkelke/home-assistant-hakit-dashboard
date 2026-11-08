@@ -262,6 +262,15 @@
 .tone-copper {
   --c: #d4956a;
 }
+.tone-washer {
+  --c: var(--appliance-washer);
+}
+.tone-dryer {
+  --c: var(--appliance-dryer);
+}
+.tone-dish {
+  --c: var(--appliance-dish);
+}
 
 /* Past rows: cause and effect as chips. */
 .now-body {
@@ -644,7 +653,7 @@
 }
 
 .now-card.is-run {
-  border-color: rgba(56, 189, 248, 0.28);
+  border-color: color-mix(in srgb, var(--c, var(--now-sky)) 28%, transparent);
 }
 
 .now-ev.is-off .now-card {
@@ -807,7 +816,7 @@
   display: block;
   height: 100%;
   border-radius: 3px;
-  background: var(--now-sky);
+  background: var(--c, var(--now-sky));
   overflow: hidden;
 }
 

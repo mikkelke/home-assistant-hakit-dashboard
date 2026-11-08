@@ -194,7 +194,7 @@ export function buildNowTimeline(
 export function rowTone(row: Pick<HouseEvent, 'icon'>): string {
   const kind = houseEventKind(row);
   if (kind === 'ring') return 'gold';
-  if (kind === 'washer' || kind === 'dryer' || kind === 'dish') return 'sky';
+  if (kind === 'washer' || kind === 'dryer' || kind === 'dish') return kind;
   if (kind === 'coffee') return 'copper';
   if (kind === 'wake') return 'gold';
   const name = row.icon.replace(/^mdi:/, '');

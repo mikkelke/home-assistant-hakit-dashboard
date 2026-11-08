@@ -8,17 +8,17 @@
    instead of here. */
 
 .appliance-accent-washer {
-  --appliance-accent: #38bdf8;
+  --appliance-accent: var(--appliance-washer);
   --appliance-accent-bg: rgba(56, 189, 248, 0.16);
   --appliance-accent-gradient: linear-gradient(90deg, #175d7a, #38bdf8);
 }
 .appliance-accent-dryer {
-  --appliance-accent: #fb923c;
+  --appliance-accent: var(--appliance-dryer);
   --appliance-accent-bg: rgba(251, 146, 60, 0.16);
   --appliance-accent-gradient: linear-gradient(90deg, #7c3f16, #fb923c);
 }
 .appliance-accent-dishwasher {
-  --appliance-accent: #2dd4bf;
+  --appliance-accent: var(--appliance-dish);
   --appliance-accent-bg: rgba(45, 212, 191, 0.16);
   --appliance-accent-gradient: linear-gradient(90deg, #115e54, #2dd4bf);
 }

@@ -385,7 +385,21 @@ body.modal-open .room-card {
   }
 }
 
-/* Appliance ring: real progress, the time left inside; amber with a check once it waits to be emptied. */
+/* Appliance ring: real progress in the appliance's own colour, the time left inside; amber with a check
+   once it waits to be emptied. */
+.room-ring,
+.room-ring-badge {
+  --ring: var(--appliance-washer);
+}
+.room-ring.is-dryer,
+.room-ring-badge.is-dryer {
+  --ring: var(--appliance-dryer);
+}
+.room-ring.is-dish,
+.room-ring-badge.is-dish {
+  --ring: var(--appliance-dish);
+}
+
 .room-ring {
   position: absolute;
   right: 9px;
@@ -393,7 +407,7 @@ body.modal-open .room-card {
   z-index: 2;
   width: 56px;
   height: 56px;
-  color: #38bdf8;
+  color: var(--ring);
 }
 
 .room-ring svg {
@@ -418,7 +432,7 @@ body.modal-open .room-card {
 }
 
 .room-ring-glint {
-  fill: #e0f2fe;
+  fill: color-mix(in srgb, var(--ring) 15%, white);
   opacity: 0.35;
   animation: room-glint 3s ease-in-out infinite;
 }
@@ -467,7 +481,7 @@ body.modal-open .room-card {
 }
 
 .room-ring.is-night {
-  color: #7dd3fc;
+  color: color-mix(in srgb, var(--ring) 70%, white);
 }
 
 .room-ring.is-night .room-ring-arc {
@@ -502,7 +516,7 @@ body.modal-open .room-card {
   box-shadow:
     0 0 0 1.5px currentColor,
     0 0 0 3px #141518;
-  color: #38bdf8;
+  color: var(--ring);
 }
 
 .room-ring-badge.is-ready {

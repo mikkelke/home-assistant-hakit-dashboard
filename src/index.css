@@ -37,6 +37,9 @@ html, body {
   --accent-sky: #38bdf8;
   --accent-gold: #fbbf24;
   --accent-rose: #fb7185;
+  --appliance-washer: #38bdf8;
+  --appliance-dryer: #fb923c;
+  --appliance-dish: #2dd4bf;
   --heat: #ff9f0a;
   --radius-chip: 12px;
   /* Relative price bands: each day's hours ranked into quarters. One palette on every chart. */
