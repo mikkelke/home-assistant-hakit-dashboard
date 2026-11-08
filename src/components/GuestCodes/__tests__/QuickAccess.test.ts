@@ -36,7 +36,6 @@ vi.mock('../../../hooks', async () => {
   const { useState } = await import('react');
   return {
     useViewer: () => ({ name: null, id: null, isAdmin: false }),
-    useCloseOnRouteAdopted: () => {},
     useModalBackButton: ({ onRequestClose }: { onRequestClose: () => void }) => ({ requestClose: onRequestClose }),
     useSwipeToClose: () => ({}),
     useLocalStorageBoolean: (_key: string, initial: boolean) => useState(initial),
@@ -151,28 +150,6 @@ describe('Access card guest codes entry', () => {
     send.mockResolvedValue({ role: 'admin' });
     await showCard();
     expect(guestEntry()).toBeNull();
-  });
-
-  it('does not bubble sheet touches into an ancestor modal swipe handler', async () => {
-    send.mockImplementation(async message => (message.type === 'yale_access/me' ? { role: 'admin' } : { users: [] }));
-    const ancestorTouch = vi.fn();
-    await act(async () =>
-      root.render(
-        createElement(
-          'div',
-          { onTouchStart: ancestorTouch, onTouchMove: ancestorTouch, onTouchEnd: ancestorTouch },
-          createElement(IntercomCard, { entities: {}, callService: vi.fn() })
-        )
-      )
-    );
-    await act(async () => guestEntry()!.click());
-    await vi.waitFor(() => expect(document.querySelector('.gc-sheet')).not.toBeNull());
-    await act(async () => {
-      for (const type of ['touchstart', 'touchmove', 'touchend']) {
-        document.querySelector('.gc-body')!.dispatchEvent(new Event(type, { bubbles: true }));
-      }
-    });
-    expect(ancestorTouch).not.toHaveBeenCalled();
   });
 
   it('keeps the doors popup free of guest codes and opens them from the access panel', async () => {

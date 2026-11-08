@@ -29,7 +29,7 @@ import {
   type TransitRow,
 } from '../../utils/transitDisplay';
 import { SONOS_SPEAKERS } from '../../config/speakers';
-import { useCloseOnRouteAdopted, useModalBackButton, useSwipeToClose, useViewer } from '../../hooks';
+import { useModalBackButton, useSwipeToClose, useViewer } from '../../hooks';
 import { availablePhonePlayer, isPhonePlayer } from '../../home/household';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { onIdle } from '../../utils/idle';
@@ -48,6 +48,13 @@ interface QuickAccessProps {
 
 type ModalType = 'intercom' | 'media' | 'weather' | 'transit' | null;
 type MediaTab = 'audio' | 'tv';
+
+const MODAL_TITLES: Record<Exclude<ModalType, null>, string> = {
+  intercom: 'Apartment access',
+  media: 'Media',
+  transit: 'Transit',
+  weather: 'Weather',
+};
 
 interface TransitLine {
   name: string;
@@ -195,6 +202,13 @@ const DOOR_UI: Record<string, string> = {
 const transitLabel = (line: { station: string; name: string; destination: string }) =>
   `${line.station} / ${line.name} / ${line.destination}`;
 
+/** A tap on the transparent space around the weather card. Taps in sheets the card portals to the body also reach the
+ * modal's handler through React, so the target has to sit inside the modal's own DOM. */
+function isTapOutsideWeatherCard(e: React.MouseEvent<HTMLElement>): boolean {
+  const target = e.target as Element;
+  return e.currentTarget.contains(target) && target.closest('.quick-weather-card') === null;
+}
+
 /** Its own subscription: the speakers and TVs it watches change often while something plays, and only the
  * bar and its modals need them. */
 export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProps) {
@@ -208,6 +222,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
   const [showSpeakerSelector, setShowSpeakerSelector] = useState(false);
   const [mediaTab, setMediaTab] = useState<MediaTab>('audio');
   const [requestOpen, setRequestOpen] = useState(false);
+  const [doorsOpen, setDoorsOpen] = useState(false);
   const { allowed: requestAllowed, drtv: requestDrtv } = useRequestAccess();
   const [expandedLine, setExpandedLine] = useState<string | null>(null);
   const [isTransitRefreshing, setIsTransitRefreshing] = useState(false);
@@ -305,6 +320,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
     setExpandedLine(null);
     setMediaPlayersSnapshot(null);
     setRequestOpen(false);
+    setDoorsOpen(false);
   }, []);
 
   const openQuickAccess = useCallback(
@@ -333,9 +349,9 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
   }, [resetModalState]);
 
   const { requestClose: requestCloseQuickAccess } = useModalBackButton({
-    isOpen: openModal !== null,
+    isOpen: openModal !== null || doorsOpen,
     onRequestClose: handleClose,
-    historyKey: openModal ? `quick-access-${openModal}` : 'quick-access',
+    historyKey: 'quick-access',
   });
 
   useEffect(() => {
@@ -496,8 +512,6 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
   // one interaction everywhere, no press-and-hold anywhere in this app). The full panel moved
   // one step back: the popover's last button opens it, since the doors are what you actually
   // came for. Doors are one tap each, same rule as the Access card's collapsed row.
-  const [doorsOpen, setDoorsOpen] = useState(false);
-  useCloseOnRouteAdopted(doorsOpen, () => setDoorsOpen(false));
   const [doorFired, setDoorFired] = useState<string | null>(null);
   const firedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
@@ -550,7 +564,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
 
   return (
     <>
-      {doorsOpen && <div className='qa-doors-scrim' onClick={() => setDoorsOpen(false)} />}
+      {doorsOpen && <div className='qa-doors-scrim' onClick={requestCloseQuickAccess} />}
       <div className='quick-access'>
         {doorsOpen && (
           <div className='qa-doors' role='group' aria-label='Doors'>
@@ -580,7 +594,6 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
               type='button'
               className='qa-door is-more'
               onClick={() => {
-                setDoorsOpen(false);
                 openQuickAccess('intercom');
                 trackUiTap('qa.access.panel');
               }}
@@ -594,8 +607,12 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
         <button
           className={`qa-button ${doorsOpen ? 'is-active' : ''}`}
           onClick={() => {
-            setDoorsOpen(v => !v);
-            if (!doorsOpen) trackUiTap('qa.access');
+            if (doorsOpen) {
+              requestCloseQuickAccess();
+            } else {
+              setDoorsOpen(true);
+              trackUiTap('qa.access');
+            }
           }}
           title='Access'
         >
@@ -612,6 +629,11 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
         <button
           className='qa-button'
           onClick={() => {
+            // The timeline pushes a history entry of its own, so the popover's has to be popped first.
+            if (doorsOpen) {
+              requestCloseQuickAccess();
+              return;
+            }
             onOpenNow(null);
             trackUiTap('qa.timeline');
           }}
@@ -642,18 +664,18 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
             className={`qa-modal ${openModal}`}
             role='dialog'
             aria-modal='true'
-            onClick={e => e.stopPropagation()}
+            aria-label={MODAL_TITLES[openModal]}
+            onClick={e => {
+              e.stopPropagation();
+              if (openModal === 'weather' && isTapOutsideWeatherCard(e)) requestCloseQuickAccess();
+            }}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
             {openModal !== 'weather' && (
               <div className='qa-modal-header'>
-                <span className='qa-title'>
-                  {openModal === 'intercom' && 'Apartment access'}
-                  {openModal === 'media' && 'Media'}
-                  {openModal === 'transit' && 'Transit'}
-                </span>
+                <span className='qa-title'>{MODAL_TITLES[openModal]}</span>
                 <div className='qa-header-actions'>
                   {openModal === 'transit' && (
                     <button
@@ -1108,8 +1130,6 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
         </div>
       )}
 
-      {/* A sibling of the media modal, not a child: React bubbles the sheet's touch events up the component
-          tree, which would otherwise feed its swipes into the media modal's own swipe-to-close. */}
       {openModal === 'media' && requestAllowed && requestOpen && <RequestSheet drtv={requestDrtv} onClose={() => setRequestOpen(false)} />}
     </>
   );

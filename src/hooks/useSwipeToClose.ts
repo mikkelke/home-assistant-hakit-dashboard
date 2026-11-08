@@ -90,7 +90,8 @@ export function useSwipeToClose(onClose: () => void) {
       // Reduced threshold for HA app compatibility
       const swipeThreshold = 50;
       if (absDeltaX > absDeltaY && absDeltaX > swipeThreshold) {
-        // Swipe left or right to close
+        // Touch events bubble through portals to the sheet underneath, which would close with this one.
+        e.stopPropagation();
         onClose();
       }
     },

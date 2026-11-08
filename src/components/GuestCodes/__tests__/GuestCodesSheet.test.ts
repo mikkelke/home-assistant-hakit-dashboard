@@ -37,6 +37,7 @@ vi.mock('@iconify/react', async () => {
 });
 
 const { GuestCodesSheet } = await import('../GuestCodesSheet');
+const { useSwipeToClose } = await import('../../../hooks/useSwipeToClose');
 
 type Message = { type: string; [key: string]: unknown };
 const row = (patch: Partial<GuestUser> = {}): GuestUser => ({
@@ -218,6 +219,44 @@ describe('guest list', () => {
     expect(onClose).not.toHaveBeenCalled();
     await tap(button('New guest'));
     expect(input('Name')).toBeTruthy();
+  });
+
+  it('closes with a swipe that the modal it was opened from does not see', async () => {
+    vi.spyOn(window, 'matchMedia').mockImplementation(query => ({
+      matches: query === '(max-width: 768px)',
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+    const modalClose = vi.fn();
+    function Modal() {
+      const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(modalClose);
+      return createElement(
+        'div',
+        { onTouchStart: handleTouchStart, onTouchMove: handleTouchMove, onTouchEnd: handleTouchEnd },
+        createElement(GuestCodesSheet, { role: 'admin', onClose })
+      );
+    }
+    await act(async () => root.render(createElement(Modal)));
+    const touch = (type: string, clientX: number) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      const points = [{ clientX, clientY: 300 }];
+      Object.defineProperties(event, { touches: { value: points }, changedTouches: { value: points } });
+      return event;
+    };
+    const target = document.querySelector('.gc-head h2')!;
+    await act(async () => {
+      target.dispatchEvent(touch('touchstart', 300));
+      target.dispatchEvent(touch('touchmove', 100));
+      target.dispatchEvent(touch('touchend', 100));
+    });
+    expect(window.history.back).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(modalClose).not.toHaveBeenCalled();
   });
 
   it.each([

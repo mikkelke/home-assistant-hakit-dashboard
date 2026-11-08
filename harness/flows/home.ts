@@ -98,7 +98,7 @@ export const homeFlows: Flow[] = [
     run: async shots => {
       await shots.page.locator('.quick-access button[title="Transit"]').click();
       await shots.page.waitForSelector('.qa-modal.transit');
-      await shots.scrolling('.qa-modal-body', 'quick-transit');
+      await shots.scrolling('.qa-modal', 'quick-transit');
     },
   },
   {
@@ -107,7 +107,7 @@ export const homeFlows: Flow[] = [
     run: async shots => {
       await shots.page.locator('.quick-access button[title="Media controls"]').click();
       await shots.page.waitForSelector('.qa-modal.media');
-      await shots.scrolling('.qa-modal-body', 'quick-media');
+      await shots.scrolling('.qa-modal', 'quick-media');
     },
   },
   {

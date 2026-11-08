@@ -3,7 +3,6 @@ import { Icon, loadIcons } from '@iconify/react';
 import { useHass } from '@hakit/core';
 import type { CallServiceFunction, SonosPlayerProps } from '../../types';
 import { FAMILY_ZONE, SONOS_SPEAKERS, rawSonosEntityId } from '../../config/speakers';
-import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
 import { hapticTick } from '../../utils/haptics';
 import { useLocalStorageBoolean, useLongPress, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard, useViewer } from '../../hooks';
 import { availablePhonePlayer } from '../../home/household';
@@ -68,17 +67,6 @@ const isLineIn = (source: string) => {
 
 /** While on, the family-room volume sync stays out of the way. */
 const FAMILY_SYNC_PARTY_ENTITY = 'input_boolean.family_volume_sync_party';
-
-/** pushState/replaceState must keep #room=… or Dashboard hash sync closes the room (iframe / rooftop). */
-function podcastHistoryUrl(): string {
-  return getHistoryUrl();
-}
-
-function withHistoryWindow(action: (targetWindow: Window) => void) {
-  const targetWindow = getAccessibleHistoryWindow();
-  if (!targetWindow) return;
-  action(targetWindow);
-}
 
 /** `embedded` = render the expanded face bare (the QuickAccess media modal supplies its own
  *  chrome and title); the room-detail home gets the collapsible card. */
@@ -152,11 +140,8 @@ export function SonosPlayer({
   const viewer = useViewer();
   const [showGroupModal, setShowGroupModal] = useState(false);
   // The Source sheet: one pop-up with five faces - the source grid, the Spotify playlists and a playlist's tracks, the
-  // podcast feed list and a feed's episodes. Same manual back/history machinery the podcast modal always used.
+  // podcast feed list and a feed's episodes. The faces are state; the sheet as a whole has one history entry.
   const [showSourcePicker, setShowSourcePicker] = useState(false);
-  const sourceSheetOpenedAt = useRef<number>(0);
-  const sourcePendingOpenRef = useRef(false);
-  const showSourcePickerRef = useRef(false);
   const [imageError, setImageError] = useState(false);
   // Optimistic card volume: held until HA's level moves off `base`.
   const [pendingVolume, setPendingVolume] = useState<{ value: number; base: number } | null>(null);
@@ -173,11 +158,6 @@ export function SonosPlayer({
   // On for every page above the source grid; `sheetPage` says which one.
   const [showPodcastModal, setShowPodcastModal] = useState(false);
   const [sheetPage, setSheetPage] = useState<SheetPage>('podcasts');
-  const podcastModalOpenedAt = useRef<number>(0);
-  /** Set synchronously on open so modalBackButton beats React re-render (embed/spurious popstate). */
-  const podcastPendingOpenRef = useRef(false);
-  const showPodcastModalRef = useRef(false);
-  const viewingItemsRef = useRef(false);
   // The podcast or playlist whose episodes or tracks the sheet shows, and whether it does: the second level of a page.
   const [openedUri, setOpenedUri] = useState<string | null>(null);
   const [viewingItems, setViewingItems] = useState(false);
@@ -428,12 +408,17 @@ export function SonosPlayer({
     historyKey: 'sonos-group-modal',
   });
 
-  // Registering the Source sheet on the shared modal stack is what stops an enclosing modal
-  // (QuickAccess Media) from ALSO handling the same back press. The level-flipping itself is
-  // done by the manual modalBackButton listener below, so this close handler is a no-op.
-  useModalBackButton({
+  const closeSourceSheet = () => {
+    startAttempt.current += 1;
+    setShowSourcePicker(false);
+    setShowPodcastModal(false);
+    setViewingItems(false);
+    setOpenedUri(null);
+  };
+
+  const { requestClose: requestCloseSourceSheet } = useModalBackButton({
     isOpen: showSourcePicker || showPodcastModal,
-    onRequestClose: () => {},
+    onRequestClose: closeSourceSheet,
     historyKey: 'sonos-source-sheet',
   });
 
@@ -444,75 +429,16 @@ export function SonosPlayer({
     handleTouchEnd: handleModalTouchEnd,
   } = useSwipeToClose(requestCloseGroupModal);
 
-  useEffect(() => {
-    showPodcastModalRef.current = showPodcastModal;
-    if (showPodcastModal) podcastPendingOpenRef.current = false;
-  }, [showPodcastModal]);
-
-  useEffect(() => {
-    showSourcePickerRef.current = showSourcePicker;
-    if (showSourcePicker) sourcePendingOpenRef.current = false;
-  }, [showSourcePicker]);
-
-  useEffect(() => {
-    viewingItemsRef.current = viewingItems;
-  }, [viewingItems]);
+  const {
+    handleTouchStart: handleSourceTouchStart,
+    handleTouchMove: handleSourceTouchMove,
+    handleTouchEnd: handleSourceTouchEnd,
+  } = useSwipeToClose(requestCloseSourceSheet);
 
   // One scrolling body serves both levels of a page: a list opens at its top, and coming back finds the list where it was left.
   useLayoutEffect(() => {
     if (sheetBodyRef.current) sheetBodyRef.current.scrollTop = viewingItems ? 0 : listScrollTop.current;
   }, [viewingItems]);
-
-  // Same pattern as group modal + WeatherCard: Dashboard popstate runs first; without preventDefault
-  // the room unmounts (feels like the podcast pop-up “closes”). Refs cover the frame before showPodcastModal commits.
-  useEffect(() => {
-    const handleModalBack = (e: Event) => {
-      const sheetOpen =
-        showSourcePickerRef.current || sourcePendingOpenRef.current || showPodcastModalRef.current || podcastPendingOpenRef.current;
-      if (!sheetOpen) return;
-
-      e.preventDefault();
-
-      const msSinceOpen = Date.now() - Math.max(podcastModalOpenedAt.current, sourceSheetOpenedAt.current);
-      if (podcastPendingOpenRef.current || sourcePendingOpenRef.current || msSinceOpen < 500) {
-        return;
-      }
-
-      if (viewingItemsRef.current) {
-        setViewingItems(false);
-        try {
-          withHistoryWindow(targetWindow => {
-            replaceHistoryState(targetWindow, { podcastModal: true, viewingItems: false }, podcastHistoryUrl());
-          });
-        } catch {
-          /* ignore */
-        }
-      } else if (showPodcastModalRef.current) {
-        // Podcasts page flips back to the source grid; the sheet itself stays open.
-        setShowPodcastModal(false);
-        setOpenedUri(null);
-        try {
-          withHistoryWindow(targetWindow => {
-            replaceHistoryState(targetWindow, { podcastModal: null }, podcastHistoryUrl());
-          });
-        } catch {
-          /* ignore */
-        }
-      } else {
-        setShowSourcePicker(false);
-        try {
-          withHistoryWindow(targetWindow => {
-            replaceHistoryState(targetWindow, { sourceSheet: null }, podcastHistoryUrl());
-          });
-        } catch {
-          /* ignore */
-        }
-      }
-    };
-
-    window.addEventListener('modalBackButton', handleModalBack);
-    return () => window.removeEventListener('modalBackButton', handleModalBack);
-  }, []);
 
   // Helper to check if current source is AirPlay (cast from iPhone/iPad to Sonos)
   const isAirPlaySource = (source: string) => {
@@ -721,79 +647,8 @@ export function SonosPlayer({
     setSentVolumes(prev => ({ ...prev, ...updates }));
   };
 
-  // Browser back button support (capture to avoid closing the whole room)
-  useEffect(() => {
-    const targetWindow = getAccessibleHistoryWindow();
-    if (!targetWindow) return;
-
-    const handlePopState = (event: PopStateEvent) => {
-      if (!showPodcastModal && !showSourcePicker) return;
-      event.stopImmediatePropagation();
-      if (showPodcastModal && viewingItems) {
-        // Go back to podcast list
-        setViewingItems(false);
-        try {
-          withHistoryWindow(targetWindow => {
-            replaceHistoryState(targetWindow, { podcastModal: true, viewingItems: false }, podcastHistoryUrl());
-          });
-        } catch {
-          /* ignore */
-        }
-      } else if (showPodcastModal) {
-        // Podcasts page flips back to the source grid; the sheet itself stays open.
-        setShowPodcastModal(false);
-        setOpenedUri(null);
-        try {
-          withHistoryWindow(targetWindow => {
-            replaceHistoryState(targetWindow, { podcastModal: null }, podcastHistoryUrl());
-          });
-        } catch {
-          /* ignore */
-        }
-      } else {
-        setShowSourcePicker(false);
-        try {
-          withHistoryWindow(targetWindow => {
-            replaceHistoryState(targetWindow, { sourceSheet: null }, podcastHistoryUrl());
-          });
-        } catch {
-          /* ignore */
-        }
-      }
-    };
-    targetWindow.addEventListener('popstate', handlePopState, { capture: true });
-    return () => targetWindow.removeEventListener('popstate', handlePopState, { capture: true });
-  }, [showPodcastModal, showSourcePicker, viewingItems]);
-
-  // Custom swipe handler for the source sheet (needs special logic for back navigation)
-  const handlePodcastSwipe = () => {
-    if (viewingItems) {
-      setViewingItems(false);
-      try {
-        withHistoryWindow(targetWindow => {
-          replaceHistoryState(targetWindow, { podcastModal: true, viewingItems: false }, podcastHistoryUrl());
-        });
-      } catch {
-        /* ignore */
-      }
-    } else if (showPodcastModal) {
-      handleClosePodcastModal();
-    } else {
-      handleCloseSourceSheet();
-    }
-  };
-
-  // Use standardized swipe-to-close hook for the source sheet
-  const {
-    handleTouchStart: handlePodcastTouchStart,
-    handleTouchMove: handlePodcastTouchMove,
-    handleTouchEnd: handlePodcastTouchEnd,
-  } = useSwipeToClose(handlePodcastSwipe);
-
   const handleOpenSourceSheet = () => {
     onUiTap?.('source', entityId);
-    sourceSheetOpenedAt.current = Date.now();
-    sourcePendingOpenRef.current = true;
     startAttempt.current += 1;
     setStarting(null);
     setStartFailed(false);
@@ -801,42 +656,11 @@ export function SonosPlayer({
     setShowSourcePicker(true);
   };
 
-  /** Overlay taps only: swallows the ghost click the opening tap can produce (500ms, as elsewhere). */
-  const handleOverlayCloseSourceSheet = () => {
-    if (Date.now() - sourceSheetOpenedAt.current < 500) return;
-    handleCloseSourceSheet();
-  };
-
-  const handleCloseSourceSheet = () => {
-    sourcePendingOpenRef.current = false;
-    startAttempt.current += 1;
-    setShowSourcePicker(false);
-    setShowPodcastModal(false);
-    setViewingItems(false);
-    setOpenedUri(null);
-    try {
-      withHistoryWindow(targetWindow => {
-        replaceHistoryState(targetWindow, { sourceSheet: null }, podcastHistoryUrl());
-      });
-    } catch {
-      /* ignore */
-    }
-  };
-
   const openSheetPage = (page: SheetPage) => {
-    podcastModalOpenedAt.current = Date.now();
-    podcastPendingOpenRef.current = true;
     setSheetPage(page);
     setShowPodcastModal(true);
     setViewingItems(false);
     setOpenedUri(null);
-    try {
-      withHistoryWindow(targetWindow => {
-        targetWindow.history.pushState({ podcastModal: true, viewingItems: false }, '', podcastHistoryUrl());
-      });
-    } catch {
-      /* ignore */
-    }
   };
 
   const handleOpenPodcastsPage = () => openSheetPage('podcasts');
@@ -844,24 +668,9 @@ export function SonosPlayer({
 
   /** Flips the Podcasts or Spotify page away; the Source sheet underneath stays open. */
   const flipBackToSourceGrid = () => {
-    podcastPendingOpenRef.current = false;
     setShowPodcastModal(false);
     setViewingItems(false);
     setOpenedUri(null);
-    try {
-      withHistoryWindow(targetWindow => {
-        replaceHistoryState(targetWindow, { podcastModal: null }, podcastHistoryUrl());
-      });
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const handleClosePodcastModal = () => {
-    // Ignore overlay click right after open (WeatherCard uses 500ms; touch ghost clicks)
-    const now = Date.now();
-    if (now - podcastModalOpenedAt.current < 500) return;
-    flipBackToSourceGrid();
   };
 
   const handleOpenItem = (uri: string) => {
@@ -870,25 +679,9 @@ export function SonosPlayer({
     setRowLimit(ROW_PAGE);
     setStartFailed(false);
     setViewingItems(true);
-    try {
-      withHistoryWindow(targetWindow => {
-        targetWindow.history.pushState({ podcastModal: true, viewingItems: true, openedUri: uri }, '', podcastHistoryUrl());
-      });
-    } catch {
-      /* ignore */
-    }
   };
 
-  const handleBackToList = () => {
-    setViewingItems(false);
-    try {
-      withHistoryWindow(targetWindow => {
-        replaceHistoryState(targetWindow, { podcastModal: true, viewingItems: false }, podcastHistoryUrl());
-      });
-    } catch {
-      /* ignore */
-    }
-  };
+  const handleBackToList = () => setViewingItems(false);
 
   const handleSpotifyClick = (e: React.MouseEvent) => {
     const isEmbedded = window.self !== window.top;
@@ -997,7 +790,7 @@ export function SonosPlayer({
       () => {
         if (startAttempt.current !== attempt) return;
         setStarting(null);
-        handleCloseSourceSheet();
+        requestCloseSourceSheet();
       },
       () => {
         if (startAttempt.current !== attempt) return;
@@ -1016,7 +809,7 @@ export function SonosPlayer({
       target: { entity_id: entityId },
       serviceData: { source },
     });
-    handleCloseSourceSheet();
+    requestCloseSourceSheet();
   };
 
   // Apple AirPlay model: ONE list, tap a row to toggle that speaker in/out of THIS group.
@@ -1475,11 +1268,11 @@ export function SonosPlayer({
       {(showSourcePicker || showPodcastModal) && (
         <div
           className='sonos-modal-overlay'
-          onClick={handleOverlayCloseSourceSheet}
+          onClick={requestCloseSourceSheet}
           onMouseDown={e => e.stopPropagation()}
-          onTouchStart={handlePodcastTouchStart}
-          onTouchMove={handlePodcastTouchMove}
-          onTouchEnd={handlePodcastTouchEnd}
+          onTouchStart={handleSourceTouchStart}
+          onTouchMove={handleSourceTouchMove}
+          onTouchEnd={handleSourceTouchEnd}
         >
           <div
             className='sonos-sheet'
@@ -1503,7 +1296,7 @@ export function SonosPlayer({
                   <Icon icon='mdi:open-in-new' />
                 </button>
               )}
-              <button className='sonos-sheet-close modal-close-button' onClick={handleCloseSourceSheet} aria-label='Close'>
+              <button className='sonos-sheet-close modal-close-button' onClick={requestCloseSourceSheet} aria-label='Close'>
                 <Icon icon='mdi:close' />
               </button>
             </div>

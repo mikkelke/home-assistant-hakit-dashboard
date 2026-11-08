@@ -411,19 +411,16 @@ export function IntercomCard({ entities, callService, showHeader = false, onUiTa
 
   const guestCodes =
     guestCodesOpen && guestRole ? (
-      // Portal events still bubble through React parents. Keep sheet gestures out of the access modal's swipe handler.
-      <div onTouchStart={e => e.stopPropagation()} onTouchMove={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
-        <LazyBoundary
-          fallback={null}
-          error={
-            <button type='button' onClick={() => setGuestCodesOpen(false)}>
-              Could not load Door codes. Close
-            </button>
-          }
-        >
-          <GuestCodesSheet key={guestRole} role={guestRole} onClose={() => setGuestCodesOpen(false)} />
-        </LazyBoundary>
-      </div>
+      <LazyBoundary
+        fallback={null}
+        error={
+          <button type='button' onClick={() => setGuestCodesOpen(false)}>
+            Could not load Door codes. Close
+          </button>
+        }
+      >
+        <GuestCodesSheet key={guestRole} role={guestRole} onClose={() => setGuestCodesOpen(false)} />
+      </LazyBoundary>
     ) : null;
 
   if (!showHeader) {

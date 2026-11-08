@@ -55,6 +55,10 @@ let root: Root;
 
 beforeEach(() => {
   root = createRoot(document.body.appendChild(document.createElement('div')));
+  // The dashboard answers every step back in history by offering it to the topmost modal.
+  vi.spyOn(window.history, 'back').mockImplementation(() => {
+    window.dispatchEvent(new Event('modalBackButton', { cancelable: true }));
+  });
 });
 
 afterEach(() => {
@@ -761,5 +765,114 @@ describe('the source mark of the card', () => {
     expect(pick('.sonos-seek')).toBeNull();
     await render(kitchenOnly({ media_content_id: EPISODE_34, media_duration: 3600, media_position: 10 }, 'playing'));
     expect(pick('.sonos-seek')).not.toBeNull();
+  });
+});
+
+describe('the sheets and the back button', () => {
+  const back = () => vi.mocked(window.history.back);
+  const goBack = () => act(async () => void window.dispatchEvent(new Event('modalBackButton', { cancelable: true })));
+
+  const mobile = () =>
+    vi.spyOn(window, 'matchMedia').mockImplementation(query => ({
+      matches: query === '(max-width: 768px)',
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+  const touch = (type: string, clientX: number) => {
+    const event = new Event(type, { bubbles: true, cancelable: true });
+    const points = [{ clientX, clientY: 300 }];
+    Object.defineProperties(event, { touches: { value: points }, changedTouches: { value: points } });
+    return event;
+  };
+  const swipe = (target: Element) =>
+    act(async () => {
+      target.dispatchEvent(touch('touchstart', 100));
+      target.dispatchEvent(touch('touchmove', 240));
+      target.dispatchEvent(touch('touchend', 240));
+    });
+
+  it('give the Source sheet one history entry, whichever face it shows', async () => {
+    connect(library());
+    const push = vi.spyOn(window.history, 'pushState');
+    await openTracks();
+    expect(push.mock.calls.map(([state]) => state)).toEqual([{ modal: 'sonos-source-sheet' }]);
+  });
+
+  it('step between the faces of the Source sheet with its back arrow, leaving history alone', async () => {
+    connect(library());
+    await openTracks();
+    const push = vi.spyOn(window.history, 'pushState');
+    const replace = vi.spyOn(window.history, 'replaceState');
+    await click(pick('[aria-label="Back"]'));
+    expect(rowTitles()).toContain('Morgenkaffe');
+    await click(pick('[aria-label="Back"]'));
+    expect(tiles()).toContain('Spotify ›');
+    expect(back()).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('close the Source sheet whole with Back, from any face, and open it again on the source grid', async () => {
+    connect(library());
+    await openEpisodes();
+    expect(pick('.sonos-sheet-top .sonos-title')?.textContent).toBe('Fredagsbangers');
+    await goBack();
+    expect(sheetOpen()).toBe(false);
+    await click(pick('[aria-label="Source"]'));
+    expect(pick('.sonos-srcgrid')).not.toBeNull();
+    expect(pick('.sonos-sheet-back')).toBeNull();
+  });
+
+  it.each([
+    ['close button', '.sonos-sheet-close'],
+    ['scrim', '.sonos-modal-overlay'],
+  ])('close the Source sheet from its %s by going back in history', async (_name, selector) => {
+    connect(library());
+    const replace = vi.spyOn(window.history, 'replaceState');
+    await openSources();
+    await click(pick(selector));
+    expect(back()).toHaveBeenCalledTimes(1);
+    expect(sheetOpen()).toBe(false);
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('go back in history once a station has started', async () => {
+    connect(library());
+    await openSources();
+    await click(pick('button[aria-label="Kanal 3"]'));
+    expect(back()).toHaveBeenCalledTimes(1);
+    expect(sheetOpen()).toBe(false);
+  });
+
+  it.each(['Speakers', 'Source'])('close the %s sheet with a swipe that no sheet underneath sees', async name => {
+    mobile();
+    connect(library());
+    const underneath = vi.fn();
+    await act(async () => {
+      root.render(
+        createElement(
+          'div',
+          { onTouchEnd: underneath },
+          createElement(SonosPlayer, {
+            entityId: 'media_player.kitchen',
+            entities: kitchenOnly(),
+            hassUrl: 'https://ha.example',
+            callService: vi.fn(),
+            embedded: true,
+          })
+        )
+      );
+    });
+    await click(pick(`[aria-label="${name}"]`));
+    expect(sheetOpen()).toBe(true);
+    await swipe(pick('.sonos-sheet .sonos-title')!);
+    expect(back()).toHaveBeenCalledTimes(1);
+    expect(sheetOpen()).toBe(false);
+    expect(underneath).not.toHaveBeenCalled();
   });
 });
