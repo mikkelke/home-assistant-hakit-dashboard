@@ -4,11 +4,14 @@ import { COFFEE_AREA_ID, COFFEE_STATE_ENTITY } from '../coffee/entities';
 import { coffeeCycle } from '../coffee/state';
 import { formatRoberRoomName, roberSegmentAreaId } from '../components/Vacuum/rooms';
 import {
+  DISHWASHER_ANNOUNCE_BOOLEAN,
+  DRYER_ANNOUNCE_BOOLEAN,
   ROBOT_CLEAN_PREFIX,
   ROBOT_CLEANING_NARRATIVE_ENTITY,
   VACUUM_CLEANING_PROGRESS_SENSOR,
   VACUUM_CURRENT_ROOM_INPUT,
   VACUUM_ENTITY,
+  WASHER_ANNOUNCE_BOOLEAN,
 } from '../config/entities';
 import { PLAN_APPLIANCES, type PlanApplianceConfig, type PlanApplianceKey } from '../config/plan';
 import { readApplianceCycle, type ApplianceCycle } from '../energy/applianceRun';
@@ -64,9 +67,9 @@ function planned(
 }
 
 export const HOME_APPLIANCES: readonly HomeAppliance[] = [
-  planned('washer', 'washer', 'input_boolean.washer_announce', 'guest_bathroom'),
-  planned('dryer', 'dryer', 'input_boolean.dryer_announce', 'guest_bathroom'),
-  planned('dish', 'dishwasher', null, 'kitchen'),
+  planned('washer', 'washer', WASHER_ANNOUNCE_BOOLEAN, 'guest_bathroom'),
+  planned('dryer', 'dryer', DRYER_ANNOUNCE_BOOLEAN, 'guest_bathroom'),
+  planned('dish', 'dishwasher', DISHWASHER_ANNOUNCE_BOOLEAN, 'kitchen'),
   {
     kind: 'coffee',
     config: { label: 'Coffee', icon: 'mdi:coffee', stateEntityId: COFFEE_STATE_ENTITY },

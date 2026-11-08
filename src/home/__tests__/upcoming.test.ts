@@ -8,6 +8,7 @@ import { resolveNowFocus } from '../nowResolve';
 import { readQuietHours } from '../quietHours';
 import {
   applianceStarter,
+  HOME_APPLIANCES,
   nextTimedItem,
   nextWakeMs,
   readUpcoming,
@@ -35,6 +36,7 @@ const evening = {
   'sensor.dryer_state': entity('Paused', { progress_pct: 30, cycle_start_time: '2026-10-13T16:00:00Z' }),
   'input_boolean.washer_announce': entity('on'),
   'input_boolean.dryer_announce': entity('unavailable'),
+  'input_boolean.dishwasher_announce': entity('off'),
   'input_boolean.wakeup_bedroom': entity('on'),
   'input_datetime.wakeup_bedroom': entity('08:45:00', { has_date: false, has_time: true }),
   'vacuum.rober2': entity('docked'),
@@ -85,7 +87,7 @@ describe('readUpcoming', () => {
     const dryer = items[3];
     expect(dryer.type === 'appliance' && [dryer.cycle.status, dryer.cycle.progressPct, dryer.announce]).toEqual(['paused', 30, null]);
     const dish = items[1];
-    expect(dish.type === 'appliance' && [dish.appliance.areaId, dish.announce]).toEqual(['kitchen', null]);
+    expect(dish.type === 'appliance' && [dish.appliance.areaId, dish.announce]).toEqual(['kitchen', false]);
   });
 
   it('shows the wake alarm to Mikkel only, also while disabled', () => {
@@ -117,6 +119,17 @@ describe('readUpcoming', () => {
     });
     expect(readUpcoming(reader({ 'vacuum.rober2': entity('docked') }), EVENING_MS, CLAUDIA)).toEqual([]);
     expect(readUpcoming(reader({ 'vacuum.rober2': entity('cleaning') }), EVENING_MS, CLAUDIA)).toMatchObject([{ id: 'rober2', rooms: [] }]);
+  });
+});
+
+describe('announce switches', () => {
+  it('belong to the washer, dryer and dishwasher, each with its own', () => {
+    expect(HOME_APPLIANCES.map(appliance => [appliance.kind, appliance.announceEntityId])).toEqual([
+      ['washer', 'input_boolean.washer_announce'],
+      ['dryer', 'input_boolean.dryer_announce'],
+      ['dish', 'input_boolean.dishwasher_announce'],
+      ['coffee', null],
+    ]);
   });
 });
 
