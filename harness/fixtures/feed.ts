@@ -51,7 +51,7 @@ function transit(
       data_as_of: iso(now - 2 * MINUTE),
       delay_threshold_min: 10,
       rescue_window_min: 5,
-      ...(operatorStatus ? { operator_status: operatorStatus, operator_status_source: 'm.dk' } : {}),
+      ...(operatorStatus ? { operator_status: operatorStatus, operator_status_ok: 'true', operator_status_source: 'm.dk' } : {}),
       departures: departures.map(d => ({
         time: clock(d.at + (d.delay ?? 0) * MINUTE),
         scheduled_time: clock(d.at),
@@ -218,9 +218,9 @@ export function addFeed(h: HouseBuilder): void {
       { at: now + 15 * MINUTE, line: 'M3' },
     ],
     'mdi:subway-variant',
-    'Normal togdrift'
+    'Vi kører efter planen'
   );
-  transit(h, 'enghave_metro_frb', 'Enghave Plads to Frederiksberg', 'OK', [], 'mdi:subway-variant', 'Normal togdrift');
+  transit(h, 'enghave_metro_frb', 'Enghave Plads to Frederiksberg', 'OK', [], 'mdi:subway-variant', 'Vi kører efter planen');
   h.put('input_button.transit_refresh', 'unknown', { friendly_name: 'Transit refresh' });
   h.put(
     'sensor.transit_last_updated',
