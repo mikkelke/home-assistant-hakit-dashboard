@@ -28,7 +28,7 @@ import {
   TRANSIT_UPCOMING_MIN_MINS,
   type TransitRow,
 } from '../../utils/transitDisplay';
-import { SONOS_SPEAKERS } from '../../config/speakers';
+import { SONOS_SPEAKERS, groupOf } from '../../config/speakers';
 import { useModalBackButton, useSwipeToClose, useViewer } from '../../hooks';
 import { availablePhonePlayer, isPhonePlayer } from '../../home/household';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
@@ -245,8 +245,6 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
   // Find all playing Sonos speakers/groups
   const playingSpeakers = useMemo<PlayingSpeaker[]>(() => {
     const playing: PlayingSpeaker[] = [];
-    const seenGroups = new Set<string>();
-    const seenSpeakerIds = new Set<string>();
 
     // Check if living room TV is on and using Sonos
     const livingRoomTv = entities?.['media_player.living_room_tv'];
@@ -254,48 +252,18 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
       livingRoomTv &&
       (livingRoomTv.state === 'on' || livingRoomTv.state === 'playing' || livingRoomTv.state === 'paused' || livingRoomTv.state === 'idle');
 
-    // Find all playing speakers - only add coordinators (masters) of groups
+    // One row per group, on its coordinator; members play under it
     SONOS_SPEAKERS.forEach(speaker => {
       const entity = entities?.[speaker.id];
-      if (!entity) return;
-
-      // Check if playing - Sonos can be 'playing', 'paused', 'idle', etc.
-      const isPlaying = entity.state === 'playing';
-      if (!isPlaying) return;
+      if (!entity || entity.state !== 'playing') return;
+      const group = groupOf(entities, speaker.id);
+      if (group[0] !== speaker.id) return;
 
       // Hide living room Sonos when TV is using it
-      const isLivingRoomSonos = speaker.id === 'media_player.living_room';
       const sonosSource = typeof entity.attributes?.source === 'string' ? entity.attributes.source : '';
-      const isTvUsingSonos = isLivingRoomSonos && isLivingRoomTvOn && sonosSource.toLowerCase().includes('tv');
-      if (isTvUsingSonos) return;
+      if (speaker.id === 'media_player.living_room' && isLivingRoomTvOn && sonosSource.toLowerCase().includes('tv')) return;
 
-      const rawGroup = entity.attributes?.group_members;
-      const groupMembers: string[] = Array.isArray(rawGroup) ? (rawGroup as string[]) : [speaker.id];
-      // Ensure groupMembers is not empty - if it is, treat as solo speaker
-      const actualGroupMembers = groupMembers.length > 0 ? groupMembers : [speaker.id];
-      const groupKey = [...actualGroupMembers].sort().join(','); // Create unique key for group
-
-      // Skip if we've already processed this group
-      if (seenGroups.has(groupKey)) return;
-
-      // Check if this speaker is the coordinator/master (first in group_members)
-      // Solo speakers (groupSize === 1) are always coordinators of their own group
-      const isSolo = actualGroupMembers.length === 1;
-      const isCoordinator = actualGroupMembers[0] === speaker.id;
-
-      // Only add coordinators/masters - never add non-coordinator group members
-      // Solo speakers are always coordinators, so they get added
-      if (isSolo || isCoordinator) {
-        seenGroups.add(groupKey);
-        // Mark all group members as seen to avoid processing them again
-        actualGroupMembers.forEach(memberId => seenSpeakerIds.add(memberId));
-
-        playing.push({
-          entityId: speaker.id,
-          name: speaker.name,
-          groupSize: actualGroupMembers.length,
-        });
-      }
+      playing.push({ entityId: speaker.id, name: speaker.name, groupSize: group.length });
     });
 
     // Sort: groups first (by size, biggest first), then individual speakers alphabetically
@@ -409,23 +377,16 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
         };
       }
 
-      const rawGroupAll = entity.attributes?.group_members;
-      const groupMembers: string[] = Array.isArray(rawGroupAll) ? (rawGroupAll as string[]) : [speaker.id];
-      const actualGroupMembers = groupMembers.length > 0 ? groupMembers : [speaker.id];
-      const isPlaying = entity.state === 'playing';
-      const isCoordinator = actualGroupMembers[0] === speaker.id;
-
+      const group = groupOf(entities, speaker.id);
       // Only show coordinator speakers to avoid duplicates
-      if (!isCoordinator && actualGroupMembers.length > 1) {
-        return null;
-      }
+      if (group[0] !== speaker.id) return null;
 
       return {
         entityId: speaker.id,
         name: speaker.name,
         state: entity.state || 'unavailable',
-        isPlaying,
-        groupSize: actualGroupMembers.length,
+        isPlaying: entity.state === 'playing',
+        groupSize: group.length,
       };
     }).filter((s): s is SpeakerInfo => s !== null);
 
@@ -500,11 +461,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
   // Inside the media modal, render from the open-time snapshot so cards (and any open
   // speaker picker inside them) survive regrouping; fall back to live when no snapshot.
   const displayedSpeakers = mediaPlayersSnapshot ?? playingSpeakers;
-  const liveGroupSize = (id: string): number => {
-    const gm = entities?.[id]?.attributes?.group_members;
-    const n = Array.isArray(gm) ? gm.filter(m => typeof m === 'string' && m.length > 0).length : 0;
-    return n > 0 ? n : 1;
-  };
+  const liveGroupSize = (id: string): number => groupOf(entities, id).length;
 
   const selectedIsPhone = selectedSpeakerForQuickStart !== null && isPhonePlayer(selectedSpeakerForQuickStart);
   const selectedName = selectedIsPhone

@@ -14,6 +14,7 @@ import {
   roomThermostat,
 } from '../../config/entities';
 import { HOTPLATE_ICON, OVEN_ICON } from '../../config/kitchenIcons';
+import { groupOf } from '../../config/speakers';
 import { withCoffeeDemo } from '../../coffee/demoStore';
 import { useCoffeeDemo } from '../../coffee/useCoffeeState';
 import type { ApplianceCycle } from '../../energy/applianceRun';
@@ -418,9 +419,11 @@ export function RoomCard({ area, entities, todo = NO_TODO, onClick, onClimateCli
   const glowRgb = litKey?.split('/')[0] ?? null;
   const glowAlpha = litKey ? Number(litKey.split('/')[1]) : 0;
   const isOccupied = entities?.[`binary_sensor.${areaNameNormalized}_active`]?.state === 'on';
-  const mediaPlayer = entities?.[`media_player.${areaNameNormalized}`];
+  const speakerId = `media_player.${areaNameNormalized}`;
+  const mediaPlayer = entities?.[speakerId];
   const isMediaPlaying = mediaPlayer?.state === 'playing';
   const isMediaMuted = mediaPlayer?.attributes?.is_volume_muted === true;
+  const playsWithOther = isMediaPlaying && groupOf(entities, speakerId)[0] !== speakerId;
   const roomAppliances = HOME_APPLIANCES.filter(appliance => appliance.areaId === area.area_id);
   useCoffeeDemo();
   const applianceStates = useHass(s => {
@@ -629,6 +632,7 @@ export function RoomCard({ area, entities, todo = NO_TODO, onClick, onClimateCli
       <span className='room-top'>
         <h3 className='room-name'>{formatName(area.name)}</h3>
         {isMediaPlaying && <Equaliser areaId={area.area_id} muted={isMediaMuted} />}
+        {playsWithOther && <Icon icon='mdi:link-variant' className='room-eq-link' aria-label='Plays with another room' />}
       </span>
       {/* Not a <button> — the whole card is already one, and buttons can't nest. role="button"
           gives it the same semantics/keyboard behaviour; the ::before pseudo-element in

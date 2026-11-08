@@ -21,6 +21,23 @@ export const FAMILY_ZONE: string[] = [
   'media_player.rooftop',
 ];
 
+type SpeakerEntities = Record<string, { attributes?: { group_members?: unknown } } | undefined> | null | undefined;
+
+function listedMembers(entities: SpeakerEntities, id: string): string[] {
+  const raw = entities?.[id]?.attributes?.group_members;
+  return Array.isArray(raw) ? raw.filter((m): m is string => typeof m === 'string' && m.length > 0) : [];
+}
+
+/** The speakers a speaker plays with, coordinator first. Only a coordinator's `group_members` is trusted: Music Assistant
+ * leaves a member's own list stale or empty, so a speaker no coordinator lists plays alone. */
+export function groupOf(entities: SpeakerEntities, id: string): string[] {
+  for (const speaker of SONOS_SPEAKERS) {
+    const members = listedMembers(entities, speaker.id);
+    if (members.length > 1 && members[0] === speaker.id && members.includes(id)) return members;
+  }
+  return [id];
+}
+
 // media_player entities whose raw-Sonos sibling does not follow the `${id}_2`
 // convention (empty today; add entries if a speaker is renamed in HA without
 // its raw Sonos twin following).

@@ -367,6 +367,14 @@ body.modal-open .room-card {
   --d: 1.5s;
 }
 
+/* Beside the bars on a speaker that plays a group's music rather than its own. */
+.room-eq-link {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.6);
+}
+
 .room-eq.is-anim i {
   animation: room-eq var(--d) ease-in-out infinite alternate;
 }

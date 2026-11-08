@@ -2,7 +2,7 @@ import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Icon, loadIcons } from '@iconify/react';
 import { useHass } from '@hakit/core';
 import type { CallServiceFunction, SonosPlayerProps } from '../../types';
-import { FAMILY_ZONE, SONOS_SPEAKERS, rawSonosEntityId } from '../../config/speakers';
+import { FAMILY_ZONE, SONOS_SPEAKERS, groupOf, rawSonosEntityId } from '../../config/speakers';
 import { hapticTick } from '../../utils/haptics';
 import { useLocalStorageBoolean, useLongPress, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard, useViewer } from '../../hooks';
 import { availablePhonePlayer } from '../../home/household';
@@ -28,7 +28,6 @@ type SonosAttributes = {
   entity_picture_local?: string;
   volume_level?: number;
   is_volume_muted?: boolean;
-  group_members?: Array<string | null | undefined>;
   source_list?: string[];
   source?: string;
   media_content_id?: string;
@@ -36,26 +35,6 @@ type SonosAttributes = {
   media_position?: number;
   media_position_updated_at?: string;
   app_id?: string;
-};
-
-/**
- * Get the master/coordinator speaker from a Sonos entity's group_members attribute.
- * The master is always group_members[0] per Home Assistant/Sonos integration.
- *
- * IMPORTANT: This function reads directly from entity state attributes, never from
- * input_select or other external sources. This ensures robust master detection
- * that matches the actual Sonos group state.
- *
- * @param entity - The Sonos entity object (from entities state)
- * @param fallbackEntityId - Fallback entity ID if group_members is empty/invalid
- * @returns The entity ID of the master speaker
- */
-const getMasterFromEntity = (entity: { attributes?: { group_members?: unknown[] } } | null, fallbackEntityId: string): string => {
-  if (!entity?.attributes?.group_members) return fallbackEntityId;
-  const groupMembers = entity.attributes.group_members;
-  const validMembers = groupMembers.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0);
-  // Master is always the first member (group_members[0]), or fallback to the entity itself if empty
-  return validMembers.length > 0 ? validMembers[0] : fallbackEntityId;
 };
 
 // Helper to check if source is line-in
@@ -228,13 +207,8 @@ export function SonosPlayer({
   if (pendingVolume && pendingVolume.base !== volume) setPendingVolume(null);
   const shownVolume = pendingVolume && pendingVolume.base === volume ? pendingVolume.value : volume;
   const isMuted = attributes.is_volume_muted;
-  const groupMembers = useMemo(() => {
-    const raw: Array<string | null | undefined> = Array.isArray(attributes.group_members) ? attributes.group_members : [entityId];
-    const filtered = (raw || []).filter((id): id is string => typeof id === 'string' && id.length > 0);
-    return filtered.length > 0 ? filtered : [entityId];
-  }, [attributes.group_members, entityId]);
-  // Determine master from entity state: group_members[0] is always the coordinator/master
-  const masterId = getMasterFromEntity(player ?? null, entityId);
+  const groupMembers = useMemo(() => groupOf(entities, entityId), [entities, entityId]);
+  const masterId = groupMembers[0];
 
   // Configured display name for a speaker id; last resort = friendly_name.
   const speakerNameFor = (id: string): string => {
@@ -850,12 +824,8 @@ export function SonosPlayer({
       const isMember = groupMembers.includes(speaker.id);
       const ent = entities?.[speaker.id];
       const entState = ent?.state || 'unavailable';
-      const rawMembers = ent?.attributes?.group_members;
-      const members: string[] = Array.isArray(rawMembers)
-        ? rawMembers.filter((id): id is string => typeof id === 'string' && id.length > 0)
-        : [speaker.id];
-      const inOtherGroup = !isMember && members.length > 1;
-      const otherMaster = inOtherGroup ? getMasterFromEntity(ent ?? null, speaker.id) : null;
+      const members = groupOf(entities, speaker.id);
+      const otherMaster = !isMember && members.length > 1 ? members[0] : null;
       return {
         id: speaker.id,
         name: speaker.name,
