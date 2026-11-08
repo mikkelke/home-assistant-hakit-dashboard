@@ -12,7 +12,16 @@ import type { Flow } from './flow';
 import { openDashboard } from './session';
 import { Shots } from './shots';
 
-const FLOWS: Flow[] = [...homeFlows, ...roomFlows, ...energyFlows, ...overlayFlows, ...pageFlows, ...coffeeFlows, ...cookFlows, ...stateFlows];
+const FLOWS: Flow[] = [
+  ...homeFlows,
+  ...roomFlows,
+  ...energyFlows,
+  ...overlayFlows,
+  ...pageFlows,
+  ...coffeeFlows,
+  ...cookFlows,
+  ...stateFlows,
+];
 
 for (const flow of FLOWS) {
   test(flow.name, async ({ page }, info) => {

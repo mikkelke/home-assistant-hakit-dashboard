@@ -1,6 +1,21 @@
 import type { Flow } from '../flow';
 
-const STAGE = ['heating', 'too_hot', 'ready', 'cooking', 'done', 'interrupted', 'tracking', 'near', 'pull', 'resting', 'carve', 'low_water', 'lost', 'both'] as const;
+const STAGE = [
+  'heating',
+  'too_hot',
+  'ready',
+  'cooking',
+  'done',
+  'interrupted',
+  'tracking',
+  'near',
+  'pull',
+  'resting',
+  'carve',
+  'low_water',
+  'lost',
+  'both',
+] as const;
 const PHONE_STAGE: readonly string[] = ['ready', 'pull', 'resting', 'both'];
 const CARD = ['ready', 'cooking', 'done', 'tracking', 'pull', 'resting', 'low_water', 'both'] as const;
 
