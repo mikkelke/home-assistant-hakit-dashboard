@@ -20,6 +20,7 @@ import {
   getTransitLineDisplayStatus,
   groupTransitRows,
   minsFromNow,
+  readOperatorOk,
   readOperatorStatus,
   transitBadgeLabel,
   transitEmptyMessage,
@@ -78,6 +79,7 @@ type TransitLineState = TransitLine & {
   displayStatus: TransitStatus;
   departures: Departure[];
   operatorStatus: string;
+  operatorOk: boolean;
   lastChecked: string;
   enabled: boolean;
 };
@@ -432,6 +434,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
         displayStatus: getTransitLineDisplayStatus(line, entities, now),
         departures,
         operatorStatus: readOperatorStatus(sensor?.attributes?.operator_status),
+        operatorOk: readOperatorOk(sensor?.attributes?.operator_status_ok),
         lastChecked: (sensor?.attributes?.data_as_of ?? sensor?.attributes?.last_checked ?? '') as string,
         enabled: entities?.[line.enabledEntityId]?.state !== 'off',
       };
@@ -1000,7 +1003,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                                     const allDepartedOver2Min =
                                       line.departures.length > 0 && line.departures.every(d => minsFromNow(d.time, now) < -2);
                                     const noIssues = !isTransitAlert(line.displayStatus);
-                                    const emptyMessage = transitEmptyMessage(allDepartedOver2Min && noIssues, line.operatorStatus);
+                                    const emptyMessage = transitEmptyMessage(allDepartedOver2Min && noIssues, line.operatorOk);
                                     return (
                                       <div key={line.statusEntityId} className='info-transit-departures'>
                                         {merged && (
