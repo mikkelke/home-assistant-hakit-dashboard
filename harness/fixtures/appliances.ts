@@ -145,6 +145,7 @@ export function addAppliances(h: HouseBuilder): void {
     options: PROGRAMMES.dishwasher,
   });
   h.put('input_select.dishwasher_short', '—', { friendly_name: 'Dishwasher short', options: ['—', 'Yes', 'No'] });
+  h.put('input_boolean.dishwasher_announce', 'on', { friendly_name: 'Dishwasher announce' });
   h.put('input_button.dishwasher_emptied', 'unknown', { friendly_name: 'Dishwasher emptied' });
   h.put(
     'sensor.athom_smart_plug_v3_50ec44_power',

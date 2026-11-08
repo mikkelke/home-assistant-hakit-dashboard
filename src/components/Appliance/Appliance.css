@@ -106,8 +106,8 @@
   flex-shrink: 0;
 }
 
-/* Collapsed quick action: announce bell (washer/dryer, while Running) or mark-emptied basket
-   (all three, while Unemptied) — never more than one at a time. */
+/* Collapsed quick action: announce bell (while Running) or mark-emptied basket (while Unemptied)
+   — never more than one at a time. */
 .appliance-quick {
   display: flex;
   align-items: center;

@@ -51,6 +51,7 @@ import { Menu } from '../Menu';
 import { FireAlarmTakeover } from '../FireSafety';
 import { WakeAlarmGate } from '../Alarm/WakeAlarmGate';
 import { FIRE_SAFETY_SENSOR, KITCHEN_COOKING_MODE_BOOLEAN, SMOKE_ALARM_SENSORS } from '../../config/entities';
+import { formatHomeClock } from '../../energy/homeTime';
 import './Dashboard.css';
 
 // The Energy page and its chart tree only ever mount behind Menu → Energy (or a #energy hash), so it is
@@ -148,7 +149,7 @@ function getWasherDemoEntities(mode: string | null): HassEntities {
         programme_label: 'ECO',
         detected_programme: 'eco',
         estimated_remaining_min: 87,
-        estimated_end_time: ends.toISOString(),
+        estimated_end_time: formatHomeClock(ends.getTime()),
         cycle_start_time: started.toISOString(),
         programme_duration_min: 199,
       });
@@ -194,6 +195,11 @@ function getDishwasherDemoEntities(mode: string | null): HassEntities {
       state: '—',
       attributes: { options: ['—', 'Yes', 'No'] },
     },
+    'input_boolean.dishwasher_announce': {
+      entity_id: 'input_boolean.dishwasher_announce',
+      state: 'on',
+      attributes: {},
+    },
   };
   const sensorState = (state: string, attributes: Record<string, unknown>) => ({
     entity_id: 'sensor.dishwasher_state',
@@ -215,7 +221,7 @@ function getDishwasherDemoEntities(mode: string | null): HassEntities {
         detected_programme: 'eco',
         progress_pct: 25,
         estimated_remaining_min: 135,
-        estimated_end_time: ends.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        estimated_end_time: ends.toISOString(),
         cycle_start_time: started.toISOString(),
         programme_duration_min: 180,
       });

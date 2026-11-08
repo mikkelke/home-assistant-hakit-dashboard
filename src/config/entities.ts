@@ -110,6 +110,29 @@ export const BEDROOM_BED_OCCUPANCY_SENSORS: ReadonlyArray<{
   },
 ];
 
+// --- Washer (guest bathroom; matches AppDaemon / backend entity_ids) ---
+
+/** Washer state sensor (Off, Running, Paused, Unemptied, Emptied). */
+export const WASHER_STATE_ENTITY = 'sensor.washer_state';
+
+/** Confirmed programme; the classifier's guess is confirmed or corrected here. */
+export const WASHER_PROGRAMME_SELECT = 'input_select.washer_confirmed_programme';
+
+/** Temperature of the confirmed programme; its options narrow to that programme's own values. */
+export const WASHER_TEMPERATURE_SELECT = 'input_select.washer_temperature';
+
+/** Spin speed of the confirmed programme; its options narrow to that programme's own values. */
+export const WASHER_SPIN_SELECT = 'input_select.washer_spin_speed';
+
+/** Soak option, for the programmes that support it. */
+export const WASHER_SOAK_BOOLEAN = 'input_boolean.washer_option_soak';
+
+/** Announce when finished. */
+export const WASHER_ANNOUNCE_BOOLEAN = 'input_boolean.washer_announce';
+
+/** Press when the drum is emptied (or aired, after a drum clean). */
+export const WASHER_EMPTIED_BUTTON = 'input_button.washer_emptied';
+
 // --- Dryer (guest bathroom; matches AppDaemon / backend entity_ids) ---
 
 /** Dryer state sensor (Off, Running, Paused, Unemptied, Emptied). */
@@ -129,6 +152,32 @@ export const DRYER_TIME_MINUTES_SELECT = 'input_select.dryer_time_minutes';
 
 /** Announce when finished. */
 export const DRYER_ANNOUNCE_BOOLEAN = 'input_boolean.dryer_announce';
+
+/** Press when the drum is emptied. */
+export const DRYER_EMPTIED_BUTTON = 'input_button.dryer_emptied';
+
+// --- Dishwasher (kitchen; matches AppDaemon / backend entity_ids) ---
+
+/** Dishwasher state sensor (Off, Running, Paused, Unemptied, Emptied). */
+export const DISHWASHER_STATE_ENTITY = 'sensor.dishwasher_state';
+
+/** The state sensor's persisted mirror, which the card falls back to while the sensor has no usable state. */
+export const DISHWASHER_STATE_SELECT = 'input_select.dishwasher_state';
+
+/** Confirmed programme; the classifier's guess is confirmed or corrected here. */
+export const DISHWASHER_PROGRAMME_SELECT = 'input_select.dishwasher_confirmed_programme';
+
+/** Express option (Yes or No), for the programmes that have it. */
+export const DISHWASHER_SHORT_SELECT = 'input_select.dishwasher_short';
+
+/** On while a delay-start timer counts down. */
+export const DISHWASHER_TIMER_SENSOR = 'binary_sensor.dishwasher_timer';
+
+/** Announce when finished. */
+export const DISHWASHER_ANNOUNCE_BOOLEAN = 'input_boolean.dishwasher_announce';
+
+/** Press when the dishwasher is emptied. */
+export const DISHWASHER_EMPTIED_BUTTON = 'input_button.dishwasher_emptied';
 
 // --- Portable air conditioner (Midea porta split; seasonal, lives in the bedroom) ---
 // The device has no HA area assigned, so it is surfaced via these explicit ids rather than
