@@ -14,12 +14,13 @@ interface HomeHeaderProps {
   onOpenNow: OpenNow;
   /** A brew's chip on the ground: the stage on the tablet, the Kitchen on a phone. */
   onOpenCoffee?: () => void;
+  onOpenCook?: () => void;
 }
 
 /** The sky with the house's newest events on its ground, and the strip that takes its place at the
  * top once the grid scrolls it away. Both must sit directly in the scroll container, which the strip
  * sticks to. */
-export function HomeHeader({ entities, hassUrl, onMenu, onOpenNow, onOpenCoffee }: HomeHeaderProps) {
+export function HomeHeader({ entities, hassUrl, onMenu, onOpenNow, onOpenCoffee, onOpenCook }: HomeHeaderProps) {
   const skyRef = useRef<HTMLElement>(null);
   const [skyGone, setSkyGone] = useState(false);
   useEffect(() => {
@@ -35,7 +36,7 @@ export function HomeHeader({ entities, hassUrl, onMenu, onOpenNow, onOpenCoffee 
     <>
       <SkyStrip entities={entities} hassUrl={hassUrl} onMenu={onMenu} className={`sky-strip--sticky ${skyGone ? 'is-shown' : ''}`} />
       <LivingSky ref={skyRef} entities={entities} hassUrl={hassUrl} onMenu={onMenu}>
-        <HouseTicker onOpenNow={onOpenNow} onOpenCoffee={onOpenCoffee} />
+        <HouseTicker onOpenNow={onOpenNow} onOpenCoffee={onOpenCoffee} onOpenCook={onOpenCook} />
       </LivingSky>
     </>
   );

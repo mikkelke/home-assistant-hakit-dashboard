@@ -13,6 +13,7 @@ import { IntercomCard } from '../Intercom';
 import { WasherCard } from '../Washer';
 import { DishwasherCard } from '../Dishwasher';
 import { DryerCard } from '../Dryer';
+import { CookCard } from '../Cook/CookCard';
 import { CoffeeCard } from '../Coffee/CoffeeCard';
 import { isEventful } from '../../coffee/model';
 import { useCoffeeState } from '../../coffee/useCoffee';
@@ -36,6 +37,7 @@ export function RoomDetail({
   autoOpenClimate,
   onAutoOpenClimateHandled,
   onOpenCoffee,
+  onOpenCook,
 }: RoomDetailProps) {
   // The panel's own subscription: what it reads (players, thermostats, the roof station) stops counting
   // for the grid once it closes.
@@ -169,6 +171,7 @@ export function RoomDetail({
         <RoomTodo areaId={area.area_id} />
 
         {coffeeFirst && <CoffeeCard onOpenStage={onOpenCoffee} />}
+        {isKitchen && <CookCard onOpenStage={onOpenCook} />}
 
         {/* Building Access (Hallway) */}
         {isHallway && <IntercomCard entities={entities} callService={callService} showHeader={true} />}

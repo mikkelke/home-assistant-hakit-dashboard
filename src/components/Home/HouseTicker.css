@@ -179,3 +179,36 @@
   background: currentColor;
   transition: width 0.6s var(--ease-out);
 }
+
+.ticker-chip.is-cook,
+.ticker-chip.is-cook-bath,
+.ticker-chip.is-cook-now,
+.ticker-chip.is-cook-alarm {
+  --cook-ticker-accent: var(--heat);
+  background: color-mix(in srgb, var(--cook-ticker-accent) 14%, transparent);
+  color: var(--cook-ticker-accent);
+  font-variant-numeric: tabular-nums;
+}
+.ticker-chip.is-cook-bath {
+  --cook-ticker-accent: var(--accent-sky);
+}
+.ticker-chip.is-cook-now {
+  --cook-ticker-accent: var(--accent-gold);
+}
+.ticker-chip.is-cook-alarm {
+  --cook-ticker-accent: #ff453a;
+}
+.ticker-chip:is(.is-cook, .is-cook-bath, .is-cook-now, .is-cook-alarm) svg,
+.ticker-chip:is(.is-cook, .is-cook-bath, .is-cook-now, .is-cook-alarm) em {
+  color: var(--cook-ticker-accent);
+}
+.ticker-chip:is(.is-cook, .is-cook-bath, .is-cook-now, .is-cook-alarm) b {
+  color: var(--text-1);
+}
+.ticker-chip:is(.is-cook, .is-cook-bath, .is-cook-now, .is-cook-alarm) .ticker-fill {
+  background: color-mix(in srgb, var(--cook-ticker-accent) 25%, transparent);
+}
+.ticker-chip:focus-visible {
+  outline: 2px solid var(--accent-sky);
+  outline-offset: 2px;
+}

@@ -30,11 +30,14 @@ import {
 import { onIdle } from '../../utils/idle';
 import { trackUiTap } from '../../utils/trackUiTap';
 import { COFFEE_AREA_ID, COFFEE_TABLET_VIEWER } from '../../coffee/entities';
-import { isEventful } from '../../coffee/state';
+import { isCookActive } from '../../cook/model';
+import { useCookState } from '../../cook/useCook';
+import { isBrewing, isEventful } from '../../coffee/state';
 import { useCoffeeState } from '../../coffee/useCoffeeState';
 import { IDLE_RESET_MS, useIdleReset } from '../../hooks/useIdleReset';
 import { useViewer } from '../../hooks/useViewer';
 import { WAKE_SESSION_ENTITY, activeWakeSession, readWakeSession } from '../Alarm/wakeSession';
+import { useCookTakeover } from '../Cook/useCookTakeover';
 import { useCoffeeTakeover } from '../Coffee/useCoffeeTakeover';
 import type { EnergyTab } from '../Energy/energyTab';
 import { HomeHeader } from '../Home/HomeHeader';
@@ -73,6 +76,8 @@ const warmRoomDetail = () => void import('../RoomDetail');
 
 // The coffee stage is the wine-fridge tablet's brew screen, behind the Kitchen's Coffee entry or a #coffee hash.
 const CoffeeStage = lazy(() => import('../Coffee/CoffeeStage'));
+const CookStage = lazy(() => import('../Cook/CookStage'));
+const COOK_OVER_KITCHEN_KEY = 'cookOverKitchen';
 
 /** History state of a #coffee entry pushed over the Kitchen, which the stage's back button returns to. */
 const COFFEE_OVER_KITCHEN_KEY = 'coffeeOverKitchen';
@@ -435,6 +440,8 @@ export function Dashboard() {
   const [heatingOpen, setHeatingOpen] = useState(false);
   const [listsOpen, setListsOpen] = useState(false);
   const [coffeeOpen, setCoffeeOpen] = useState(false);
+  const [cookOpen, setCookOpen] = useState(false);
+  const [cookLink, setCookLink] = useState<{ cookId: string; atMs: number } | null>(null);
   // A #coffee&takeover=<brew> link, as it arrived; the takeover arms its return to the grid once per arrival.
   const [coffeeLink, setCoffeeLink] = useState<{ brewId: string; atMs: number } | null>(null);
   const [nowRoute, setNowRoute] = useState<NowRoute | null>(null);
@@ -454,6 +461,8 @@ export function Dashboard() {
   const heatingOpenRef = useRef(false);
   const listsOpenRef = useRef(false);
   const coffeeOpenRef = useRef(false);
+  const cookOpenRef = useRef(false);
+  const cookWakeCoffeePriority = useRef(false);
   const nowRouteRef = useRef<NowRoute | null>(null);
   // The first hash this app instance routes on is an arrival (a cold link or an iframe reload); every later
   // one is a navigation.
@@ -514,7 +523,8 @@ export function Dashboard() {
     heatingOpenRef.current = heatingOpen;
     listsOpenRef.current = listsOpen;
     coffeeOpenRef.current = coffeeOpen;
-  }, [energyOpen, mapOpen, heatingOpen, listsOpen, coffeeOpen]);
+    cookOpenRef.current = cookOpen;
+  }, [energyOpen, mapOpen, heatingOpen, listsOpen, coffeeOpen, cookOpen]);
 
   const showNow = useCallback((route: NowRoute | null) => {
     nowRouteRef.current = route;
@@ -599,7 +609,7 @@ export function Dashboard() {
   // The Energy, map, heating, lists and coffee pages are hash routes of the same kind: opening pushes one entry, closing swaps
   // it for the bare URL.
   const replaceRouteHistory = useCallback(
-    (route: 'energy' | 'map' | 'heating' | 'lists' | 'coffee') => {
+    (route: 'energy' | 'map' | 'heating' | 'lists' | 'coffee' | 'cook') => {
       const targetWindow = getAccessibleHistoryWindow();
       if (!targetWindow) return;
 
@@ -615,7 +625,7 @@ export function Dashboard() {
   );
 
   const pushRouteHistory = useCallback(
-    (route: 'energy' | 'map' | 'heating' | 'lists' | 'coffee', hash: string, extra: Record<string, unknown> = {}) => {
+    (route: 'energy' | 'map' | 'heating' | 'lists' | 'coffee' | 'cook', hash: string, extra: Record<string, unknown> = {}) => {
       const targetWindow = getAccessibleHistoryWindow();
       if (!targetWindow) return;
 
@@ -639,7 +649,12 @@ export function Dashboard() {
     const hash = targetWindow?.location.hash ?? '';
     const followed = !firstSyncRef.current && targetWindow != null && hash !== lastHandledHashRef.current;
     lastHandledHashRef.current = targetWindow ? hash : lastHandledHashRef.current;
-    const view = parseDashboardHash(hash);
+    let view = parseDashboardHash(hash);
+    if (view.kind === 'cook' && view.takeover && cookWakeCoffeePriority.current && targetWindow) {
+      view = { kind: 'coffee', takeover: null };
+      markHashUpdating();
+      replaceHistoryState(targetWindow, { coffee: true, cook: null }, buildHistoryUrlWithHash(targetWindow, '#coffee'));
+    }
     const arrival = firstSyncRef.current ? 'load' : 'navigation';
     firstSyncRef.current = false;
     if (followed) {
@@ -657,6 +672,7 @@ export function Dashboard() {
         heatingOpenRef.current ||
         listsOpenRef.current ||
         coffeeOpenRef.current ||
+        cookOpenRef.current ||
         nowRouteRef.current
           ? 'other'
           : 'grid';
@@ -679,18 +695,28 @@ export function Dashboard() {
       if (heatingOpenRef.current) setHeatingOpen(false);
       if (listsOpenRef.current) setListsOpen(false);
       if (coffeeOpenRef.current) setCoffeeOpen(false);
+      if (cookOpenRef.current) setCookOpen(false);
       return;
     }
 
     if (nowRouteRef.current) showNow(null);
 
-    if (view.kind === 'energy' || view.kind === 'map' || view.kind === 'heating' || view.kind === 'lists' || view.kind === 'coffee') {
+    if (
+      view.kind === 'energy' ||
+      view.kind === 'map' ||
+      view.kind === 'heating' ||
+      view.kind === 'lists' ||
+      view.kind === 'coffee' ||
+      view.kind === 'cook'
+    ) {
       if (mapOpenRef.current !== (view.kind === 'map')) setMapOpen(view.kind === 'map');
       if (heatingOpenRef.current !== (view.kind === 'heating')) setHeatingOpen(view.kind === 'heating');
       if (listsOpenRef.current !== (view.kind === 'lists')) setListsOpen(view.kind === 'lists');
       if (energyOpenRef.current !== (view.kind === 'energy')) setEnergyOpen(view.kind === 'energy');
       if (coffeeOpenRef.current !== (view.kind === 'coffee')) setCoffeeOpen(view.kind === 'coffee');
+      if (cookOpenRef.current !== (view.kind === 'cook')) setCookOpen(view.kind === 'cook');
       if (view.kind === 'coffee' && view.takeover) setCoffeeLink({ brewId: view.takeover, atMs: Date.now() });
+      if (view.kind === 'cook') setCookLink(view.takeover ? { cookId: view.takeover, atMs: Date.now() } : null);
       if (selectedRoomRef.current) setSelectedRoom(null);
       return;
     }
@@ -700,6 +726,7 @@ export function Dashboard() {
     if (heatingOpenRef.current) setHeatingOpen(false);
     if (listsOpenRef.current) setListsOpen(false);
     if (coffeeOpenRef.current) setCoffeeOpen(false);
+    if (cookOpenRef.current) setCookOpen(false);
 
     if (view.kind === 'none') {
       // No hash - close room if open
@@ -811,6 +838,7 @@ export function Dashboard() {
     (fromKitchen: boolean, via: CoffeeStageVia) => {
       pushRouteHistory('coffee', '#coffee', fromKitchen ? { [COFFEE_OVER_KITCHEN_KEY]: true } : {});
       setCoffeeOpen(true);
+      setCookOpen(false);
       setSelectedRoom(null);
       setEnergyOpen(false);
       setMapOpen(false);
@@ -879,6 +907,7 @@ export function Dashboard() {
   const handleOpenEnergy = (tab: EnergyTab = 'live') => {
     pushRouteHistory('energy', tab === 'live' ? '#energy' : `#energy=${tab}`);
     setEnergyOpen(true);
+    setCookOpen(false);
     setSelectedRoom(null);
   };
 
@@ -890,6 +919,7 @@ export function Dashboard() {
   const handleOpenMap = () => {
     pushRouteHistory('map', '#map');
     setMapOpen(true);
+    setCookOpen(false);
     setSelectedRoom(null);
   };
 
@@ -902,6 +932,7 @@ export function Dashboard() {
   const handleOpenHeating = () => {
     pushRouteHistory('heating', '#heating');
     setHeatingOpen(true);
+    setCookOpen(false);
     setSelectedRoom(null);
   };
 
@@ -913,6 +944,7 @@ export function Dashboard() {
   const handleOpenLists = () => {
     pushRouteHistory('lists', '#lists');
     setListsOpen(true);
+    setCookOpen(false);
     setSelectedRoom(null);
   };
 
@@ -958,6 +990,81 @@ export function Dashboard() {
   );
   useCoffeeTakeover({ enabled: isCoffeeTablet, onStage: coffeeOpen, link: coffeeLink, open: takeOverForCoffee, goBack: returnFromCoffee });
 
+  const openCookStage = useCallback(
+    (fromKitchen: boolean, via: 'card' | 'ticker' | 'takeover') => {
+      pushRouteHistory('cook', '#cook', fromKitchen ? { [COOK_OVER_KITCHEN_KEY]: true } : {});
+      setCookLink(null);
+      setCookOpen(true);
+      setCoffeeOpen(false);
+      setSelectedRoom(null);
+      setEnergyOpen(false);
+      setMapOpen(false);
+      setHeatingOpen(false);
+      setListsOpen(false);
+      showNow(null);
+      trackUiTap('cook.stage', via);
+    },
+    [pushRouteHistory, showNow]
+  );
+  const handleCloseCook = useCallback(() => {
+    const targetWindow = getAccessibleHistoryWindow();
+    if (targetWindow && historyFlag(targetWindow.history.state, COOK_OVER_KITCHEN_KEY)) {
+      targetWindow.history.back();
+      return;
+    }
+    setCookOpen(false);
+    const kitchen = findRoomById(COFFEE_AREA_ID);
+    if (!kitchen) {
+      replaceRouteHistory('cook');
+      return;
+    }
+    setSelectedRoom(kitchen);
+    replaceRoomHistory(kitchen.area_id);
+  }, [findRoomById, replaceRoomHistory, replaceRouteHistory]);
+  const handleOpenCook = () => {
+    if (isCoffeeTablet) openCookStage(false, 'ticker');
+    else handlePulseRoomSelect(COFFEE_AREA_ID);
+    trackUiTap('home.cook');
+  };
+  const takeOverForCook = useCallback(() => openCookStage(false, 'takeover'), [openCookStage]);
+  const returnFromCook = useCallback(
+    (to: 'back' | 'grid') => {
+      const targetWindow = getAccessibleHistoryWindow();
+      if (to === 'back' && targetWindow) {
+        targetWindow.history.back();
+        return;
+      }
+      setCookOpen(false);
+      replaceRouteHistory('cook');
+    },
+    [replaceRouteHistory]
+  );
+  const coffee = useCoffeeState();
+  const cook = useCookState();
+  const coffeeBrewing = isBrewing(coffee?.phase);
+  useEffect(() => {
+    cookWakeCoffeePriority.current = isCoffeeTablet && coffeeBrewing;
+  }, [isCoffeeTablet, coffeeBrewing]);
+  const preferCoffeeForCookTakeover = useCallback(() => {
+    setCookLink(null);
+    setCookOpen(false);
+    setCoffeeOpen(true);
+    const targetWindow = getAccessibleHistoryWindow();
+    if (targetWindow) {
+      markHashUpdating();
+      replaceHistoryState(targetWindow, { coffee: true, cook: null }, buildHistoryUrlWithHash(targetWindow, '#coffee'));
+    }
+  }, [markHashUpdating]);
+  const cookTakenOver = useCookTakeover({
+    enabled: isCoffeeTablet,
+    onStage: cookOpen,
+    coffeeBrewing,
+    link: cookLink,
+    open: takeOverForCook,
+    goBack: returnFromCook,
+    preferCoffee: preferCoffeeForCookTakeover,
+  });
+
   const openNow: OpenNow = useCallback(
     (focus, itemId) => {
       const targetWindow = getAccessibleHistoryWindow();
@@ -973,7 +1080,8 @@ export function Dashboard() {
               mapOpenRef.current ||
               heatingOpenRef.current ||
               listsOpenRef.current ||
-              coffeeOpenRef.current
+              coffeeOpenRef.current ||
+              cookOpenRef.current
               ? 'other'
               : 'grid',
             itemId
@@ -990,6 +1098,7 @@ export function Dashboard() {
       setHeatingOpen(false);
       setListsOpen(false);
       setCoffeeOpen(false);
+      setCookOpen(false);
     },
     [markHashUpdating, showNow]
   );
@@ -1030,24 +1139,25 @@ export function Dashboard() {
     setHeatingOpen(false);
     setListsOpen(false);
     setCoffeeOpen(false);
+    setCookOpen(false);
     showNow(null);
     roomOverNowRef.current = false;
     window.dispatchEvent(new Event(ROUTE_ADOPTED_EVENT));
     if (targetWindow && parseDashboardHash(targetWindow.location.hash).kind !== 'none') replaceRoomHistory(null);
   }, [replaceRoomHistory, showNow]);
 
-  const coffee = useCoffeeState();
   const wakeSessionActive = activeWakeSession(readWakeSession(displayEntities[WAKE_SESSION_ENTITY]));
   // The wine-fridge tablet watches a brew untouched, a wake session is answered on its own sheet, and the map holds edit drafts.
   useIdleReset({
     timeoutMs: IDLE_RESET_MS,
-    blocked: mapOpen || wakeSessionActive || (coffeeOpen && isEventful(coffee?.phase)),
+    blocked:
+      mapOpen || wakeSessionActive || (coffeeOpen && isEventful(coffee?.phase)) || (cookOpen && (isCookActive(cook) || cookTakenOver)),
     onIdle: resetToHome,
   });
 
   const motionScope = nowRoute
     ? 'timeline'
-    : coffeeOpen
+    : coffeeOpen || cookOpen
       ? 'stage'
       : energyOpen || mapOpen || heatingOpen || listsOpen || selectedRoom || isMenuOpen
         ? null
@@ -1079,6 +1189,7 @@ export function Dashboard() {
               onMenu={() => setIsMenuOpen(open => !open)}
               onOpenNow={openNow}
               onOpenCoffee={handleOpenCoffee}
+              onOpenCook={handleOpenCook}
             />
             <PulseRow onOpenEnergy={handleOpenEnergy} onOpenNow={openNow} />
             <HomePulse
@@ -1098,7 +1209,7 @@ export function Dashboard() {
           </main>
           {/* Fixed bar at z-index 1000 — would float above the Energy, map, heating, lists and coffee pages (z-index 90) and the
               timeline, so it unmounts while any is open. */}
-          {!energyOpen && !mapOpen && !heatingOpen && !listsOpen && !coffeeOpen && !nowRoute && (
+          {!energyOpen && !mapOpen && !heatingOpen && !listsOpen && !coffeeOpen && !cookOpen && !nowRoute && (
             <QuickAccess hassUrl={hassUrl} callService={callService} onOpenNow={openNow} />
           )}
         </div>
@@ -1121,6 +1232,7 @@ export function Dashboard() {
                 autoOpenClimate={climateAutoOpenAreaId === selectedRoom.area_id}
                 onAutoOpenClimateHandled={() => setClimateAutoOpenAreaId(null)}
                 onOpenCoffee={() => openCoffeeStage(true, 'card')}
+                onOpenCook={() => openCookStage(true, 'card')}
               />
             </Suspense>
           </>
@@ -1163,6 +1275,22 @@ export function Dashboard() {
             }
           >
             <CoffeeStage onClose={handleCloseCoffee} />
+          </LazyBoundary>
+        )}
+
+        {cookOpen && (
+          <LazyBoundary
+            fallback={<div className='energy-page-loading' />}
+            error={
+              <div className='now-loading now-load-error' role='alert'>
+                <button type='button' className='now-load-back' onClick={handleCloseCook} aria-label='Back to the Kitchen'>
+                  <Icon icon='mdi:chevron-left' />
+                </button>
+                <span>Could not load the cooking screen</span>
+              </div>
+            }
+          >
+            <CookStage onClose={handleCloseCook} />
           </LazyBoundary>
         )}
 

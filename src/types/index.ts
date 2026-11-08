@@ -72,6 +72,7 @@ export interface RoomDetailProps {
   onAutoOpenClimateHandled?: () => void;
   /** Opens the coffee stage over the Kitchen; the wine-fridge tablet's Coffee entry does this instead of expanding. */
   onOpenCoffee?: () => void;
+  onOpenCook?: () => void;
 }
 
 export interface HomePulseProps {

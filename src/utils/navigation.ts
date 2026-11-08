@@ -56,12 +56,14 @@ export type NowView = { kind: 'now'; focus: NowFocus | null };
 
 /** `#coffee` opens the brew stage; `&takeover=<brew id>`, from the tablet's wake link, arms its return to the grid. */
 export type CoffeeView = { kind: 'coffee'; takeover: string | null };
+export type CookView = { kind: 'cook'; takeover: string | null };
 
 export type DashboardView =
   | { kind: 'room'; roomId: string; openClimate?: boolean }
   | { kind: 'energy' }
   | { kind: 'map' }
   | CoffeeView
+  | CookView
   | { kind: 'heating' }
   | { kind: 'lists' }
   | NowView
@@ -107,13 +109,17 @@ export function isCoffeeHash(hash: string): boolean {
   return hash === '#coffee' || hash.startsWith('#coffee&') || hash.startsWith('#coffee=');
 }
 
-function parseCoffeeView(hash: string): CoffeeView {
+export function isCookHash(hash: string): boolean {
+  return hash === '#cook' || hash.startsWith('#cook&') || hash.startsWith('#cook=');
+}
+
+function parseStageTakeover(hash: string): string | null {
   const takeover = hash
     .split('&')
     .slice(1)
     .find(part => part.startsWith('takeover='))
     ?.slice(9);
-  return { kind: 'coffee', takeover: takeover && /^[\w-]{1,40}$/.test(takeover) ? takeover : null };
+  return takeover && /^[\w-]{1,40}$/.test(takeover) ? takeover : null;
 }
 
 /** `#map` opens the admin sensor map; anything after it is reserved. */
@@ -134,7 +140,8 @@ export function isListsHash(hash: string): boolean {
 export function parseDashboardHash(hash: string): DashboardView {
   if (hash === '#energy' || hash.startsWith('#energy=')) return { kind: 'energy' };
   if (isMapHash(hash)) return { kind: 'map' };
-  if (isCoffeeHash(hash)) return parseCoffeeView(hash);
+  if (isCoffeeHash(hash)) return { kind: 'coffee', takeover: parseStageTakeover(hash) };
+  if (isCookHash(hash)) return { kind: 'cook', takeover: parseStageTakeover(hash) };
   if (isHeatingHash(hash)) return { kind: 'heating' };
   if (isListsHash(hash)) return { kind: 'lists' };
   if (isNowHash(hash)) return { kind: 'now', focus: parseNowFocus(hash) };

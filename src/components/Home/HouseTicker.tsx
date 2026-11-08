@@ -3,6 +3,8 @@ import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import { isOnHome } from '../../coffee/state';
 import { useCoffeeState } from '../../coffee/useCoffeeState';
+import { isCookActive } from '../../cook/model';
+import { useCookState } from '../../cook/useCook';
 import { HOUSE_EVENTS_ENTITY } from '../../config/entities';
 import { formatHomeClock } from '../../energy/homeTime';
 import { houseEpisodes, houseEventLabel, parseHouseEvents, visibleHouseEvents, type HouseEpisode } from '../../home/houseEvents';
@@ -11,6 +13,7 @@ import { useNowMs } from '../../hooks/useNowMs';
 import { useViewer } from '../../hooks/useViewer';
 import { nowFocusAt, type OpenNow } from '../../utils/navigation';
 import { trackUiTap } from '../../utils/trackUiTap';
+import { CookTickerChip } from './CookTickerChip';
 import { CoffeeTickerChip } from './CoffeeTickerChip';
 import './HouseTicker.css';
 
@@ -50,11 +53,21 @@ const COFFEE_ICON = 'mdi:coffee';
 /** The newest few things the house did, on the sky's ground after the people: the newest shows in
  * full, older ones scroll in from under the fade, and a tap opens the timeline on one. A brew under way leads,
  * standing in for its own ready row until the finished brew lapses back to idle. */
-export function HouseTicker({ onOpenNow, onOpenCoffee }: { onOpenNow: OpenNow; onOpenCoffee?: () => void }) {
+export function HouseTicker({
+  onOpenNow,
+  onOpenCoffee,
+  onOpenCook,
+}: {
+  onOpenNow: OpenNow;
+  onOpenCoffee?: () => void;
+  onOpenCook?: () => void;
+}) {
   const feed = useHass(s => s.entities[HOUSE_EVENTS_ENTITY]?.attributes?.events);
   const viewer = useViewer();
   const nowMs = useNowMs();
   const coffee = useCoffeeState();
+  const cook = useCookState();
+  const cookShown = cook != null && isCookActive(cook) && (viewer.name === 'Mikkel' || viewer.name === 'Rooftop') && onOpenCook != null;
   const coffeeShown = coffee != null && isOnHome(coffee.phase) && onOpenCoffee != null;
   const brewStartMs = coffeeShown ? (coffee.startedAtMs ?? coffee.firstBloomAtMs ?? 0) : null;
   const [shownSinceMs] = useState(() => Date.now());
@@ -65,11 +78,12 @@ export function HouseTicker({ onOpenNow, onOpenCoffee }: { onOpenNow: OpenNow; o
         .slice(0, TICKER_EPISODES),
     [feed, viewer, brewStartMs]
   );
-  if (episodes.length === 0 && !coffeeShown) return null;
+  if (episodes.length === 0 && !coffeeShown && !cookShown) return null;
   return (
     <>
       <i className='ticker-divider' aria-hidden='true' />
       <div className='ticker' role='group' aria-label='House activity, newest first'>
+        {cookShown && onOpenCook && <CookTickerChip state={cook} onOpen={onOpenCook} />}
         {coffeeShown && onOpenCoffee && <CoffeeTickerChip state={coffee} onOpen={onOpenCoffee} />}
         {episodes.map(episode => (
           <TickerChip

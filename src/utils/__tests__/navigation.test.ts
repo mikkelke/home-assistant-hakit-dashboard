@@ -152,3 +152,16 @@ describe('#coffee link grammar', () => {
     expect(parseDashboardHash('#now=coffee-1792991000')).toEqual({ kind: 'now', focus: { kind: 'coffee', epochS: 1792991000 } });
   });
 });
+
+describe('#cook link grammar', () => {
+  it('opens the stage and reads the cook id on a tablet wake link', () => {
+    expect(parseDashboardHash('#cook')).toEqual({ kind: 'cook', takeover: null });
+    expect(parseDashboardHash('#cook&takeover=cook-1792991000')).toEqual({ kind: 'cook', takeover: 'cook-1792991000' });
+    expect(parseDashboardHash('#cook&takeover=<script>')).toEqual({ kind: 'cook', takeover: null });
+    expect(parseDashboardHash(`#cook&takeover=${'x'.repeat(41)}`)).toEqual({ kind: 'cook', takeover: null });
+  });
+  it('keeps similarly named hashes out of the cooking stage', () => {
+    for (const hash of ['#cooker', '#cooking', '#COOK', '#room=cook']) expect(parseDashboardHash(hash).kind).not.toBe('cook');
+    expect(getViewFromHistoryHash(windowWithHash('#cook'))).toEqual({ kind: 'cook', takeover: null });
+  });
+});

@@ -1,6 +1,7 @@
 import { test } from '@playwright/test';
 import { createHouse } from './fixtures/house';
 import { coffeeFlows } from './flows/coffee';
+import { cookFlows } from './flows/cook';
 import { energyFlows } from './flows/energy';
 import { homeFlows } from './flows/home';
 import { overlayFlows } from './flows/overlays';
@@ -11,7 +12,7 @@ import type { Flow } from './flow';
 import { openDashboard } from './session';
 import { Shots } from './shots';
 
-const FLOWS: Flow[] = [...homeFlows, ...roomFlows, ...energyFlows, ...overlayFlows, ...pageFlows, ...coffeeFlows, ...stateFlows];
+const FLOWS: Flow[] = [...homeFlows, ...roomFlows, ...energyFlows, ...overlayFlows, ...pageFlows, ...coffeeFlows, ...cookFlows, ...stateFlows];
 
 for (const flow of FLOWS) {
   test(flow.name, async ({ page }, info) => {

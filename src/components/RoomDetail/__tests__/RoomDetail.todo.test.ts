@@ -48,8 +48,10 @@ vi.mock('../../Intercom', () => ({ IntercomCard: () => null }));
 vi.mock('../../Washer', () => ({ WasherCard: () => null }));
 vi.mock('../../Dishwasher', () => ({ DishwasherCard: () => null }));
 vi.mock('../../Dryer', () => ({ DryerCard: () => null }));
-vi.mock('../../Coffee/CoffeeCard', () => ({ CoffeeCard: () => null }));
-vi.mock('../../../coffee/useCoffee', () => ({ useCoffeeState: () => null }));
+const cooking = vi.hoisted(() => ({ cook: false, coffee: false }));
+vi.mock('../../Coffee/CoffeeCard', () => ({ CoffeeCard: () => (cooking.coffee ? createElement('div', { 'data-card': 'coffee' }) : null) }));
+vi.mock('../../Cook/CookCard', () => ({ CookCard: () => (cooking.cook ? createElement('div', { 'data-card': 'cook' }) : null) }));
+vi.mock('../../../coffee/useCoffee', () => ({ useCoffeeState: () => (cooking.coffee ? { phase: 'brewing' } : null) }));
 vi.mock('../RoomClimateHeader', () => ({ RoomClimateHeader: () => null }));
 vi.mock('../../../hooks/useTrackedEntities', () => ({ useTrackedEntities: () => ({}) }));
 
@@ -90,6 +92,8 @@ async function open(user: User) {
 }
 
 beforeEach(() => {
+  cooking.cook = false;
+  cooking.coffee = false;
   lookups.clear();
   store.setState({ connection: null, entities: {} });
   root = createRoot(document.body.appendChild(document.createElement('div')));
@@ -101,6 +105,19 @@ afterEach(() => {
 });
 
 describe('the room panel', () => {
+  it('puts cooking directly under the to-dos and gives a brewing coffee the first card', async () => {
+    cooking.cook = true;
+    await open({ is_admin: true, name: 'Mikkel', id: 'mikkel-id' });
+    expect(
+      [...document.querySelector('.room-detail-content')!.children].map(element => element.getAttribute('data-card') ?? 'todo')
+    ).toEqual(['todo', 'cook', 'light']);
+    cooking.coffee = true;
+    await open({ is_admin: true, name: 'Mikkel', id: 'mikkel-id' });
+    expect(
+      [...document.querySelector('.room-detail-content')!.children].map(element => element.getAttribute('data-card') ?? 'todo')
+    ).toEqual(['todo', 'coffee', 'cook', 'light']);
+  });
+
   it('opens on a To do section with what is due in the room, above the cards of the room', async () => {
     await open({ is_admin: true, name: 'Mikkel', id: 'mikkel-id' });
     const content = document.querySelector('.room-detail-content');
