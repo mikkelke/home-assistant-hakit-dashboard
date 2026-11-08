@@ -13,6 +13,28 @@
   color: rgba(255, 255, 255, 0.92);
 }
 
+/* Flat on a sheet that supplies the surface and the padding (the Quick Access media sheet); the header stays as the TV's own
+   name row. */
+.tv-card.is-embedded {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+  margin: 0;
+}
+.tv-card.is-embedded .tv-header-toggle {
+  padding: 0.4rem 0.4rem 0.4rem 0;
+}
+.tv-card.is-embedded .tv-header-actions {
+  padding: 0;
+}
+.tv-card.is-embedded .tv-content {
+  padding: 0.6rem 0 0;
+}
+.tv-card.is-embedded .tv-hero {
+  margin-top: 0;
+}
+
 /* Header — toggle is a dedicated inner element; quick actions + chevron are real siblings */
 .tv-header {
   width: 100%;

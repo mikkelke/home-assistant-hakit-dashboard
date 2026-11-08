@@ -256,7 +256,10 @@ Header on the card colour with a hairline underneath: glyph disc, title, 44 px i
 A centred overlay on device charcoal, max 420 px wide and 85vh, 24 px corners, a 32 px round close button with its hit area extended by 6 px. The climate sheet anchors to the bottom instead.
 
 ### Quick-access dock
-Five 48 px buttons (44 px on narrow phones, radius 12 px) on a 16 px rounded bar: access, media (a green count badge while something plays), transit (a dot for an alert), timeline, weather. Icon only; a badge or dot is the only state.
+Five 48 px buttons (44 px on narrow phones, radius 12 px) on a 16 px rounded bar: access, media (a green count badge while something plays), transit (a dot for an alert), timeline, weather. Icon only; a badge or dot is the only state. The dock is hidden while a quick-access sheet is open.
+
+### Quick-access sheet
+Access, media, transit and weather open the same sheet: #1c1c1e, 24 px corners, 560 px wide at most, 85vh, 1.25 rem padding (0.9 rem up to 480 px). The header is a 2.1 rem glyph disc (the dock icon, tinted per sheet: brass access, blue media, mint transit), a 1.05 rem/600 title and at most one 2.1 rem round action with a 44 px hit area; no hairline. Weather draws its own header on the same surface. One 48 px round close floats at the bottom right of the screen on phones and the top right elsewhere.
 
 ### Hold button (coffee)
 Copper fill, 56 px tall, 18 px radius, "Hold 1 s to brew": starting, stopping and resuming a brew need a 1 s hold, shown by a ring that fills.

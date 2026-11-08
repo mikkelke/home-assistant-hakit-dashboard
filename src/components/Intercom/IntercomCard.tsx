@@ -14,7 +14,7 @@ const GuestCodesSheet = lazy(() => import('../GuestCodes/GuestCodesSheet').then(
 
 // "Access" card - the apartment lock, the two building doors, and the auto-open ritual, in the
 // Climate-card grammar (see AC/TonightCard). Two homes, one component: the Hallway room detail
-// gets the collapsible card (showHeader), the QuickAccess "Apartment access" modal renders the
+// gets the collapsible card (showHeader), the QuickAccess "Access" sheet renders the
 // same body headerless. House rule: actions are icons, words are states.
 
 interface IntercomCardProps {

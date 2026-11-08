@@ -57,10 +57,11 @@ const house = (source: string | null, state = 'on', appleState = 'playing'): Has
   [CAST]: entity(CAST, 'playing'),
   [REMOTE]: entity(REMOTE),
 });
-async function show(entities: HassEntities, bedroom = false) {
+async function show(entities: HassEntities, bedroom = false, look: { name?: string; embedded?: boolean } = {}) {
   await act(async () => {
     root.render(
       createElement(TVCard, {
+        ...look,
         entityId: bedroom ? 'media_player.bedroom_tv' : TV,
         entities,
         hassUrl: 'https://ha.example',
@@ -241,5 +242,19 @@ describe('bedroom without a physical input mapping', () => {
     expect(text('.tv-hero-title')).toBe('On');
     expect(text('.tv-source-toggle-label')).toBe('Select source');
     expect(document.body.textContent).not.toContain(APPLE_TITLE);
+  });
+});
+
+describe('as a row of the media sheet', () => {
+  it('is the TV card of the room panel unless told otherwise', async () => {
+    await show(house('HDMI1'));
+    expect(text('.tv-title')).toBe('TV');
+    expect(document.querySelector('.tv-card.is-embedded')).toBeNull();
+  });
+
+  it('takes the name it is given and goes flat when embedded', async () => {
+    await show(house('HDMI1'), false, { name: 'Living Room TV', embedded: true });
+    expect(text('.tv-title')).toBe('Living Room TV');
+    expect(document.querySelector('.tv-card.is-embedded')).not.toBeNull();
   });
 });

@@ -111,12 +111,33 @@ export const homeFlows: Flow[] = [
     },
   },
   {
+    name: 'quick access media tv',
+    ready: GRID,
+    run: async shots => {
+      await shots.page.locator('.quick-access button[title="Media controls"]').click();
+      await shots.page.waitForSelector('.qa-modal.media');
+      await shots.page.locator('.qa-media-tab').nth(1).click();
+      await shots.scrolling('.qa-modal', 'quick-media-tv');
+    },
+  },
+  {
     name: 'quick access doors',
     ready: GRID,
     run: async shots => {
       await shots.page.locator('.quick-access button[title="Access"]').click();
       await shots.page.waitForSelector('.qa-doors');
       await shots.shot('quick-doors');
+    },
+  },
+  {
+    name: 'quick access access sheet',
+    ready: GRID,
+    run: async shots => {
+      await shots.page.locator('.quick-access button[title="Access"]').click();
+      await shots.page.waitForSelector('.qa-doors');
+      await shots.page.locator('.qa-door.is-more').click();
+      await shots.page.waitForSelector('.qa-modal.intercom');
+      await shots.scrolling('.qa-modal', 'quick-access-sheet');
     },
   },
   {

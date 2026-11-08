@@ -50,10 +50,17 @@ type ModalType = 'intercom' | 'media' | 'weather' | 'transit' | null;
 type MediaTab = 'audio' | 'tv';
 
 const MODAL_TITLES: Record<Exclude<ModalType, null>, string> = {
-  intercom: 'Apartment access',
+  intercom: 'Access',
   media: 'Media',
   transit: 'Transit',
   weather: 'Weather',
+};
+
+/** A sheet's glyph is its dock icon. The weather card draws its own header. */
+const MODAL_ICONS: Record<Exclude<ModalType, 'weather' | null>, string> = {
+  intercom: 'mdi:door',
+  media: 'mdi:cast-audio',
+  transit: 'mdi:train',
 };
 
 interface TransitLine {
@@ -565,7 +572,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
   return (
     <>
       {doorsOpen && <div className='qa-doors-scrim' onClick={requestCloseQuickAccess} />}
-      <div className='quick-access'>
+      <div className={`quick-access${openModal ? ' is-covered' : ''}`}>
         {doorsOpen && (
           <div className='qa-doors' role='group' aria-label='Doors'>
             {aptLock.error && (
@@ -616,14 +623,14 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
           }}
           title='Access'
         >
-          <Icon icon='mdi:door' />
+          <Icon icon={MODAL_ICONS.intercom} />
         </button>
         <button className='qa-button' onClick={() => openFromBar('media')} title='Media controls'>
-          <Icon icon='mdi:cast-audio' />
+          <Icon icon={MODAL_ICONS.media} />
           {hasPlayingMedia && <span className='qa-badge'>{playingSpeakers.length + playingTVs.length}</span>}
         </button>
         <button className='qa-button' onClick={() => openFromBar('transit')} title='Transit'>
-          <Icon icon='mdi:train' />
+          <Icon icon={MODAL_ICONS.transit} />
           {hasTransitAlert && <span className='qa-badge qa-badge--alert' />}
         </button>
         <button
@@ -675,6 +682,9 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
           >
             {openModal !== 'weather' && (
               <div className='qa-modal-header'>
+                <span className='qa-glyph'>
+                  <Icon icon={MODAL_ICONS[openModal]} aria-hidden='true' />
+                </span>
                 <span className='qa-title'>{MODAL_TITLES[openModal]}</span>
                 <div className='qa-header-actions'>
                   {openModal === 'transit' && (
@@ -696,9 +706,9 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                         trackMedia('add_speaker');
                       }}
                       title='Start music on a speaker'
+                      aria-label='Start music on a speaker'
                     >
-                      <Icon icon='mdi:cast-audio' />
-                      <Icon icon='mdi:plus' className='qa-plus-icon-small' />
+                      <Icon icon='mdi:plus' />
                     </button>
                   )}
                 </div>
@@ -757,14 +767,10 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                           const isLivingRoom = tv.entityId === 'media_player.living_room_tv';
                           return (
                             <div key={tv.entityId} className='qa-media-item'>
-                              <div className='qa-media-identity'>
-                                <div className='qa-media-label'>
-                                  <Icon icon='mdi:television' />
-                                  <span className='qa-media-label-text'>{tv.name}</span>
-                                </div>
-                              </div>
                               {isBedroom && (
                                 <TVCard
+                                  name={tv.name}
+                                  embedded
                                   entityId={tv.entityId}
                                   entities={entities}
                                   hassUrl={hassUrl}
@@ -776,6 +782,8 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
                               )}
                               {isLivingRoom && (
                                 <TVCard
+                                  name={tv.name}
+                                  embedded
                                   entityId={tv.entityId}
                                   entities={entities}
                                   hassUrl={hassUrl}

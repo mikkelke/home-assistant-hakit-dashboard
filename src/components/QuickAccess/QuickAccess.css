@@ -83,6 +83,11 @@
   position: relative;
 }
 
+/* A sheet is open: the dock sits behind its scrim and would show through it. */
+.quick-access.is-covered {
+  visibility: hidden;
+}
+
 .qa-overlay {
   position: fixed;
   inset: 0;
@@ -95,13 +100,13 @@
 }
 
 .qa-modal {
-  background: #0f1117;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.9rem;
-  width: min(640px, 90vw);
-  max-height: 90vh;
+  background: #1c1c1e;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+  width: min(560px, 100%);
+  max-height: 85vh;
   overflow-y: auto;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
   /* Same scroll/touch pattern as RoomGrid and RoomDetail for HA companion */
@@ -110,19 +115,20 @@
   overscroll-behavior: contain;
 }
 
+/* The weather card is its own surface, so its frame only gives it the sheet's width and shadow. */
 .qa-modal.weather {
-  width: min(1000px, 90vw);
-  max-height: 85vh;
-  max-width: 90vw;
   background: transparent;
   border: none;
-  box-shadow: none;
-  border-radius: 24px;
 }
 
-.qa-modal-body.weather,
-.qa-modal-body.weather .quick-weather-wrapper {
-  padding: 0;
+.qa-modal.intercom {
+  --qa-tone: #f59e0b;
+}
+.qa-modal.media {
+  --qa-tone: #3b82f6;
+}
+.qa-modal.transit {
+  --qa-tone: #34d399;
 }
 
 /* Quick-access close floats outside the sheet: top-right on wide screens, bottom-right at thumb
@@ -151,16 +157,6 @@
   background: rgba(40, 42, 46, 0.95);
 }
 
-.qa-modal.media {
-  width: min(700px, 90vw);
-  max-height: 85vh;
-}
-
-.qa-modal.transit {
-  width: min(480px, 92vw);
-  max-height: 85vh;
-}
-
 /* Alert dot on transit button (no text, just a red circle) */
 .qa-badge--alert {
   background: #ef4444;
@@ -173,35 +169,35 @@
   right: -3px;
 }
 
-/* Larger weather modal on desktop - but keep it compact */
-@media (min-width: 1200px) {
-  .qa-modal.weather {
-    width: min(1100px, 90vw);
-    max-height: 85vh;
-  }
-}
-
-@media (min-width: 1600px) {
-  .qa-modal.weather {
-    width: min(1200px, 90vw);
-    max-height: 85vh;
-  }
-}
-
-@media (min-width: 2000px) {
-  .qa-modal.weather {
-    width: min(1300px, 90vw);
-    max-height: 85vh;
-  }
-}
-
 .qa-modal-header {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.85rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 0.6rem;
+  padding: 1.25rem 1.25rem 0;
+}
+
+.qa-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--qa-tone) 16%, transparent);
+  color: var(--qa-tone);
+}
+.qa-glyph svg {
+  font-size: 1rem;
+}
+
+.qa-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .qa-header-actions {
@@ -210,22 +206,78 @@
   gap: 0.5rem;
 }
 
-.qa-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #e4e4e7;
+/* A header action is one round chip button, as tall as the glyph, with its hit area grown to 44 px. */
+.qa-add-speaker-icon-btn,
+.info-refresh-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface-chip);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, opacity 0.2s, transform 120ms var(--ease-out);
+}
+
+.qa-add-speaker-icon-btn::before,
+.info-refresh-btn::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+
+.qa-add-speaker-icon-btn svg,
+.info-refresh-btn svg {
+  font-size: 1.1rem;
+}
+
+.qa-add-speaker-icon-btn:active:not(:disabled),
+.info-refresh-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .qa-add-speaker-icon-btn:hover:not(:disabled),
+  .info-refresh-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-1);
+  }
+}
+
+.info-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.info-refresh-btn.spinning svg {
+  animation: transit-spin 0.8s linear infinite;
+}
+
+@keyframes transit-spin {
+  to { transform: rotate(360deg); }
 }
 
 .qa-modal-body {
-  padding: 1rem;
+  padding: 0.9rem 1.25rem 1.25rem;
 }
 
-.qa-modal-body.intercom .intercom-card {
-  background: transparent;
-  border: none;
-  box-shadow: none;
+.qa-modal-body.weather {
   padding: 0;
-  margin: 0;
+}
+
+@media (max-width: 480px) {
+  .qa-modal-header {
+    padding: 0.9rem 0.9rem 0;
+  }
+  .qa-modal-body {
+    padding: 0.75rem 0.9rem 0.9rem;
+  }
 }
 
 /* Media content styles */
@@ -284,24 +336,13 @@
   height: 10px;
   border-radius: 50%;
   background: #22c55e;
-  border: 1.5px solid #0f1117;
+  border: 1.5px solid #1c1c1e;
 }
 
 .qa-media-section {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-}
-
-.qa-section-title {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #a1a1aa;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 /* Media list styles */
@@ -378,85 +419,6 @@
   flex-shrink: 0;
 }
 
-.qa-media-item .tv-card {
-  margin-bottom: 0;
-}
-
-.qa-unavailable-badge {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
-  font-size: 0.7rem;
-  font-weight: 600;
-  padding: 0.2rem 0.4rem;
-  border-radius: 0.3rem;
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  flex-shrink: 0;
-}
-
-.qa-empty-state {
-  text-align: center;
-  color: #71717a;
-  padding: 2rem 1rem;
-  font-size: 0.9rem;
-}
-
-/* Quick Start Styles */
-.qa-quick-start-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.qa-quick-start-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.qa-quick-start-label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #e4e4e7;
-  margin-bottom: 0.25rem;
-}
-
-.qa-speaker-quick-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.qa-speaker-quick-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  background: rgba(24, 25, 28, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.5rem;
-  color: #e4e4e7;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, transform 0.2s, opacity 0.2s;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .qa-speaker-quick-btn:hover:not(:disabled) {
-    background: rgba(59, 130, 246, 0.15);
-    border-color: rgba(59, 130, 246, 0.3);
-    transform: translateY(-1px);
-  }
-}
-
-.qa-speaker-quick-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.qa-speaker-quick-btn svg {
-  font-size: 1rem;
-}
-
 /* Speaker list - compact lines */
 .qa-speaker-list {
   display: flex;
@@ -516,53 +478,6 @@
   }
 }
 
-/* Add Speaker Icon Button in Header */
-.qa-add-speaker-icon-btn {
-  position: relative;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(59, 130, 246, 0.15);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  border-radius: 0.4rem;
-  color: #3b82f6;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, transform 120ms var(--ease-out);
-}
-
-.qa-add-speaker-icon-btn:active {
-  transform: scale(0.97);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .qa-add-speaker-icon-btn:hover {
-    background: rgba(59, 130, 246, 0.25);
-    border-color: rgba(59, 130, 246, 0.4);
-  }
-}
-
-.qa-add-speaker-icon-btn svg:first-child {
-  font-size: 1.1rem;
-}
-
-.qa-plus-icon-small {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  font-size: 0.65rem !important;
-  background: rgba(59, 130, 246, 0.9);
-  color: white;
-  border-radius: 50%;
-  width: 0.75rem;
-  height: 0.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1.5px solid #0f1117;
-}
-
 /* Back button */
 .qa-back-button {
   display: flex;
@@ -606,215 +521,16 @@
   flex: 1;
 }
 
-.qa-quick-start-header {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
 .quick-weather-wrapper {
   display: flex;
   justify-content: center;
-  padding: 0.5rem;
   width: 100%;
-}
-
-.qa-podcast-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.qa-podcast-card {
-  background: rgba(24, 25, 28, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.75rem;
-  padding: 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.qa-podcast-header {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-}
-
-.qa-podcast-cover {
-  width: 48px;
-  height: 48px;
-  border-radius: 0.4rem;
-  object-fit: cover;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.qa-podcast-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-
-.qa-podcast-title {
-  font-weight: 600;
-  color: #e4e4e7;
-}
-
-.qa-podcast-target {
-  font-size: 0.8rem;
-  color: #a1a1aa;
-}
-
-.qa-podcast-episodes {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.qa-podcast-episode {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.55rem 0.65rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.6rem;
-  color: #e4e4e7;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .qa-podcast-episode:hover {
-    background: rgba(255, 255, 255, 0.08);
-  }
-}
-
-.qa-podcast-episode-cover {
-  width: 40px;
-  height: 40px;
-  border-radius: 0.35rem;
-  object-fit: cover;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.qa-podcast-episode-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.05rem;
-  min-width: 0;
-}
-
-.qa-podcast-episode-title {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #e4e4e7;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.qa-podcast-episode-sub {
-  font-size: 0.8rem;
-  color: #a1a1aa;
-}
-
-.qa-podcast-play {
-  font-size: 1.1rem;
-  color: #3b82f6;
 }
 
 /* QuickWeatherCard layout is defined in Weather/QuickWeatherCard.css - do not override flex/display here */
 .quick-weather-wrapper .quick-weather-card {
   width: 100%;
   max-width: 100%;
-}
-
-.qa-browse {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.qa-browse-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-weight: 600;
-  color: #e4e4e7;
-}
-
-.qa-browse-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.5rem;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 0.4rem;
-  color: #e4e4e7;
-  cursor: pointer;
-}
-
-.qa-browse-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.qa-browse-item {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 0.5rem;
-  align-items: center;
-  padding: 0.5rem 0.65rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.6rem;
-}
-
-.qa-browse-thumb {
-  width: 40px;
-  height: 40px;
-  border-radius: 0.35rem;
-  object-fit: cover;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.qa-browse-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.qa-browse-title {
-  color: #e4e4e7;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.qa-browse-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.qa-btn {
-  width: 32px;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 0.45rem;
-  color: #e4e4e7;
-  cursor: pointer;
 }
 
 @media (max-width: 600px) {
@@ -834,64 +550,14 @@
     width: 1.3rem;
     height: 1.3rem;
   }
+  /* The sheet is centred and the floating close sits at the bottom: leave its 48 px and a gap under the sheet, and the same over it. */
   .qa-modal {
-    width: 100%;
-    max-height: 92vh;
-  }
-  .qa-modal.weather {
-    width: 100%;
-    max-height: 92vh;
-    min-height: 0;
+    max-height: calc(100vh - 2 * (56px + max(1.25rem, env(safe-area-inset-bottom))));
   }
   .qa-floating-close {
     top: auto;
     bottom: max(1.25rem, env(safe-area-inset-bottom));
   }
-}
-
-/* ── Transit refresh button ───────────────────────────────── */
-.info-refresh-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.4rem;
-  color: #a1a1aa;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, transform 120ms var(--ease-out);
-}
-
-.info-refresh-btn:active:not(:disabled) {
-  transform: scale(0.97);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .info-refresh-btn:hover:not(:disabled) {
-    background: rgba(59, 130, 246, 0.15);
-    border-color: rgba(59, 130, 246, 0.3);
-    color: #3b82f6;
-  }
-}
-
-.info-refresh-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.info-refresh-btn.spinning svg {
-  animation: transit-spin 0.8s linear infinite;
-}
-
-@keyframes transit-spin {
-  to { transform: rotate(360deg); }
-}
-
-/* ── Transit modal body ───────────────────────────────────── */
-.qa-modal-body.transit {
-  padding: 0.75rem 1rem;
 }
 
 .info-transit-list {
@@ -1159,11 +825,6 @@
   color: #f97316;
 }
 
-.info-transit-last-checked {
-  font-size: 0.65rem;
-  color: #3f3f46;
-}
-
 .info-transit-global-checked {
   margin-left: auto;
   display: flex;
@@ -1343,13 +1004,4 @@
   color: #ff9f0a;
   font-size: 13px;
   line-height: 1.4;
-}
-
-/* Phone: room below each sheet's content so its end scrolls clear of the floating close. */
-@media (max-width: 600px) {
-  .qa-modal-body,
-  .qa-modal-body.weather,
-  .qa-modal-body.transit {
-    padding-bottom: 4.5rem;
-  }
 }

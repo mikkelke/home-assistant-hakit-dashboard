@@ -182,11 +182,11 @@ describe('a sheet', () => {
     expect(dialogName()).toBe(name);
   });
 
-  it('opened from the access panel names its dialog Apartment access', async () => {
+  it('opened from the access panel names its dialog Access', async () => {
     await show();
     await click('[title="Access"]');
     await click('[aria-label="Open the access panel"]');
-    expect(dialogName()).toBe('Apartment access');
+    expect(dialogName()).toBe('Access');
   });
 
   it('closes by going back in history, from the floating button as from the scrim', async () => {
@@ -197,6 +197,52 @@ describe('a sheet', () => {
       expect(pick('.qa-overlay')).toBeNull();
     }
     expect(back()).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('the sheet frame', () => {
+  const iconOf = (selector: string) => pick(selector)?.getAttribute('data-icon');
+  const dockIsCovered = () => pick('.quick-access')?.classList.contains('is-covered');
+
+  it.each([
+    ['Media controls', 'Media'],
+    ['Transit', 'Transit'],
+  ])("opened from the %s button is headed by that button's icon and the name %s", async (title, name) => {
+    await show();
+    await click(`[title="${title}"]`);
+    expect(iconOf('.qa-modal-header .qa-glyph i')).toBe(iconOf(`.quick-access [title="${title}"] i`));
+    expect(pick('.qa-modal-header .qa-title')?.textContent).toBe(name);
+  });
+
+  it("opened from the access panel is headed by the Access button's icon and the name Access", async () => {
+    await show();
+    await click('[title="Access"]');
+    await click('[aria-label="Open the access panel"]');
+    expect(iconOf('.qa-modal-header .qa-glyph i')).toBe(iconOf('.quick-access [title="Access"] i'));
+    expect(pick('.qa-modal-header .qa-title')?.textContent).toBe('Access');
+  });
+
+  it('leaves the weather sheet to the header of its own card', async () => {
+    await show();
+    await click('[title="Open weather"]');
+    await vi.waitFor(() => expect(pick('.quick-weather-card')).not.toBeNull());
+    expect(pick('.qa-modal-header')).toBeNull();
+  });
+
+  it('covers the dock while a sheet is open, and uncovers it when the sheet closes', async () => {
+    await show();
+    expect(dockIsCovered()).toBe(false);
+    await click('[title="Media controls"]');
+    expect(dockIsCovered()).toBe(true);
+    await goBack();
+    expect(dockIsCovered()).toBe(false);
+  });
+
+  it('keeps the dock in view for the doors popover that stands on it', async () => {
+    await show();
+    await click('[title="Access"]');
+    expect(pick('.qa-doors')).not.toBeNull();
+    expect(dockIsCovered()).toBe(false);
   });
 });
 

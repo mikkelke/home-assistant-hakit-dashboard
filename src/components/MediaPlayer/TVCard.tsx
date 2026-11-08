@@ -12,6 +12,10 @@ import './TVCard.css';
 
 interface TVCardProps {
   entityId: string;
+  /** The card's title; the room panel's card is just "TV". */
+  name?: string;
+  /** Flat, without the card's own surface: for a sheet that already is the card (the Quick Access media sheet). */
+  embedded?: boolean;
   entities: HassEntities;
   hassUrl: string | null;
   callService: CallServiceFunction | undefined;
@@ -57,6 +61,8 @@ const hasAvailableSourceState = (entity: HassEntities[string] | null | undefined
 
 export function TVCard({
   entityId,
+  name = 'TV',
+  embedded = false,
   entities,
   hassUrl: _hassUrl,
   callService,
@@ -454,7 +460,7 @@ export function TVCard({
   };
 
   return (
-    <div className='tv-card'>
+    <div className={`tv-card ${embedded ? 'is-embedded' : ''}`}>
       <div className='tv-header'>
         <div
           className='tv-header-toggle'
@@ -479,7 +485,7 @@ export function TVCard({
           <span className='tv-glyph'>
             <Icon icon='mdi:television' aria-hidden='true' />
           </span>
-          <span className='tv-title'>TV</span>
+          <span className='tv-title'>{name}</span>
           <span className={`tv-word ${headerValueTone}`}>{headerValue}</span>
         </div>
 
