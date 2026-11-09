@@ -318,3 +318,77 @@ describe('the sheet of a ring that has just rung', () => {
     expect(sheet()?.querySelector('video')).not.toBeNull();
   });
 });
+
+describe('the sheet of a ring whose visitor rang again', () => {
+  const C1 = 'abb_ringclip_20261013_145112_100000002.mp4';
+  const C2 = 'abb_ringclip_20261013_145130_100000002.mp4';
+  const C3 = 'abb_ringclip_20261013_145148_100000002.mp4';
+  const path = (name: string) => `/media/local/abb_doorbell/${name}`;
+  const clip = (name: string) => ({ filename: name, url: path(name) });
+  const THREE = { clip_filename: C3, clip_url: path(C3), clips: [clip(C1), clip(C2), clip(C3)] };
+
+  /** The sheet of the fixture's newest ring, whose archive entry has `media` laid over the plain one. */
+  async function openRing(media: object) {
+    ha = archiveConnection({ doorbell_archive_index: { images: [{ ...ARCHIVE.images[0], ...media }] } });
+    store.setState({ connection: ha.connection });
+    await open({ arrival: 'cold' });
+    await act(async () => ringRow(rings[0].id)!.click());
+    await settle();
+  }
+
+  const videos = () => [...(sheet()?.querySelectorAll('video') ?? [])];
+  const tags = () => [...(sheet()?.querySelector('.doorbell-media')?.children ?? [])].map(child => child.tagName);
+
+  it('shows every clip, oldest first, each under its ring and time, waiting for a tap', async () => {
+    await openRing(THREE);
+    expect(videos().map(video => video.getAttribute('src')?.split('?')[0])).toEqual([path(C1), path(C2), path(C3)]);
+    expect(videos().every(video => video.getAttribute('src')?.endsWith('#t=0.1'))).toBe(true);
+    expect(videos().every(video => video.hasAttribute('controls') && !video.hasAttribute('autoplay'))).toBe(true);
+    expect([...sheet()!.querySelectorAll('figcaption')].map(caption => caption.textContent)).toEqual([
+      'Ring 1 · 14:51:12',
+      'Ring 2 · 14:51:30',
+      'Ring 3 · 14:51:48',
+    ]);
+    expect(ha.signedPaths().sort()).toEqual([path(C1), path(C2), path(C3)]);
+    expect(sheet()?.textContent).not.toContain('No photo');
+  });
+
+  it('keeps the photo beneath the last clip', async () => {
+    await openRing({ ...THREE, filename: 'photo.jpg', url: path('photo.jpg') });
+    expect(tags()).toEqual(['FIGURE', 'FIGURE', 'FIGURE', 'IMG']);
+    expect(sheet()?.querySelector('.doorbell-media > img')?.className).toBe('doorbell-media-still');
+  });
+
+  it('shows a ring with one clip as it always did: the bare video, no caption', async () => {
+    await openRing({ clip_filename: C1, clip_url: path(C1), clips: [clip(C1)] });
+    expect(tags()).toEqual(['VIDEO']);
+    expect(sheet()?.querySelector('.doorbell-media')?.className).toBe('doorbell-media');
+    expect(sheet()?.querySelector('figcaption')).toBeNull();
+    expect(videos()[0].getAttribute('src')).toBe(`${path(C1)}?authSig=1#t=0.1`);
+
+    act(() => root.unmount());
+    document.body.innerHTML = '';
+    root = createRoot(document.createElement('div'));
+    await openRing({ filename: 'photo.jpg', url: path('photo.jpg'), clip_filename: C1, clip_url: path(C1), clips: [clip(C1)] });
+    expect(tags()).toEqual(['VIDEO', 'IMG']);
+    expect(sheet()?.querySelector('figcaption')).toBeNull();
+  });
+
+  it('shows the one clip of an entry from before the bridge listed them', async () => {
+    await openRing({ clip_filename: 'clip.mp4', clip_url: path('clip.mp4') });
+    expect(tags()).toEqual(['VIDEO']);
+    expect(videos()[0].getAttribute('src')).toBe(`${path('clip.mp4')}?authSig=1#t=0.1`);
+    expect(sheet()?.querySelector('figcaption')).toBeNull();
+  });
+
+  it('shows the listed clips of an entry that has no clip_url', async () => {
+    await openRing({ clip_filename: '', clip_url: '', clips: [clip(C1), clip(C2)] });
+    expect(videos()).toHaveLength(2);
+    expect(sheet()?.textContent).not.toContain('No photo');
+  });
+
+  it('captions a clip by its number alone when the filename has no clock time', async () => {
+    await openRing({ clip_filename: 'b.mp4', clip_url: path('b.mp4'), clips: [clip('a.mp4'), clip('b.mp4')] });
+    expect([...sheet()!.querySelectorAll('figcaption')].map(caption => caption.textContent)).toEqual(['Ring 1', 'Ring 2']);
+  });
+});

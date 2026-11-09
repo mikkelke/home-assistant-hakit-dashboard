@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
 import type { HouseEpisode } from '../../home/houseEvents';
 import { DoorbellMedia, DoorbellViewer } from './DoorbellGallery';
-import { fetchDoorbellIndex, formatRingTime, type DoorbellImage } from './doorbellArchive';
+import { fetchDoorbellIndex, formatRingTime, ringClips, type DoorbellImage } from './doorbellArchive';
 import { matchRingEntry, ringEntryMayArrive } from './ringMatch';
 import './RingSheet.css';
 
@@ -15,8 +15,8 @@ interface IndexRead {
   waiting: boolean;
 }
 
-/** Who rang, for one doorbell episode of the house feed: the archive's snapshot and clip of that ring, else a
- * plain "no photo" rather than the nearest other ring. A fresh ring waits for its entry first. */
+/** Who rang, for one doorbell episode of the house feed: the archive's snapshot and clips of that ring (one clip per
+ * ring of the visit), else a plain "no photo" rather than the nearest other ring. A fresh ring waits for its entry first. */
 export default function RingSheet({ episode, onClose }: { episode: HouseEpisode; onClose: () => void }) {
   const first = episode.rows[0];
   const cause = first.cause ?? first.text;
@@ -51,7 +51,7 @@ export default function RingSheet({ episode, onClose }: { episode: HouseEpisode;
   const when = formatRingTime(ring ?? { datetime: new Date(episode.startMs).toISOString(), ts: '' });
   return (
     <DoorbellViewer door={ring?.door} eventType={ring?.event_type} when={when} historyKey='ring-photo' onClose={onClose}>
-      {read == null ? null : ring && (ring.url || ring.clip_url) ? (
+      {read == null ? null : ring && (ring.url || ringClips(ring).length > 0) ? (
         <DoorbellMedia image={ring} autoPlay={false} />
       ) : read.waiting ? (
         <p className='ring-none' role='status' aria-label='Waiting for the ring photo'>

@@ -4,7 +4,7 @@ import { Icon } from '@iconify/react';
 import { useModalBackButton, useSwipeToClose } from '../../hooks';
 import { useSignedArchiveUrl } from '../../hooks/useArchiveMedia';
 import { ArchiveImage, ArchiveVideo } from '../Archive/ArchiveMedia';
-import { doorWord, formatRingTime, outcomeTag, type DoorbellImage } from './doorbellArchive';
+import { clipLabel, doorWord, formatRingTime, outcomeTag, ringClips, type DoorbellClip, type DoorbellImage } from './doorbellArchive';
 import './IntercomCard.css';
 
 // "Who rang" - the doorbell snapshot archive as a sheet. Portaled to <body> like the Rober2
@@ -71,24 +71,36 @@ export function DoorbellViewer({
  * starts at the recording dial, so the pair is who-rang plus what-happened on one
  * screen. Clip-only entries show the video alone; photo-only entries the still.
  *
+ * A visitor who rang again has a clip per ring: all of them, oldest first, each under
+ * its own caption, and the still beneath the last. Only the first autoplays.
+ *
  * Without autoPlay the clip waits for a tap and shows its own first frame meanwhile:
- * #t=0.1 makes Safari paint one. Both files are signed when the viewer opens. */
+ * #t=0.1 makes Safari paint one. Every file is signed when the viewer opens. */
 export function DoorbellMedia({ image, autoPlay }: { image: DoorbellImage; autoPlay: boolean }) {
   const still = useSignedArchiveUrl(image.url || undefined);
   const stillImg = (className: string | undefined, alt: string) => (
     <img className={className} src={still.src} onError={still.onError} onLoad={still.onLoad} alt={alt} />
   );
-  return image.clip_url ? (
-    <div className='doorbell-media'>
-      {autoPlay ? (
-        <ArchiveVideo path={image.clip_url} controls autoPlay playsInline poster={still.src} />
-      ) : (
-        <ArchiveVideo path={image.clip_url} fragment='#t=0.1' controls playsInline preload='metadata' />
-      )}
+  const clips = ringClips(image);
+  const video = (clip: DoorbellClip, play: boolean) =>
+    play ? (
+      <ArchiveVideo path={clip.url} controls autoPlay playsInline poster={still.src} />
+    ) : (
+      <ArchiveVideo path={clip.url} fragment='#t=0.1' controls playsInline preload='metadata' />
+    );
+  if (clips.length === 0) return stillImg(undefined, `Ring at the ${image.door || 'door'}, ${formatRingTime(image)}`);
+  return (
+    <div className={clips.length > 1 ? 'doorbell-media doorbell-media--clips' : 'doorbell-media'}>
+      {clips.length === 1
+        ? video(clips[0], autoPlay)
+        : clips.map((clip, i) => (
+            <figure key={clip.url} className='doorbell-clip'>
+              <figcaption>{clipLabel(i + 1, clip)}</figcaption>
+              {video(clip, autoPlay && i === 0)}
+            </figure>
+          ))}
       {image.url && stillImg('doorbell-media-still', `Ring moment at the ${image.door || 'door'}, ${formatRingTime(image)}`)}
     </div>
-  ) : (
-    stillImg(undefined, `Ring at the ${image.door || 'door'}, ${formatRingTime(image)}`)
   );
 }
 

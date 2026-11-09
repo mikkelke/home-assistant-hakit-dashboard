@@ -6,6 +6,13 @@ import { readArchiveIndex } from '../../utils/haArchive';
 
 export type DoorbellEventType = 'ring_auto_opened' | 'ring_missed' | 'ring_answered' | 'ring';
 
+export type DoorbellClip = {
+  /** Clip filename, abb_ringclip_YYYYmmdd_HHMMSS_<station>.mp4. */
+  filename: string;
+  /** Clip path (h264 mp4), /media/local/... */
+  url: string;
+};
+
 export type DoorbellImage = {
   /** Filename timestamp, YYYYmmdd_HHMMSS. */
   ts: string;
@@ -20,11 +27,30 @@ export type DoorbellImage = {
   filename: string;
   /** Snapshot path, /media/local/... - "" for a clip-only entry; the tile renders a video placeholder then. */
   url: string;
-  /** Video clip filename, if the bridge recorded one for this ring. Absent or "" = no clip. */
+  /** The latest video clip's filename, if the bridge recorded one for this ring. Absent or "" = no clip. */
   clip_filename?: string;
-  /** Video clip path (h264 mp4), like `url`. Absent or "" = no clip. */
+  /** The latest video clip's path (h264 mp4), like `url`. Absent or "" = no clip. */
   clip_url?: string;
+  /** Every clip of the ring, oldest first: a visitor who rings again brings another. Absent on entries from before the
+   * bridge kept them all, whose `clip_url` is their only clip - read both through `ringClips`. */
+  clips?: DoorbellClip[];
 };
+
+/** The clips of one ring, oldest first: the entry's `clips`, else its single `clip_url`. Entries with neither have none. */
+export function ringClips(image: Pick<DoorbellImage, 'clips' | 'clip_filename' | 'clip_url'>): DoorbellClip[] {
+  const listed = Array.isArray(image.clips) ? image.clips.filter(clip => typeof clip?.url === 'string' && clip.url !== '') : [];
+  if (listed.length > 0) return listed.map(clip => ({ filename: clip.filename ?? '', url: clip.url }));
+  return image.clip_url ? [{ filename: image.clip_filename ?? '', url: image.clip_url }] : [];
+}
+
+const CLIP_START = /^abb_(?:ring)?clip_\d{8}_([01]\d|2[0-3])([0-5]\d)([0-5]\d)[_.]/;
+
+/** The caption of a ring's `number`th clip (counting from 1): "Ring 2 · 10:47:58" when the filename carries the clip's
+ * start (house wall clock, read as written and never converted), else "Ring 2". */
+export function clipLabel(number: number, clip: DoorbellClip): string {
+  const start = CLIP_START.exec(clip.filename || clip.url.split('/').pop() || '');
+  return start ? `Ring ${number} · ${start[1]}:${start[2]}:${start[3]}` : `Ring ${number}`;
+}
 
 /** The ring archive index, newest first, with the files' unsigned /media/local paths: whatever shows one signs it
  * (components/Archive). [] while nothing has rung yet; a failed read rejects. */

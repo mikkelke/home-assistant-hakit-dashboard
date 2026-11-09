@@ -674,6 +674,24 @@
   width: auto;
   max-height: 24vh;
 }
+/* One captioned clip per ring, stacked. The stack can outgrow the viewer, and a flex item taller than its centring
+   container loses its top edge where no scroll reaches it; auto margins centre it only while it fits. */
+.doorbell-media--clips {
+  margin: auto;
+  gap: 1rem;
+}
+.doorbell-clip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  max-width: 100%;
+}
+.doorbell-clip figcaption {
+  font-size: 0.78rem;
+  color: var(--text-2);
+}
 .doorbell-photo-content img,
 .doorbell-photo-content video {
   max-width: 100%;

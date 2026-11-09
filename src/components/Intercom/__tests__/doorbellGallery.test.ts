@@ -136,8 +136,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function openGallery() {
-  await act(async () => root.render(createElement(DoorbellGallery, { images: RINGS, onClose: () => {} })));
+async function openGallery(images: DoorbellImage[] = RINGS) {
+  await act(async () => root.render(createElement(DoorbellGallery, { images, onClose: () => {} })));
 }
 
 const tiles = () => [...document.querySelectorAll<HTMLButtonElement>('.doorbell-tile')];
@@ -205,5 +205,38 @@ describe('the who-rang gallery at 2,000 rings', () => {
     await ha.answerAll();
     const both = RINGS[2];
     expect(ha.signedSorted()).toEqual([both.clip_url, both.clip_url, both.url].sort());
+  });
+});
+
+describe('a visit with several rings', () => {
+  it('opens every clip of a visit from its tile, which itself keeps showing the latest one', async () => {
+    const clips = [1, 2, 3].map(n => ({
+      filename: `abb_ringclip_20261013_14511${n}_100000002.mp4`,
+      url: `/media/local/abb_doorbell/abb_ringclip_20261013_14511${n}_100000002.mp4`,
+    }));
+    const visit: DoorbellImage = {
+      ...RINGS[0],
+      filename: '',
+      url: '',
+      clip_filename: clips[2].filename,
+      clip_url: clips[2].url,
+      clips,
+    };
+    await openGallery([visit]);
+    await act(async () => FakeIntersectionObserver.current!.reveal(1));
+    await ha.answerAll();
+    expect(tiles()[0].querySelectorAll('video')).toHaveLength(1);
+    expect(tiles()[0].querySelector('video')?.getAttribute('src')).toMatch(new RegExp(`^${clips[2].url}\\?authSig=\\d#t=0\\.1$`));
+
+    await act(async () => tiles()[0].click());
+    await ha.answerAll();
+    const videos = [...viewer()!.querySelectorAll('video')];
+    expect(videos.map(video => video.getAttribute('src')?.split('?')[0])).toEqual(clips.map(clip => clip.url));
+    expect(videos.map(video => video.hasAttribute('autoplay'))).toEqual([true, false, false]);
+    expect([...viewer()!.querySelectorAll('figcaption')].map(caption => caption.textContent)).toEqual([
+      'Ring 1 · 14:51:11',
+      'Ring 2 · 14:51:12',
+      'Ring 3 · 14:51:13',
+    ]);
   });
 });
