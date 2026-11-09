@@ -6,6 +6,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title>Home Assistant HAKit Dashboard</title>
+    <script>
+      // A cached index.html can outlive the hashed assets it names (HA serves /local with a 31-day max-age and deploys
+      // prune old assets). When one of them fails to load, reload once under a fresh URL so the current index.html is fetched.
+      addEventListener(
+        'error',
+        function (e) {
+          var t = e.target;
+          var url = t && (t.src || t.href);
+          if (!url || url.indexOf('/assets/') < 0) return;
+          var key = 'ha-dashboard:stale-asset-reload';
+          try {
+            var last = Number(sessionStorage.getItem(key));
+            if (last && Date.now() - last < 60000) return;
+            sessionStorage.setItem(key, String(Date.now()));
+          } catch (_) {
+            return;
+          }
+          var next = new URL(location.href);
+          next.searchParams.set('_v', String(Date.now()));
+          location.replace(next.toString());
+        },
+        true
+      );
+    </script>
   </head>
   <body>
     <div id="root"></div>
