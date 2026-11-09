@@ -1111,7 +1111,7 @@ describe('the zone sheet legend', () => {
       'Air: the room air the controller steers by.',
       'Target: what the plan wants right now.',
       'Setpoint: what the thermostat is set to. It can differ from the target to make up for where the thermostat sits and for the weather.',
-      'Floor: the floor surface, the warmer of the two in the family room.',
+      'Floor: the floor surface, living room · dining room. In the chart the dining room is the dashed line. The controller judges the warmer one.',
       "Coloured blocks are the day's plan, with its target.",
       'Mode: holding the plan.',
       'Mode: sun cut.',
@@ -1179,6 +1179,21 @@ describe('what the sheet says about the last signal, the shadow and stale inputs
     const chip = sheet().querySelector('.heat-chips [aria-label="Mikkel turned it up in the app at 06:42"]') as HTMLElement;
     expect(chip.textContent).toBe('Mikkel06:42');
     expect(icons(chip)).toEqual(['mdi:account-outline', 'mdi:arrow-up']);
+  });
+
+  it('shows the floor of each family room in the floor tile', () => {
+    renderPage(
+      zone('family', '22.0', {
+        floor_temp: 23.4,
+        floor_temps: {
+          'sensor.living_room_floor_thermometer_temperature': 23.2,
+          'sensor.dining_room_floor_thermometer_temperature': 23.4,
+        },
+      })
+    );
+    openZone();
+    const family = sheet().querySelector('[aria-label="Floor living room 23.2 °C, dining room 23.4 °C"]');
+    expect(family?.textContent).toBe('23.2 · 23.4');
   });
 
   it('falls back to plain words when the controller could not say who, which way or where', () => {
@@ -1305,6 +1320,7 @@ describe('the day browser in the zone sheet', () => {
     expect(svg).not.toBeNull();
     expect([...svg.querySelectorAll('path.heat-chart-line')].map(path => path.getAttribute('class'))).toEqual([
       'heat-chart-line is-floor',
+      'heat-chart-line is-floor is-second',
       'heat-chart-line is-target',
       'heat-chart-line is-air',
     ]);
@@ -1460,7 +1476,7 @@ describe('the day browser in the zone sheet', () => {
     const callout = () => sheet().querySelector('.chart-callout');
     expect(callout()?.querySelector('.chart-callout-title')?.textContent).toBe('00:02');
     expect(callout()?.querySelector('.chart-callout-primary')?.textContent).toBe('21.0°');
-    expect(callout()?.querySelector('.chart-callout-secondary')?.textContent).toBe('Target 21.5° · Floor 23.0°');
+    expect(callout()?.querySelector('.chart-callout-secondary')?.textContent).toBe('Target 21.5° · Living 23.0° · Dining 22.5°');
     expect(svg.querySelector('.heat-chart-guide')).not.toBeNull();
     act(() => {
       press('pointerdown');

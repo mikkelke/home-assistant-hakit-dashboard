@@ -12,7 +12,7 @@ import {
   daySummary,
   daysBefore,
   fetchZoneDay,
-  highest,
+  floorRoom,
   holdUntil,
   linePath,
   loadZoneDay,
@@ -183,21 +183,6 @@ describe('mergeSeries', () => {
     ]);
   });
 
-  it('takes the warmest floor at every moment', () => {
-    const merged = mergeSeries(
-      [
-        { points: series([1, 23], [5, 25]), weight: 1 },
-        { points: series([2, 24], [6, 22]), weight: 1 },
-      ],
-      highest
-    );
-    expect(merged).toEqual([
-      { ts: 1, value: 23 },
-      { ts: 2, value: 24 },
-      { ts: 5, value: 25 },
-    ]);
-  });
-
   it('drops points that repeat the value, merges equal times, and is empty without readings', () => {
     expect(mergeSeries([{ points: series([1, 21], [2, 21], [3, 22], [4, 22]), weight: 1 }], weightedMean)).toEqual([
       { ts: 1, value: 21 },
@@ -319,6 +304,14 @@ const connectionOf = (answer: (request: Record<string, unknown>) => Promise<unkn
   return { sendMessagePromise: sendMessagePromise as never, requests: sendMessagePromise };
 };
 
+describe('floorRoom', () => {
+  it('names the room a floor thermometer sits in', () => {
+    expect(floorRoom('sensor.living_room_floor_thermometer_temperature')).toBe('Living');
+    expect(floorRoom('sensor.dining_room_floor_thermometer_temperature')).toBe('Dining');
+    expect(floorRoom('sensor.guest_bathroom_floor_thermometer_temperature')).toBe('Guest bathroom');
+  });
+});
+
 describe('fetchZoneDay', () => {
   const yesterday = shiftDay(today, -1);
 
@@ -364,7 +357,7 @@ describe('fetchZoneDay', () => {
     expect(ZONE_FLOORS.family).toHaveLength(2);
   });
 
-  it('turns the answer into calls, a weighted air, a stepped target and the warmest floor', async () => {
+  it('turns the answer into calls, a weighted air, a stepped target and a floor per room', async () => {
     const data = await fetchZoneDay(
       connectionOf(async () => familyHistory()),
       'family',
@@ -384,9 +377,15 @@ describe('fetchZoneDay', () => {
     expect(data.air[0].value).toBeCloseTo((22 * 19 + 21 * 18.5) / 37.5, 9);
     expect(data.air[1].value).toBeCloseTo((23 * 19 + 21 * 18.5) / 37.5, 9);
     expect(data.air[2].value).toBeCloseTo((23 * 19 + 21 * 18.5 + 20 * 18.5) / 56, 9);
-    expect(data.floor).toEqual([
-      { ts: at(0, 0, 4), value: 23.5 },
-      { ts: at(7, 0, 4), value: 24.5 },
+    expect(data.floors).toEqual([
+      {
+        room: 'Living',
+        points: [
+          { ts: at(0, 0, 4), value: 23 },
+          { ts: at(7, 0, 4), value: 24.5 },
+        ],
+      },
+      { room: 'Dining', points: [{ ts: at(0, 0, 4), value: 23.5 }] },
     ]);
   });
 
@@ -398,7 +397,15 @@ describe('fetchZoneDay', () => {
         yesterday,
         yesterday.endMs
       );
-      expect(data).toEqual({ calls: [], air: [], target: [], floor: [] });
+      expect(data).toEqual({
+        calls: [],
+        air: [],
+        target: [],
+        floors: [
+          { room: 'Living', points: [] },
+          { room: 'Dining', points: [] },
+        ],
+      });
     }
   });
 });
@@ -462,7 +469,10 @@ describe('zoneDayView', () => {
     const view = zoneDayView('family', data, yesterday, yesterday.endMs);
     expect(view.air[view.air.length - 1].ts).toBe(yesterday.endMs);
     expect(view.target[view.target.length - 1]).toEqual({ ts: yesterday.endMs, value: 22 });
-    expect(view.floor[view.floor.length - 1]).toEqual({ ts: yesterday.endMs, value: 24.5 });
+    expect(view.floors.map(floor => floor.points[floor.points.length - 1])).toEqual([
+      { ts: yesterday.endMs, value: 24.5 },
+      { ts: yesterday.endMs, value: 23.5 },
+    ]);
     expect(view.segments).toEqual([{ startMs: at(6, 0, 4), endMs: at(7, 30, 4) }]);
     expect(view.spans[0].left).toBeCloseTo(25, 9);
     expect(view.spans[0].width).toBeCloseTo(6.25, 9);
@@ -483,7 +493,7 @@ describe('zoneDayView', () => {
         ],
         air: [{ ts: at(0, 0), value: 21.5 }],
         target: [{ ts: at(0, 0), value: 21.5 }],
-        floor: [],
+        floors: [{ room: 'Living', points: [] }],
       },
       today,
       nowMs
@@ -492,7 +502,7 @@ describe('zoneDayView', () => {
       { ts: at(0, 0), value: 21.5 },
       { ts: nowMs, value: 21.5 },
     ]);
-    expect(view.floor).toEqual([]);
+    expect(view.floors).toEqual([{ room: 'Living', points: [] }]);
     expect(view.segments).toEqual([{ startMs: at(10, 0), endMs: nowMs }]);
     expect(view.summary.hours).toBeCloseTo(1 + 35 / 60, 9);
   });

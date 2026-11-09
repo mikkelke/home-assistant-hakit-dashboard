@@ -101,6 +101,9 @@
   stroke: var(--accent-gold);
   stroke-width: 1;
 }
+.heat-chart-line.is-floor.is-second {
+  stroke-dasharray: 3 3;
+}
 .heat-chart-call {
   fill: var(--heat);
 }

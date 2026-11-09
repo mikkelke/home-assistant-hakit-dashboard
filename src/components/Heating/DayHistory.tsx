@@ -53,7 +53,7 @@ const KEY = [
 ] as const;
 
 function buildPlot(view: ZoneDayView, startMs: number, endMs: number) {
-  const values = [...view.air, ...view.target, ...view.floor].map(point => point.value);
+  const values = [...view.air, ...view.target, ...view.floors.flatMap(floor => floor.points)].map(point => point.value);
   if (values.length === 0) return null;
   const ticks = temperatureTicks(Math.min(...values), Math.max(...values));
   const xFor = (ts: number) => PAD.left + Math.min(1, Math.max(0, (ts - startMs) / (endMs - startMs))) * PLOT_WIDTH;
@@ -65,7 +65,7 @@ function buildPlot(view: ZoneDayView, startMs: number, endMs: number) {
     xFor,
     yFor,
     air: linePath(plotted(view.air)),
-    floor: linePath(plotted(view.floor)),
+    floors: view.floors.map(floor => linePath(plotted(floor.points))),
     target: stepPath(target, target[target.length - 1]?.x ?? PAD.left),
   };
 }
@@ -100,7 +100,14 @@ export function ZoneDayChart({ day, status, view, spans, nowMs }: ZoneDayChartPr
   const scrub = plot && view && scrubTs != null && scrubTs <= readUntil ? scrubTs : null;
   const scrubAir = scrub != null && view ? valueAt(view.air, scrub) : null;
   const scrubTarget = scrub != null && view ? valueAt(view.target, scrub) : null;
-  const scrubFloor = scrub != null && view ? valueAt(view.floor, scrub) : null;
+  const scrubFloors =
+    scrub != null && view
+      ? view.floors.flatMap(floor => {
+          const value = valueAt(floor.points, scrub);
+          if (value == null) return [];
+          return [view.floors.length > 1 ? `${floor.room} ${value.toFixed(1)}°` : `Floor ${value.toFixed(1)}°`];
+        })
+      : [];
   const scrubX = scrub != null && plot ? plot.xFor(scrub) : 0;
 
   return (
@@ -116,11 +123,7 @@ export function ZoneDayChart({ day, status, view, spans, nowMs }: ZoneDayChartPr
             leftPct={(scrubX / VIEW_WIDTH) * 100}
             title={clockOf(new Date(scrub).toISOString()) ?? ''}
             primary={scrubAir == null ? '—' : `${scrubAir.toFixed(1)}°`}
-            secondary={
-              [scrubTarget != null && `Target ${scrubTarget.toFixed(1)}°`, scrubFloor != null && `Floor ${scrubFloor.toFixed(1)}°`]
-                .filter(Boolean)
-                .join(' · ') || null
-            }
+            secondary={[scrubTarget != null && `Target ${scrubTarget.toFixed(1)}°`, ...scrubFloors].filter(Boolean).join(' · ') || null}
             note={callingAt(view.segments, scrub) ? 'Calling for heat' : null}
           />
         )}
@@ -148,7 +151,9 @@ export function ZoneDayChart({ day, status, view, spans, nowMs }: ZoneDayChartPr
               {String(hour).padStart(2, '0')}
             </text>
           ))}
-          <path className='heat-chart-line is-floor' d={plot.floor} />
+          {plot.floors.map((floor, index) => (
+            <path key={index} className={`heat-chart-line is-floor${index > 0 ? ' is-second' : ''}`} d={floor} />
+          ))}
           <path className='heat-chart-line is-target' d={plot.target} />
           <path className='heat-chart-line is-air' d={plot.air} />
           {spans.map(span => (

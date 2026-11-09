@@ -83,8 +83,6 @@ export const weightedMean = (readings: readonly Reading[]): number => {
   return readings.reduce((sum, reading) => sum + reading.value * reading.weight, 0) / total;
 };
 
-export const highest = (readings: readonly Reading[]): number => Math.max(...readings.map(reading => reading.value));
-
 /** One series from several sensors that each hold their value until they change: at every moment any of them changes,
  * the latest readings of those that have started are combined. A sensor that has not read yet leaves the others to
  * carry the value, as the controller's own mean does. Points that repeat the previous value are dropped. */
@@ -191,8 +189,24 @@ export interface ZoneDayData {
   /** The zone's control air: the weighted mean of its feel sensors. */
   air: TempPoint[];
   target: TempPoint[];
-  /** The warmest of the zone's floor thermometers. */
-  floor: TempPoint[];
+  /** One series per floor thermometer, in `ZONE_FLOORS` order. */
+  floors: FloorSeries[];
+}
+
+export interface FloorSeries {
+  /** The room the thermometer sits in: "Living" for sensor.living_room_floor_thermometer_temperature. */
+  room: string;
+  points: TempPoint[];
+}
+
+/** The room of a floor thermometer, short: "Living", "Guest bathroom". */
+export function floorRoom(entityId: string): string {
+  const name = entityId
+    .slice(entityId.indexOf('.') + 1)
+    .replace(/_floor_thermometer_temperature$/, '')
+    .replace(/_room$/, '')
+    .replace(/_/g, ' ');
+  return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
 export const zoneDayEntities = (zone: HeatingZone): string[] => [
@@ -227,10 +241,7 @@ export async function fetchZoneDay(
       weightedMean
     ),
     target: changesOnly(series(zoneSensorId(zone))),
-    floor: mergeSeries(
-      ZONE_FLOORS[zone].map(entityId => ({ points: series(entityId), weight: 1 })),
-      highest
-    ),
+    floors: ZONE_FLOORS[zone].map(entityId => ({ room: floorRoom(entityId), points: changesOnly(series(entityId)) })),
   };
 }
 
@@ -239,7 +250,8 @@ const finishedDays = new Map<string, Promise<ZoneDayData>>();
 
 export const clearZoneDayCache = () => finishedDays.clear();
 
-const isBlank = (data: ZoneDayData) => !data.calls.length && !data.air.length && !data.target.length && !data.floor.length;
+const isBlank = (data: ZoneDayData) =>
+  !data.calls.length && !data.air.length && !data.target.length && data.floors.every(floor => !floor.points.length);
 
 /** `fetchZoneDay` for a day that is over, remembered because it cannot change; a failed or empty read is not. A day
  * still running is read up to `nowMs` every time. */
@@ -274,7 +286,7 @@ export function loadZoneDay(
 export interface ZoneDayView {
   air: TempPoint[];
   target: TempPoint[];
-  floor: TempPoint[];
+  floors: FloorSeries[];
   segments: CallSegment[];
   spans: CallSpan[];
   summary: DaySummary;
@@ -289,7 +301,7 @@ export function zoneDayView(zone: HeatingZone, data: ZoneDayData, day: LocalDay,
   return {
     air,
     target: holdUntil(data.target, end),
-    floor: holdUntil(data.floor, end),
+    floors: data.floors.map(floor => ({ room: floor.room, points: holdUntil(floor.points, end) })),
     segments,
     spans: callSpans(segments, day),
     summary: daySummary(zone, data.calls.length > 0 ? segments : null, air),

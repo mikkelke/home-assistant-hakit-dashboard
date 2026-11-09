@@ -8,6 +8,7 @@ import { localDay, type CallSpan } from '../../utils/heatCalls';
 import { KW_FIT } from '../../utils/heatEnergy';
 import {
   blockIcons,
+  floorReadings,
   heatBool,
   heatList,
   heatNum,
@@ -18,6 +19,7 @@ import {
   zoneSensorId,
   zoneTargetHelperId,
   type DayBlock,
+  type FloorReading,
   type HeatingZone,
 } from '../../utils/heating';
 import { ApplianceSheet } from '../Appliance';
@@ -75,10 +77,26 @@ function DayStrip({ blocks, calls, nowMs }: { blocks: DayBlock[]; calls: CallSpa
   );
 }
 
-function Tile({ icon, value, label, className }: { icon: string; value: number | null; label: string; className?: string }) {
+interface TileProps {
+  icon: string;
+  label: string;
+  /** One reading, or one per room for a zone with a thermometer in each. */
+  value: number | null | readonly FloorReading[];
+  className?: string;
+}
+
+function Tile({ icon, value, label, className }: TileProps) {
+  const readings = Array.isArray(value) ? (value as readonly FloorReading[]) : null;
+  const single = readings ? null : (value as number | null);
+  const shown = readings ? readings.map(reading => reading.tempC.toFixed(1)).join(' · ') : single == null ? '—' : single.toFixed(1);
+  const spoken = readings
+    ? readings.map(reading => `${reading.room} ${reading.tempC.toFixed(1)} °C`).join(', ')
+    : single == null
+      ? 'unknown'
+      : `${single.toFixed(1)} °C`;
   return (
-    <div className='heat-tile' aria-label={`${label} ${value == null ? 'unknown' : `${value.toFixed(1)} °C`}`}>
-      <span className={`heat-tile-value ${className ?? ''}`}>{value == null ? '—' : value.toFixed(1)}</span>
+    <div className='heat-tile' aria-label={`${label} ${spoken}`}>
+      <span className={`heat-tile-value ${className ?? ''}`}>{shown}</span>
       <Icon className='heat-tile-icon' icon={icon} aria-hidden='true' />
     </div>
   );
@@ -101,7 +119,10 @@ function sheetLegend(zone: HeatingZone, isToday: boolean, modes: readonly string
     },
     {
       icon: 'mdi:heat-wave',
-      text: zone === 'family' ? 'Floor: the floor surface, the warmer of the two in the family room.' : 'Floor: the floor surface.',
+      text:
+        zone === 'family'
+          ? 'Floor: the floor surface, living room · dining room. In the chart the dining room is the dashed line. The controller judges the warmer one.'
+          : 'Floor: the floor surface.',
     },
   ];
   if (isToday) {
@@ -146,6 +167,7 @@ export function HeatZoneSheet({ zone, entities, callService, calls = [], onClose
   const meta = ZONE_META[zone];
   const sensor = entities[zoneSensorId(zone)];
   const attrs = sensor?.attributes ?? {};
+  const floors = floorReadings(attrs.floor_temps);
   const { airC, tone } = zoneAir(entities, zone);
   const nowMs = useNowMs();
   const [infoOpen, setInfoOpen] = useState(false);
@@ -220,7 +242,7 @@ export function HeatZoneSheet({ zone, entities, callService, calls = [], onClose
           <Tile icon='mdi:home-thermometer-outline' label='Air' value={airC} className='is-tone' />
           <Tile icon='mdi:target' label='Target' value={heatNum(sensor?.state)} />
           <Tile icon='mdi:radiator' label='Setpoint' value={heatNum(attrs.setpoint_now)} className='is-heat' />
-          <Tile icon='mdi:heat-wave' label='Floor' value={heatNum(attrs.floor_temp)} />
+          <Tile icon='mdi:heat-wave' label='Floor' value={floors.length > 1 ? floors : heatNum(attrs.floor_temp)} />
         </div>
 
         <section className='heat-sheet-section'>
