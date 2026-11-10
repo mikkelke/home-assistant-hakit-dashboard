@@ -2,6 +2,7 @@ import { test } from '@playwright/test';
 import { createHouse } from './fixtures/house';
 import { coffeeFlows } from './flows/coffee';
 import { cookFlows } from './flows/cook';
+import { deliveryFlows } from './flows/delivery';
 import { energyFlows } from './flows/energy';
 import { homeFlows } from './flows/home';
 import { overlayFlows } from './flows/overlays';
@@ -20,6 +21,7 @@ const FLOWS: Flow[] = [
   ...pageFlows,
   ...coffeeFlows,
   ...cookFlows,
+  ...deliveryFlows,
   ...stateFlows,
 ];
 

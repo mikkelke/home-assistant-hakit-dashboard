@@ -1,0 +1,264 @@
+/* The delivery sheet's body, on the quick-access sheet's surface: one card per delivery on its way, then the parcels
+   still days away as rows. Sky, gold for a delivery that is arriving. */
+.dl-body {
+  --dl-tone: var(--accent-sky);
+  display: flex;
+  flex-direction: column;
+  color: var(--text-1);
+}
+
+.dl-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.dl-card + .dl-card {
+  margin-top: 0.4rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line);
+}
+
+.dl-card.is-now {
+  --dl-tone: var(--accent-gold);
+}
+
+.dl-head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.dl-disc {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--dl-tone) 16%, transparent);
+  color: var(--dl-tone);
+}
+
+.dl-disc svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.dl-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dl-name b {
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-name small {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.dl-hero {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.dl-hero strong {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-hero span {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-rail {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 16px 0 4px;
+}
+
+.dl-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  text-align: center;
+}
+
+.dl-step::before {
+  content: '';
+  position: absolute;
+  top: 13px;
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--line);
+}
+
+.dl-step:first-child::before {
+  display: none;
+}
+
+.dl-step.is-done::before,
+.dl-step.is-now::before {
+  background: color-mix(in srgb, var(--dl-tone) 55%, transparent);
+}
+
+.dl-dot {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #1c1c1e;
+  border: 1.5px solid var(--line);
+  color: var(--text-3);
+}
+
+.dl-dot svg {
+  width: 14px;
+  height: 14px;
+}
+
+.dl-step.is-done .dl-dot {
+  background: color-mix(in srgb, var(--dl-tone) 16%, #1c1c1e);
+  border-color: transparent;
+  color: var(--dl-tone);
+}
+
+.dl-step.is-now .dl-dot {
+  background: var(--dl-tone);
+  border-color: var(--dl-tone);
+  color: #1c1c1e;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--dl-tone) 22%, transparent);
+}
+
+.dl-step b {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.dl-step.is-now b {
+  color: var(--text-1);
+}
+
+.dl-rows {
+  list-style: none;
+  margin-top: 0.6rem;
+}
+
+.dl-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  border-top: 1px solid var(--line);
+  font-size: 15px;
+}
+
+.dl-row > svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--text-2);
+}
+
+.dl-row > span {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0;
+}
+
+.dl-row b {
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-row small {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.dl-row em {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-style: normal;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dl-row em svg {
+  width: 14px;
+  height: 14px;
+}
+
+.dl-row.is-attention > svg {
+  color: var(--accent-gold);
+}
+
+.dl-later {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 0.9rem;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.dl-later svg {
+  width: 16px;
+  height: 16px;
+}
+
+.dl-upcoming {
+  margin-top: 0.25rem;
+}
+
+.dl-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.5rem 0;
+  font-size: 15px;
+  color: var(--text-2);
+}
+
+.dl-empty svg {
+  width: 2rem;
+  height: 2rem;
+  color: var(--text-3);
+}

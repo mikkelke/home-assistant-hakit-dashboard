@@ -130,6 +130,9 @@
 .qa-modal.transit {
   --qa-tone: #34d399;
 }
+.qa-modal.delivery {
+  --qa-tone: var(--accent-sky);
+}
 
 /* Quick-access close floats outside the sheet: top-right on wide screens, bottom-right at thumb
    reach on phones. */

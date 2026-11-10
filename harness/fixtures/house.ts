@@ -3,6 +3,7 @@ import { addAppliances } from './appliances';
 import { addArtwork } from './artwork';
 import { addBatteries } from './batteries';
 import { addCoffee } from './coffee';
+import { addDelivery, type DeliveryScenario } from './delivery';
 import { addDoors } from './doors';
 import { addEnergy } from './energy';
 import { addFeed } from './feed';
@@ -44,6 +45,8 @@ export interface HouseOptions {
   moment?: Moment;
   /** The heating controller's advice on the season: it says the heating could go off, or come on. */
   heatingAdvice?: 'start' | 'stop';
+  /** What the delivery sensor reports; the house has no deliveries on their way unless this is set. */
+  delivery?: DeliveryScenario;
 }
 
 const CONFIG = {
@@ -109,7 +112,13 @@ function presenceHistory(now: number, current: 'home' | 'not_home', seed: number
   return points;
 }
 
-export function createHouse({ viewer = 'admin', mood = 'normal', moment = 'evening', heatingAdvice }: HouseOptions = {}): Fixture {
+export function createHouse({
+  viewer = 'admin',
+  mood = 'normal',
+  moment = 'evening',
+  heatingAdvice,
+  delivery,
+}: HouseOptions = {}): Fixture {
   const house = new HouseBuilder(moment === 'night' ? LATE : NOW, VIEWERS[viewer]);
 
   for (const [key, name, userId, state] of PEOPLE) {
@@ -140,6 +149,7 @@ export function createHouse({ viewer = 'admin', mood = 'normal', moment = 'eveni
     addLists(house);
     addRequests(house);
     addMap(house);
+    if (delivery) addDelivery(house, delivery);
     if (moment === 'night') applyNight(house);
     const controller = house.states.get('sensor.heating_controller');
     if (heatingAdvice && controller) {

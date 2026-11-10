@@ -6,6 +6,7 @@ import { useCoffeeState } from '../../coffee/useCoffeeState';
 import { isCookActive } from '../../cook/model';
 import { useCookState } from '../../cook/useCook';
 import { HOUSE_EVENTS_ENTITY } from '../../config/entities';
+import { useHomeDelivery } from '../../delivery/useHomeDelivery';
 import { formatHomeClock } from '../../energy/homeTime';
 import { houseEpisodes, houseEventLabel, parseHouseEvents, visibleHouseEvents, type HouseEpisode } from '../../home/houseEvents';
 import { useMotionSlot } from '../../home/motionBudget';
@@ -15,6 +16,7 @@ import { nowFocusAt, type OpenNow } from '../../utils/navigation';
 import { trackUiTap } from '../../utils/trackUiTap';
 import { CookTickerChip } from './CookTickerChip';
 import { CoffeeTickerChip } from './CoffeeTickerChip';
+import { DeliveryTickerChip } from './DeliveryTickerChip';
 import './HouseTicker.css';
 
 const TICKER_EPISODES = 3;
@@ -51,8 +53,9 @@ function TickerChip({ episode, isNew, onOpen }: { episode: HouseEpisode; isNew: 
 const COFFEE_ICON = 'mdi:coffee';
 
 /** The newest few things the house did, on the sky's ground after the people: the newest shows in
- * full, older ones scroll in from under the fade, and a tap opens the timeline on one. A brew under way leads,
- * standing in for its own ready row until the finished brew lapses back to idle. */
+ * full, older ones scroll in from under the fade, and a tap opens the timeline on one. A delivery on its way and a brew
+ * under way lead, the brew standing in for its own ready row until the finished brew lapses back to idle; parcels still
+ * days away are a quiet count after them. */
 export function HouseTicker({
   onOpenNow,
   onOpenCoffee,
@@ -67,6 +70,9 @@ export function HouseTicker({
   const nowMs = useNowMs();
   const coffee = useCoffeeState();
   const cook = useCookState();
+  const delivery = useHomeDelivery();
+  const deliveryLive = delivery.active.length > 0;
+  const deliveryQuiet = !deliveryLive && delivery.upcoming.length > 0;
   const cookShown = cook != null && isCookActive(cook) && (viewer.name === 'Mikkel' || viewer.name === 'Rooftop') && onOpenCook != null;
   const coffeeShown = coffee != null && isOnHome(coffee.phase) && onOpenCoffee != null;
   const brewStartMs = coffeeShown ? (coffee.startedAtMs ?? coffee.firstBloomAtMs ?? 0) : null;
@@ -78,13 +84,15 @@ export function HouseTicker({
         .slice(0, TICKER_EPISODES),
     [feed, viewer, brewStartMs]
   );
-  if (episodes.length === 0 && !coffeeShown && !cookShown) return null;
+  if (episodes.length === 0 && !coffeeShown && !cookShown && !deliveryLive && !deliveryQuiet) return null;
   return (
     <>
       <i className='ticker-divider' aria-hidden='true' />
       <div className='ticker' role='group' aria-label='House activity, newest first'>
+        {deliveryLive && <DeliveryTickerChip feed={delivery} />}
         {cookShown && onOpenCook && <CookTickerChip state={cook} onOpen={onOpenCook} />}
         {coffeeShown && onOpenCoffee && <CoffeeTickerChip state={coffee} onOpen={onOpenCoffee} />}
+        {deliveryQuiet && <DeliveryTickerChip feed={delivery} />}
         {episodes.map(episode => (
           <TickerChip
             key={episode.id}

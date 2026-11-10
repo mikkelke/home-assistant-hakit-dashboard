@@ -288,6 +288,10 @@ export const QUIET_HOURS_END_ENTITY = 'input_datetime.quiet_hours_end';
  * lease in `attributes.expires`. */
 export const HOUSE_UPCOMING_ENTITY = 'sensor.house_upcoming';
 
+/** AppDaemon `HomeDelivery` (apps/deliveries/home_delivery.py): every food, grocery and parcel delivery on its way to the
+ * flat. `attributes.deliveries` lists them, `attributes.upcoming` the parcels still days away. */
+export const HOME_DELIVERY_ENTITY = 'sensor.home_delivery';
+
 // --- Fire safety (AppDaemon `FireSafety` app, apps/safety/fire_safety.py) ---
 
 /** Published phase sensor: state = clear | pre_alarm | alarm | hushed | cooldown | offline. */

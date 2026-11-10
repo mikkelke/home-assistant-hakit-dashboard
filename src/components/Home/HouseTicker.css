@@ -208,6 +208,28 @@
 .ticker-chip:is(.is-cook, .is-cook-bath, .is-cook-now, .is-cook-alarm) .ticker-fill {
   background: color-mix(in srgb, var(--cook-ticker-accent) 25%, transparent);
 }
+
+/* A delivery on its way: sky, gold once it is arriving. Parcels still days away are a plain chip with a count. */
+.ticker-chip.is-delivery,
+.ticker-chip.is-delivery-now {
+  --delivery-accent: var(--accent-sky);
+  background: color-mix(in srgb, var(--delivery-accent) 14%, transparent);
+  color: var(--delivery-accent);
+}
+.ticker-chip.is-delivery-now {
+  --delivery-accent: var(--accent-gold);
+}
+.ticker-chip:is(.is-delivery, .is-delivery-now) svg,
+.ticker-chip:is(.is-delivery, .is-delivery-now) em {
+  color: var(--delivery-accent);
+}
+.ticker-chip:is(.is-delivery, .is-delivery-now, .is-delivery-quiet) b,
+.ticker-chip:is(.is-delivery, .is-delivery-now, .is-delivery-quiet) em {
+  font-variant-numeric: tabular-nums;
+}
+.ticker-chip:is(.is-delivery, .is-delivery-now) b {
+  color: var(--text-1);
+}
 .ticker-chip:focus-visible {
   outline: 2px solid var(--accent-sky);
   outline-offset: 2px;

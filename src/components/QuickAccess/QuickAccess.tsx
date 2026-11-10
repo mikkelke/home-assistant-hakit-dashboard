@@ -37,6 +37,7 @@ import { useApartmentLock } from '../../hooks/useApartmentLock';
 import type { OpenNow } from '../../utils/navigation';
 import { trackUiTap } from '../../utils/trackUiTap';
 import { RequestSheet, RequestTile, useRequestAccess } from '../Request';
+import { DeliverySheetBody } from './DeliverySheet';
 import './QuickAccess.css';
 
 interface QuickAccessProps {
@@ -46,7 +47,7 @@ interface QuickAccessProps {
   onOpenNow: OpenNow;
 }
 
-type ModalType = 'intercom' | 'media' | 'weather' | 'transit' | null;
+type ModalType = 'intercom' | 'media' | 'weather' | 'transit' | 'delivery' | null;
 type MediaTab = 'audio' | 'tv';
 
 const MODAL_TITLES: Record<Exclude<ModalType, null>, string> = {
@@ -54,6 +55,7 @@ const MODAL_TITLES: Record<Exclude<ModalType, null>, string> = {
   media: 'Media',
   transit: 'Transit',
   weather: 'Weather',
+  delivery: 'Delivery',
 };
 
 /** A sheet's glyph is its dock icon. The weather card draws its own header. */
@@ -61,6 +63,7 @@ const MODAL_ICONS: Record<Exclude<ModalType, 'weather' | null>, string> = {
   intercom: 'mdi:door',
   media: 'mdi:cast-audio',
   transit: 'mdi:train',
+  delivery: 'mdi:truck-delivery',
 };
 
 interface TransitLine {
@@ -332,7 +335,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
   useEffect(() => {
     const handleOpenQuickAccess = (event: Event) => {
       const modal = (event as CustomEvent<{ modal?: ModalType }>).detail?.modal;
-      if (modal === 'intercom' || modal === 'media' || modal === 'weather' || modal === 'transit') {
+      if (modal === 'intercom' || modal === 'media' || modal === 'weather' || modal === 'transit' || modal === 'delivery') {
         openQuickAccess(modal);
       }
     };
@@ -673,6 +676,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
             )}
             <div className={`qa-modal-body ${openModal ?? ''}`}>
               {openModal === 'intercom' && <IntercomCard entities={entities} callService={callService} onUiTap={trackAccess} />}
+              {openModal === 'delivery' && <DeliverySheetBody />}
               {openModal === 'media' && (
                 <div className='qa-media-content'>
                   <div className='qa-media-tabs' role='group' aria-label='Media type'>
