@@ -674,7 +674,7 @@ function CompareChart({ series }: { series: CompareSeries }) {
         <g key={`grid-${value}`}>
           <line className='quick-weather-compare-grid' x1={plotLeft} y1={yFor(value)} x2={plotRight} y2={yFor(value)} />
           <text className='quick-weather-compare-axis' x={plotLeft - 5} y={yFor(value) + 3} textAnchor='end'>
-            {metric === 'temperature' ? `${Math.round(value)}°` : Math.round(value)}
+            {metric === 'temperature' ? `${value.toFixed(1)}°` : Math.round(value)}
           </text>
         </g>
       ))}
@@ -1111,9 +1111,9 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   // Only promise a peak that is actually still coming and warmer than right now - it read
   // "up to 22° at 20:00" while the thermometer said 23° (user 2026-07-31).
   if (todayPeak && currentTemp !== undefined && todayPeak.temp > currentTemp + 0.5)
-    heroParts.push(`up to ${Math.round(todayPeak.temp)}° at ${formatHHMM(new Date(todayPeak.atIso))}`);
-  if (tonightLow != null) heroParts.push(`down to ${Math.round(tonightLow)}° tonight`);
-  if (dewpoint !== undefined) heroParts.push(`dew ${Math.round(dewpoint)}°`);
+    heroParts.push(`up to ${todayPeak.temp.toFixed(1)}° at ${formatHHMM(new Date(todayPeak.atIso))}`);
+  if (tonightLow != null) heroParts.push(`down to ${tonightLow.toFixed(1)}° tonight`);
+  if (dewpoint !== undefined) heroParts.push(`dew ${dewpoint.toFixed(1)}°`);
   // Provenance, said ONCE and only when the hero is not the roof's own reading. This replaces the
   // old footer line, which reported the age in a different place from the number it explained.
   const heroSourceNote =
@@ -1252,7 +1252,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
       pct: pctOf(t, windowStartMs, windowEndMs),
       label: formatHHMM(new Date(t)),
       priority: 2,
-      temp: temp != null ? `${Math.round(temp)}°` : undefined,
+      temp: temp != null ? `${temp.toFixed(1)}°` : undefined,
     });
   }
   const tickCandidates: TickCandidate[] = showRibbon
@@ -1261,7 +1261,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
           pct: nowRibbonPct,
           label: formatHHMM(now),
           priority: 3,
-          temp: currentTemp != null ? `${Math.round(currentTemp)}\u00b0` : undefined,
+          temp: currentTemp != null ? `${currentTemp.toFixed(1)}\u00b0` : undefined,
         },
         ...roundTicks,
       ]
@@ -1498,11 +1498,11 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
                 <span className={`quick-weather-week-gust${peakGustMs != null && peakGustMs >= 14 ? ' is-strong' : ''}`}>
                   {peakGustDisplayDay != null ? `${formatWindValue(peakGustDisplayDay, windUnitLabel)}${windUnitLabel}` : ''}
                 </span>
-                <span className='quick-weather-week-low'>{low != null ? `${Math.round(low)}°` : '—'}</span>
+                <span className='quick-weather-week-low'>{low != null ? `${low.toFixed(1)}°` : '—'}</span>
                 <div className='quick-weather-week-bar'>
                   <div className='quick-weather-week-bar-fill' style={{ left: `${barLeft}%`, width: `${barWidth}%` }} />
                 </div>
-                <span className='quick-weather-week-high'>{high != null ? `${Math.round(high)}°` : '—'}</span>
+                <span className='quick-weather-week-high'>{high != null ? `${high.toFixed(1)}°` : '—'}</span>
               </div>
             );
           })}
@@ -1531,7 +1531,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
                         <Icon icon={getWeatherConditionIcon(entry.condition)} />
                       </div>
                       <span className='quick-weather-card__hour-temp'>
-                        {entry.temperature != null ? `${Math.round(entry.temperature)}°` : '—'}
+                        {entry.temperature != null ? `${entry.temperature.toFixed(1)}°` : '—'}
                       </span>
                       {entry.precipitation_probability != null && entry.precipitation_probability > 0 && (
                         <span className='quick-weather-card__hour-pop'>
