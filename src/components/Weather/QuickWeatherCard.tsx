@@ -1299,7 +1299,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
         </span>
         <span className='quick-weather-title'>Weather</span>
         <span className={`quick-weather-state${hasStormAlert ? ' is-alert' : ''}`}>
-          {currentTemp !== undefined ? `${Math.round(currentTemp)}°` : '—'} · {conditionLabel}
+          {currentTemp !== undefined ? `${currentTemp.toFixed(1)}°` : '—'} · {conditionLabel}
         </span>
       </div>
 
@@ -1343,7 +1343,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
               }
             }}
           >
-            {currentTemp !== undefined ? Math.round(currentTemp) : '—'}
+            {currentTemp !== undefined ? currentTemp.toFixed(1) : '—'}
             <sup className='quick-weather-hero-deg'>°</sup>
           </div>
           {tempChipText && (
@@ -1588,14 +1588,14 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
           {seaTemperature !== undefined && (
             <button type='button' className='quick-weather-fact' onClick={() => setHistoryEntityId(SENSOR_IDS.seaTemperature)}>
               <span className='quick-weather-fact-label'>Sea</span>
-              <span className='quick-weather-fact-value'>{Math.round(seaTemperature)}°</span>
+              <span className='quick-weather-fact-value'>{seaTemperature.toFixed(1)}°</span>
               {seaTemperatureFeel && <span className='quick-weather-fact-sub'>{seaTemperatureFeel.toLowerCase()}</span>}
             </button>
           )}
           {iceBathTemperature !== undefined && (
             <button type='button' className='quick-weather-fact' onClick={() => setHistoryEntityId(SENSOR_IDS.iceBath)}>
               <span className='quick-weather-fact-label'>Ice bath</span>
-              <span className='quick-weather-fact-value'>{Math.round(iceBathTemperature)}°</span>
+              <span className='quick-weather-fact-value'>{iceBathTemperature.toFixed(1)}°</span>
             </button>
           )}
         </div>
