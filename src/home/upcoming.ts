@@ -186,14 +186,15 @@ const textState = (entity: UpcomingEntity | undefined): string | null => {
 };
 
 /** Attribution methods that name a person on evidence: the only person home, the HA user who tapped, or the
- * one resident left once the others had stayed in their own rooms, a phone at the machine, or whoever confirmed
- * the programme. */
+ * one resident left once the others had stayed in their own rooms, a phone at the machine, whoever confirmed
+ * the programme, or for the washer and dryer whoever emptied it. */
 const RELIABLE_ACTOR_METHODS: ReadonlySet<string> = new Set([
   'sole_occupant',
   'dashboard_action',
   'room_elimination',
   'ble_proximity',
   'programme_confirmed',
+  'same_as_emptier',
 ]);
 
 /** The resident who started a run, from its monitor's `started_by` and `started_by_method`; null unless a
