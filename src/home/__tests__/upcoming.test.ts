@@ -139,6 +139,7 @@ describe('applianceStarter', () => {
     expect(applianceStarter('kristine', 'dashboard_action')).toBe('Kristine');
     expect(applianceStarter('mikkel', 'room_elimination')).toBe('Mikkel');
     expect(applianceStarter('mikkel', 'ble_proximity')).toBe('Mikkel');
+    expect(applianceStarter('claudia', 'programme_confirmed')).toBe('Claudia');
   });
 
   it('names nobody on an unknown or missing method, or anyone but a resident', () => {
