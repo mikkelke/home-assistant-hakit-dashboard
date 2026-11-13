@@ -246,6 +246,18 @@ describe('zone helpers', () => {
     ]);
   });
 
+  it('describes warm as a zone that is warm enough, held at the minimum with no change planned', () => {
+    expect(planModeMeta('warm')).toEqual({ icon: 'mdi:thermometer-check', label: 'Warm enough' });
+    expect(parseDayBlocks([{ start: '12:05', end: '12:10', mode: 'warm', setpoint: '19.0' }])).toEqual([
+      { startMin: 725, endMin: 730, mode: 'warm', setpoint: 19 },
+    ]);
+    expect(zoneChip({ plan_mode: 'warm', setpoint_now: 19 }, 21.5)).toEqual({
+      kind: 'mode',
+      mode: 'warm',
+      next: { setpoint: null, at: null, direction: null },
+    });
+  });
+
   it('reads published numbers, never turning nothing into 0', () => {
     expect(heatNum('+0.5')).toBe(0.5);
     expect(heatNum('0')).toBe(0);

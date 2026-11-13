@@ -1,7 +1,7 @@
 /* Admin heating overview (#heating): a full-screen page in the Energy page's shell, one card per
    concern: the heat called today, one row per controller zone with a monitor-only row for the bedroom,
-   and the plant in one line. Mode colours: hold orange, floor cap the heat colour, sun cut yellow,
-   window and settle cyan, party violet, guard indigo, fallback grey. */
+   and the plant in one line. Mode colours: hold orange, floor cap the heat colour, warm green, sun cut
+   yellow, window and settle cyan, party violet, guard indigo, fallback grey. */
 
 .heating-page {
   position: fixed;
@@ -15,6 +15,7 @@
   --heat: #ff9f0a;
   --cool: #64d2ff;
   --mode-hold: #ff9f0a;
+  --mode-warm: #30d158;
   --mode-sun_cut: #fde047;
   --mode-window: #64d2ff;
   --mode-settle: #64d2ff;
@@ -25,6 +26,7 @@
 .heat-zone-sheet {
   --heat: #ff9f0a;
   --mode-hold: #ff9f0a;
+  --mode-warm: #30d158;
   --mode-sun_cut: #fde047;
   --mode-window: #64d2ff;
   --mode-settle: #64d2ff;
@@ -37,6 +39,9 @@
 }
 .mode-floor_cap {
   --mode: var(--heat);
+}
+.mode-warm {
+  --mode: var(--mode-warm);
 }
 .mode-sun_cut {
   --mode: var(--mode-sun_cut);

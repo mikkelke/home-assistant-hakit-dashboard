@@ -239,6 +239,7 @@ export interface PlanModeMeta {
 export const PLAN_MODES: Record<string, PlanModeMeta> = {
   hold: { icon: 'mdi:thermostat', label: 'Holding the plan' },
   floor_cap: { icon: 'mdi:heat-wave', label: 'Floor too warm' },
+  warm: { icon: 'mdi:thermometer-check', label: 'Warm enough' },
   sun_cut: { icon: 'mdi:white-balance-sunny', label: 'Sun cut' },
   window: { icon: 'mdi:window-open-variant', label: 'Window open' },
   settle: { icon: 'mdi:timer-sand', label: 'Settling after airing' },
