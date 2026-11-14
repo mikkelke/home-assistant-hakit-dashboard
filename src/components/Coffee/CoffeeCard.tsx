@@ -44,7 +44,6 @@ import {
   deltaTone,
   faultView,
   liveVerdict,
-  lowOnWater,
   machineWord,
   pausedForWater,
   pourStartS,
@@ -74,7 +73,7 @@ import { Spark } from './Spark';
 import { TasteDot, TasteRow } from './taste';
 import { useBrewStart } from './useBrewStart';
 import { useClock } from './useClock';
-import { PausedFill, WaterLow, WaterRow } from './WaterTank';
+import { PausedFill, WaterRow } from './WaterTank';
 import '../Appliance/Appliance.css';
 import './Coffee.css';
 import './CoffeeCard.css';
@@ -401,11 +400,6 @@ function LiveBrew({ data, nowMs }: { data: CardData; nowMs: number }) {
       {pausedForWater(state) && (
         <div className='cc-fill'>
           <PausedFill state={state} size='md' />
-        </div>
-      )}
-      {lowOnWater(state) && (
-        <div className='cc-fill'>
-          <WaterLow state={state} size='md' />
         </div>
       )}
       <div className='cc-ctrls'>

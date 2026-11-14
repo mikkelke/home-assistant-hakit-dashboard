@@ -8,7 +8,6 @@ export const COFFEE_DEMO_SCENARIOS = [
   'building',
   'live',
   'paused_no_water',
-  'low_water',
   'lost_link',
   'ready',
   'ready_cup_unknown',

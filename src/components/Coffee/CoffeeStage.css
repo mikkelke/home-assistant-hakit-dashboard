@@ -292,8 +292,7 @@
 .cs-alert .coffee-lab {
   color: #fcd34d;
 }
-.cs-alert .coffee-cupwait,
-.cs-pbar + .coffee-cupwait {
+.cs-alert .coffee-cupwait {
   margin-top: 14px;
 }
 

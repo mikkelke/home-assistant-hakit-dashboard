@@ -622,7 +622,6 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
     }
     case 'live':
     case 'paused_no_water':
-    case 'low_water':
     case 'lost_link': {
       const length = TODAY.ready + 25;
       const startAt = scenario === 'live' ? 88 : scenario === 'lost_link' ? 78 : 104;
@@ -658,29 +657,6 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
           nowMs
         );
         entities[COFFEE_LIVE_ENTITY] = liveEntity('live', simulate(0.042, 38, 1, 42, stoppedAt), bloomMs, t);
-        break;
-      }
-      if (scenario === 'low_water') {
-        entities[COFFEE_STATE_ENTITY] = stateEntity(
-          {
-            phase: 'brewing',
-            machine: 'working',
-            powerW: '1043',
-            link: 'connected',
-            brewId,
-            extra: {
-              ...base,
-              pour: String(pourAt(t, TODAY.shift)),
-              eta: iso(bloomMs + USUAL_TOTAL * S),
-              eta_basis: 'baseline',
-              verdict: 'on_track',
-              fault: 'no_water',
-              tank_left_ml: '0',
-            },
-          },
-          nowMs
-        );
-        entities[COFFEE_LIVE_ENTITY] = liveEntity('live', TODAY, bloomMs, t);
         break;
       }
       if (scenario === 'lost_link') {

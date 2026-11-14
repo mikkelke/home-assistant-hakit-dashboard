@@ -204,9 +204,6 @@ export function waterCups(state: TankLevel, recipe: Pick<Recipe, 'totalMl'> | nu
 export const pausedForWater = (state: Pick<CoffeeState, 'phase' | 'fault'>): boolean =>
   state.phase === 'paused' && state.fault === 'no_water';
 
-/** The brew goes on after the machine's no-water warning: the tank holds this cup, not the next. */
-export const lowOnWater = (state: Pick<CoffeeState, 'phase' | 'fault'>): boolean => state.fault === 'no_water' && state.phase !== 'paused';
-
 /** The tank on the idle view, in words: "≈ 2 cups" of the usual, "under a cup" once the usual no longer fits. */
 export function waterLine(state: TankLevel, usual: Pick<Recipe, 'totalMl'> | null): { text: string; low: boolean } {
   if (state.tankLeftMl == null) return { text: 'unknown', low: false };

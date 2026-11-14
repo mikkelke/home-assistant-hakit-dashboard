@@ -65,31 +65,6 @@ export function PausedFill({ state, size }: { state: Pick<CoffeeState, 'tankFill
   );
 }
 
-/** The machine warned of low water and finishes the cup: fill before the next one. Filled dims with a check once the
- * coffee app counts water in the tank again. */
-export function WaterLow({ state, size }: { state: Pick<CoffeeState, 'tankLeftMl'>; size: 'xl' | 'md' }) {
-  const registered = state.tankLeftMl != null && state.tankLeftMl > 0;
-  return (
-    <div className={`coffee-cupwait is-water is-${size}`} role='status'>
-      <div className='coffee-cupwait-main'>
-        <span className='coffee-cupwait-disc'>
-          <Icon icon='mdi:water-alert' aria-hidden='true' />
-        </span>
-        <span className='coffee-cupwait-tx'>
-          <b>Water low</b>
-          <small>This cup finishes. Fill the tank before the next.</small>
-        </span>
-      </div>
-      <div className='coffee-cupwait-btns'>
-        <button type='button' className='is-sky' disabled={registered} onClick={() => void registerFill()}>
-          <Icon icon={registered ? 'mdi:check' : 'mdi:water-plus'} aria-hidden='true' />
-          Filled
-        </button>
-      </div>
-    </div>
-  );
-}
-
 /** The tank beside the link and cup chips: cups of the usual left, amber once the usual no longer fits. It opens the
  * water sheet, where Filled lives. */
 export function WaterChip({ state, usual, big = false, onOpen }: { state: Tank; usual: Volume | null; big?: boolean; onOpen: () => void }) {

@@ -6,7 +6,6 @@ const SCENARIOS = [
   'building',
   'live',
   'paused_no_water',
-  'low_water',
   'lost_link',
   'ready',
   'ready_cup_unknown',
@@ -25,7 +24,6 @@ const ON_PHONE: readonly Scenario[] = [
   'idle',
   'live',
   'paused_no_water',
-  'low_water',
   'ready',
   'ready_cup_unknown',
   'picked_up',
@@ -51,7 +49,7 @@ const stageFlows: Flow[] = SCENARIOS.map(scenario => ({
   },
 }));
 
-const cardFlows: Flow[] = (['idle', 'live', 'low_water', 'ready', 'awaiting_cup'] as const).flatMap((scenario): Flow[] => [
+const cardFlows: Flow[] = (['idle', 'live', 'ready', 'awaiting_cup'] as const).flatMap((scenario): Flow[] => [
   {
     name: `kitchen coffee card ${scenario}`,
     open: { search: `?coffee_demo=${scenario}`, hash: '#room=kitchen', expanded: true },
