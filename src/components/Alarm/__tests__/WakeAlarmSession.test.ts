@@ -119,7 +119,8 @@ describe('wake alarm sheet', () => {
       service: 'press',
       target: { entity_id: 'input_button.wake_up_now' },
     });
-    show(world('ringing', { session_id: 'next' }));
+    show(world('dismissed', { session_id: 'next', reason: 'radio_kept' }));
+    expect(document.body.textContent).toContain('The radio keeps playing.');
     show(sleeping);
     click('Cancel snooze');
     expect(callService).toHaveBeenLastCalledWith({

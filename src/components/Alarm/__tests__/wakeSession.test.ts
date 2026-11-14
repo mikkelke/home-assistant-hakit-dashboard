@@ -57,6 +57,8 @@ describe('wake session contract', () => {
     expect(wakeActionConfirmed('dismiss', ringing, ringing)).toBe(false);
     expect(wakeActionConfirmed('dismiss', ringing, session('dismissed', { session_id: 'one' }))).toBe(true);
     expect(wakeActionConfirmed('wake', snoozing, ringing)).toBe(true);
+    expect(wakeActionConfirmed('wake', snoozing, session('dismissed', { session_id: 'next', reason: 'radio_kept' }))).toBe(true);
+    expect(wakeActionConfirmed('wake', snoozing, { ...snoozing, state: 'dismissed' })).toBe(false);
     expect(wakeActionConfirmed('dismiss', ringing, session('dismissed', { session_id: 'different' }))).toBe(false);
   });
 });

@@ -73,7 +73,10 @@ export function wakeActionCall(action: WakeAction, choice: SnoozeChoice, session
 }
 
 export function wakeActionConfirmed(action: WakeAction, before: WakeSession, after: WakeSession): boolean {
-  if (action === 'wake') return after.state === 'ringing' && (before.state !== 'ringing' || before.id !== after.id);
+  if (action === 'wake') {
+    if (after.state === 'dismissed') return after.id !== before.id;
+    return after.state === 'ringing' && (before.state !== 'ringing' || before.id !== after.id);
+  }
   if (action === 'snooze')
     return after.id === before.id && after.state === 'snoozing' && (before.state !== 'snoozing' || before.until !== after.until);
   return after.id === before.id && (after.state === 'dismissed' || after.state === 'stopped' || after.state === 'idle');
