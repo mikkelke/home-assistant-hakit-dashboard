@@ -44,12 +44,7 @@ const krText = (kr: number) => (kr < 10 ? kr.toFixed(1) : kr.toFixed(0));
 const wattsText = (watts: number) => (watts < 10 ? watts.toFixed(1) : watts.toFixed(0));
 
 /** One row for each thing the card shows; the cost, the pump and the reference ticks only while they are there. */
-function demandLegend(
-  hasCost: boolean,
-  pumpIcon: string | null,
-  ticks: readonly (keyof typeof TICK_TEXT)[],
-  past: boolean
-): LegendRow[] {
+function demandLegend(hasCost: boolean, pumpIcon: string | null, ticks: readonly (keyof typeof TICK_TEXT)[], past: boolean): LegendRow[] {
   const rows: LegendRow[] = [
     {
       figure: 'kWh',
@@ -211,15 +206,15 @@ export function HeatDemand({ entities, zones, calls, day, today: todayDay, nowMs
         </div>
         <div className='heat-demand-calling'>
           {!past && (
-          <div
-            className='heat-demand-callers'
-            role='img'
-            aria-label={`Calling now: ${calling.length === 0 ? 'none' : calling.map(zone => ZONE_META[zone].name).join(', ')}`}
-          >
-            {zones.map(zone => (
-              <ZoneGlyph key={zone} zone={zone} className={`is-tiny ${glyphState(zone)}${calling.includes(zone) ? ' is-calling' : ''}`} />
-            ))}
-          </div>
+            <div
+              className='heat-demand-callers'
+              role='img'
+              aria-label={`Calling now: ${calling.length === 0 ? 'none' : calling.map(zone => ZONE_META[zone].name).join(', ')}`}
+            >
+              {zones.map(zone => (
+                <ZoneGlyph key={zone} zone={zone} className={`is-tiny ${glyphState(zone)}${calling.includes(zone) ? ' is-calling' : ''}`} />
+              ))}
+            </div>
           )}
           <div className='heat-demand-aside'>
             {relayW != null && (
