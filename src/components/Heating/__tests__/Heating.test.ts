@@ -14,6 +14,7 @@ import {
   type HeatingZone,
 } from '../../../utils/heating';
 import { clearZoneDayCache } from '../zoneDay';
+import { clearDemandDayCache } from '../demandDay';
 import { BEDROOM_FLOOR_ENTITY } from '../zoneMeta';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -117,6 +118,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date(2026, 10, 5, 11, 35));
   hass.history = vi.fn(() => new Promise(() => {}));
   clearZoneDayCache();
+  clearDemandDayCache();
   root = createRoot(document.body.appendChild(document.createElement('div')));
 });
 
@@ -501,7 +503,7 @@ describe('the heat card', () => {
     const values = [...card().querySelectorAll('.heat-demand-tick-value')];
     expect(values.map(value => value.textContent)).toEqual(['6.5', '8.2', '12.8']);
     expect(values.map(value => value.getAttribute('aria-label'))).toEqual([
-      'Yesterday 6.5 kilowatt hours',
+      'The day before 6.5 kilowatt hours',
       'Planned for today 8.2 kilowatt hours',
       'A sunless day 12.8 kilowatt hours',
     ]);
@@ -1514,19 +1516,19 @@ describe('the legends of the heat card and the zone rows', () => {
     expect(legendTexts(card())).toEqual([
       'Heat used so far today, estimated from the hours each zone called.',
       'About what that heat costs.',
-      'Hours the floors called for heat today, all zones together.',
+      'Hours the floors called for heat, all zones together.',
       'A lit zone is calling for heat now.',
       'What the floor-heating pump draws; orange while a zone calls.',
       'The bar is the heat used so far today.',
-      "Yesterday's total, in kWh.",
-      'What the controller planned for today, in kWh.',
+      "The day before's total, in kWh.",
+      'What the controller planned for the day, in kWh.',
       'What a sunless day would need, in kWh.',
       'Solid: the controller steers this thermostat.',
       'Dashed ring: shadow, it only calculates and the thermostat keeps its own setting.',
       'Orange marks are when a zone called for heat.',
       'Faint colour is where the plan was in a special mode, such as sun cut or window open.',
       'The line is now.',
-      'Hours a zone called / hours planned today.',
+      'Hours a zone called / hours planned that day.',
       'About what those hours cost.',
     ]);
     const legend = card().querySelector('.heat-legend') as HTMLElement;
@@ -1559,8 +1561,8 @@ describe('the legends of the heat card and the zone rows', () => {
     expect(texts).not.toContain('About what that heat costs.');
     expect(texts).toContain('What the floor-heating pump draws; orange while a zone calls.');
     expect(icons(card().querySelector('.heat-legend')!)).toContain('mdi:fire-off');
-    expect(texts).toContain('What the controller planned for today, in kWh.');
-    expect(texts).not.toContain("Yesterday's total, in kWh.");
+    expect(texts).toContain('What the controller planned for the day, in kWh.');
+    expect(texts).not.toContain("The day before's total, in kWh.");
     expect(texts).not.toContain('What a sunless day would need, in kWh.');
   });
 
@@ -1672,5 +1674,83 @@ describe('the resident controls', () => {
     expect(document.querySelector('[aria-label="Warmer"]')).toBeNull();
     expect(icons()).toContain('mdi:radiator-off');
     expect(document.querySelector('.heat-dial-tick')).toBeNull();
+  });
+});
+
+describe('the heat card day picker', () => {
+  const card = () => document.querySelector('.heat-demand') as HTMLElement;
+  const button = (label: string) => card().querySelector(`[aria-label="${label}"]`) as HTMLButtonElement;
+  const dateLabel = () => card().querySelector('.heat-demand-date span')?.textContent;
+  const yesterday = { start: new Date(2026, 10, 4), end: new Date(2026, 10, 5) };
+  const at = (hour: number, minute = 0) => new Date(2026, 10, 4, hour, minute).getTime() / 1000;
+
+  /** 4 November: the family zone called 06:00-09:00, the bathroom 02:00-03:30; each zone sensor as it stood at 23:59. */
+  const answerYesterday = (request: Record<string, unknown>) => {
+    if (request.no_attributes === false) {
+      return Promise.resolve(
+        Object.fromEntries(
+          HEATING_ZONES.map(id => [
+            `sensor.heating_zone_${id}`,
+            [{ s: '21.0', a: { budget_today_h: id === 'family' ? 4 : 1, budget_dull_h: 6, yesterday: { call_hours: 2 }, live: 'true' } }],
+          ])
+        )
+      );
+    }
+    if (request.start_time === yesterday.start.toISOString()) {
+      return Promise.resolve({
+        [zoneCallSensorId('family')]: [
+          { s: 'off', lu: at(0) },
+          { s: 'on', lu: at(6) },
+          { s: 'off', lu: at(9) },
+        ],
+        [zoneCallSensorId('bathroom')]: [
+          { s: 'off', lu: at(0) },
+          { s: 'on', lu: at(2) },
+          { s: 'off', lu: at(3, 30) },
+        ],
+      });
+    }
+    return new Promise(() => {});
+  };
+
+  it('opens on today with no way forward and no Today button', () => {
+    renderPage(...heatDay());
+    expect(dateLabel()).toBe('Today');
+    expect(button('Next day').disabled).toBe(true);
+    expect(card().querySelector('.heat-demand-today')).toBeNull();
+  });
+
+  it('steps back to yesterday and draws that day from the recorder, without the live parts', async () => {
+    hass.history = vi.fn(answerYesterday);
+    renderPage(...heatDay(), calling('family'), entity('sensor.floor_heating_relay_power', '16'), entity('sensor.ista_heat_price', '1'));
+    act(() => button('Previous day').click());
+    expect(card().querySelector('.heat-demand-status')?.textContent).toBe('Reading the day…');
+    await flush();
+    expect(dateLabel()).toBe('Yesterday');
+    const snapshotRequest = (hass.history as Mock).mock.calls.map(call => call[0]).find(request => request.no_attributes === false);
+    expect(snapshotRequest.end_time).toBe(new Date(yesterday.end.getTime() - 1).toISOString());
+    expect([...card().querySelectorAll('.heat-demand-hours')].map(hours => hours.textContent)).toEqual([
+      '3.0/4.0',
+      '—/1.0',
+      '—/1.0',
+      '1.5/1.0',
+      '—/1.0',
+    ]);
+    expect(card().querySelector('.heat-demand-kwh b')?.textContent).toBe((3 * 1.11 + 1.5 * 0.16).toFixed(1));
+    expect(card().querySelector('.heat-demand-callers')).toBeNull();
+    expect(card().querySelector('[aria-label^="Floor heating pump"]')).toBeNull();
+    expect(card().querySelector('.heat-demand-now')).toBeNull();
+    act(() => (card().querySelector('.heat-demand-today') as HTMLButtonElement).click());
+    expect(dateLabel()).toBe('Today');
+    expect(card().querySelector('.heat-demand-callers')).not.toBeNull();
+  });
+
+  it('says so when a day cannot be read', async () => {
+    hass.history = vi.fn().mockRejectedValue(new Error('down'));
+    renderPage(...heatDay());
+    act(() => button('Previous day').click());
+    await flush();
+    expect(card().querySelector('.heat-demand-status')?.textContent).toBe('Could not read this day.');
+    expect(button('Next day').disabled).toBe(false);
   });
 });

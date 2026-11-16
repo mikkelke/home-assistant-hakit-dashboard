@@ -34,6 +34,9 @@ import { HeatZoneSheet } from './HeatZoneSheet';
 import { RING_ROWS, type LegendRow } from './legend';
 import { Glyph, ZoneGlyph } from './ZoneGlyph';
 import { useCallHistory } from './useCallHistory';
+import { useDemandDay } from './demandDay';
+import { daysBefore, shiftDay } from './zoneDay';
+import { HEAT_PRICE_SENSOR } from '../../utils/heatEnergy';
 import { BEDROOM_FLOOR_ENTITY, BEDROOM_META, ZONE_META, bedroomAir, zoneAir } from './zoneMeta';
 import '../Appliance/Appliance.css';
 import '../RoomDetail/RoomClimateHeader.css';
@@ -282,6 +285,9 @@ function HeatingOverview({ onClose }: HeatingPageProps) {
   const nowMs = useNowMs();
   const day = localDay(nowMs);
   const history = useCallHistory(day.startMs);
+  const [daysBack, setDaysBack] = useState(0);
+  const shownDay = daysBack > 0 ? shiftDay(day, -daysBack) : null;
+  const pastDay = useDemandDay(shownDay);
 
   const controller = entities[HEATING_CONTROLLER_SENSOR];
   const ctl = controller?.attributes ?? {};
@@ -330,7 +336,19 @@ function HeatingOverview({ onClose }: HeatingPageProps) {
 
       <div className='heating-page-content'>
         <div className='heating-col'>
-          <HeatDemand entities={entities} zones={zones} calls={calls} day={day} nowMs={nowMs} />
+          <HeatDemand
+            entities={
+              pastDay?.status === 'ready' ? { ...pastDay.data.entities, [HEAT_PRICE_SENSOR]: entities[HEAT_PRICE_SENSOR] } : entities
+            }
+            zones={zones}
+            calls={pastDay?.status === 'ready' ? pastDay.data.calls : calls}
+            day={shownDay ?? day}
+            today={day}
+            nowMs={nowMs}
+            status={pastDay && pastDay.status !== 'ready' ? pastDay.status : undefined}
+            onStep={step => setDaysBack(back => Math.max(0, back - step))}
+            onPick={ms => setDaysBack(Math.max(0, daysBefore(localDay(ms), day)))}
+          />
           <SeasonAdvisor entities={entities} seasonOn={seasonOn} />
         </div>
         <div className='heating-col'>

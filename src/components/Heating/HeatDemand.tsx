@@ -1,4 +1,4 @@
-import { Fragment, useState, type CSSProperties } from 'react';
+import { Fragment, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities } from '../../types';
 import type { CallSpan, LocalDay } from '../../utils/heatCalls';
@@ -17,6 +17,8 @@ import { InfoToggle, Legend } from './HeatInfo';
 import { RING_ROWS, type LegendRow } from './legend';
 import { ZONE_META } from './zoneMeta';
 import { ZoneGlyph } from './ZoneGlyph';
+import { HEAT_RECORD_START } from './demandDay';
+import { dayLabel } from './zoneDay';
 import './HeatDemand.css';
 
 const DAY_MIN = 24 * 60;
@@ -26,14 +28,14 @@ const LABEL_EDGE = 5;
 const AXIS_HOURS = [0, 6, 12, 18, 24];
 
 const TICKS = {
-  yesterday: { icon: 'mdi:calendar-arrow-left', label: 'Yesterday' },
+  yesterday: { icon: 'mdi:calendar-arrow-left', label: 'The day before' },
   plan: { icon: 'mdi:robot-outline', label: 'Planned for today' },
   sunless: { icon: 'mdi:weather-cloudy', label: 'A sunless day' },
 } as const;
 
 const TICK_TEXT = {
-  yesterday: "Yesterday's total, in kWh.",
-  plan: 'What the controller planned for today, in kWh.',
+  yesterday: "The day before's total, in kWh.",
+  plan: 'What the controller planned for the day, in kWh.',
   sunless: 'What a sunless day would need, in kWh.',
 } as const;
 
@@ -42,45 +44,140 @@ const krText = (kr: number) => (kr < 10 ? kr.toFixed(1) : kr.toFixed(0));
 const wattsText = (watts: number) => (watts < 10 ? watts.toFixed(1) : watts.toFixed(0));
 
 /** One row for each thing the card shows; the cost, the pump and the reference ticks only while they are there. */
-function demandLegend(hasCost: boolean, pumpIcon: string | null, ticks: readonly (keyof typeof TICK_TEXT)[]): LegendRow[] {
-  const rows: LegendRow[] = [{ figure: 'kWh', text: 'Heat used so far today, estimated from the hours each zone called.' }];
+function demandLegend(
+  hasCost: boolean,
+  pumpIcon: string | null,
+  ticks: readonly (keyof typeof TICK_TEXT)[],
+  past: boolean
+): LegendRow[] {
+  const rows: LegendRow[] = [
+    {
+      figure: 'kWh',
+      text: past
+        ? 'Heat used that day, estimated from the hours each zone called.'
+        : 'Heat used so far today, estimated from the hours each zone called.',
+    },
+  ];
   if (hasCost) rows.push({ icon: 'mdi:cash', text: 'About what that heat costs.' });
-  rows.push({ icon: 'mdi:timer-sand', text: 'Hours the floors called for heat today, all zones together.' });
-  rows.push({ mark: 'lit', text: 'A lit zone is calling for heat now.' });
+  rows.push({ icon: 'mdi:timer-sand', text: 'Hours the floors called for heat, all zones together.' });
+  if (!past) rows.push({ mark: 'lit', text: 'A lit zone is calling for heat now.' });
   if (pumpIcon) rows.push({ icon: pumpIcon, text: 'What the floor-heating pump draws; orange while a zone calls.' });
-  rows.push({ mark: 'bar', text: 'The bar is the heat used so far today.' });
+  rows.push({ mark: 'bar', text: past ? 'The bar is the heat used that day.' : 'The bar is the heat used so far today.' });
   for (const key of ticks) rows.push({ icon: TICKS[key].icon, text: TICK_TEXT[key] });
   rows.push(...RING_ROWS);
   rows.push({ mark: 'call', text: 'Orange marks are when a zone called for heat.' });
   rows.push({ mark: 'band', text: 'Faint colour is where the plan was in a special mode, such as sun cut or window open.' });
-  rows.push({ mark: 'now', text: 'The line is now.' });
-  rows.push({ figure: '3.8/5.2', text: 'Hours a zone called / hours planned today.' });
+  if (!past) rows.push({ mark: 'now', text: 'The line is now.' });
+  rows.push({ figure: '3.8/5.2', text: 'Hours a zone called / hours planned that day.' });
   if (hasCost) rows.push({ figure: '4.2 kr', text: 'About what those hours cost.' });
   return rows;
+}
+
+const isoDate = (ms: number) => {
+  const date = new Date(ms);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
+interface DayPickerProps {
+  day: LocalDay;
+  today: LocalDay;
+  /** Move the shown day by this many days. */
+  onStep: (days: number) => void;
+  /** Show the day that starts at local midnight of this date. */
+  onPick: (ms: number) => void;
+}
+
+/** Step a day back or forward, tap the date for a calendar, and one tap back to today. Days start at the first day
+ * the controller published. */
+function DayPicker({ day, today, onStep, onPick }: DayPickerProps) {
+  const input = useRef<HTMLInputElement>(null);
+  const isToday = day.startMs >= today.startMs;
+  return (
+    <div className='heat-demand-picker'>
+      <button
+        type='button'
+        className='heat-demand-step'
+        aria-label='Previous day'
+        disabled={day.startMs <= HEAT_RECORD_START}
+        onClick={() => onStep(-1)}
+      >
+        <Icon icon='mdi:chevron-left' aria-hidden='true' />
+      </button>
+      <label className='heat-demand-date'>
+        <Icon icon='mdi:calendar-blank-outline' aria-hidden='true' />
+        <span aria-live='polite'>{dayLabel(day, today)}</span>
+        <input
+          ref={input}
+          type='date'
+          aria-label='Pick a day'
+          value={isoDate(day.startMs)}
+          min={isoDate(HEAT_RECORD_START)}
+          max={isoDate(today.startMs)}
+          onClick={() => {
+            try {
+              input.current?.showPicker?.();
+            } catch {
+              // Some browsers refuse showPicker; the native input still opens on tap.
+            }
+          }}
+          onChange={event => {
+            const [year, month, date] = event.target.value.split('-').map(Number);
+            if (year && month && date) onPick(new Date(year, month - 1, date).getTime());
+          }}
+        />
+      </label>
+      <button type='button' className='heat-demand-step' aria-label='Next day' disabled={isToday} onClick={() => onStep(1)}>
+        <Icon icon='mdi:chevron-right' aria-hidden='true' />
+      </button>
+      {!isToday && (
+        <button type='button' className='heat-demand-today' onClick={() => onPick(today.startMs)}>
+          Today
+        </button>
+      )}
+    </div>
+  );
 }
 
 interface HeatDemandProps {
   entities: HassEntities;
   zones: readonly HeatingZone[];
-  /** Each zone's calls today, as shares of the day. */
+  /** Each zone's calls on the shown day, as shares of the day. */
   calls: Partial<Record<HeatingZone, CallSpan[]>>;
+  /** The day shown. */
   day: LocalDay;
+  today: LocalDay;
   nowMs: number;
+  /** A finished day still being read, or one that could not be read. */
+  status?: 'loading' | 'error';
+  onStep: (days: number) => void;
+  onPick: (ms: number) => void;
 }
 
-/** How much heat the flat has called: today's estimated kWh against yesterday, the controller's plan and a sunless
- * day, the zones calling now, and one lane per zone with the stretches it called today. Hidden while no zone
- * publishes its call hours. */
-export function HeatDemand({ entities, zones, calls, day, nowMs }: HeatDemandProps) {
+/** How much heat the flat called on one day: its estimated kWh against the day before, the controller's plan and a
+ * sunless day, the zones calling now (today only), and one lane per zone with the stretches it called. A picker steps
+ * through the days. Today is hidden while no zone publishes its call hours. */
+export function HeatDemand({ entities, zones, calls, day, today: todayDay, nowMs, status, onStep, onPick }: HeatDemandProps) {
   const [infoOpen, setInfoOpen] = useState(false);
+  const past = day.startMs < todayDay.startMs;
+  const picker = <DayPicker day={day} today={todayDay} onStep={onStep} onPick={onPick} />;
   const energy = heatEnergy(entities);
-  const today = energy.today;
-  if (!today) return null;
+  const today = status ? null : energy.today;
+  if (!today) {
+    if (!past) return null;
+    return (
+      <section className='heat-card heat-demand is-past' aria-label='Heat on a past day'>
+        <p className='heat-demand-status'>
+          {status === 'loading' ? 'Reading the day…' : status === 'error' ? 'Could not read this day.' : 'No heating record for this day.'}
+        </p>
+        {picker}
+      </section>
+    );
+  }
 
   const price = heatNum(entities[HEAT_PRICE_SENSOR]?.state);
   const cost = heatCostKr(today.kwh, price);
-  const relayW = heatNum(entities[HEAT_RELAY_POWER_SENSOR]?.state);
-  const calling = zones.filter(zone => isHeating(entities[zoneThermostatId(zone)]));
+  const relayW = past ? null : heatNum(entities[HEAT_RELAY_POWER_SENSOR]?.state);
+  const calling = past ? [] : zones.filter(zone => isHeating(entities[zoneThermostatId(zone)]));
   const scale = heatScale(energy);
   const centres = spreadLabels(
     scale.ticks.map(tick => tick.at),
@@ -88,11 +185,11 @@ export function HeatDemand({ entities, zones, calls, day, nowMs }: HeatDemandPro
     LABEL_EDGE,
     100 - LABEL_EDGE
   );
-  const nowPct = Math.min(100, Math.max(0, ((nowMs - day.startMs) / (day.endMs - day.startMs)) * 100));
+  const nowPct = past ? 100 : Math.min(100, Math.max(0, ((nowMs - day.startMs) / (day.endMs - day.startMs)) * 100));
   const glyphState = (zone: HeatingZone) => (heatBool(entities[zoneSensorId(zone)]?.attributes?.live) ? 'is-live' : 'is-shadow');
 
   return (
-    <section className='heat-card heat-demand' aria-label='Heat today'>
+    <section className={`heat-card heat-demand${past ? ' is-past' : ''}`} aria-label={past ? 'Heat on a past day' : 'Heat today'}>
       <div className='heat-demand-top'>
         <div>
           <div className='heat-demand-kwh'>
@@ -106,13 +203,14 @@ export function HeatDemand({ entities, zones, calls, day, nowMs }: HeatDemandPro
                 {krText(cost)} kr
               </span>
             )}
-            <span className='heat-demand-chip' role='img' aria-label={`${oneDecimal(today.hours)} hours called today`}>
+            <span className='heat-demand-chip' role='img' aria-label={`${oneDecimal(today.hours)} hours called${past ? '' : ' today'}`}>
               <Icon icon='mdi:timer-sand' aria-hidden='true' />
               {oneDecimal(today.hours)} h
             </span>
           </div>
         </div>
         <div className='heat-demand-calling'>
+          {!past && (
           <div
             className='heat-demand-callers'
             role='img'
@@ -122,6 +220,7 @@ export function HeatDemand({ entities, zones, calls, day, nowMs }: HeatDemandPro
               <ZoneGlyph key={zone} zone={zone} className={`is-tiny ${glyphState(zone)}${calling.includes(zone) ? ' is-calling' : ''}`} />
             ))}
           </div>
+          )}
           <div className='heat-demand-aside'>
             {relayW != null && (
               <span
@@ -143,7 +242,8 @@ export function HeatDemand({ entities, zones, calls, day, nowMs }: HeatDemandPro
           rows={demandLegend(
             cost != null,
             relayW == null ? null : calling.length > 0 ? 'mdi:fire' : 'mdi:fire-off',
-            scale.ticks.map(tick => tick.key)
+            scale.ticks.map(tick => tick.key),
+            past
           )}
         />
       )}
@@ -205,7 +305,7 @@ export function HeatDemand({ entities, zones, calls, day, nowMs }: HeatDemandPro
                     <span key={span.left} className='heat-demand-call' style={{ left: `${span.left}%`, width: `${span.width}%` }} />
                   ))}
                 </span>
-                <span className='heat-demand-now' />
+                {!past && <span className='heat-demand-now' />}
               </div>
               <span className={`heat-demand-hours${hours ? '' : ' is-zero'}`} aria-hidden='true'>
                 {hours == null ? '—' : oneDecimal(hours)}
@@ -225,6 +325,7 @@ export function HeatDemand({ entities, zones, calls, day, nowMs }: HeatDemandPro
           ))}
         </div>
       </div>
+      {picker}
     </section>
   );
 }
