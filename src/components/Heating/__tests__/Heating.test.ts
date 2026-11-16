@@ -579,9 +579,16 @@ describe('the heat card', () => {
       '1.5/2.4',
       '0.9/1.0',
     ]);
+    expect([...card().querySelectorAll('.heat-demand-kr')].map(kr => kr.textContent)).toEqual(['', '', '', '', '']);
     expect([...card().querySelectorAll('.heat-demand-axis span')].map(tick => tick.textContent)).toEqual(['00', '06', '12', '18', '24']);
     const lanesBox = card().querySelector('.heat-demand-lanes') as HTMLElement;
     expect(parseFloat(lanesBox.style.getPropertyValue('--now'))).toBeCloseTo(percent(11 * 60 + 35), 6);
+  });
+
+  it('prices each zone with a kW fit at the heat price, and leaves the unfitted guest bathroom blank', () => {
+    renderPage(...heatDay(), idle('kristines_room'), entity('sensor.ista_heat_price', '1.031'));
+    expect([...card().querySelectorAll('.heat-demand-kr')].map(kr => kr.textContent)).toEqual(['4.3 kr', '0.2 kr', '0.2 kr', '0.2 kr', '']);
+    expect(card().querySelector('.heat-demand-lane')?.getAttribute('aria-label')).toBe('Family, called 3.8 h today, of 5.2 h planned, about 4.3 kroner');
   });
 
   it('marks the lane of a zone that is calling now', () => {
@@ -1518,6 +1525,7 @@ describe('the legends of the heat card and the zone rows', () => {
       'Faint colour is where the plan was in a special mode, such as sun cut or window open.',
       'The line is now.',
       'Hours a zone called / hours planned today.',
+      'About what those hours cost.',
     ]);
     const legend = card().querySelector('.heat-legend') as HTMLElement;
     expect(icons(legend)).toEqual(

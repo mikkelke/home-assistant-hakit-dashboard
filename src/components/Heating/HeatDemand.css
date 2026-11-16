@@ -140,7 +140,7 @@
 /* The lanes: the bright part of a lane is the day so far, `--now` is where it ends. */
 .heat-demand-lanes {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) 54px;
+  grid-template-columns: 28px minmax(0, 1fr) 54px 40px;
   gap: 9px 8px;
   align-items: center;
   padding-top: 14px;
@@ -204,6 +204,17 @@
   color: var(--text-3);
 }
 .heat-demand-hours.is-zero {
+  color: var(--text-3);
+}
+.heat-demand-kr {
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--text-2);
+}
+.heat-demand-kr.is-zero {
   color: var(--text-3);
 }
 .heat-demand-axis {

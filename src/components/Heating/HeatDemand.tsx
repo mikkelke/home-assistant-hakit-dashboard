@@ -2,7 +2,7 @@ import { Fragment, useState, type CSSProperties } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities } from '../../types';
 import type { CallSpan, LocalDay } from '../../utils/heatCalls';
-import { HEAT_PRICE_SENSOR, HEAT_RELAY_POWER_SENSOR, heatCostKr, heatEnergy, heatScale, spreadLabels } from '../../utils/heatEnergy';
+import { HEAT_PRICE_SENSOR, HEAT_RELAY_POWER_SENSOR, heatCostKr, heatEnergy, heatScale, KW_FIT, spreadLabels, zoneKwh } from '../../utils/heatEnergy';
 import { heatBool, heatNum, isHeating, parseDayBlocks, zoneSensorId, zoneThermostatId, type HeatingZone } from '../../utils/heating';
 import { InfoToggle, Legend } from './HeatInfo';
 import { RING_ROWS, type LegendRow } from './legend';
@@ -46,6 +46,7 @@ function demandLegend(hasCost: boolean, pumpIcon: string | null, ticks: readonly
   rows.push({ mark: 'band', text: 'Faint colour is where the plan was in a special mode, such as sun cut or window open.' });
   rows.push({ mark: 'now', text: 'The line is now.' });
   rows.push({ figure: '3.8/5.2', text: 'Hours a zone called / hours planned today.' });
+  if (hasCost) rows.push({ figure: '4.2 kr', text: 'About what those hours cost.' });
   return rows;
 }
 
@@ -67,7 +68,8 @@ export function HeatDemand({ entities, zones, calls, day, nowMs }: HeatDemandPro
   const today = energy.today;
   if (!today) return null;
 
-  const cost = heatCostKr(today.kwh, heatNum(entities[HEAT_PRICE_SENSOR]?.state));
+  const price = heatNum(entities[HEAT_PRICE_SENSOR]?.state);
+  const cost = heatCostKr(today.kwh, price);
   const relayW = heatNum(entities[HEAT_RELAY_POWER_SENSOR]?.state);
   const calling = zones.filter(zone => isHeating(entities[zoneThermostatId(zone)]));
   const scale = heatScale(energy);
@@ -165,10 +167,12 @@ export function HeatDemand({ entities, zones, calls, day, nowMs }: HeatDemandPro
           const hours = heatNum(attrs.call_hours_today);
           const budget = heatNum(attrs.budget_today_h);
           const cuts = parseDayBlocks(attrs.day_blocks).filter(block => block.mode !== 'hold');
+          const kr = hours != null && KW_FIT[zone] > 0 ? heatCostKr(zoneKwh(zone, hours), price) : null;
           const label = [
             ZONE_META[zone].name,
             hours == null ? 'hours unknown' : `called ${oneDecimal(hours)} h today`,
             budget == null ? null : `of ${oneDecimal(budget)} h planned`,
+            kr == null ? null : `about ${krText(kr)} kroner`,
             calling.includes(zone) ? 'calling now' : null,
           ]
             .filter(Boolean)
@@ -197,6 +201,9 @@ export function HeatDemand({ entities, zones, calls, day, nowMs }: HeatDemandPro
               <span className={`heat-demand-hours${hours ? '' : ' is-zero'}`} aria-hidden='true'>
                 {hours == null ? '—' : oneDecimal(hours)}
                 {budget != null && <i>/{oneDecimal(budget)}</i>}
+              </span>
+              <span className={`heat-demand-kr${kr ? '' : ' is-zero'}`} aria-hidden='true'>
+                {kr == null ? '' : `${krText(kr)} kr`}
               </span>
             </Fragment>
           );
