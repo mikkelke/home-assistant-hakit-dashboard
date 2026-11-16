@@ -246,7 +246,7 @@ describe('daySummary', () => {
     const segments = callSegments([{ ts: at(0, 0, 4), on: false }, ...call(6, 0, 7, 30), ...call(9, 0, 9, 20)], day.startMs, day.endMs);
     const summary = daySummary('family', segments, air);
     expect(summary.hours).toBeCloseTo(1.5 + 20 / 60, 9);
-    expect(summary.kwh).toBeCloseTo((1.5 + 20 / 60) * 1.11, 9);
+    expect(summary.kwh).toBeCloseTo((1.5 + 20 / 60) * 1.45, 9);
     expect(summary.airMinC).toBe(21.1);
     expect(summary.airMaxC).toBe(22.9);
   });
@@ -477,7 +477,7 @@ describe('zoneDayView', () => {
     expect(view.spans[0].left).toBeCloseTo(25, 9);
     expect(view.spans[0].width).toBeCloseTo(6.25, 9);
     expect(view.summary.hours).toBe(1.5);
-    expect(view.summary.kwh).toBeCloseTo(1.5 * 1.11, 9);
+    expect(view.summary.kwh).toBeCloseTo(1.5 * 1.45, 9);
     expect(view.summary.airMinC).toBeCloseTo((23 * 19 + 21 * 18.5 + 20 * 18.5) / 56, 9);
     expect(view.summary.airMaxC).toBeCloseTo((23 * 19 + 21 * 18.5) / 37.5, 9);
   });

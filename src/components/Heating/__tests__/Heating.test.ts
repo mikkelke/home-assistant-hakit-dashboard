@@ -487,8 +487,8 @@ describe('the heat card', () => {
   it('shows the estimated kWh so far today with its cost and the hours called', () => {
     renderPage(...heatDay(), entity('sensor.ista_heat_price', '1.031'));
     expect(card().getAttribute('aria-label')).toBe('Heat today');
-    expect(card().querySelector('.heat-demand-kwh')?.textContent).toBe('4.9kWh');
-    expect(labelled('About 5.1 kroner')?.textContent).toBe('5.1 kr');
+    expect(card().querySelector('.heat-demand-kwh')?.textContent).toBe('6.2kWh');
+    expect(labelled('About 6.4 kroner')?.textContent).toBe('6.4 kr');
     expect(labelled('7.3 hours called today')?.textContent).toBe('7.3 h');
   });
 
@@ -501,11 +501,11 @@ describe('the heat card', () => {
   it('puts yesterday, the plan and a sunless day on the scale of today as ticks in kWh', () => {
     renderPage(...heatDay());
     const values = [...card().querySelectorAll('.heat-demand-tick-value')];
-    expect(values.map(value => value.textContent)).toEqual(['6.5', '8.2', '12.8']);
+    expect(values.map(value => value.textContent)).toEqual(['8.3', '10.0', '15.8']);
     expect(values.map(value => value.getAttribute('aria-label'))).toEqual([
-      'The day before 6.5 kilowatt hours',
-      'Planned for today 8.2 kilowatt hours',
-      'A sunless day 12.8 kilowatt hours',
+      'The day before 8.3 kilowatt hours',
+      'Planned for today 10.0 kilowatt hours',
+      'A sunless day 15.8 kilowatt hours',
     ]);
     expect(icons(card().querySelector('.heat-demand-scale')!)).toEqual([
       'mdi:calendar-arrow-left',
@@ -514,15 +514,15 @@ describe('the heat card', () => {
     ]);
     expect(card().querySelectorAll('.heat-demand-tick')).toHaveLength(3);
     const fill = card().querySelector('.heat-demand-fill') as HTMLElement;
-    expect(parseFloat(fill.style.width)).toBeCloseTo((4.905 / 12.785) * 100, 3);
+    expect(parseFloat(fill.style.width)).toBeCloseTo((6.197 / 15.845) * 100, 3);
     const ticks = [...card().querySelectorAll<HTMLElement>('.heat-demand-tick')].map(tick => parseFloat(tick.style.left));
     expect(ticks[2]).toBe(100);
-    expect(ticks[1]).toBeCloseTo((8.188 / 12.785) * 100, 3);
+    expect(ticks[1]).toBeCloseTo((9.956 / 15.845) * 100, 3);
   });
 
   it('leaves out a tick whose series no zone publishes', () => {
     renderPage(zone('family', '21.5', { call_hours_today: 1, budget_today_h: 4 }));
-    expect([...card().querySelectorAll('.heat-demand-tick-value')].map(value => value.textContent)).toEqual(['4.4']);
+    expect([...card().querySelectorAll('.heat-demand-tick-value')].map(value => value.textContent)).toEqual(['5.8']);
   });
 
   it('is hidden while no zone publishes its call hours today, and the rest of the page stays', () => {
@@ -589,9 +589,9 @@ describe('the heat card', () => {
 
   it('prices each zone with a kW fit at the heat price, and leaves the unfitted guest bathroom blank', () => {
     renderPage(...heatDay(), idle('kristines_room'), entity('sensor.ista_heat_price', '1.031'));
-    expect([...card().querySelectorAll('.heat-demand-kr')].map(kr => kr.textContent)).toEqual(['4.3 kr', '0.2 kr', '0.2 kr', '0.2 kr', '']);
+    expect([...card().querySelectorAll('.heat-demand-kr')].map(kr => kr.textContent)).toEqual(['5.7 kr', '0.2 kr', '0.2 kr', '0.2 kr', '']);
     expect(card().querySelector('.heat-demand-lane')?.getAttribute('aria-label')).toBe(
-      'Family, called 3.8 h today, of 5.2 h planned, about 4.3 kroner'
+      'Family, called 3.8 h today, of 5.2 h planned, about 5.7 kroner'
     );
   });
 
@@ -1378,7 +1378,7 @@ describe('the day browser in the zone sheet', () => {
     expect(parseFloat(marks[0].getAttribute('width') as string)).toBeCloseTo((2 / 24) * 552, 6);
     expect(sheet().querySelector('.heat-chart-now')).toBeNull();
     const chips = [...sheet().querySelectorAll('.heat-day-summary .climate-chip')];
-    expect(chips.map(chip => chip.textContent)).toEqual(['2.0 h', '2.2 kWh', '21.0–21.7°']);
+    expect(chips.map(chip => chip.textContent)).toEqual(['2.0 h', '2.9 kWh', '21.0–21.7°']);
     expect(chips.map(chip => icons(chip)[0])).toEqual(['mdi:timer-sand', 'mdi:flash-outline', 'mdi:home-thermometer-outline']);
   });
 
@@ -1736,7 +1736,7 @@ describe('the heat card day picker', () => {
       '1.5/1.0',
       '—/1.0',
     ]);
-    expect(card().querySelector('.heat-demand-kwh b')?.textContent).toBe((3 * 1.11 + 1.5 * 0.16).toFixed(1));
+    expect(card().querySelector('.heat-demand-kwh b')?.textContent).toBe((3 * 1.45 + 1.5 * 0.16).toFixed(1));
     expect(card().querySelector('.heat-demand-callers')).toBeNull();
     expect(card().querySelector('[aria-label^="Floor heating pump"]')).toBeNull();
     expect(card().querySelector('.heat-demand-now')).toBeNull();

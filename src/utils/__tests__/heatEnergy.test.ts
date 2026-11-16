@@ -18,7 +18,7 @@ const todayOf = (hours: Record<HeatingZone, number>) =>
 
 describe('KW_FIT', () => {
   it('holds the season fit of every zone, and none for the guest bathroom', () => {
-    expect(KW_FIT).toEqual({ family: 1.11, kristines_room: 0.37, claudias_room: 0.45, bathroom: 0.16, guest_bathroom: 0 });
+    expect(KW_FIT).toEqual({ family: 1.45, kristines_room: 0.37, claudias_room: 0.45, bathroom: 0.16, guest_bathroom: 0 });
   });
 });
 
@@ -26,8 +26,8 @@ describe('heatEnergy', () => {
   it('weights each zone’s call hours by its kW and sums the zones', () => {
     const today = heatEnergy(todayOf(hoursToday)).today;
     expect(today?.hours).toBeCloseTo(7.3, 9);
-    expect(today?.kwh).toBeCloseTo(3.8 * 1.11 + 0.6 * 0.37 + 0.5 * 0.45 + 1.5 * 0.16, 9);
-    expect(today?.kwh).toBeCloseTo(4.905, 9);
+    expect(today?.kwh).toBeCloseTo(3.8 * 1.45 + 0.6 * 0.37 + 0.5 * 0.45 + 1.5 * 0.16, 9);
+    expect(today?.kwh).toBeCloseTo(6.197, 9);
   });
 
   it('adds nothing for the guest bathroom’s hours', () => {
@@ -37,7 +37,7 @@ describe('heatEnergy', () => {
 
   it('reads the hours the controller publishes as strings', () => {
     const entities = entitiesOf({ family: { call_hours_today: '2.0' }, bathroom: { call_hours_today: '1.0' } });
-    expect(heatEnergy(entities).today?.kwh).toBeCloseTo(2 * 1.11 + 1 * 0.16, 9);
+    expect(heatEnergy(entities).today?.kwh).toBeCloseTo(2 * 1.45 + 1 * 0.16, 9);
   });
 
   it('counts a zone without the figure as zero', () => {
@@ -47,7 +47,7 @@ describe('heatEnergy', () => {
       claudias_room: {},
       bathroom: { call_hours_today: null },
     });
-    expect(heatEnergy(entities).today).toEqual({ hours: 2, kwh: 2 * 1.11 });
+    expect(heatEnergy(entities).today).toEqual({ hours: 2, kwh: 2 * 1.45 });
   });
 
   it('is null for a series that no zone publishes', () => {
@@ -67,11 +67,11 @@ describe('heatEnergy', () => {
         guest_bathroom: { yesterday: 'n/a', budget_today_h: 9 },
       })
     );
-    expect(energy.today?.kwh).toBeCloseTo(1.11, 9);
-    expect(energy.yesterday?.kwh).toBeCloseTo(2 * 1.11 + 3 * 0.16, 9);
-    expect(energy.plan?.kwh).toBeCloseTo(4 * 1.11 + 2 * 0.16, 9);
+    expect(energy.today?.kwh).toBeCloseTo(1.45, 9);
+    expect(energy.yesterday?.kwh).toBeCloseTo(2 * 1.45 + 3 * 0.16, 9);
+    expect(energy.plan?.kwh).toBeCloseTo(4 * 1.45 + 2 * 0.16, 9);
     expect(energy.plan?.hours).toBeCloseTo(15, 9);
-    expect(energy.sunless?.kwh).toBeCloseTo(8 * 1.11 + 5 * 0.16, 9);
+    expect(energy.sunless?.kwh).toBeCloseTo(8 * 1.45 + 5 * 0.16, 9);
   });
 });
 

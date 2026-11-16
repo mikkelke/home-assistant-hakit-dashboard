@@ -4,7 +4,7 @@ import { HEATING_ZONES, heatNum, zoneSensorId, type HeatingZone } from './heatin
 /** The kW each zone draws from the district heat while its thermostat calls: a season fit of the ista meter against
  * call hours. The guest bathroom is too small to show in the meter. */
 export const KW_FIT: Record<HeatingZone, number> = {
-  family: 1.11,
+  family: 1.45,
   kristines_room: 0.37,
   claudias_room: 0.45,
   bathroom: 0.16,
