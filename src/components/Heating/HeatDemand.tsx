@@ -2,7 +2,16 @@ import { Fragment, useState, type CSSProperties } from 'react';
 import { Icon } from '@iconify/react';
 import type { HassEntities } from '../../types';
 import type { CallSpan, LocalDay } from '../../utils/heatCalls';
-import { HEAT_PRICE_SENSOR, HEAT_RELAY_POWER_SENSOR, heatCostKr, heatEnergy, heatScale, KW_FIT, spreadLabels, zoneKwh } from '../../utils/heatEnergy';
+import {
+  HEAT_PRICE_SENSOR,
+  HEAT_RELAY_POWER_SENSOR,
+  heatCostKr,
+  heatEnergy,
+  heatScale,
+  KW_FIT,
+  spreadLabels,
+  zoneKwh,
+} from '../../utils/heatEnergy';
 import { heatBool, heatNum, isHeating, parseDayBlocks, zoneSensorId, zoneThermostatId, type HeatingZone } from '../../utils/heating';
 import { InfoToggle, Legend } from './HeatInfo';
 import { RING_ROWS, type LegendRow } from './legend';

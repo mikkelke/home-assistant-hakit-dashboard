@@ -588,7 +588,9 @@ describe('the heat card', () => {
   it('prices each zone with a kW fit at the heat price, and leaves the unfitted guest bathroom blank', () => {
     renderPage(...heatDay(), idle('kristines_room'), entity('sensor.ista_heat_price', '1.031'));
     expect([...card().querySelectorAll('.heat-demand-kr')].map(kr => kr.textContent)).toEqual(['4.3 kr', '0.2 kr', '0.2 kr', '0.2 kr', '']);
-    expect(card().querySelector('.heat-demand-lane')?.getAttribute('aria-label')).toBe('Family, called 3.8 h today, of 5.2 h planned, about 4.3 kroner');
+    expect(card().querySelector('.heat-demand-lane')?.getAttribute('aria-label')).toBe(
+      'Family, called 3.8 h today, of 5.2 h planned, about 4.3 kroner'
+    );
   });
 
   it('marks the lane of a zone that is calling now', () => {
