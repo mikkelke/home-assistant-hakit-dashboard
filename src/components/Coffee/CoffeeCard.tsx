@@ -35,6 +35,7 @@ import {
   useCoffeeState,
 } from '../../coffee/useCoffee';
 import {
+  bagBrews,
   bandVerdict,
   brewDayWord,
   maintenanceWord,
@@ -74,6 +75,7 @@ import { TasteDot, TasteRow } from './taste';
 import { useBrewStart } from './useBrewStart';
 import { useClock } from './useClock';
 import { PausedFill, WaterRow } from './WaterTank';
+import { WrongBeans } from './WrongBeans';
 import '../Appliance/Appliance.css';
 import './Coffee.css';
 import './CoffeeCard.css';
@@ -119,11 +121,13 @@ interface CardData {
 function LastBrewRow({
   brew,
   brews,
+  beans,
   recent,
   nowMs,
 }: {
   brew: BrewRecord;
   brews: CoffeeBrews | null;
+  beans: CoffeeBeans | null;
   recent: CoffeeRecentData | null;
   nowMs: number;
 }) {
@@ -158,6 +162,7 @@ function LastBrewRow({
           <TasteRow brewId={brew.id} rating={brew.rating} size='sm' />
         </div>
       )}
+      <WrongBeans brew={brew} beans={beans} nowMs={nowMs} />
     </div>
   );
 }
@@ -165,7 +170,7 @@ function LastBrewRow({
 function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onSheet: (sheet: Sheet) => void }) {
   const { state, baseline, beans, brews, recipes, advice } = data;
   const usual = usualRecipe(recipes);
-  const brew = useBrewStart(state, usual, advice, nowMs);
+  const brew = useBrewStart(state, usual, advice, nowMs, bagBrews(beans, recipes));
   const { adjust, cup, trial, water } = brew;
   const shownAdvice = advisorShown(advice) ? advice : null;
   const last = brews?.brews[0] ?? null;
@@ -305,7 +310,7 @@ function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onS
       {last && (
         <>
           <div className='cc-sep' />
-          <LastBrewRow brew={last} brews={brews} recent={recent} nowMs={nowMs} />
+          <LastBrewRow brew={last} brews={brews} beans={beans} recent={recent} nowMs={nowMs} />
         </>
       )}
     </>
@@ -451,7 +456,7 @@ function deltaChip(label: string, value: string, delta: number | null, unit: str
 
 function ReadyBrew({ data, nowMs }: { data: CardData; nowMs: number }) {
   const { state, live, baseline, brews, advice, beans } = data;
-  const brew = useBrewStart(state, usualRecipe(data.recipes), advice, nowMs);
+  const brew = useBrewStart(state, usualRecipe(data.recipes), advice, nowMs, bagBrews(beans, data.recipes));
   const record = brews?.brews.find(item => item.id === state.brewId) ?? null;
   const cup = live ? series(live.cup, live.stepS) : null;
   const water = live ? series(live.water, live.stepS) : null;
@@ -494,6 +499,7 @@ function ReadyBrew({ data, nowMs }: { data: CardData; nowMs: number }) {
         {state.cupG != null && deltaChip('cup', `${Math.round(state.cupG)} g`, dCup, '', 3)}
         <NotifyChip state={state} variant='small' />
       </div>
+      <WrongBeans brew={record} beans={beans} nowMs={nowMs} />
       <div className='cc-rate'>
         <span className='cc-rate-q'>How is it?</span>
         <TasteRow brewId={state.brewId} rating={record?.rating ?? null} size='sm' />

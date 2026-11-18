@@ -217,6 +217,78 @@ describe('the other entities', () => {
     expect(parseCoffeeBeans(entity('-12', { low: 'yes' }))).toMatchObject({ remainingG: 0, low: true });
   });
 
+  describe('the open bags', () => {
+    const bag = (attributes: Record<string, unknown> = {}) => ({
+      bean_id: 'b2',
+      bean_name: 'Signature Brew',
+      remaining: '500',
+      brews_left: '33',
+      low: 'no',
+      added_at: '2026-11-18T06:10:00+00:00',
+      recipe_id: '4567890',
+      ...attributes,
+    });
+
+    it('reads every bag in the order published, with the recipe named like its beans', () => {
+      const beans = parseCoffeeBeans(
+        entity('214', {
+          bean_id: 'b1',
+          bean_name: 'Daybreak',
+          brews_left: '14',
+          bags: [bag(), bag({ bean_id: 'b1', bean_name: 'Daybreak', remaining: '214', brews_left: '14', low: 'yes', recipe_id: '' })],
+        })
+      )!;
+      expect(beans.bags).toEqual([
+        {
+          beanId: 'b2',
+          beanName: 'Signature Brew',
+          remainingG: 500,
+          brewsLeft: 33,
+          low: false,
+          addedAtMs: Date.parse('2026-11-18T06:10:00+00:00'),
+          recipeId: '4567890',
+        },
+        {
+          beanId: 'b1',
+          beanName: 'Daybreak',
+          remainingG: 214,
+          brewsLeft: 14,
+          low: true,
+          addedAtMs: Date.parse('2026-11-18T06:10:00+00:00'),
+          recipeId: null,
+        },
+      ]);
+    });
+
+    it('derives the one bag the top-level fields describe when the attribute is missing', () => {
+      const beans = parseCoffeeBeans(BEANS)!;
+      expect(beans.bags).toEqual([
+        { beanId: 'b1', beanName: 'Kenya Kiambu', remainingG: 112, brewsLeft: 7, low: false, addedAtMs: beans.addedAtMs, recipeId: null },
+      ]);
+      expect(parseCoffeeBeans(entity('unknown'))!.bags).toEqual([]);
+      expect(parseCoffeeBeans(entity('unknown', { bags: 'not a list' }))!.bags).toEqual([]);
+    });
+
+    it('trusts a published list, even an empty one, and keeps only the bags it can read', () => {
+      expect(parseCoffeeBeans(entity('112', { bean_id: 'b1', bean_name: 'Kenya Kiambu', bags: [] }))!.bags).toEqual([]);
+      const beans = parseCoffeeBeans(
+        entity('214', {
+          bags: [
+            null,
+            'x',
+            7,
+            bag({ bean_id: '' }),
+            bag({ bean_name: ' ' }),
+            bag({ remaining: '-3', brews_left: 'many', added_at: 'soon' }),
+          ],
+        })
+      )!;
+      expect(beans.bags).toEqual([
+        { beanId: 'b2', beanName: 'Signature Brew', remainingG: 0, brewsLeft: null, low: false, addedAtMs: null, recipeId: '4567890' },
+      ]);
+    });
+  });
+
   it('reads the baseline band only as numbers', () => {
     const baseline = parseCoffeeBaseline(
       entity('ready', { n: '7', step_s: '2', cup_lo: '0,,20', cup_hi: '0,15,30', total_s_median: '203', brew_ids: 'c1,c2' })

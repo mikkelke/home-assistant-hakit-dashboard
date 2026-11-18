@@ -20,6 +20,8 @@ export const COFFEE_DEMO_SCENARIOS = [
   'awaiting_cup',
   'water_low',
   'water_unknown',
+  'two_bags',
+  'two_bags_ready',
 ] as const;
 export type CoffeeDemoScenario = (typeof COFFEE_DEMO_SCENARIOS)[number];
 

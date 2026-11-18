@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import { parseCoffeeBeans, parseCoffeeRecipes } from '../model';
 import { COFFEE_PHASES, isOnHome, type CoffeePhase } from '../state';
 import {
+  bagBrews,
+  beanColors,
   brewView,
   canStart,
   maintenanceWord,
   pausedForWater,
+  retagChoices,
   startFailure,
   waterCups,
   waterLine,
@@ -145,5 +149,108 @@ describe('the coffee chip on Home', () => {
     const shown = COFFEE_PHASES.filter(phase => isOnHome(phase));
     expect(shown).toEqual(['grinding', 'brewing', 'paused', 'ready', 'picked_up']);
     expect(isOnHome(null)).toBe(false);
+  });
+});
+
+const bagAttrs = (id: string, name: string, recipeId: string) => ({
+  bean_id: id,
+  bean_name: name,
+  remaining: '300',
+  brews_left: '20',
+  low: 'no',
+  added_at: '2026-11-18T06:10:00+00:00',
+  recipe_id: recipeId,
+});
+const openBags = (...bags: ReturnType<typeof bagAttrs>[]) => parseCoffeeBeans({ state: '300', attributes: { v: '1', bags } })!;
+const library = parseCoffeeRecipes({
+  state: 'Daybreak',
+  attributes: {
+    v: '1',
+    usual_id: 'r1',
+    recipes: [
+      { id: 'r1', name: 'Daybreak', total_ml: '255' },
+      { id: 'r2', name: 'Signature Brew', total_ml: '200' },
+    ],
+  },
+})!;
+
+describe('the colours of the beans', () => {
+  it('are the same whatever order the bags are listed in, and different for every open bag', () => {
+    expect(beanColors(['b2', 'b1'])).toEqual(beanColors(['b1', 'b2']));
+    expect(beanColors(['b1', 'b1'])).toEqual(beanColors(['b1']));
+    for (const ids of [
+      ['b1', 'b2'],
+      ['b1', 'b2', 'b3'],
+      ['a', 'b', 'c', 'd', 'e'],
+    ]) {
+      expect(new Set(Object.values(beanColors(ids))).size).toBe(ids.length);
+    }
+  });
+
+  it('stay what they were: a bean is not recoloured by a release', () => {
+    expect(beanColors(['b1'])).toEqual({ b1: '#a5b4fc' });
+    expect(beanColors(['b1', 'b2'])).toEqual({ b1: '#a5b4fc', b2: '#fca5a5' });
+  });
+
+  it('colour more bags than there are colours, rather than fail', () => {
+    const ids = Array.from({ length: 9 }, (_, index) => `bean-${index}`);
+    expect(Object.keys(beanColors(ids))).toHaveLength(9);
+  });
+});
+
+describe('the beans to pick before a brew', () => {
+  it('asks only once two open bags have a recipe of their name', () => {
+    const one = openBags(bagAttrs('b1', 'Daybreak', 'r1'));
+    const noRecipe = openBags(bagAttrs('b1', 'Daybreak', 'r1'), bagAttrs('b2', 'Signature Brew', ''));
+    expect(bagBrews(one, library)).toEqual([]);
+    expect(bagBrews(noRecipe, library)).toEqual([]);
+    expect(bagBrews(null, library)).toEqual([]);
+  });
+
+  it('lists them by name with their recipe, the usual marked, and the colours the correction uses', () => {
+    const beans = openBags(bagAttrs('b2', 'Signature Brew', 'r2'), bagAttrs('b1', 'Daybreak', 'r1'), bagAttrs('b3', 'Guji', ''));
+    const picks = bagBrews(beans, library);
+    expect(picks.map(item => [item.bag.beanName, item.recipe?.name, item.usual])).toEqual([
+      ['Daybreak', 'Daybreak', true],
+      ['Signature Brew', 'Signature Brew', false],
+    ]);
+    const colors = beanColors(['b1', 'b2', 'b3']);
+    expect(picks.map(item => item.color)).toEqual([colors.b1, colors.b2]);
+  });
+
+  it('keeps a bag whose recipe the library does not have, without one', () => {
+    const beans = openBags(bagAttrs('b1', 'Daybreak', 'r1'), bagAttrs('b2', 'Signature Brew', 'r9'));
+    expect(bagBrews(beans, library).map(item => item.recipe?.name ?? null)).toEqual(['Daybreak', null]);
+    expect(bagBrews(beans, null).map(item => item.usual)).toEqual([false, false]);
+  });
+});
+
+describe('correcting the beans of a brew', () => {
+  const nowMs = Date.parse('2026-11-18T12:00:00Z');
+  const hoursAgo = (hours: number) => nowMs - hours * 3_600_000;
+  const two = openBags(bagAttrs('b1', 'Daybreak', 'r1'), bagAttrs('b2', 'Signature Brew', 'r2'));
+
+  it('offers the other open bags for a brew under a day old', () => {
+    expect(retagChoices(two, { atMs: hoursAgo(3), beanName: 'Daybreak' }, nowMs).map(choice => choice.bag.beanId)).toEqual(['b2']);
+    expect(retagChoices(two, { atMs: hoursAgo(23.9), beanName: 'daybreak ' }, nowMs).map(choice => choice.bag.beanId)).toEqual(['b2']);
+  });
+
+  it('offers every bag for a brew without beans, or with beans no bag is open for', () => {
+    expect(retagChoices(two, { atMs: hoursAgo(1), beanName: null }, nowMs)).toHaveLength(2);
+    expect(retagChoices(two, { atMs: hoursAgo(1), beanName: 'Guji' }, nowMs)).toHaveLength(2);
+  });
+
+  it('offers nothing with one open bag, for an old brew, or for one without a time', () => {
+    const one = openBags(bagAttrs('b1', 'Daybreak', 'r1'));
+    expect(retagChoices(one, { atMs: hoursAgo(1), beanName: 'Daybreak' }, nowMs)).toEqual([]);
+    expect(retagChoices(two, { atMs: hoursAgo(24), beanName: 'Daybreak' }, nowMs)).toEqual([]);
+    expect(retagChoices(two, { atMs: null, beanName: 'Daybreak' }, nowMs)).toEqual([]);
+    expect(retagChoices(null, { atMs: hoursAgo(1), beanName: 'Daybreak' }, nowMs)).toEqual([]);
+  });
+
+  it('colours the choices like the picker does', () => {
+    const picks = bagBrews(two, library);
+    const choices = retagChoices(two, { atMs: hoursAgo(1), beanName: 'Daybreak' }, nowMs);
+    expect(choices[0].color).toBe(picks.find(item => item.bag.beanId === 'b2')?.color);
   });
 });

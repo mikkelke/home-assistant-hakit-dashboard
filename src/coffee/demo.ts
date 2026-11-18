@@ -169,58 +169,73 @@ function entity(state: string, attributes: Attributes): CoffeeEntity {
   return { state, attributes: { v: '1', ...attributes } };
 }
 
-const RECIPES = entity(RECIPE_NAME, {
+const RECIPE_LIST: Record<string, string>[] = [
+  {
+    id: RECIPE_ID,
+    name: RECIPE_NAME,
+    dose_g: '15',
+    ratio: '17',
+    grind: '46',
+    rpm: '100',
+    cup: 'xpod',
+    total_ml: '255',
+    plan_s: String(PLAN_END_S + 75),
+    pours: '45/93/3.5/circular/15;80/93/3.5/circular/15;65/93/3.5/circular/12;65/93/3.5/centered/5',
+  },
+  {
+    id: '2345678',
+    name: 'House blend',
+    dose_g: '15',
+    ratio: '15',
+    grind: '50',
+    rpm: '100',
+    cup: 'omni',
+    total_ml: '225',
+    plan_s: '174',
+    pours: '50/92/3.5/spiral/20;95/92/3.5/circular/15;80/92/3.5/circular/0',
+  },
+  {
+    id: '3456789',
+    name: 'Decaf evening',
+    dose_g: '12',
+    ratio: '15',
+    grind: '48',
+    rpm: '90',
+    cup: 'omni',
+    total_ml: '180',
+    plan_s: '149',
+    pours: '60/90/3/centered/20;120/90/3.5/circular/0',
+  },
+  {
+    id: '4567890',
+    name: "Kristine's Kenya",
+    dose_g: '15',
+    ratio: '17',
+    grind: '44',
+    rpm: '110',
+    cup: 'xpod',
+    total_ml: '255',
+    plan_s: '200',
+    pours: '40/94/3/spiral/20;55/94/3.5/circular/10;55/94/3.5/circular/10;55/94/3.5/circular/10;50/94/3.5/centered/0',
+  },
+];
+
+const RECIPES = entity(RECIPE_NAME, { usual_id: RECIPE_ID, recipes: RECIPE_LIST });
+
+/** The two-bag previews: the house's Daybreak, which is the usual, and a housemate's Signature Brew, each with a recipe
+ * named like its beans. */
+const DAYBREAK = 'Daybreak';
+const BAG_NAMES = { recipe: DAYBREAK, bean: DAYBREAK };
+const SIGNATURE = { id: 'b4', name: 'Signature Brew', recipeId: '4567890' };
+const BAG_RECIPES = entity(DAYBREAK, {
   usual_id: RECIPE_ID,
-  recipes: [
-    {
-      id: RECIPE_ID,
-      name: RECIPE_NAME,
-      dose_g: '15',
-      ratio: '17',
-      grind: '46',
-      rpm: '100',
-      cup: 'xpod',
-      total_ml: '255',
-      plan_s: String(PLAN_END_S + 75),
-      pours: '45/93/3.5/circular/15;80/93/3.5/circular/15;65/93/3.5/circular/12;65/93/3.5/centered/5',
-    },
-    {
-      id: '2345678',
-      name: 'House blend',
-      dose_g: '15',
-      ratio: '15',
-      grind: '50',
-      rpm: '100',
-      cup: 'omni',
-      total_ml: '225',
-      plan_s: '174',
-      pours: '50/92/3.5/spiral/20;95/92/3.5/circular/15;80/92/3.5/circular/0',
-    },
-    {
-      id: '3456789',
-      name: 'Decaf evening',
-      dose_g: '12',
-      ratio: '15',
-      grind: '48',
-      rpm: '90',
-      cup: 'omni',
-      total_ml: '180',
-      plan_s: '149',
-      pours: '60/90/3/centered/20;120/90/3.5/circular/0',
-    },
-    {
-      id: '4567890',
-      name: "Kristine's Kenya",
-      dose_g: '15',
-      ratio: '17',
-      grind: '44',
-      rpm: '110',
-      cup: 'xpod',
-      total_ml: '255',
-      plan_s: '200',
-      pours: '40/94/3/spiral/20;55/94/3.5/circular/10;55/94/3.5/circular/10;55/94/3.5/circular/10;50/94/3.5/centered/0',
-    },
-  ],
+  recipes: RECIPE_LIST.map(recipe =>
+    recipe.id === RECIPE_ID
+      ? { ...recipe, name: DAYBREAK }
+      : recipe.id === SIGNATURE.recipeId
+        ? { ...recipe, name: SIGNATURE.name }
+        : recipe
+  ),
 });
 
 interface LedgerSpec {
@@ -272,7 +287,11 @@ interface LedgerBrew {
 const brewFor = (spec: LedgerSpec) =>
   spec.seed === 42 ? TODAY : simulate(0.039 + rng(spec.seed)() * 0.008, 36 + rng(spec.seed + 1)() * 4, (spec.seed % 5) - 2, spec.seed);
 
-function ledger(newestAtMs: number, newest: Partial<LedgerSpec> & { brew?: Brew; trial?: string } = {}): LedgerBrew[] {
+function ledger(
+  newestAtMs: number,
+  newest: Partial<LedgerSpec> & { brew?: Brew; trial?: string } = {},
+  usualNames = { recipe: RECIPE_NAME, bean: BEAN.name }
+): LedgerBrew[] {
   let usualSeen = 0;
   return LEDGER.map((base, index) => {
     const spec = index === 0 ? { ...base, ...newest } : base;
@@ -289,9 +308,9 @@ function ledger(newestAtMs: number, newest: Partial<LedgerSpec> & { brew?: Brew;
       at: iso(atMs),
       outcome: stopped ? 'stopped' : 'complete',
       source: index % 3 === 0 ? 'tablet' : index % 3 === 1 ? 'machine' : 'phone',
-      recipe_name: spec.recipe ?? RECIPE_NAME,
+      recipe_name: spec.recipe ?? usualNames.recipe,
       variant: newest.trial && index === 0 ? 'trial' : usual ? 'usual' : 'other',
-      bean_name: spec.bean ?? BEAN.name,
+      bean_name: spec.bean ?? usualNames.bean,
       grind: newest.trial && index === 0 ? '44' : usual ? '46' : '50',
       dose_g: spec.recipe === 'Decaf evening' ? '12' : '15',
       who: spec.who ?? 'none',
@@ -437,6 +456,43 @@ function beansEntity(remaining: number, brewsLeft: number, anchorMs: number): Co
   });
 }
 
+function bagsEntity(anchorMs: number): CoffeeEntity {
+  return entity('214', {
+    bean_id: BEAN.id,
+    bean_name: DAYBREAK,
+    added_at: iso(anchorMs - 12 * DAY),
+    dose_g: '15',
+    brews_left: '14',
+    last_op_id: 'op7',
+    known_beans: [
+      { id: BEAN.id, name: DAYBREAK },
+      { id: SIGNATURE.id, name: SIGNATURE.name },
+      { id: 'b2', name: 'Ethiopia Guji' },
+      { id: 'b3', name: 'House blend' },
+    ],
+    bags: [
+      {
+        bean_id: SIGNATURE.id,
+        bean_name: SIGNATURE.name,
+        remaining: '500',
+        brews_left: '33',
+        low: 'no',
+        added_at: iso(anchorMs - 2 * HOUR),
+        recipe_id: SIGNATURE.recipeId,
+      },
+      {
+        bean_id: BEAN.id,
+        bean_name: DAYBREAK,
+        remaining: '214',
+        brews_left: '14',
+        low: 'no',
+        added_at: iso(anchorMs - 12 * DAY),
+        recipe_id: RECIPE_ID,
+      },
+    ],
+  });
+}
+
 interface StateInput {
   phase: string;
   machine: string;
@@ -493,10 +549,13 @@ export function coffeeDemoTicks(scenario: CoffeeDemoScenario): boolean {
 
 export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs: number): CoffeeDemoSnapshot {
   const lastAtMs = anchorMs - 6 * HOUR - 57 * MIN;
-  const quietBrews = ledger(lastAtMs);
+  const twoBags = scenario === 'two_bags' || scenario === 'two_bags_ready';
+  const names = twoBags ? BAG_NAMES : undefined;
+  const named: Attributes = twoBags ? { recipe_name: DAYBREAK, bean_name: DAYBREAK } : {};
+  const quietBrews = ledger(lastAtMs, {}, names);
   const entities: Record<string, CoffeeEntity> = {
     [COFFEE_STATE_ENTITY]: stateEntity(
-      { phase: 'idle', machine: 'awake', powerW: '2.2', link: 'connected', brewId: quietBrews[0].id },
+      { phase: 'idle', machine: 'awake', powerW: '2.2', link: 'connected', brewId: quietBrews[0].id, extra: named },
       nowMs
     ),
     [COFFEE_LIVE_ENTITY]: liveEntity('ended', TODAY, lastAtMs - TODAY.ready * S, TODAY.ready),
@@ -508,7 +567,10 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
   };
   let recent = recentFor(quietBrews);
   const quiet = (phase: string, machine: string, powerW: string, link: string, extra: Attributes = {}) => {
-    entities[COFFEE_STATE_ENTITY] = stateEntity({ phase, machine, powerW, link, brewId: quietBrews[0].id, extra }, nowMs);
+    entities[COFFEE_STATE_ENTITY] = stateEntity(
+      { phase, machine, powerW, link, brewId: quietBrews[0].id, extra: { ...named, ...extra } },
+      nowMs
+    );
   };
 
   switch (scenario) {
@@ -526,6 +588,8 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
       break;
     case 'start_failed':
       quiet('start_failed', 'awake', '2.3', 'not_connected', { start_error: 'machine_busy' });
+      break;
+    case 'two_bags':
       break;
     case 'awaiting_cup':
       entities[COFFEE_STATE_ENTITY] = stateEntity(
@@ -572,17 +636,22 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
     }
     case 'ready':
     case 'ready_cup_unknown':
-    case 'picked_up': {
+    case 'picked_up':
+    case 'two_bags_ready': {
       const readyMs = anchorMs - 12 * S;
-      const brews = ledger(readyMs);
+      const brews = ledger(readyMs, {}, names);
       const extra: Attributes =
-        scenario === 'picked_up' ? { cup: 'absent', picked_up_at: iso(anchorMs - 4 * S) } : scenario === 'ready' ? {} : { cup: 'unknown' };
+        scenario === 'picked_up'
+          ? { cup: 'absent', picked_up_at: iso(anchorMs - 4 * S) }
+          : scenario === 'ready_cup_unknown'
+            ? { cup: 'unknown' }
+            : {};
       entities[COFFEE_STATE_ENTITY] = readyState(
         readyMs - TODAY.ready * S,
         brews[0].id,
         nowMs,
         scenario === 'picked_up' ? 'picked_up' : 'ready',
-        extra
+        { ...named, ...extra }
       );
       entities[COFFEE_LIVE_ENTITY] = liveEntity('ended', TODAY, readyMs - TODAY.ready * S, TODAY.ready);
       entities[COFFEE_BREWS_ENTITY] = brewsEntity(brews);
@@ -698,6 +767,10 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
       entities[COFFEE_LIVE_ENTITY] = liveEntity('live', TODAY, bloomMs, t);
       break;
     }
+  }
+  if (twoBags) {
+    entities[COFFEE_RECIPES_ENTITY] = BAG_RECIPES;
+    entities[COFFEE_BEANS_ENTITY] = bagsEntity(anchorMs);
   }
   return { entities, recent };
 }

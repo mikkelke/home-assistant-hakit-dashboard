@@ -8,6 +8,7 @@ import {
   formatMinSec,
   type BrewRecord,
   type CoffeeAdvice,
+  type CoffeeBag,
   type CoffeeBaseline,
   type CoffeeBeans,
   type Recipe,
@@ -165,14 +166,44 @@ export function RecipesSheet({ recipes, usualId, onClose }: { recipes: Recipe[];
 
 const TOP_UPS = [100, BEANS_TOP_UP_G, 500, 1000];
 
-/** Beans went into the container: how much, and which. The household nearly always refills with new beans, so naming
- * them is the default. Other beans switch the container; what was left counts into the new beans. */
+/** An open bag with its estimate, and Empty for when it ran out before the estimate said so. */
+function BagRow({ bag, onEmpty }: { bag: CoffeeBag; onEmpty: () => void }) {
+  const detail = [
+    bag.remainingG != null ? `≈${Math.round(bag.remainingG)} g` : null,
+    bag.addedAtMs != null ? `added ${formatDayMonth(bag.addedAtMs)}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  return (
+    <div className='coffee-bag'>
+      <span className='coffee-face coffee-face--md is-bean'>
+        <Glyph name='bean' />
+      </span>
+      <span className='coffee-bag-tx'>
+        <b>{bag.beanName}</b>
+        {detail && <small>{detail}</small>}
+      </span>
+      <button type='button' className='coffee-btn is-ghost' aria-label={`Empty ${bag.beanName}`} onClick={onEmpty}>
+        Empty
+      </button>
+    </div>
+  );
+}
+
+/** Beans went into a bag: how much, and which. The household nearly always opens a bag of new beans, so naming them is
+ * the default. Beans already in an open bag top it up; the other open bags stay as they are. */
 export function BeansSheet({ beans, onClose }: { beans: CoffeeBeans | null; onClose: () => void }) {
   const [grams, setGrams] = useState(BEANS_TOP_UP_G);
   const [beanId, setBeanId] = useState<string | null>('new');
   const [newName, setNewName] = useState('');
+  const bags = beans?.bags ?? [];
+  const known = beans?.knownBeans ?? [];
+  const pickable = [
+    ...known,
+    ...bags.filter(bag => !known.some(bean => bean.id === bag.beanId)).map(bag => ({ id: bag.beanId, name: bag.beanName })),
+  ];
   const naming = beanId === 'new';
-  const name = naming ? newName.trim() : (beans?.knownBeans.find(bean => bean.id === beanId)?.name ?? beans?.beanName ?? null);
+  const name = naming ? newName.trim() : (pickable.find(bean => bean.id === beanId)?.name ?? beans?.beanName ?? null);
   const add = () => {
     void sendCoffeeCommand(
       'beans_add',
@@ -184,15 +215,23 @@ export function BeansSheet({ beans, onClose }: { beans: CoffeeBeans | null; onCl
     ).catch(() => {});
     onClose();
   };
+  const empty = (bag: CoffeeBag) => {
+    void sendCoffeeCommand('beans_empty', { bean_id: bag.beanId }).catch(() => {});
+    onClose();
+  };
   const amount = grams >= 1000 ? `${grams / 1000} kg` : `${grams} g`;
   return (
     <CoffeeSheet icon='mdi:plus' title='Added beans' historyKey='coffee-beans' onClose={onClose}>
       <div className='coffee-sheet-stack'>
-        {beans?.remainingG != null && (
-          <p className='coffee-sheet-note'>
-            Now ≈{Math.round(beans.remainingG)} g {beans.beanName ?? ''}
-            {beans.addedAtMs != null ? `, added ${formatDayMonth(beans.addedAtMs)}` : ''}
-          </p>
+        {bags.length > 0 && (
+          <>
+            <span className='coffee-lab'>Open {bags.length === 1 ? 'bag' : 'bags'}</span>
+            <div className='coffee-sheet-list'>
+              {bags.map(bag => (
+                <BagRow key={bag.beanId} bag={bag} onEmpty={() => empty(bag)} />
+              ))}
+            </div>
+          </>
         )}
         <div className='coffee-seg' role='radiogroup' aria-label='How much'>
           {TOP_UPS.map(value => (
@@ -227,7 +266,7 @@ export function BeansSheet({ beans, onClose }: { beans: CoffeeBeans | null; onCl
               <span>New beans…</span>
             )}
           </button>
-          {(beans?.knownBeans ?? []).map(bean => (
+          {pickable.map(bean => (
             <button
               key={bean.id}
               type='button'
@@ -247,7 +286,7 @@ export function BeansSheet({ beans, onClose }: { beans: CoffeeBeans | null; onCl
         <button type='button' className='coffee-btn is-copper' onClick={add} disabled={naming && !newName.trim()}>
           <Icon icon='mdi:plus' aria-hidden='true' />
           Added {amount}
-          {name && name !== beans?.beanName ? ` · ${name}` : ''}
+          {name && (bags.length > 1 || name !== beans?.beanName) ? ` · ${name}` : ''}
         </button>
       </div>
     </CoffeeSheet>

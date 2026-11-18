@@ -649,6 +649,184 @@
   font-size: 19px;
 }
 
+/* ---- the beans to brew, asked while two or more bags are open ---- */
+.coffee-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.coffee-picker-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+.coffee-bean {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 56px;
+  padding: 8px 12px 8px 18px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--cof-chip);
+  color: var(--cof-t1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 120ms var(--ease-out);
+}
+.coffee-bean::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 12px;
+  bottom: 12px;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--bean);
+}
+.coffee-bean:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.coffee-bean.is-on {
+  background: color-mix(in srgb, var(--bean) 16%, var(--cof-chip));
+  box-shadow: inset 0 0 0 2px var(--bean);
+}
+.coffee-bean:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.coffee-bean-tx {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.coffee-bean-tx b {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.coffee-bean-tx small {
+  font-size: 12.5px;
+  color: var(--cof-t2);
+  font-variant-numeric: tabular-nums;
+}
+.coffee-bean.is-low small {
+  color: var(--cof-amber);
+}
+.coffee-bean-check {
+  position: absolute;
+  right: 8px;
+  bottom: 7px;
+  font-size: 18px;
+  color: var(--bean);
+}
+.coffee-picker-recipe {
+  min-height: 20px;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--bean);
+}
+.coffee-picker.is-xl {
+  gap: 6px;
+}
+.coffee-picker.is-xl .coffee-picker-cards {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.coffee-picker.is-xl .coffee-bean {
+  min-height: 64px;
+  padding: 8px 12px 8px 22px;
+  border-radius: 22px;
+}
+.coffee-picker.is-xl .coffee-bean::before {
+  left: 9px;
+  top: 12px;
+  bottom: 12px;
+  width: 5px;
+  border-radius: 3px;
+}
+.coffee-picker.is-xl .coffee-bean-tx b {
+  font-size: 18px;
+}
+.coffee-picker.is-xl .coffee-bean-tx small {
+  font-size: 14px;
+}
+.coffee-picker.is-xl .coffee-bean-check {
+  right: 12px;
+  bottom: 10px;
+  font-size: 24px;
+}
+.coffee-picker.is-xl .coffee-picker-recipe {
+  min-height: 22px;
+  font-size: 18px;
+  line-height: 22px;
+}
+
+/* ---- a brew's beans, corrected for a day after it ---- */
+.coffee-wrong {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+button.coffee-wrong-chip {
+  border: 0;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.coffee-wrong-pick {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.coffee-wrong-opt {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--bean) 16%, var(--cof-chip));
+  box-shadow: inset 0 0 0 1.5px var(--bean);
+  color: var(--cof-t1);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.coffee-wrong-opt:active {
+  transform: scale(0.98);
+}
+.coffee-wrong.is-big .coffee-wrong-opt {
+  height: 48px;
+  border-radius: 24px;
+  font-size: 17px;
+}
+
 /* ---- a start held back for the water tank: the same prompt in the water's colour ---- */
 .coffee-cupwait.is-water .coffee-cupwait-main {
   background: var(--water-bg);
@@ -1215,6 +1393,40 @@ button.coffee-hrow {
 .coffee-pick-check {
   font-size: 20px;
   color: var(--cof);
+}
+
+/* ---- an open bag in the beans sheet ---- */
+.coffee-bag {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 8px 8px 12px;
+  border-radius: 16px;
+  background: #232326;
+}
+.coffee-bag-tx {
+  flex: 1;
+  min-width: 0;
+}
+.coffee-bag-tx b {
+  display: block;
+  overflow: hidden;
+  font-size: 15.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.coffee-bag-tx small {
+  display: block;
+  margin-top: 1px;
+  font-size: 12.5px;
+  color: var(--cof-t3);
+}
+.coffee-bag .coffee-btn {
+  height: 40px;
+  padding: 0 14px;
+  font-size: 14px;
 }
 .coffee-seg {
   display: flex;

@@ -23,6 +23,8 @@ vi.mock('../../../hooks/useViewer', () => ({ useViewer: () => ({ name: 'Kristine
 
 const { default: CoffeeStage } = await import('../CoffeeStage');
 const { CoffeeCard } = await import('../CoffeeCard');
+const { setCupAdjust } = await import('../../../coffee/adjust');
+const { parseCoffeeRecipes, usualRecipe } = await import('../../../coffee/model');
 
 type Control = {
   hold: { label: string | null; disabled: boolean; pending: boolean; failed: boolean } | null;
@@ -150,5 +152,202 @@ describe.each(Object.entries(VIEWS))('the %s under a brew', (_, mount) => {
     mount();
     holdBrew();
     expect(sent.map(command => command.op)).toEqual([]);
+  });
+});
+
+const BAG_RECIPES = {
+  'sensor.coffee_recipes': {
+    entity_id: 'sensor.coffee_recipes',
+    state: 'Daybreak',
+    attributes: {
+      v: '1',
+      usual_id: '1',
+      recipes: [
+        { id: '1', name: 'Daybreak', dose_g: '15', ratio: '17', grind: '46', total_ml: '255' },
+        { id: '2', name: 'Signature Brew', dose_g: '15', ratio: '17', grind: '44', total_ml: '200' },
+      ],
+    },
+  },
+};
+const bag = (id: string, name: string, recipeId: string, brewsLeft: string) => ({
+  bean_id: id,
+  bean_name: name,
+  remaining: '300',
+  brews_left: brewsLeft,
+  low: 'no',
+  added_at: '2026-11-18T06:10:00+00:00',
+  recipe_id: recipeId,
+});
+/** Daybreak is the house's bag and the usual's; Signature Brew is the newer bag. */
+const TWO_BAGS = [bag('b2', 'Signature Brew', '2', '33'), bag('b1', 'Daybreak', '1', '14')];
+const placeBags = (phase: string, attributes: Record<string, string> = {}, bags: object[] = TWO_BAGS) => {
+  place(phase, attributes);
+  entities.current = {
+    ...entities.current,
+    ...BAG_RECIPES,
+    'sensor.coffee_beans': {
+      entity_id: 'sensor.coffee_beans',
+      state: '714',
+      attributes: { v: '1', bean_id: 'b1', bean_name: 'Daybreak', brews_left: '14', bags },
+    },
+  };
+};
+
+const cards = () => [...document.querySelectorAll('.coffee-bean')] as HTMLElement[];
+const cardNamed = (name: string) => cards().find(card => card.querySelector('b')?.textContent === name) as HTMLElement;
+const pickBeans = (name: string) => act(() => cardNamed(name).click());
+const recipeLine = () => document.querySelector('.coffee-picker-recipe') as HTMLElement | null;
+const starts = () => sent.filter(command => command.op === 'start').map(command => JSON.parse(command.data ?? '{}'));
+const again = (mount: () => void) => {
+  act(() => root.render(null));
+  mount();
+};
+
+describe.each(Object.entries(VIEWS))('the %s with two open bags', (_, mount) => {
+  afterEach(() => act(() => setCupAdjust(null, null)));
+
+  it('asks which beans first, a card each with what is left, and keeps the hold shut until one is picked', () => {
+    placeBags('idle');
+    mount();
+    expect(cards().map(card => [card.querySelector('b')?.textContent, card.querySelector('small')?.textContent])).toEqual([
+      ['Daybreak', '≈14 cups left'],
+      ['Signature Brew', '≈33 cups left'],
+    ]);
+    expect(cards().map(card => card.getAttribute('aria-checked'))).toEqual(['false', 'false']);
+    expect(recipeLine()?.textContent).toBe('');
+    expect(control()).toEqual(holding('Pick beans first', { disabled: true }));
+    holdBrew();
+    expect(sent).toEqual([]);
+  });
+
+  it('gives each bag a colour of its own, shown on its card and on the recipe line once picked', () => {
+    placeBags('idle');
+    mount();
+    const [daybreak, signature] = cards().map(card => card.style.getPropertyValue('--bean'));
+    expect(daybreak).toMatch(/^#[0-9a-f]{6}$/);
+    expect(signature).toMatch(/^#[0-9a-f]{6}$/);
+    expect(daybreak).not.toBe(signature);
+    pickBeans('Signature Brew');
+    expect(recipeLine()?.textContent).toBe('Signature Brew');
+    expect(recipeLine()?.style.getPropertyValue('--bean')).toBe(signature);
+  });
+
+  it('picking brews nothing, and the hold then starts the beans picked, once', () => {
+    placeBags('idle');
+    mount();
+    pickBeans('Signature Brew');
+    expect(sent).toEqual([]);
+    expect(cards().map(card => card.getAttribute('aria-checked'))).toEqual(['false', 'true']);
+    expect(control()).toEqual(holding('Hold 1 s to brew'));
+    holdBrew();
+    expect(starts()).toEqual([{ variant: 'usual', bean_id: 'b2' }]);
+  });
+
+  it('starts the usual with its own beans named too', () => {
+    placeBags('idle');
+    mount();
+    pickBeans('Daybreak');
+    holdBrew();
+    expect(starts()).toEqual([{ variant: 'usual', bean_id: 'b1' }]);
+  });
+
+  it('forgets the pick once the start is sent, so the next cup is picked again', () => {
+    placeBags('idle');
+    mount();
+    pickBeans('Signature Brew');
+    holdBrew();
+    expect(starts()).toHaveLength(1);
+    expect(cards().map(card => card.getAttribute('aria-checked'))).toEqual(['false', 'false']);
+    expect(cards().every(card => (card as HTMLButtonElement).disabled)).toBe(true);
+    expect(recipeLine()?.textContent).toBe('');
+    expect(control()).toEqual(holding('Starting…', { pending: true }));
+  });
+
+  it('asks again after a refused start', () => {
+    placeBags('idle');
+    mount();
+    pickBeans('Signature Brew');
+    holdBrew();
+    placeBags('start_failed', { start_error: 'no_water' });
+    mount();
+    expect(cards().map(card => card.getAttribute('aria-checked'))).toEqual(['false', 'false']);
+    expect(control().hold?.disabled).toBe(true);
+    pickBeans('Daybreak');
+    expect(control().hold?.disabled).toBe(false);
+  });
+
+  it('starts from every quiet phase with the beans picked', () => {
+    for (const phase of ['idle', 'start_failed', 'picked_up', 'stopped']) {
+      sent.length = 0;
+      placeBags(phase, phase === 'start_failed' ? { start_error: 'no_water' } : {});
+      again(mount);
+      pickBeans('Signature Brew');
+      holdBrew();
+      expect(starts()).toEqual([{ variant: 'usual', bean_id: 'b2' }]);
+    }
+  });
+
+  it('shows no choice of beans where no start is offered', () => {
+    for (const phase of ['ready', 'grinding', 'brewing', 'paused', 'awaiting_cup']) {
+      placeBags(phase);
+      mount();
+      expect(document.querySelector('.coffee-picker'), phase).toBeNull();
+    }
+  });
+
+  it('starts from a fresh pick when the page is opened again', () => {
+    placeBags('idle');
+    mount();
+    pickBeans('Signature Brew');
+    again(mount);
+    expect(cards().map(card => card.getAttribute('aria-checked'))).toEqual(['false', 'false']);
+    expect(control()).toEqual(holding('Pick beans first', { disabled: true }));
+  });
+
+  it('carries the cup held for the usual to the usual beans only', () => {
+    placeBags('idle');
+    const usual = usualRecipe(parseCoffeeRecipes(BAG_RECIPES['sensor.coffee_recipes']));
+    act(() => setCupAdjust(usual, { grind_size: 42 }));
+    mount();
+    pickBeans('Daybreak');
+    expect(control()).toEqual(holding('Hold 1 s · adjusted'));
+    holdBrew();
+    expect(starts()).toEqual([{ variant: 'tweak', grind_size: 42, bean_id: 'b1' }]);
+    sent.length = 0;
+    placeBags('idle');
+    again(mount);
+    pickBeans('Signature Brew');
+    expect(control()).toEqual(holding('Hold 1 s to brew'));
+    holdBrew();
+    expect(starts()).toEqual([{ variant: 'usual', bean_id: 'b2' }]);
+  });
+
+  it('holds a start back for the water the picked recipe needs, not the usual', () => {
+    placeBags('idle', { tank_left_ml: '280' });
+    mount();
+    pickBeans('Daybreak');
+    holdBrew();
+    expect(sent).toEqual([]);
+    expect(document.querySelector('.coffee-cupwait.is-water')).not.toBeNull();
+    expect(cards()).toHaveLength(2);
+    pickBeans('Signature Brew');
+    expect(document.querySelector('.coffee-cupwait.is-water')).toBeNull();
+    holdBrew();
+    expect(starts()).toEqual([{ variant: 'usual', bean_id: 'b2' }]);
+  });
+
+  it('leaves the single hold as it was with one open bag, or one bag with a recipe', () => {
+    placeBags('idle', {}, [bag('b1', 'Daybreak', '1', '14')]);
+    mount();
+    expect(document.querySelector('.coffee-picker')).toBeNull();
+    expect(control()).toEqual(holding('Hold 1 s to brew'));
+    holdBrew();
+    expect(starts()).toEqual([{ variant: 'usual' }]);
+    sent.length = 0;
+    placeBags('idle', {}, [bag('b1', 'Daybreak', '1', '14'), bag('b3', 'Guji', '', '9')]);
+    again(mount);
+    expect(document.querySelector('.coffee-picker')).toBeNull();
+    holdBrew();
+    expect(starts()).toEqual([{ variant: 'usual' }]);
   });
 });

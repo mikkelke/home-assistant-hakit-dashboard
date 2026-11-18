@@ -229,7 +229,12 @@
 .cs-scroll > .cs-save {
   flex: none;
 }
+.cs-scroll > .coffee-wrong {
+  flex: none;
+  margin-top: 0;
+}
 .cs-side.is-ready .cs-go,
+.cs-side.is-ready .cs-hold,
 .cs-side.is-ready .cs-lowlinks,
 .cs-side.is-ready .cs-bottom {
   flex-shrink: 0;

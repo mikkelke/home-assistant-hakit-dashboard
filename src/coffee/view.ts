@@ -2,7 +2,18 @@
 import { HOME_TIME_ZONE } from '../config/plan';
 import { formatHomeClock, homeDayKey, homeDayStartMs, homeWallTime } from '../energy/homeTime';
 import type { HouseUpcomingRow } from '../home/houseUpcoming';
-import type { BandVerdict, CoffeeBeans, CoffeeLive, CoffeeState, LiveVerdict, PlanPour, PersonKey, Recipe } from './model';
+import type {
+  BandVerdict,
+  CoffeeBag,
+  CoffeeBeans,
+  CoffeeLive,
+  CoffeeRecipes,
+  CoffeeState,
+  LiveVerdict,
+  PlanPour,
+  PersonKey,
+  Recipe,
+} from './model';
 
 export type Tone = 'ok' | 'up' | 'dn' | 'mute' | 'warn';
 
@@ -29,6 +40,72 @@ export function usualTitle(recipe: Recipe | null, beans: Pick<CoffeeBeans, 'bean
   const short = beansShort(beans?.beanName);
   if (!recipe) return short ?? 'The usual';
   return [pours > 0 ? `${pours} pour${pours === 1 ? '' : 's'}` : recipe.name, short].filter(Boolean).join(' · ');
+}
+
+/** Accents for beans: pastel on the dark card, none of them the copper of the cup or the sky of the water. */
+const BEAN_COLORS = ['#fca5a5', '#fcd34d', '#6ee7b7', '#a5b4fc', '#f0abfc'];
+
+const hashOf = (text: string): number => {
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) hash = Math.imul(hash ^ text.charCodeAt(index), 16777619);
+  return hash >>> 0;
+};
+
+/** A colour for each bean id, the same on every screen and every day. A bean whose colour another open bag has taken moves
+ * on to the next free one, in order of id. */
+export function beanColors(beanIds: readonly string[]): Record<string, string> {
+  const taken = new Set<number>();
+  const colors: Record<string, string> = {};
+  for (const id of [...new Set(beanIds)].sort()) {
+    let slot = hashOf(id) % BEAN_COLORS.length;
+    while (taken.has(slot) && taken.size < BEAN_COLORS.length) slot = (slot + 1) % BEAN_COLORS.length;
+    taken.add(slot);
+    colors[id] = BEAN_COLORS[slot];
+  }
+  return colors;
+}
+
+export interface BagBrew {
+  bag: CoffeeBag;
+  color: string;
+  /** The recipe named like the beans, when the library has it. */
+  recipe: Recipe | null;
+  /** That recipe is the usual. */
+  usual: boolean;
+}
+
+/** The open bags to choose between before a brew: those with a recipe of their name, once there are two or more. Ordered
+ * by name, so a card keeps its place when beans are added. */
+export function bagBrews(beans: Pick<CoffeeBeans, 'bags'> | null, recipes: Pick<CoffeeRecipes, 'recipes' | 'usualId'> | null): BagBrew[] {
+  const bags = beans?.bags ?? [];
+  const matched = bags.filter(bag => bag.recipeId != null);
+  if (matched.length < 2) return [];
+  const colors = beanColors(bags.map(bag => bag.beanId));
+  return matched
+    .sort((a, b) => a.beanName.localeCompare(b.beanName, 'en'))
+    .map(bag => ({
+      bag,
+      color: colors[bag.beanId],
+      recipe: recipes?.recipes.find(recipe => recipe.id === bag.recipeId) ?? null,
+      usual: bag.recipeId === recipes?.usualId,
+    }));
+}
+
+/** How long after a brew its beans can still be corrected. */
+const RETAG_WINDOW_MS = 24 * 3_600_000;
+
+/** The open bags a brew can be moved to: while two or more are open and the brew is less than a day old, every bag but
+ * the beans it already carries. */
+export function retagChoices(
+  beans: Pick<CoffeeBeans, 'bags'> | null,
+  brew: { atMs: number | null; beanName: string | null },
+  nowMs: number
+): { bag: CoffeeBag; color: string }[] {
+  const bags = beans?.bags ?? [];
+  if (bags.length < 2 || brew.atMs == null || nowMs - brew.atMs >= RETAG_WINDOW_MS) return [];
+  const colors = beanColors(bags.map(bag => bag.beanId));
+  const carried = brew.beanName?.trim().toLowerCase();
+  return bags.filter(bag => bag.beanName.trim().toLowerCase() !== carried).map(bag => ({ bag, color: colors[bag.beanId] }));
 }
 
 export interface VerdictView {

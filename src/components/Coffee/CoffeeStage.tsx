@@ -32,6 +32,7 @@ import {
 } from '../../coffee/useCoffee';
 import {
   appHasMachine,
+  bagBrews,
   bandVerdict,
   brewSubtitle,
   brewView,
@@ -66,6 +67,7 @@ import { TasteRow } from './taste';
 import { useBrewStart, type BrewStart } from './useBrewStart';
 import { useClock } from './useClock';
 import { PausedFill, WaterChip, WaterSheet } from './WaterTank';
+import { WrongBeans } from './WrongBeans';
 import './Coffee.css';
 import './CoffeeStage.css';
 
@@ -196,7 +198,7 @@ function StageStart({ brew, recipes }: { brew: BrewStart; recipes: CoffeeRecipes
 function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
   const { state, beans, recipes, advice, brews } = data;
   const usual = usualRecipe(recipes);
-  const brew = useBrewStart(state, usual, advice, nowMs);
+  const brew = useBrewStart(state, usual, advice, nowMs, bagBrews(beans, recipes));
   const { adjust, cup, trial, base } = brew;
   const [sheet, setSheet] = useState<'beans' | 'water' | null>(null);
   const shownAdvice = advisorShown(advice) ? advice : null;
@@ -436,7 +438,7 @@ function deltasFor(state: CoffeeState, record: BrewRecord | null, baseline: Coff
 function ReadySide({ data, nowMs, phone }: { data: StageData; nowMs: number; phone: boolean }) {
   const { state, brews, advice, beans } = data;
   const usual = usualRecipe(data.recipes);
-  const brew = useBrewStart(state, usual, advice, nowMs);
+  const brew = useBrewStart(state, usual, advice, nowMs, bagBrews(beans, data.recipes));
   const record = brews?.brews.find(item => item.id === state.brewId) ?? null;
   const delta = deltasFor(state, record, data.baseline);
   const planMl = usual?.totalMl ?? null;
@@ -491,6 +493,7 @@ function ReadySide({ data, nowMs, phone }: { data: StageData; nowMs: number; pho
         <Tile label='How is it?' className='cs-taste'>
           <TasteRow brewId={state.brewId} rating={record?.rating ?? null} />
         </Tile>
+        <WrongBeans big brew={record} beans={beans} nowMs={nowMs} />
         <SaveToRecipe state={state} recipes={data.recipes?.recipes ?? []} className='cs-save' />
         {shownAdvice && (
           <AdviceCard
@@ -516,7 +519,7 @@ const STOP_REASONS: Record<string, string> = {
 
 function StoppedSide({ data, nowMs }: { data: StageData; nowMs: number }) {
   const { state, live } = data;
-  const brew = useBrewStart(state, usualRecipe(data.recipes), data.advice, nowMs);
+  const brew = useBrewStart(state, usualRecipe(data.recipes), data.advice, nowMs, bagBrews(data.beans, data.recipes));
   const cupSeries = live ? series(live.cup, live.stepS) : null;
   const at = lastValidS(cupSeries);
   return (

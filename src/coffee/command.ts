@@ -7,7 +7,15 @@ import { COFFEE_COMMAND_SCRIPT } from './entities';
 import type { PersonKey, Taste } from './model';
 
 export interface CoffeeCommands {
-  start: { variant: 'usual' | 'base' | 'tweak'; dose?: number; ratio?: number; grind_size?: number; temperature?: number };
+  start: {
+    variant: 'usual' | 'base' | 'tweak';
+    dose?: number;
+    ratio?: number;
+    grind_size?: number;
+    temperature?: number;
+    /** Brews the recipe named like this bag's beans, whatever the usual is. */
+    bean_id?: string;
+  };
   cup_confirmed: Record<string, never>;
   cancel: Record<string, never>;
   stop: Record<string, never>;
@@ -18,6 +26,8 @@ export interface CoffeeCommands {
   picked_up: { brew_id: string };
   rate: { brew_id: string; taste: Taste };
   beans_add: { grams: number; bean_id?: string; new_name?: string };
+  beans_empty: { bean_id: string };
+  beans_retag: { brew_id: string; bean_id: string };
   beans_undo: { op_id: string };
   water_filled: Record<string, never>;
   select: { recipe_id: string };

@@ -4,7 +4,7 @@ import { useEffect, useSyncExternalStore } from 'react';
 import type { CoffeeCommands } from './command';
 import type { CoffeePhase, CoffeeState, Recipe } from './model';
 
-export type CupAdjust = Omit<CoffeeCommands['start'], 'variant'>;
+export type CupAdjust = Omit<CoffeeCommands['start'], 'variant' | 'bean_id'>;
 
 export interface HeldCupAdjust {
   recipeId: string;

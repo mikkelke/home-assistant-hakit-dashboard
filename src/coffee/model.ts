@@ -284,8 +284,21 @@ export function parseCoffeeBaseline(entity: CoffeeEntity): CoffeeBaseline | null
 export const hasBand = (baseline: CoffeeBaseline | null): boolean =>
   baseline != null && baseline.status === 'ready' && baseline.cupLo.length > 1 && baseline.cupHi.length > 1;
 
+/** One open bag of beans. */
+export interface CoffeeBag {
+  beanId: string;
+  beanName: string;
+  /** The estimate, never below 0; null when unreadable. */
+  remainingG: number | null;
+  brewsLeft: number | null;
+  low: boolean;
+  addedAtMs: number | null;
+  /** The recipe named like the beans; null when there is none. */
+  recipeId: string | null;
+}
+
 export interface CoffeeBeans {
-  /** null until the first top-up. Never below 0. */
+  /** The primary bag's estimate: null until the first top-up. Never below 0. */
   remainingG: number | null;
   beanId: string | null;
   beanName: string | null;
@@ -296,6 +309,34 @@ export interface CoffeeBeans {
   lastOpId: string | null;
   undoUntilMs: number | null;
   knownBeans: { id: string; name: string }[];
+  /** Every open bag, newest add first. A feed without `bags` gives the one bag its top-level fields describe. */
+  bags: CoffeeBag[];
+}
+
+function parseCoffeeBag(raw: unknown): CoffeeBag | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const a = raw as Attributes;
+  const beanId = text(a.bean_id);
+  const beanName = text(a.bean_name);
+  if (!beanId || !beanName) return null;
+  const remaining = numberOf(a.remaining);
+  const brewsLeft = numberOf(a.brews_left);
+  return {
+    beanId,
+    beanName,
+    remainingG: remaining == null ? null : Math.max(0, remaining),
+    brewsLeft: brewsLeft == null ? null : Math.max(0, brewsLeft),
+    low: a.low === 'yes',
+    addedAtMs: timeOf(a.added_at),
+    recipeId: text(a.recipe_id),
+  };
+}
+
+/** The one bag the top-level fields describe, which is all a feed that predates `bags` carries. */
+function primaryBag(beans: Omit<CoffeeBeans, 'bags'>): CoffeeBag[] {
+  const { beanId, beanName, remainingG } = beans;
+  if (!beanId || !beanName || remainingG == null) return [];
+  return [{ beanId, beanName, remainingG, brewsLeft: beans.brewsLeft, low: beans.low, addedAtMs: beans.addedAtMs, recipeId: null }];
 }
 
 export function parseCoffeeBeans(entity: CoffeeEntity): CoffeeBeans | null {
@@ -304,7 +345,7 @@ export function parseCoffeeBeans(entity: CoffeeEntity): CoffeeBeans | null {
   const remaining = numberOf(entity.state);
   const brewsLeft = numberOf(a.brews_left);
   const known = Array.isArray(a.known_beans) ? a.known_beans : [];
-  return {
+  const beans = {
     remainingG: remaining == null ? null : Math.max(0, remaining),
     beanId: text(a.bean_id),
     beanName: text(a.bean_name),
@@ -321,6 +362,13 @@ export function parseCoffeeBeans(entity: CoffeeEntity): CoffeeBeans | null {
       return id && name ? [{ id, name }] : [];
     }),
   };
+  const bags = Array.isArray(a.bags)
+    ? a.bags.flatMap(item => {
+        const bag = parseCoffeeBag(item);
+        return bag ? [bag] : [];
+      })
+    : primaryBag(beans);
+  return { ...beans, bags };
 }
 
 export type BrewOutcome = 'complete' | 'stopped' | 'failed' | 'unobserved';

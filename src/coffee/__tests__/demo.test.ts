@@ -12,7 +12,7 @@ import {
   stageLabel,
   usualRecipe,
 } from '../model';
-import { waterShort } from '../view';
+import { bagBrews, waterShort } from '../view';
 
 vi.mock('@hakit/core', () => ({ useHass: { getState: () => ({ connection: null }) } }));
 
@@ -119,5 +119,41 @@ describe('coffee demo', () => {
     const { recent } = coffeeDemo('idle', ANCHOR, ANCHOR);
     expect(Object.keys(recent!.curves).length).toBe(21);
     expect(recent!.bands.bl1.n).toBe(7);
+  });
+
+  it('two_bags and two_bags_ready open the usual Daybreak next to Signature Brew, each with a recipe of its name', () => {
+    for (const scenario of ['two_bags', 'two_bags_ready'] as const) {
+      const { entities } = coffeeDemo(scenario, ANCHOR, ANCHOR + 2000);
+      const beans = parseCoffeeBeans(entities['sensor.coffee_beans'])!;
+      const recipes = parseCoffeeRecipes(entities['sensor.coffee_recipes'])!;
+      expect(
+        beans.bags.map(bag => [bag.beanName, bag.recipeId]),
+        scenario
+      ).toEqual([
+        ['Signature Brew', '4567890'],
+        ['Daybreak', '1234567'],
+      ]);
+      expect(
+        bagBrews(beans, recipes).map(item => [item.bag.beanName, item.recipe?.name, item.usual]),
+        scenario
+      ).toEqual([
+        ['Daybreak', 'Daybreak', true],
+        ['Signature Brew', 'Signature Brew', false],
+      ]);
+      expect(parseCoffeeBrews(entities['sensor.coffee_brews'])!.brews[0].beanName, scenario).toBe('Daybreak');
+      expect(parseCoffeeState(entities['sensor.coffee_state'])!.beanName, scenario).toBe('Daybreak');
+    }
+    expect(parseCoffeeState(coffeeDemo('two_bags', ANCHOR, ANCHOR).entities['sensor.coffee_state'])!.phase).toBe('idle');
+    expect(parseCoffeeState(coffeeDemo('two_bags_ready', ANCHOR, ANCHOR).entities['sensor.coffee_state'])!.phase).toBe('ready');
+  });
+
+  it('every other scenario has the one bag its top-level fields describe', () => {
+    for (const scenario of COFFEE_DEMO_SCENARIOS.filter(name => !name.startsWith('two_bags'))) {
+      const beans = parseCoffeeBeans(coffeeDemo(scenario, ANCHOR, ANCHOR).entities['sensor.coffee_beans'])!;
+      expect(
+        beans.bags.map(bag => bag.beanName),
+        scenario
+      ).toEqual([beans.beanName]);
+    }
   });
 });

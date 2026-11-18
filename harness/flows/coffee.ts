@@ -16,6 +16,8 @@ const SCENARIOS = [
   'start_failed',
   'asleep',
   'awaiting_cup',
+  'two_bags',
+  'two_bags_ready',
 ] as const;
 type Scenario = (typeof SCENARIOS)[number];
 
@@ -30,6 +32,8 @@ const ON_PHONE: readonly Scenario[] = [
   'stopped',
   'start_failed',
   'awaiting_cup',
+  'two_bags',
+  'two_bags_ready',
 ];
 
 const slug = (value: string) => value.replace(/_/g, '-');
@@ -49,7 +53,7 @@ const stageFlows: Flow[] = SCENARIOS.map(scenario => ({
   },
 }));
 
-const cardFlows: Flow[] = (['idle', 'live', 'ready', 'awaiting_cup'] as const).flatMap((scenario): Flow[] => [
+const cardFlows: Flow[] = (['idle', 'live', 'ready', 'awaiting_cup', 'two_bags', 'two_bags_ready'] as const).flatMap((scenario): Flow[] => [
   {
     name: `kitchen coffee card ${scenario}`,
     open: { search: `?coffee_demo=${scenario}`, hash: '#room=kitchen', expanded: true },
@@ -73,6 +77,50 @@ const cardFlows: Flow[] = (['idle', 'live', 'ready', 'awaiting_cup'] as const).f
     : []),
 ]);
 
+/** Two open bags: the beans picked, which opens the hold, and a brew's beans being corrected. */
+const beanFlows: Flow[] = [
+  {
+    name: 'coffee stage two_bags picked',
+    house: { viewer: 'tablet' },
+    open: { search: '?coffee_demo=two_bags', hash: '#coffee' },
+    ready: '.coffee-stage',
+    run: async shots => {
+      await shots.page.locator('.coffee-bean').nth(1).click();
+      await shots.scrolling('.coffee-stage', 'coffee-stage-two-bags-picked');
+    },
+  },
+  {
+    name: 'kitchen coffee card two_bags picked',
+    open: { search: '?coffee_demo=two_bags', hash: '#room=kitchen', expanded: true },
+    ready: '.room-detail',
+    run: async shots => {
+      await shots.page.locator('.coffee-bean').nth(1).click();
+      await shots.page.locator('.coffee-card').scrollIntoViewIfNeeded();
+      await shots.shot('kitchen-coffee-two-bags-picked');
+    },
+  },
+  {
+    name: 'coffee stage two_bags_ready wrong beans',
+    house: { viewer: 'tablet' },
+    open: { search: '?coffee_demo=two_bags_ready', hash: '#coffee' },
+    ready: '.coffee-stage',
+    run: async shots => {
+      await shots.page.locator('.coffee-wrong-chip').click();
+      await shots.scrolling('.coffee-stage', 'coffee-stage-two-bags-wrong');
+    },
+  },
+  {
+    name: 'kitchen coffee card two_bags wrong beans',
+    open: { search: '?coffee_demo=two_bags', hash: '#room=kitchen', expanded: true },
+    ready: '.room-detail',
+    run: async shots => {
+      await shots.page.locator('.coffee-wrong-chip').click();
+      await shots.page.locator('.coffee-wrong').scrollIntoViewIfNeeded();
+      await shots.shot('kitchen-coffee-two-bags-wrong');
+    },
+  },
+];
+
 const tabletKitchen: Flow = {
   name: 'kitchen on the coffee tablet',
   house: { viewer: 'tablet' },
@@ -86,5 +134,6 @@ const tabletKitchen: Flow = {
 export const coffeeFlows: Flow[] = [
   ...stageFlows.map((flow, index) => (ON_PHONE.includes(SCENARIOS[index]) ? flow : { ...flow, only: 'tablet' as const })),
   ...cardFlows,
+  ...beanFlows,
   tabletKitchen,
 ];
