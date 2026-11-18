@@ -597,3 +597,173 @@ describe('the card with two open bags', () => {
     expect(adjust().disabled).toBe(false);
   });
 });
+
+/** The published baseline is the usual's: Daybreak's recipe, from Daybreak's bag. */
+const usualBaseline = (status: 'ready' | 'building' = 'ready') => ({
+  'sensor.coffee_baseline': {
+    entity_id: 'sensor.coffee_baseline',
+    state: status,
+    attributes: {
+      v: '1',
+      n: status === 'ready' ? '7' : '3',
+      step_s: '2',
+      recipe_id: '1',
+      recipe_key: 'k4p46',
+      bean_id: 'b1',
+      total_s_median: '204',
+      cup_g_median: '30',
+      drawdown_s_median: '80',
+      ...(status === 'ready' && { cup_lo: '0,100,200', cup_hi: '0,120,230' }),
+    },
+  },
+});
+const OF = {
+  daybreak: { recipe_id: '1', bean_id: 'b1', recipe_name: 'Daybreak', bean_name: 'Daybreak' },
+  signature: { recipe_id: '2', bean_id: 'b2', recipe_name: 'Signature Brew', bean_name: 'Signature Brew' },
+};
+const MEASURED = { total_s: '210', cup_g: '33', water_ml: '255', drawdown_s: '84' };
+const placeRan = (
+  phase: string,
+  ran: Record<string, string>,
+  attributes: Record<string, string> = {},
+  baseline: object = usualBaseline()
+) => {
+  placeBags(phase, { ...ran, ...attributes });
+  entities.current = { ...entities.current, ...baseline };
+};
+type BrewChart = { planPours: unknown[]; bandLo: unknown; bandHi: unknown; label: string };
+const chartOf = (mode: string) => {
+  const drawn = charts.filter(chart => chart.mode === mode);
+  return drawn[drawn.length - 1] as unknown as BrewChart;
+};
+const story = () => document.querySelector('.coffee-story')?.textContent ?? null;
+const verdictChips = () =>
+  [...document.querySelectorAll('.cs-vc')].map(item => [
+    item.querySelector('.coffee-lab')?.textContent,
+    item.querySelector('.cs-d')?.textContent ?? null,
+  ]);
+const cardDeltas = () => texts('.cc-d');
+
+describe.each(Object.entries(VIEWS))('the %s with a brew under way', (name, mount) => {
+  it('draws the usual, with its band, legend and verdict, for a brew of its beans and its recipe', () => {
+    placeRan('brewing', OF.daybreak, { pour: '2', verdict: 'on_track' });
+    mount();
+    expect(chartOf('live').planPours).toHaveLength(4);
+    expect(chartOf('live').bandLo).not.toBeNull();
+    expect(story()).toBe('On track');
+    if (name === 'stage') expect(legend()).toEqual(['Cup g', 'Water ml', 'Plan', 'Usual · n=7']);
+  });
+
+  it('draws a brew of the other beans on its own plan, with no band, legend or verdict of the usual', () => {
+    placeRan('brewing', OF.signature, { pour: '2', verdict: 'on_track' });
+    mount();
+    expect(chartOf('live').planPours).toHaveLength(5);
+    expect(chartOf('live')).toMatchObject({ bandLo: null, bandHi: null });
+    expect(story()).toBeNull();
+    if (name === 'stage') expect(legend()).toEqual(['Cup g', 'Water ml', 'Plan']);
+  });
+
+  it('says it builds a baseline only for the brews that baseline is of', () => {
+    placeRan('brewing', OF.daybreak, { pour: '2' }, usualBaseline('building'));
+    mount();
+    expect(story()).toBe('Building baseline · n=3');
+    placeRan('brewing', OF.signature, { pour: '2' }, usualBaseline('building'));
+    again(mount);
+    expect(story()).toBeNull();
+  });
+
+  it.each([
+    ['the usual recipe on other beans', { recipe_id: '1', bean_id: 'b2' }],
+    ['another recipe on the usual beans', { recipe_id: '2', bean_id: 'b1' }],
+    ['a brew that names neither', { recipe_id: '', bean_id: '' }],
+  ])('draws no band for %s', (_, ran) => {
+    placeRan('brewing', { ...OF.daybreak, ...ran }, { pour: '2' });
+    mount();
+    expect(chartOf('live')).toMatchObject({ bandLo: null, bandHi: null });
+    expect(story()).toBeNull();
+  });
+});
+
+describe('the card with a brew finished', () => {
+  it('measures a brew of the usual against the usual', () => {
+    placeRan('ready', OF.daybreak, { ...MEASURED, in_band: 'inside' });
+    VIEWS.card();
+    expect(cardDeltas()).toEqual(['+6 s', '+3']);
+    expect(chartOf('ready').bandLo).not.toBeNull();
+    expect(story()).toBe('Inside your usual');
+  });
+
+  it('shows a brew of the other beans as it is, against no usual', () => {
+    placeRan('ready', OF.signature, { ...MEASURED, in_band: 'inside' });
+    VIEWS.card();
+    expect(cardDeltas()).toEqual([]);
+    expect(chartOf('ready')).toMatchObject({ bandLo: null, bandHi: null });
+    expect(story()).toBeNull();
+  });
+});
+
+describe('the stage with a brew finished', () => {
+  it('measures a brew of the usual against the usual, and its water against the usual recipe', () => {
+    placeRan('ready', OF.daybreak, { ...MEASURED, in_band: 'inside' });
+    VIEWS.stage();
+    expect(verdictChips()).toEqual([
+      ['Time', '+6 s'],
+      ['Cup', '+3'],
+      ['Water', '✓'],
+      ['Drawdown', '+4 s'],
+    ]);
+    expect(chartOf('ready').bandLo).not.toBeNull();
+    expect(legend()).toEqual(['Cup g', 'Water ml', 'Usual · n=7']);
+    expect(story()).toBe('Inside your usual');
+  });
+
+  it('shows a brew of the other beans with no medians to fall back on, and its water against its own recipe', () => {
+    placeRan('ready', OF.signature, { ...MEASURED, in_band: 'inside' });
+    VIEWS.stage();
+    expect(verdictChips()).toEqual([
+      ['Time', null],
+      ['Cup', null],
+      ['Water', '+55'],
+      ['Drawdown', null],
+    ]);
+    expect(chartOf('ready')).toMatchObject({ bandLo: null, bandHi: null });
+    expect(legend()).toEqual(['Cup g', 'Water ml']);
+    expect(story()).toBeNull();
+    placeRan('ready', OF.signature, { ...MEASURED, water_ml: '202' });
+    again(VIEWS.stage);
+    expect(verdictChips()[2]).toEqual(['Water', '✓']);
+  });
+
+  it('compares the water of a brew with no known recipe to nothing', () => {
+    placeRan('ready', { ...OF.signature, recipe_id: '' }, MEASURED);
+    VIEWS.stage();
+    expect(verdictChips()[2]).toEqual(['Water', null]);
+  });
+
+  it('keeps the measured deltas a brew row carries, which the coffee app worked out against the right baseline', () => {
+    placeRan('ready', OF.daybreak, MEASURED);
+    entities.current = {
+      ...entities.current,
+      'sensor.coffee_brews': {
+        entity_id: 'sensor.coffee_brews',
+        state: new Date().toISOString(),
+        attributes: { v: '1', brews: [{ id: 'c1', at: new Date().toISOString(), outcome: 'complete', d_total_s: '-4', d_cup_g: '1' }] },
+      },
+    };
+    VIEWS.stage();
+    expect(verdictChips().slice(0, 2)).toEqual([
+      ['Time', '-4 s'],
+      ['Cup', '+1'],
+    ]);
+  });
+
+  it('draws a stopped brew against the usual only when it was one of the usual', () => {
+    placeRan('stopped', OF.daybreak, { first_bloom_at: new Date().toISOString() });
+    VIEWS.stage();
+    expect(chartOf('hist').bandLo).not.toBeNull();
+    placeRan('stopped', OF.signature, { first_bloom_at: new Date().toISOString() });
+    again(VIEWS.stage);
+    expect(chartOf('hist')).toMatchObject({ bandLo: null, bandHi: null });
+    expect(legend()).toEqual(['Cup g', 'Water ml']);
+  });
+});

@@ -45,6 +45,18 @@ export type CoffeeOp = keyof CoffeeCommands;
 /** The longest reply the advisor takes. */
 export const ADVISOR_REPLY_MAX = 500;
 
+/** The longest name the coffee app keeps for beans. */
+export const BEAN_NAME_MAX = 40;
+
+/** A bean name as the coffee app keeps it: ASCII only, white space collapsed, at most `BEAN_NAME_MAX` characters. */
+export function cleanBeanName(name: string): string {
+  const ascii = Array.from(name, char => (char.charCodeAt(0) < 128 ? char : '')).join('');
+  return ascii.split(/\s+/).filter(Boolean).join(' ').slice(0, BEAN_NAME_MAX).trim();
+}
+
+/** Whether a cleaned bean name still has a letter or digit in it, which the coffee app needs to take it. */
+export const nameableBeans = (cleaned: string): boolean => /[A-Za-z0-9]/.test(cleaned);
+
 /** The websocket message that runs the script with one op. */
 export function coffeeCommandMessage<Op extends CoffeeOp>(op: Op, data: CoffeeCommands[Op]) {
   return {

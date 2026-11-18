@@ -12,7 +12,7 @@ import {
   stageLabel,
   usualRecipe,
 } from '../model';
-import { bagBrews, waterShort } from '../view';
+import { bagBrews, brewBaseline, brewRecipe, waterShort } from '../view';
 
 vi.mock('@hakit/core', () => ({ useHass: { getState: () => ({ connection: null }) } }));
 
@@ -121,8 +121,8 @@ describe('coffee demo', () => {
     expect(recent!.bands.bl1.n).toBe(7);
   });
 
-  it('two_bags and two_bags_ready open the usual Daybreak next to Signature Brew, each with a recipe of its name', () => {
-    for (const scenario of ['two_bags', 'two_bags_ready'] as const) {
+  it('two_bags and the scenarios of the usual open the usual Daybreak next to Signature Brew, each with a recipe of its name', () => {
+    for (const scenario of ['two_bags', 'two_bags_ready', 'two_bags_stopped', 'two_bags_trial_brewed'] as const) {
       const { entities } = coffeeDemo(scenario, ANCHOR, ANCHOR + 2000);
       const beans = parseCoffeeBeans(entities['sensor.coffee_beans'])!;
       const recipes = parseCoffeeRecipes(entities['sensor.coffee_recipes'])!;
@@ -145,6 +145,38 @@ describe('coffee demo', () => {
     }
     expect(parseCoffeeState(coffeeDemo('two_bags', ANCHOR, ANCHOR).entities['sensor.coffee_state'])!.phase).toBe('idle');
     expect(parseCoffeeState(coffeeDemo('two_bags_ready', ANCHOR, ANCHOR).entities['sensor.coffee_state'])!.phase).toBe('ready');
+    expect(parseCoffeeState(coffeeDemo('two_bags_stopped', ANCHOR, ANCHOR).entities['sensor.coffee_state'])!.phase).toBe('stopped');
+    expect(parseCoffeeState(coffeeDemo('two_bags_trial_brewed', ANCHOR, ANCHOR).entities['sensor.coffee_state'])!.phase).toBe('idle');
+  });
+
+  it('two_bags_brewing and two_bags_signature_ready brew the Signature recipe, which the usual baseline is not of', () => {
+    for (const scenario of ['two_bags_brewing', 'two_bags_signature_ready'] as const) {
+      const { entities } = coffeeDemo(scenario, ANCHOR, ANCHOR + 2000);
+      const state = parseCoffeeState(entities['sensor.coffee_state'])!;
+      const baseline = parseCoffeeBaseline(entities['sensor.coffee_baseline'])!;
+      expect([state.beanName, state.beanId, state.recipeId], scenario).toEqual(['Signature Brew', 'b4', '4567890']);
+      expect(state.inBand, scenario).toBeNull();
+      expect(brewBaseline(state, baseline), scenario).toEqual({ baseline: null, foreign: true });
+      expect(brewRecipe(state, parseCoffeeRecipes(entities['sensor.coffee_recipes'])!)?.name, scenario).toBe('Signature Brew');
+      expect(parseCoffeeLive(entities['sensor.coffee_live'])!.planPours, scenario).toHaveLength(5);
+    }
+    const brewing = parseCoffeeState(coffeeDemo('two_bags_brewing', ANCHOR, ANCHOR).entities['sensor.coffee_state'])!;
+    expect([brewing.phase, brewing.pour, brewing.poursTotal]).toEqual(['brewing', 3, 5]);
+    const ready = coffeeDemo('two_bags_signature_ready', ANCHOR, ANCHOR).entities;
+    expect(parseCoffeeState(ready['sensor.coffee_state'])!.phase).toBe('ready');
+    expect(parseCoffeeBrews(ready['sensor.coffee_brews'])!.brews[0]).toMatchObject({
+      beanName: 'Signature Brew',
+      recipeName: 'Signature Brew',
+    });
+  });
+
+  it('every other scenario brews the usual beans and recipe the baseline is of', () => {
+    for (const scenario of COFFEE_DEMO_SCENARIOS.filter(name => name !== 'two_bags_brewing' && name !== 'two_bags_signature_ready')) {
+      const { entities } = coffeeDemo(scenario, ANCHOR, ANCHOR + 2000);
+      const state = parseCoffeeState(entities['sensor.coffee_state'])!;
+      const baseline = parseCoffeeBaseline(entities['sensor.coffee_baseline'])!;
+      expect(brewBaseline(state, baseline).foreign, scenario).toBe(false);
+    }
   });
 
   it('every other scenario has the one bag its top-level fields describe', () => {

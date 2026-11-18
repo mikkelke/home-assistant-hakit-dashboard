@@ -5,6 +5,7 @@ import type { HouseUpcomingRow } from '../home/houseUpcoming';
 import type {
   BandVerdict,
   CoffeeBag,
+  CoffeeBaseline,
   CoffeeBeans,
   CoffeeLive,
   CoffeeRecipes,
@@ -51,16 +52,25 @@ const hashOf = (text: string): number => {
   return hash >>> 0;
 };
 
-/** A colour for each bean id, the same on every screen and every day. A bean whose colour another open bag has taken moves
- * on to the next free one, in order of id. */
-export function beanColors(beanIds: readonly string[]): Record<string, string> {
+type OpenBag = Pick<CoffeeBag, 'beanId' | 'addedAtMs'>;
+
+/** Earliest add first, a bag without a time before any with one, ties in the order of their ids. */
+function byAdded(a: OpenBag, b: OpenBag): number {
+  const at = (bag: OpenBag) => bag.addedAtMs ?? -Infinity;
+  if (at(a) !== at(b)) return at(a) < at(b) ? -1 : 1;
+  return a.beanId < b.beanId ? -1 : a.beanId > b.beanId ? 1 : 0;
+}
+
+/** A colour for each open bag, the same on every screen and every day: the one its bean id hashes to. A bag whose colour an
+ * earlier-added open bag holds takes the next free one, so opening a bag never recolours the bags already open. */
+export function beanColors(bags: readonly OpenBag[]): Record<string, string> {
   const taken = new Set<number>();
   const colors: Record<string, string> = {};
-  for (const id of [...new Set(beanIds)].sort()) {
-    let slot = hashOf(id) % BEAN_COLORS.length;
-    while (taken.has(slot) && taken.size < BEAN_COLORS.length) slot = (slot + 1) % BEAN_COLORS.length;
+  for (const { beanId } of [...new Map(bags.map(bag => [bag.beanId, bag])).values()].sort(byAdded)) {
+    let slot = hashOf(beanId) % BEAN_COLORS.length;
+    for (let tried = 0; tried < BEAN_COLORS.length && taken.has(slot); tried += 1) slot = (slot + 1) % BEAN_COLORS.length;
     taken.add(slot);
-    colors[id] = BEAN_COLORS[slot];
+    colors[beanId] = BEAN_COLORS[slot];
   }
   return colors;
 }
@@ -80,7 +90,7 @@ export function bagBrews(beans: Pick<CoffeeBeans, 'bags'> | null, recipes: Pick<
   const bags = beans?.bags ?? [];
   const matched = bags.filter(bag => bag.recipeId != null);
   if (matched.length < 2) return [];
-  const colors = beanColors(bags.map(bag => bag.beanId));
+  const colors = beanColors(bags);
   return matched
     .sort((a, b) => a.beanName.localeCompare(b.beanName, 'en'))
     .map(bag => ({
@@ -111,6 +121,26 @@ export function brewBasis(usual: Recipe | null, bags: readonly BagBrew[], pick: 
   return pick.usual ? { recipe: usual, onUsual: true, asking: false } : { recipe: pick.recipe, onUsual: false, asking: false };
 }
 
+/** The recipe a brew runs, when the library has it. */
+export function brewRecipe(brew: Pick<CoffeeState, 'recipeId'>, recipes: Pick<CoffeeRecipes, 'recipes'> | null): Recipe | null {
+  return brew.recipeId == null ? null : (recipes?.recipes.find(recipe => recipe.id === brew.recipeId) ?? null);
+}
+
+export interface BrewBaseline {
+  /** The published baseline, or nothing when there is none or the brew is not of its beans and recipe. */
+  baseline: CoffeeBaseline | null;
+  /** The brew is of other beans or another recipe than the baseline was built from. */
+  foreign: boolean;
+}
+
+/** The baseline a brew in progress or just finished may be drawn against. The published one is the usual's, built from one
+ * recipe and one bag of beans, so a brew of another bag has no band, medians or verdict from it. */
+export function brewBaseline(brew: Pick<CoffeeState, 'beanId' | 'recipeId'>, baseline: CoffeeBaseline | null): BrewBaseline {
+  const foreign =
+    baseline != null && baseline.status !== 'none' && (brew.beanId !== baseline.beanId || brew.recipeId !== baseline.recipeId);
+  return { baseline: foreign ? null : baseline, foreign };
+}
+
 /** The bag on the beans tile: the one picked for the next cup, else the primary bag the top-level fields describe. */
 export function tileBeans(beans: CoffeeBeans | null, pick: BagBrew | null): CoffeeBeans | null {
   if (!beans || !pick) return beans;
@@ -138,7 +168,7 @@ export function retagChoices(
 ): { bag: CoffeeBag; color: string }[] {
   const bags = beans?.bags ?? [];
   if (bags.length < 2 || brew.atMs == null || nowMs - brew.atMs >= RETAG_WINDOW_MS) return [];
-  const colors = beanColors(bags.map(bag => bag.beanId));
+  const colors = beanColors(bags);
   const carried = brew.beanName?.trim().toLowerCase();
   return bags.filter(bag => bag.beanName.trim().toLowerCase() !== carried).map(bag => ({ bag, color: colors[bag.beanId] }));
 }

@@ -785,6 +785,9 @@
   gap: 6px;
   margin-top: 8px;
 }
+.coffee-wrong-lab {
+  align-self: center;
+}
 button.coffee-wrong-chip {
   border: 0;
   font: inherit;

@@ -36,10 +36,12 @@ import {
 } from '../../coffee/useCoffee';
 import {
   bandVerdict,
+  brewBaseline,
   brewBasis,
   brewDayWord,
   maintenanceWord,
   brewName,
+  brewRecipe,
   brewView,
   brewWhen,
   deltaTone,
@@ -214,6 +216,7 @@ function IdleBrew({
           </span>
           <PersonFace person={last.who} size='sm' />
         </div>
+        <WrongBeans brew={last} beans={beans} nowMs={nowMs} />
         <div className='coffee-tile cc-trial'>
           <div className='cc-rate-q'>How was it?</div>
           <TasteRow brewId={last.id} rating={last.rating} size='sm' />
@@ -345,7 +348,8 @@ function dayLabelShort(ms: number, nowMs: number): string {
 }
 
 function LiveBrew({ data, nowMs }: { data: CardData; nowMs: number }) {
-  const { state, live, baseline, recipes } = data;
+  const { state, live, recipes } = data;
+  const { baseline, foreign } = brewBaseline(state, data.baseline);
   const stale = staleFromS(live, state, nowMs);
   const paused = state.phase === 'paused';
   const power = state.source === 'power';
@@ -356,7 +360,7 @@ function LiveBrew({ data, nowMs }: { data: CardData; nowMs: number }) {
   const realNowS = t0 != null ? Math.max(0, (nowMs - t0) / 1000) : 0;
   const headS = stale != null ? realNowS : (lastValidS(cup) ?? realNowS);
   const laneAtS = stale ?? (paused && state.pausedSinceMs != null && t0 != null ? Math.max(0, (state.pausedSinceMs - t0) / 1000) : headS);
-  const inputs = chartInputs({ plan: planOf(live, baseline, usualRecipe(recipes)), baseline, cup, water, extraS: headS });
+  const inputs = chartInputs({ plan: planOf(live, baseline, brewRecipe(state, recipes)), baseline, cup, water, extraS: headS });
   const left = secondsLeft(state.etaMs, nowMs);
   const banded = hasBand(baseline);
   const fault = faultView(state.fault);
@@ -390,7 +394,7 @@ function LiveBrew({ data, nowMs }: { data: CardData; nowMs: number }) {
             {fault ? fault.text : 'Paused'}
           </StoryPill>
         ) : (
-          <VerdictPill verdict={liveVerdict(banded ? state.verdict : 'building', baseline?.n ?? null)} />
+          !foreign && <VerdictPill verdict={liveVerdict(banded ? state.verdict : 'building', baseline?.n ?? null)} />
         )}
       </div>
       <ChartBox
@@ -398,7 +402,7 @@ function LiveBrew({ data, nowMs }: { data: CardData; nowMs: number }) {
         mode='live'
         height={170}
         className='cc-chart'
-        label='This brew against the plan and your usual'
+        label={foreign ? 'This brew against its plan' : 'This brew against the plan and your usual'}
         {...inputs}
         nowS={headS}
         pour={state.pour}
@@ -477,7 +481,8 @@ function deltaChip(label: string, value: string, delta: number | null, unit: str
 }
 
 function ReadyBrew({ data, nowMs }: { data: CardData; nowMs: number }) {
-  const { state, live, baseline, brews, advice, beans } = data;
+  const { state, live, brews, advice, beans } = data;
+  const { baseline, foreign } = brewBaseline(state, data.baseline);
   const choice = useBeanChoice(beans, data.recipes, true);
   const brew = useBrewStart(state, usualRecipe(data.recipes), advice, nowMs, choice);
   const record = brews?.brews.find(item => item.id === state.brewId) ?? null;
@@ -506,14 +511,14 @@ function ReadyBrew({ data, nowMs }: { data: CardData; nowMs: number }) {
           <div className='cc-left is-ok'>{state.readyAtMs != null ? formatHomeClock(state.readyAtMs) : 'Ready'}</div>
         </div>
         <span className='cc-left-sub' />
-        <VerdictPill verdict={bandVerdict(banded ? state.inBand : 'building', baseline?.n ?? null)} />
+        {!foreign && <VerdictPill verdict={bandVerdict(banded ? state.inBand : 'building', baseline?.n ?? null)} />}
       </div>
       <ChartBox
         look={LOOK_CARD}
         mode='ready'
         height={150}
         className='cc-chart'
-        label='This brew against your usual'
+        label={foreign ? 'This brew' : 'This brew against your usual'}
         {...inputs}
         readyS={readyS}
       />

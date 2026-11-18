@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@hakit/core', () => ({ useHass: { getState: () => ({ connection: null }) } }));
 
-const { coffeeCommandMessage, sendCoffeeCommand } = await import('../command');
+const { BEAN_NAME_MAX, cleanBeanName, coffeeCommandMessage, nameableBeans, sendCoffeeCommand } = await import('../command');
 
 describe('coffee commands', () => {
   it('run script.coffee_command with the op and its data as JSON text', () => {
@@ -32,5 +32,26 @@ describe('coffee commands', () => {
 
   it('reject without a connection', async () => {
     await expect(sendCoffeeCommand('connect', {})).rejects.toThrow('Not connected');
+  });
+});
+
+describe('a name for new beans', () => {
+  it('is kept as the coffee app keeps it: ASCII only, white space collapsed, at most 40 characters', () => {
+    expect(cleanBeanName('Guatemala')).toBe('Guatemala');
+    expect(cleanBeanName('  Guatemala \t Huehue\n')).toBe('Guatemala Huehue');
+    expect(cleanBeanName('Café Ethiopía')).toBe('Caf Ethiopa');
+    expect(cleanBeanName('Kenya 😀 AA')).toBe('Kenya AA');
+    expect(cleanBeanName('a'.repeat(45))).toBe('a'.repeat(BEAN_NAME_MAX));
+    expect(cleanBeanName(`${'a'.repeat(39)} b`)).toBe('a'.repeat(39));
+  });
+
+  it('is empty when nothing of ASCII is left of it', () => {
+    for (const name of ['', '   ', 'é', '日本語', '😀 😀']) expect(cleanBeanName(name), name).toBe('');
+  });
+
+  it('is nameable with a letter or a digit left, and not with only marks', () => {
+    for (const name of ['a', 'Z', '7', 'Kenya AA', 'Caf']) expect(nameableBeans(name), name).toBe(true);
+    for (const name of ['', ' ', '!!!', '-', '#?']) expect(nameableBeans(name), name).toBe(false);
+    expect(nameableBeans(cleanBeanName('é-!'))).toBe(false);
   });
 });

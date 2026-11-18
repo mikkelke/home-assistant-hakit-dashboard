@@ -21,15 +21,38 @@ const MIN = 60 * S;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
 
+interface PourSpec {
+  start: number;
+  end: number;
+  pattern: string;
+  ml: number;
+}
+
 /** The usual: 15 g, 1:17, 255 ml, four pours at 93 °C with 15, 15 and 12 s pauses. */
-const PLAN = [
+const PLAN: readonly PourSpec[] = [
   { start: 0, end: 13, pattern: 'circular', ml: 45 },
   { start: 28, end: 51, pattern: 'circular', ml: 80 },
   { start: 66, end: 85, pattern: 'circular', ml: 65 },
   { start: 97, end: 116, pattern: 'centered', ml: 65 },
-] as const;
-const PLAN_POURS = PLAN.map(pour => `${pour.start}-${pour.end}:${pour.pattern}:93:${pour.ml}`).join(';');
+];
+const poursOf = (plan: readonly PourSpec[], tempC: number) =>
+  plan.map(pour => `${pour.start}-${pour.end}:${pour.pattern}:${tempC}:${pour.ml}`).join(';');
+const waterPlanOf = (plan: readonly PourSpec[], endS: number) =>
+  Array.from({ length: endS + 1 }, (_, t) =>
+    plan.reduce((sum, pour) => sum + pour.ml * Math.min(1, Math.max(0, (t - pour.start) / (pour.end - pour.start))), 0)
+  );
+const PLAN_POURS = poursOf(PLAN, 93);
 const PLAN_END_S = 116;
+
+/** What a housemate's Signature Brew pours: five pours of 40, 55, 55, 55 and 50 ml at 94 °C. */
+const SIGNATURE_PLAN: readonly PourSpec[] = [
+  { start: 0, end: 13, pattern: 'spiral', ml: 40 },
+  { start: 33, end: 49, pattern: 'circular', ml: 55 },
+  { start: 59, end: 75, pattern: 'circular', ml: 55 },
+  { start: 85, end: 101, pattern: 'circular', ml: 55 },
+  { start: 111, end: 125, pattern: 'centered', ml: 50 },
+];
+const SIGNATURE_END_S = 125;
 const MAX_S = 300;
 /** How long a stopped brew ran before the stop, during its second pour. */
 const STOPPED_S = 58;
@@ -55,17 +78,27 @@ interface Brew {
   /** Seconds since the first bloom when the machine says enjoy. */
   ready: number;
   shift: number;
+  plan: readonly PourSpec[];
 }
 
+const pouringEndsS = (brew: Brew) => brew.plan[brew.plan.length - 1].end;
+
 /** Water follows the pours; the cup drains behind it, minus what the grounds hold. */
-function simulate(drain: number, held: number, shift: number, seed: number, waterStopsAt: number | null = null): Brew {
+function simulate(
+  drain: number,
+  held: number,
+  shift: number,
+  seed: number,
+  waterStopsAt: number | null = null,
+  plan: readonly PourSpec[] = PLAN
+): Brew {
   const noise = rng(seed);
   const water: number[] = [];
   const cup: number[] = [];
   let inCup = 0;
   let ready: number | null = null;
   for (let t = 0; t <= MAX_S; t++) {
-    let poured = PLAN.reduce((sum, pour, index) => {
+    let poured = plan.reduce((sum, pour, index) => {
       const start = pour.start + (index ? shift : 0);
       return sum + pour.ml * Math.min(1, Math.max(0, (t - start) / (pour.end - pour.start)));
     }, 0);
@@ -75,7 +108,7 @@ function simulate(drain: number, held: number, shift: number, seed: number, wate
     cup.push(Math.max(0, inCup + (noise() - 0.5) * 0.7));
     if (ready == null && waterStopsAt == null && t > 140 && poured - held - inCup < 1.2) ready = t;
   }
-  return { water, cup, ready: ready ?? MAX_S, shift };
+  return { water, cup, ready: ready ?? MAX_S, shift, plan };
 }
 
 const usualRng = rng(7);
@@ -84,6 +117,7 @@ const USUAL: Brew[] = Array.from({ length: 7 }, (_, index) =>
 );
 const TODAY = simulate(0.042, 38, 1, 42);
 const TRIAL = simulate(0.04, 38, 1, 9);
+const SIGNATURE_BREW = simulate(0.04, 36, 2, 77, null, SIGNATURE_PLAN);
 
 const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
 const halfRange = (values: number[]) => (Math.max(...values) - Math.min(...values)) / 2;
@@ -104,9 +138,7 @@ const iso = (ms: number) => new Date(ms).toISOString();
 /** "c" and the brew's start in epoch seconds, 38 s of grinding before its first bloom. */
 const brewIdFor = (bloomMs: number) => `c${Math.round(bloomMs / S) - 38}`;
 
-const planWater = Array.from({ length: PLAN_END_S + 1 }, (_, t) =>
-  PLAN.reduce((sum, pour) => sum + pour.ml * Math.min(1, Math.max(0, (t - pour.start) / (pour.end - pour.start))), 0)
-);
+const planWater = waterPlanOf(PLAN, PLAN_END_S);
 
 const BAND_END_S = Math.max(...USUAL.map(brew => brew.ready));
 const band = (pick: (values: number[]) => number, series: (brew: Brew, t: number) => number) =>
@@ -301,7 +333,7 @@ function ledger(
     const stopped = spec.stopped === true;
     const total = stopped ? STOPPED_S : brew.ready;
     const cup = stopped ? 31 : Math.round(brew.cup[brew.ready]);
-    const drawdown = brew.ready - PLAN_END_S - brew.shift;
+    const drawdown = brew.ready - pouringEndsS(brew) - brew.shift;
     const usual = !spec.recipe;
     const record: Record<string, string> = {
       id: brewIdFor(atMs - total * S),
@@ -373,7 +405,7 @@ function recentFor(brews: LedgerBrew[]) {
       step_s: 2,
       cup: everyOther(brew.brew.cup, brew.brew.ready),
       water: everyOther(brew.brew.water, brew.brew.ready),
-      pours: PLAN.map((pour, index) => [pour.start + (index ? brew.brew.shift : 0), index]),
+      pours: brew.brew.plan.map((pour, index) => [pour.start + (index ? brew.brew.shift : 0), index]),
       end_s: brew.brew.ready,
       baseline_id: brew.spec.recipe ? null : 'bl1',
     }));
@@ -402,13 +434,16 @@ function everyOther(values: readonly number[], to = values.length - 1): number[]
   return out;
 }
 
-const pourAt = (t: number, shift: number) => PLAN.filter((pour, index) => t >= pour.start + (index ? shift : 0)).length;
+const pourAt = (t: number, shift: number, plan: readonly PourSpec[] = PLAN) =>
+  plan.filter((pour, index) => t >= pour.start + (index ? shift : 0)).length;
 
-function pourEvents(t: number, shift: number): string {
-  return PLAN.flatMap((pour, index) => {
-    const start = pour.start + (index ? shift : 0);
-    return t >= start ? [`${start}:${index}`] : [];
-  }).join(',');
+function pourEvents(t: number, shift: number, plan: readonly PourSpec[] = PLAN): string {
+  return plan
+    .flatMap((pour, index) => {
+      const start = pour.start + (index ? shift : 0);
+      return t >= start ? [`${start}:${index}`] : [];
+    })
+    .join(',');
 }
 
 function verdictAt(cup: number, t: number): string {
@@ -524,7 +559,27 @@ function stateEntity({ phase, machine, powerW, link, brewId, extra = {} }: State
   return entity(phase, attributes);
 }
 
-function liveEntity(state: string, brew: Brew, bloomMs: number, to: number, freshUntil: number = to): CoffeeEntity {
+/** The plan a live brew carries: the usual's unless it says otherwise. */
+interface LivePlan {
+  plan: readonly PourSpec[];
+  pours: string;
+  water: readonly number[];
+}
+const USUAL_LIVE_PLAN: LivePlan = { plan: PLAN, pours: PLAN_POURS, water: planWater };
+const SIGNATURE_LIVE_PLAN: LivePlan = {
+  plan: SIGNATURE_PLAN,
+  pours: poursOf(SIGNATURE_PLAN, 94),
+  water: waterPlanOf(SIGNATURE_PLAN, SIGNATURE_END_S),
+};
+
+function liveEntity(
+  state: string,
+  brew: Brew,
+  bloomMs: number,
+  to: number,
+  freshUntil: number = to,
+  carried: LivePlan = USUAL_LIVE_PLAN
+): CoffeeEntity {
   const cup = brew.cup.slice(0, to + 1).map((value, t) => (t <= freshUntil ? value : null));
   const water = brew.water.slice(0, to + 1).map((value, t) => (t <= freshUntil ? value : null));
   const attributes: Attributes = {
@@ -533,9 +588,9 @@ function liveEntity(state: string, brew: Brew, bloomMs: number, to: number, fres
     step_s: '1',
     cup: tenths(cup),
     water: tenths(water),
-    pours: pourEvents(freshUntil, brew.shift),
-    plan_water: tenths(planWater),
-    plan_pours: PLAN_POURS,
+    pours: pourEvents(freshUntil, brew.shift, carried.plan),
+    plan_water: tenths(carried.water),
+    plan_pours: carried.pours,
     last_fresh_at: iso(bloomMs + freshUntil * S),
   };
   if (state === 'ended') attributes.end_s = String(to);
@@ -549,7 +604,7 @@ export function coffeeDemoTicks(scenario: CoffeeDemoScenario): boolean {
 
 export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs: number): CoffeeDemoSnapshot {
   const lastAtMs = anchorMs - 6 * HOUR - 57 * MIN;
-  const twoBags = scenario === 'two_bags' || scenario === 'two_bags_ready';
+  const twoBags = scenario.startsWith('two_bags');
   const names = twoBags ? BAG_NAMES : undefined;
   const named: Attributes = twoBags ? { recipe_name: DAYBREAK, bean_name: DAYBREAK } : {};
   const quietBrews = ledger(lastAtMs, {}, names);
@@ -619,11 +674,19 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
       recent = recentFor(brews);
       break;
     }
-    case 'trial_brewed': {
+    case 'trial_brewed':
+    case 'two_bags_trial_brewed': {
       const atMs = anchorMs - 10 * MIN;
-      const brews = ledger(atMs, { rating: 'balanced', who: 'mikkel', brew: TRIAL, trial: 'grind_size:46>44' });
+      const brews = ledger(atMs, { rating: 'balanced', who: 'mikkel', brew: TRIAL, trial: 'grind_size:46>44' }, names);
       entities[COFFEE_STATE_ENTITY] = stateEntity(
-        { phase: 'idle', machine: 'awake', powerW: '2.1', link: 'not_connected', brewId: brews[0].id, extra: { tank_left_ml: '385' } },
+        {
+          phase: 'idle',
+          machine: 'awake',
+          powerW: '2.1',
+          link: 'not_connected',
+          brewId: brews[0].id,
+          extra: { ...named, tank_left_ml: '385' },
+        },
         nowMs
       );
       entities[COFFEE_LIVE_ENTITY] = liveEntity('ended', TRIAL, atMs - TRIAL.ready * S, TRIAL.ready);
@@ -637,23 +700,52 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
     case 'ready':
     case 'ready_cup_unknown':
     case 'picked_up':
-    case 'two_bags_ready': {
+    case 'two_bags_ready':
+    case 'two_bags_signature_ready': {
       const readyMs = anchorMs - 12 * S;
-      const brews = ledger(readyMs, {}, names);
+      const signature = scenario === 'two_bags_signature_ready';
+      const ran = signature ? SIGNATURE_BREW : TODAY;
+      const brews = ledger(
+        readyMs,
+        signature ? { brew: SIGNATURE_BREW, recipe: SIGNATURE.name, bean: SIGNATURE.name, who: 'mikkel', rating: undefined } : {},
+        names
+      );
       const extra: Attributes =
         scenario === 'picked_up'
           ? { cup: 'absent', picked_up_at: iso(anchorMs - 4 * S) }
           : scenario === 'ready_cup_unknown'
             ? { cup: 'unknown' }
-            : {};
+            : signature
+              ? {
+                  recipe_id: SIGNATURE.recipeId,
+                  recipe_name: SIGNATURE.name,
+                  bean_id: SIGNATURE.id,
+                  bean_name: SIGNATURE.name,
+                  pours_total: String(SIGNATURE_PLAN.length),
+                  pour: String(SIGNATURE_PLAN.length),
+                  ready_at: iso(readyMs),
+                  in_band: '',
+                  cup_g: String(Math.round(ran.cup[ran.ready])),
+                  water_ml: String(Math.round(ran.water[ran.ready])),
+                  total_s: String(ran.ready),
+                  drawdown_s: String(ran.ready - pouringEndsS(ran) - ran.shift),
+                }
+              : {};
       entities[COFFEE_STATE_ENTITY] = readyState(
-        readyMs - TODAY.ready * S,
+        readyMs - ran.ready * S,
         brews[0].id,
         nowMs,
         scenario === 'picked_up' ? 'picked_up' : 'ready',
         { ...named, ...extra }
       );
-      entities[COFFEE_LIVE_ENTITY] = liveEntity('ended', TODAY, readyMs - TODAY.ready * S, TODAY.ready);
+      entities[COFFEE_LIVE_ENTITY] = liveEntity(
+        'ended',
+        ran,
+        readyMs - ran.ready * S,
+        ran.ready,
+        ran.ready,
+        signature ? SIGNATURE_LIVE_PLAN : USUAL_LIVE_PLAN
+      );
       entities[COFFEE_BREWS_ENTITY] = brewsEntity(brews);
       entities[COFFEE_BASELINE_ENTITY] = baselineEntity(false, anchorMs, baselineIds(brews));
       entities[COFFEE_BEANS_ENTITY] = beansEntity(97, 6, anchorMs);
@@ -661,10 +753,11 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
       recent = recentFor(brews);
       break;
     }
-    case 'stopped': {
+    case 'stopped':
+    case 'two_bags_stopped': {
       const stoppedMs = anchorMs - 20 * S;
       const bloomMs = stoppedMs - STOPPED_S * S;
-      const brews = ledger(stoppedMs, { stopped: true, rating: undefined });
+      const brews = ledger(stoppedMs, { stopped: true, rating: undefined }, names);
       entities[COFFEE_STATE_ENTITY] = stateEntity(
         {
           phase: 'stopped',
@@ -673,6 +766,7 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
           link: 'connected',
           brewId: brews[0].id,
           extra: {
+            ...named,
             ...brewingBase(bloomMs),
             pour: '2',
             stopped_at: iso(stoppedMs),
@@ -687,6 +781,33 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
       entities[COFFEE_BASELINE_ENTITY] = baselineEntity(false, anchorMs, baselineIds(brews));
       entities[COFFEE_BEANS_ENTITY] = beansEntity(97, 6, anchorMs);
       recent = recentFor(brews);
+      break;
+    }
+    case 'two_bags_brewing': {
+      const t = 66;
+      const bloomMs = anchorMs - t * S;
+      entities[COFFEE_STATE_ENTITY] = stateEntity(
+        {
+          phase: 'brewing',
+          machine: 'working',
+          powerW: '1043',
+          link: 'connected',
+          brewId: brewIdFor(bloomMs),
+          extra: {
+            ...brewingBase(bloomMs, SIGNATURE_PLAN.length),
+            recipe_id: SIGNATURE.recipeId,
+            recipe_name: SIGNATURE.name,
+            bean_id: SIGNATURE.id,
+            bean_name: SIGNATURE.name,
+            pour: String(pourAt(t, SIGNATURE_BREW.shift, SIGNATURE_PLAN)),
+            eta: iso(bloomMs + SIGNATURE_BREW.ready * S),
+            eta_basis: 'plan',
+            verdict: 'building',
+          },
+        },
+        nowMs
+      );
+      entities[COFFEE_LIVE_ENTITY] = liveEntity('live', SIGNATURE_BREW, bloomMs, t, t, SIGNATURE_LIVE_PLAN);
       break;
     }
     case 'live':
@@ -775,11 +896,11 @@ export function coffeeDemo(scenario: CoffeeDemoScenario, anchorMs: number, nowMs
   return { entities, recent };
 }
 
-function brewingBase(bloomMs: number): Attributes {
+function brewingBase(bloomMs: number, poursTotal = PLAN.length): Attributes {
   return {
     cup: 'present',
     source: 'tablet',
-    pours_total: '4',
+    pours_total: String(poursTotal),
     started_at: iso(bloomMs - 38 * S),
     first_bloom_at: iso(bloomMs),
     who: 'mikkel',

@@ -18,6 +18,10 @@ const SCENARIOS = [
   'awaiting_cup',
   'two_bags',
   'two_bags_ready',
+  'two_bags_brewing',
+  'two_bags_stopped',
+  'two_bags_signature_ready',
+  'two_bags_trial_brewed',
 ] as const;
 type Scenario = (typeof SCENARIOS)[number];
 
@@ -34,6 +38,9 @@ const ON_PHONE: readonly Scenario[] = [
   'awaiting_cup',
   'two_bags',
   'two_bags_ready',
+  'two_bags_brewing',
+  'two_bags_stopped',
+  'two_bags_signature_ready',
 ];
 
 const slug = (value: string) => value.replace(/_/g, '-');
@@ -53,7 +60,19 @@ const stageFlows: Flow[] = SCENARIOS.map(scenario => ({
   },
 }));
 
-const cardFlows: Flow[] = (['idle', 'live', 'ready', 'awaiting_cup', 'two_bags', 'two_bags_ready'] as const).flatMap((scenario): Flow[] => [
+const cardFlows: Flow[] = (
+  [
+    'idle',
+    'live',
+    'ready',
+    'awaiting_cup',
+    'two_bags',
+    'two_bags_ready',
+    'two_bags_brewing',
+    'two_bags_signature_ready',
+    'two_bags_trial_brewed',
+  ] as const
+).flatMap((scenario): Flow[] => [
   {
     name: `kitchen coffee card ${scenario}`,
     open: { search: `?coffee_demo=${scenario}`, hash: '#room=kitchen', expanded: true },

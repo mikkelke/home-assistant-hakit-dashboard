@@ -199,6 +199,65 @@ describe('the beans sheet', () => {
     expect(data(0)).toEqual({ grams: 250, new_name: 'Guatemala' });
   });
 
+  const typeName = (value: string) => {
+    const input = document.querySelector('.coffee-input') as HTMLInputElement;
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, value);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  };
+  const hint = () => document.querySelector('.coffee-sheet-note')?.textContent ?? null;
+  const addButton = () => button('Added 250 g') as HTMLButtonElement;
+
+  it('sends and shows a new name as the coffee app will keep it', () => {
+    show();
+    typeName('  Café   Ethiopía ');
+    expect(addButton().textContent).toBe('Added 250 g · Caf Ethiopa');
+    tap(addButton());
+    expect(data(0)).toEqual({ grams: 250, new_name: 'Caf Ethiopa' });
+  });
+
+  it('sends no more than 40 characters of a name', () => {
+    show();
+    typeName('a'.repeat(45));
+    tap(addButton());
+    expect(data(0)).toEqual({ grams: 250, new_name: 'a'.repeat(40) });
+  });
+
+  it.each(['é', '日本語', '😀', '!!!', '- ?'])('refuses the name %j, which has no ASCII letter or digit to keep, and says so', name => {
+    show();
+    typeName(name);
+    expect(addButton().disabled).toBe(true);
+    expect(hint()).toBe('Needs a letter or digit, A to Z or 0 to 9.');
+    tap(addButton());
+    expect(sent).toEqual([]);
+  });
+
+  it('says nothing, and still refuses, while the name is blank', () => {
+    show();
+    typeName('   ');
+    expect(addButton().disabled).toBe(true);
+    expect(hint()).toBeNull();
+  });
+
+  it('takes the name again once it has a letter or digit, and drops the hint', () => {
+    show();
+    typeName('é');
+    expect(hint()).not.toBeNull();
+    typeName('Guji 2');
+    expect(addButton().disabled).toBe(false);
+    expect(hint()).toBeNull();
+    tap(addButton());
+    expect(data(0)).toEqual({ grams: 250, new_name: 'Guji 2' });
+  });
+
+  it('shows no hint, and keeps Add open, for the beans already open', () => {
+    show();
+    tap(radio('Signature Brew'));
+    expect(hint()).toBeNull();
+    expect((button('Added 250 g') as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it('keeps the bag of beans the feed no longer lists as known pickable', () => {
     const trimmed = parseCoffeeBeans(
       entity('714', {

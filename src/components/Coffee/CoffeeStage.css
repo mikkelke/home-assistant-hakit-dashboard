@@ -229,9 +229,13 @@
 .cs-scroll > .cs-save {
   flex: none;
 }
-.cs-scroll > .coffee-wrong {
+.cs-scroll > .coffee-wrong,
+.cs-side > .coffee-wrong {
   flex: none;
   margin-top: 0;
+}
+.cs-chartcard > .coffee-wrong {
+  margin-top: 10px;
 }
 .cs-side.is-ready .cs-go,
 .cs-side.is-ready .cs-hold,

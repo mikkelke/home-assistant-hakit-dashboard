@@ -11,11 +11,14 @@ export function WrongBeans({
   beans,
   nowMs,
   big = false,
+  label,
 }: {
   brew: Pick<BrewRecord, 'id' | 'atMs' | 'beanName'> | null;
   beans: Pick<CoffeeBeans, 'bags'> | null;
   nowMs: number;
   big?: boolean;
+  /** Names the brew the chip is about, where no other part of the screen does. */
+  label?: string;
 }) {
   const [open, setOpen] = useState(false);
   const choices = brew ? retagChoices(beans, brew, nowMs) : [];
@@ -26,6 +29,7 @@ export function WrongBeans({
   };
   return (
     <div className={`coffee-wrong ${big ? 'is-big' : ''}`}>
+      {label && <span className='coffee-lab coffee-wrong-lab'>{label}</span>}
       <button
         type='button'
         className={`coffee-chip coffee-wrong-chip ${big ? 'is-big' : ''}`}

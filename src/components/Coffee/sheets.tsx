@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
 import { ratioOf, setCupAdjust, useCupAdjust } from '../../coffee/adjust';
-import { ADVISOR_REPLY_MAX, sendCoffeeCommand } from '../../coffee/command';
+import { ADVISOR_REPLY_MAX, BEAN_NAME_MAX, cleanBeanName, nameableBeans, sendCoffeeCommand } from '../../coffee/command';
 import { BEANS_TOP_UP_G } from '../../coffee/entities';
 import {
   adviceFieldWord,
@@ -203,15 +203,13 @@ export function BeansSheet({ beans, onClose }: { beans: CoffeeBeans | null; onCl
     ...bags.filter(bag => !known.some(bean => bean.id === bag.beanId)).map(bag => ({ id: bag.beanId, name: bag.beanName })),
   ];
   const naming = beanId === 'new';
-  const name = naming ? newName.trim() : (pickable.find(bean => bean.id === beanId)?.name ?? beans?.beanName ?? null);
+  const cleaned = cleanBeanName(newName);
+  const nameable = nameableBeans(cleaned);
+  const name = naming ? cleaned : (pickable.find(bean => bean.id === beanId)?.name ?? beans?.beanName ?? null);
   const add = () => {
     void sendCoffeeCommand(
       'beans_add',
-      naming && newName.trim()
-        ? { grams, new_name: newName.trim().slice(0, 40) }
-        : beanId && beanId !== 'new'
-          ? { grams, bean_id: beanId }
-          : { grams }
+      naming && nameable ? { grams, new_name: cleaned } : beanId && beanId !== 'new' ? { grams, bean_id: beanId } : { grams }
     ).catch(() => {});
     onClose();
   };
@@ -257,7 +255,7 @@ export function BeansSheet({ beans, onClose }: { beans: CoffeeBeans | null; onCl
                 className='coffee-input'
                 autoFocus
                 value={newName}
-                maxLength={40}
+                maxLength={BEAN_NAME_MAX}
                 placeholder='Name of the new beans'
                 onChange={event => setNewName(event.target.value)}
                 onClick={event => event.stopPropagation()}
@@ -283,7 +281,8 @@ export function BeansSheet({ beans, onClose }: { beans: CoffeeBeans | null; onCl
             </button>
           ))}
         </div>
-        <button type='button' className='coffee-btn is-copper' onClick={add} disabled={naming && !newName.trim()}>
+        {naming && newName.trim() !== '' && !nameable && <p className='coffee-sheet-note'>Needs a letter or digit, A to Z or 0 to 9.</p>}
+        <button type='button' className='coffee-btn is-copper' onClick={add} disabled={naming && !nameable}>
           <Icon icon='mdi:plus' aria-hidden='true' />
           Added {amount}
           {name && (bags.length > 1 || name !== beans?.beanName) ? ` · ${name}` : ''}

@@ -33,7 +33,9 @@ import {
 import {
   appHasMachine,
   bandVerdict,
+  brewBaseline,
   brewBasis,
+  brewRecipe,
   brewSubtitle,
   brewView,
   deltaTone,
@@ -297,7 +299,7 @@ function BrewingSide({
   staleS: number | null;
 }) {
   const { state, live } = data;
-  const plan = planOf(live, data.baseline, usualRecipe(data.recipes));
+  const plan = planOf(live, brewBaseline(state, data.baseline).baseline, brewRecipe(state, data.recipes));
   const pourIndex = (state.pour ?? 0) - 1;
   const pour = plan.planPours[pourIndex];
   const started = pourStartS(live, state.pour) ?? pour?.start ?? null;
@@ -444,8 +446,8 @@ function ReadySide({ data, nowMs, phone }: { data: StageData; nowMs: number; pho
   const choice = useBeanChoice(beans, data.recipes, true);
   const brew = useBrewStart(state, usual, advice, nowMs, choice);
   const record = brews?.brews.find(item => item.id === state.brewId) ?? null;
-  const delta = deltasFor(state, record, data.baseline);
-  const planMl = usual?.totalMl ?? null;
+  const delta = deltasFor(state, record, brewBaseline(state, data.baseline).baseline);
+  const planMl = brewRecipe(state, data.recipes)?.totalMl ?? null;
   const shownAdvice = advisorShown(advice) ? advice : null;
   const readyAt = state.readyAtMs;
   const waterOk = state.waterMl != null && planMl != null && Math.abs(state.waterMl - planMl) <= 5;
@@ -525,6 +527,7 @@ function StoppedSide({ data, nowMs }: { data: StageData; nowMs: number }) {
   const { state, live } = data;
   const choice = useBeanChoice(data.beans, data.recipes, true);
   const brew = useBrewStart(state, usualRecipe(data.recipes), data.advice, nowMs, choice);
+  const record = data.brews?.brews.find(item => item.id === state.brewId) ?? null;
   const cupSeries = live ? series(live.cup, live.stepS) : null;
   const at = lastValidS(cupSeries);
   return (
@@ -546,6 +549,7 @@ function StoppedSide({ data, nowMs }: { data: StageData; nowMs: number }) {
           className='is-water'
         />
       </div>
+      <WrongBeans big brew={state.firstBloomAtMs != null ? record : null} beans={data.beans} nowMs={nowMs} />
       <StageStart brew={brew} recipes={data.recipes} />
     </>
   );
@@ -569,13 +573,15 @@ function StageBody({ data, mode, nowMs, phone }: { data: StageData; mode: BrewVi
   const idle = mode === 'idle';
   const choice = useBeanChoice(data.beans, data.recipes, idle);
   const basis = brewBasis(usual, choice.bags, choice.pick);
-  const baseline = idle && !basis.onUsual ? null : data.baseline;
+  const own = brewBaseline(state, data.baseline);
+  const baseline = idle ? (basis.onUsual ? data.baseline : null) : own.baseline;
+  const foreign = !idle && own.foreign;
   const t0 = live?.t0Ms ?? state.firstBloomAtMs;
   const realNowS = t0 != null ? Math.max(0, (nowMs - t0) / 1000) : 0;
   const flowing = mode === 'live' && state.phase === 'brewing' && (state.pour ?? 0) >= 1;
   const glow = useMotionSlot('stage:head', 'appliance', flowing);
   const breathe = useMotionSlot('stage:pour', 'appliance', flowing);
-  const plan = planOf(idle ? null : live, baseline, idle ? basis.recipe : usual);
+  const plan = planOf(idle ? null : live, baseline, idle ? basis.recipe : brewRecipe(state, data.recipes));
   const measuredLive =
     mode !== 'idle' &&
     state.source !== 'power' &&
@@ -605,8 +611,9 @@ function StageBody({ data, mode, nowMs, phone }: { data: StageData; mode: BrewVi
   const chartMode: BrewChartMode = mode === 'idle' ? 'idle' : mode === 'ready' ? 'ready' : mode === 'stopped' ? 'hist' : 'live';
   const banded = hasBand(baseline);
   const n = baseline?.n ?? 0;
-  const verdict =
-    mode === 'live'
+  const verdict = foreign
+    ? null
+    : mode === 'live'
       ? liveVerdict(banded ? state.verdict : 'building', n)
       : mode === 'ready'
         ? bandVerdict(banded ? state.inBand : 'building', n)
@@ -651,6 +658,7 @@ function StageBody({ data, mode, nowMs, phone }: { data: StageData; mode: BrewVi
           cupEndG={inputs.cupEndG}
           waterEndMl={inputs.waterEndMl}
         />
+        {idle && <WrongBeans big label='Last brew' brew={data.brews?.brews[0] ?? null} beans={data.beans} nowMs={nowMs} />}
       </div>
       <aside className={`cs-side is-${mode}`}>
         {idle && <IdleSide data={data} nowMs={nowMs} choice={choice} />}
