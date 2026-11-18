@@ -249,6 +249,12 @@ const CARRIERS: ReadonlyMap<string, string> = new Map([
   ['gls', 'GLS'],
   ['postnord', 'PostNord'],
   ['airmee', 'Airmee'],
+  ['budbee', 'Budbee'],
+  ['posten_bring', 'Bring'],
+  ['dao', 'DAO'],
+  ['dhl', 'DHL'],
+  ['ups', 'UPS'],
+  ['danske_fragtmaend', 'Danske Fragtmænd'],
 ]);
 
 /** A carrier's slug as its name: "GLS", "PostNord", and for a carrier not known here its words, short ones in capitals. */

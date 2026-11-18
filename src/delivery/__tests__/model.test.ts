@@ -390,8 +390,14 @@ describe('carrierName and parcelStatusWord', () => {
     expect(carrierName('gls')).toBe('GLS');
     expect(carrierName('postnord')).toBe('PostNord');
     expect(carrierName('airmee')).toBe('Airmee');
+    expect(carrierName('budbee')).toBe('Budbee');
+    expect(carrierName('posten_bring')).toBe('Bring');
     expect(carrierName('dao')).toBe('DAO');
+    expect(carrierName('dhl')).toBe('DHL');
+    expect(carrierName('ups')).toBe('UPS');
+    expect(carrierName('danske_fragtmaend')).toBe('Danske Fragtmænd');
     expect(carrierName('test_freight')).toBe('Test Freight');
+    expect(carrierName('tnt')).toBe('TNT');
     expect(carrierName('constructor')).toBe('Constructor');
     expect(carrierName('')).toBe('');
   });
