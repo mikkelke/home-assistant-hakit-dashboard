@@ -424,10 +424,17 @@
   font-weight: 600;
   letter-spacing: -0.01em;
 }
+.cs-usual h3.cs-usual-ask {
+  font-weight: 500;
+  color: var(--cof-t2);
+}
 .cs-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+.cs-chips-ask {
+  min-height: 88px;
 }
 .cs-chips .coffee-chip {
   height: 40px;
@@ -542,9 +549,13 @@
   touch-action: manipulation;
   transition: transform 120ms var(--ease-out);
 }
-.cs-lowlinks button:active,
+.cs-lowlinks button:active:not(:disabled),
 .cs-save:active {
   transform: scale(0.98);
+}
+.cs-lowlinks button:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 .cs-save:disabled {
   cursor: default;
@@ -752,6 +763,9 @@
 }
 .is-phone .cs-usual h3 {
   font-size: 26px;
+}
+.is-phone .cs-chips-ask {
+  min-height: 76px;
 }
 .is-phone .cs-chips .coffee-chip {
   height: 34px;

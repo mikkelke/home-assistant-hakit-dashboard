@@ -8,6 +8,13 @@ import { COFFEE_PHASES, type CoffeePhase } from '../../../coffee/state';
 
 const sent = vi.hoisted(() => [] as { op?: string; data?: string }[]);
 const entities = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
+const charts = vi.hoisted(() => [] as Record<string, unknown>[]);
+vi.mock('../ChartBox', () => ({
+  ChartBox: (props: Record<string, unknown>) => {
+    charts.push(props);
+    return null;
+  },
+}));
 vi.mock('@hakit/core', () => {
   const connection = {
     sendMessagePromise: (message: { service_data?: { op?: string; data?: string } }) => {
@@ -85,6 +92,7 @@ beforeEach(() => {
     },
   });
   sent.length = 0;
+  charts.length = 0;
   root = createRoot(document.body.appendChild(document.createElement('div')));
 });
 afterEach(() => {
@@ -163,31 +171,64 @@ const BAG_RECIPES = {
       v: '1',
       usual_id: '1',
       recipes: [
-        { id: '1', name: 'Daybreak', dose_g: '15', ratio: '17', grind: '46', total_ml: '255' },
-        { id: '2', name: 'Signature Brew', dose_g: '15', ratio: '17', grind: '44', total_ml: '200' },
+        {
+          id: '1',
+          name: 'Daybreak',
+          dose_g: '15',
+          ratio: '17',
+          grind: '46',
+          total_ml: '255',
+          plan_s: '170',
+          pours: '45/93/3.5/circular/15;80/93/3.5/circular/15;65/93/3.5/circular/12;65/93/3.5/centered/5',
+        },
+        {
+          id: '2',
+          name: 'Signature Brew',
+          dose_g: '14',
+          ratio: '14',
+          grind: '44',
+          total_ml: '200',
+          plan_s: '200',
+          pours: '40/94/3/spiral/20;40/94/3.5/circular/10;40/94/3.5/circular/10;40/94/3.5/circular/10;40/94/3.5/centered/0',
+        },
       ],
     },
   },
 };
-const bag = (id: string, name: string, recipeId: string, brewsLeft: string) => ({
+const bag = (id: string, name: string, recipeId: string, brewsLeft: string, remaining = '300') => ({
   bean_id: id,
   bean_name: name,
-  remaining: '300',
+  remaining,
   brews_left: brewsLeft,
   low: 'no',
   added_at: '2026-11-18T06:10:00+00:00',
   recipe_id: recipeId,
 });
 /** Daybreak is the house's bag and the usual's; Signature Brew is the newer bag. */
-const TWO_BAGS = [bag('b2', 'Signature Brew', '2', '33'), bag('b1', 'Daybreak', '1', '14')];
+const TWO_BAGS = [bag('b2', 'Signature Brew', '2', '33', '500'), bag('b1', 'Daybreak', '1', '14', '214')];
+const BASELINE = {
+  'sensor.coffee_baseline': {
+    entity_id: 'sensor.coffee_baseline',
+    state: 'ready',
+    attributes: { v: '1', n: '7', step_s: '2', total_s_median: '204', cup_lo: '0,100,200', cup_hi: '0,120,230' },
+  },
+};
+const QUEUED_TRIAL = {
+  'sensor.coffee_advice': {
+    entity_id: 'sensor.coffee_advice',
+    state: 'trial_queued',
+    attributes: { v: '1', advice_id: 'a1', bean_id: 'b1', field: 'grind_size', from: '46', to: '42' },
+  },
+};
 const placeBags = (phase: string, attributes: Record<string, string> = {}, bags: object[] = TWO_BAGS) => {
   place(phase, attributes);
   entities.current = {
     ...entities.current,
     ...BAG_RECIPES,
+    ...BASELINE,
     'sensor.coffee_beans': {
       entity_id: 'sensor.coffee_beans',
-      state: '714',
+      state: '214',
       attributes: { v: '1', bean_id: 'b1', bean_name: 'Daybreak', brews_left: '14', bags },
     },
   };
@@ -251,29 +292,44 @@ describe.each(Object.entries(VIEWS))('the %s with two open bags', (_, mount) => 
     expect(starts()).toEqual([{ variant: 'usual', bean_id: 'b1' }]);
   });
 
-  it('forgets the pick once the start is sent, so the next cup is picked again', () => {
+  it('keeps the pick, shut to change, while the start goes out', () => {
     placeBags('idle');
     mount();
     pickBeans('Signature Brew');
     holdBrew();
     expect(starts()).toHaveLength(1);
-    expect(cards().map(card => card.getAttribute('aria-checked'))).toEqual(['false', 'false']);
+    expect(cards().map(card => card.getAttribute('aria-checked'))).toEqual(['false', 'true']);
     expect(cards().every(card => (card as HTMLButtonElement).disabled)).toBe(true);
-    expect(recipeLine()?.textContent).toBe('');
+    expect(recipeLine()?.textContent).toBe('Signature Brew');
     expect(control()).toEqual(holding('Starting…', { pending: true }));
   });
 
-  it('asks again after a refused start', () => {
+  it('asks again for the next cup once the brew has been under way', () => {
     placeBags('idle');
     mount();
     pickBeans('Signature Brew');
     holdBrew();
-    placeBags('start_failed', { start_error: 'no_water' });
+    placeBags('brewing', { pour: '1' });
+    mount();
+    expect(document.querySelector('.coffee-picker')).toBeNull();
+    placeBags('idle');
     mount();
     expect(cards().map(card => card.getAttribute('aria-checked'))).toEqual(['false', 'false']);
-    expect(control().hold?.disabled).toBe(true);
-    pickBeans('Daybreak');
+    expect(control()).toEqual(holding('Pick beans first', { disabled: true }));
+  });
+
+  it('keeps the pick after a refused start, so the same hold tries again', () => {
+    placeBags('idle');
+    mount();
+    pickBeans('Signature Brew');
+    holdBrew();
+    sent.length = 0;
+    placeBags('start_failed', { start_error: 'no_water' });
+    mount();
+    expect(cards().map(card => card.getAttribute('aria-checked'))).toEqual(['false', 'true']);
     expect(control().hold?.disabled).toBe(false);
+    holdBrew();
+    expect(starts()).toEqual([{ variant: 'usual', bean_id: 'b2' }]);
   });
 
   it('starts from every quiet phase with the beans picked', () => {
@@ -349,5 +405,195 @@ describe.each(Object.entries(VIEWS))('the %s with two open bags', (_, mount) => 
     expect(document.querySelector('.coffee-picker')).toBeNull();
     holdBrew();
     expect(starts()).toEqual([{ variant: 'usual' }]);
+  });
+});
+
+type IdleChart = { planPours: unknown[]; bandLo: unknown; bandHi: unknown; label: string };
+const idleChart = (): IdleChart => {
+  const drawn = charts.filter(chart => chart.mode === 'idle');
+  return drawn[drawn.length - 1] as unknown as IdleChart;
+};
+const texts = (selector: string) => [...document.querySelectorAll(selector)].map(element => element.textContent);
+const legend = () => texts('.cs-top .coffee-leg');
+const button = (label: string) => [...document.querySelectorAll('button')].find(item => item.textContent === label) ?? null;
+
+/** Where each screen writes what it is about to brew. */
+const SHOWN = {
+  card: {
+    selected: '.cc-usual-line span:last-child',
+    chipRow: '.cc-chips',
+    chips: '.cc-chips .coffee-chip',
+    beans: 'button.cc-beans b',
+    brews: 'button.cc-beans .coffee-chip',
+    water: '.cc-water b',
+  },
+  stage: {
+    selected: '.cs-usual h3',
+    chipRow: '.cs-chips',
+    chips: '.cs-chips .coffee-chip',
+    beans: '.cs-beans-line',
+    brews: '.cs-beans .coffee-chip',
+    water: '.coffee-waterchip',
+  },
+} as const;
+
+describe.each(Object.entries(VIEWS))('the %s describing the beans picked', (name, mount) => {
+  const at = SHOWN[name as keyof typeof SHOWN];
+  const selected = () => document.querySelector(at.selected)?.textContent;
+  const adjustCup = () =>
+    (name === 'card' ? document.querySelector('.cc-ibtn[aria-label="Adjust cup"]') : button('Adjust cup')) as HTMLButtonElement;
+  afterEach(() => act(() => setCupAdjust(null, null)));
+
+  it('names no recipe before the beans are picked, and plans and bands nothing', () => {
+    placeBags('idle');
+    mount();
+    expect(selected()).toBe('Pick beans first');
+    expect(texts(at.chips)).toEqual([]);
+    expect(idleChart()).toMatchObject({ planPours: [], bandLo: null, bandHi: null });
+    expect(legend()).toEqual([]);
+  });
+
+  it('keeps the room of the chips until the beans are picked, so the picker stays where it is', () => {
+    placeBags('idle');
+    mount();
+    expect(document.querySelector(at.chipRow)?.className).toMatch(/-chips-ask/);
+    pickBeans('Signature Brew');
+    expect(document.querySelector(at.chipRow)?.className).not.toMatch(/-chips-ask/);
+  });
+
+  it('follows the recipe of the other beans once picked, with the plan on the chart and no band', () => {
+    placeBags('idle');
+    mount();
+    pickBeans('Signature Brew');
+    expect(selected()).toBe(name === 'card' ? '5 pours · ≈3:20' : '5 pours · Signature');
+    expect(texts(at.chips)).toEqual(
+      name === 'card' ? ['14 g', '1:14', '200 ml', 'Grind 44'] : ['14 g', '1:14', '200 ml', '94°', 'Grind 44', '≈ 3:20']
+    );
+    expect(idleChart().planPours).toHaveLength(5);
+    expect(idleChart()).toMatchObject({ bandLo: null, bandHi: null });
+    expect(idleChart().label).toContain('Signature Brew');
+    if (name === 'stage') expect(legend()).toEqual(['Plan']);
+  });
+
+  it('keeps the usual, with its band, for the usual beans', () => {
+    placeBags('idle');
+    mount();
+    pickBeans('Daybreak');
+    expect(selected()).toBe(name === 'card' ? '4 pours · ≈3:24 · n=7' : '4 pours · Daybreak');
+    expect(texts(at.chips)).toEqual(
+      name === 'card' ? ['15 g', '1:17', '255 ml', 'Grind 46'] : ['15 g', '1:17', '255 ml', '93°', 'Grind 46', '≈ 3:24']
+    );
+    expect(idleChart().planPours).toHaveLength(4);
+    expect(idleChart().bandLo).not.toBeNull();
+    if (name === 'stage') expect(legend()).toEqual(['Your usual · n=7', 'Plan']);
+  });
+
+  it('counts the tank in cups of the recipe picked', () => {
+    placeBags('idle', { tank_left_ml: '600' });
+    mount();
+    expect(document.querySelector(at.water)?.textContent).toContain('≈ 600 ml');
+    pickBeans('Daybreak');
+    expect(document.querySelector(at.water)?.textContent).toContain('≈ 1 cup');
+    pickBeans('Signature Brew');
+    expect(document.querySelector(at.water)?.textContent).toContain('≈ 2 cups');
+  });
+
+  it('shows the grams of the bag picked on the beans tile', () => {
+    placeBags('idle');
+    mount();
+    expect(document.querySelector(at.beans)?.textContent).toContain('≈214 g');
+    pickBeans('Signature Brew');
+    expect(document.querySelector(at.beans)?.textContent).toContain('≈500 g');
+    expect(document.querySelector(at.beans)?.textContent).toContain('Signature Brew');
+    expect(document.querySelector(at.brews)?.textContent).toBe('≈ 33 brews');
+    pickBeans('Daybreak');
+    expect(document.querySelector(at.beans)?.textContent).toContain('≈214 g');
+    expect(document.querySelector(at.brews)?.textContent).toBe('≈ 14 brews');
+  });
+
+  it('opens Adjust cup only for the usual beans', () => {
+    placeBags('idle');
+    mount();
+    expect(adjustCup().disabled).toBe(true);
+    pickBeans('Signature Brew');
+    expect(adjustCup().disabled).toBe(true);
+    pickBeans('Daybreak');
+    expect(adjustCup().disabled).toBe(false);
+  });
+
+  it('applies the held cup and the queued trial to the usual beans only', () => {
+    placeBags('idle');
+    entities.current = { ...entities.current, ...QUEUED_TRIAL };
+    mount();
+    pickBeans('Daybreak');
+    expect(texts(at.chips)).toContain('Grind 42');
+    expect(control()).toEqual(holding('Hold 1 s · trial'));
+    if (name === 'stage') expect(button('Usual, grind 46')).not.toBeNull();
+    pickBeans('Signature Brew');
+    expect(texts(at.chips)).toContain('Grind 44');
+    expect(texts(at.chips)).not.toContain('Grind 42');
+    expect(control()).toEqual(holding('Hold 1 s to brew'));
+    if (name === 'stage') expect(button('Usual, grind 46')).toBeNull();
+
+    const usual = usualRecipe(parseCoffeeRecipes(BAG_RECIPES['sensor.coffee_recipes']));
+    act(() => setCupAdjust(usual, { grind_size: 40 }));
+    expect(document.querySelector(name === 'card' ? '.cc-usual-line .coffee-lab' : '.cs-usual .coffee-lab')?.textContent).toBe('Selected');
+    pickBeans('Daybreak');
+    expect(document.querySelector(name === 'card' ? '.cc-usual-line .coffee-lab' : '.cs-usual .coffee-lab')?.textContent).toMatch(
+      /^Selected · adjusted/
+    );
+  });
+
+  it('keeps what the pick shows while the cup is awaited, and forgets it once the brew is under way', () => {
+    placeBags('idle');
+    mount();
+    pickBeans('Signature Brew');
+    placeBags('awaiting_cup');
+    mount();
+    expect(selected()).toContain('5 pours');
+    placeBags('brewing', { pour: '1' });
+    mount();
+    placeBags('idle');
+    mount();
+    expect(selected()).toBe('Pick beans first');
+    expect(texts(at.chips)).toEqual([]);
+  });
+
+  it('leaves the single bag as it was: its usual, band, grams and Adjust cup', () => {
+    placeBags('idle', {}, [bag('b1', 'Daybreak', '1', '14', '214')]);
+    mount();
+    expect(selected()).toBe(name === 'card' ? '4 pours · ≈3:24 · n=7' : '4 pours · Daybreak');
+    expect(idleChart().planPours).toHaveLength(4);
+    expect(idleChart().bandLo).not.toBeNull();
+    expect(idleChart().label).not.toContain('Signature');
+    expect(document.querySelector(at.beans)?.textContent).toContain('≈214 g');
+    expect(adjustCup().disabled).toBe(false);
+  });
+});
+
+describe('the card with two open bags', () => {
+  const tab = (label: string) => [...document.querySelectorAll('[role="tab"]')].find(item => item.textContent === label) as HTMLElement;
+
+  it('forgets the pick when the card is closed, or the brew tab left, and asks again', () => {
+    placeBags('idle');
+    VIEWS.card();
+    pickBeans('Signature Brew');
+    act(() => tab('History').click());
+    act(() => tab('Brew').click());
+    expect(cards().map(card => card.getAttribute('aria-checked'))).toEqual(['false', 'false']);
+    pickBeans('Signature Brew');
+    act(() => (document.querySelector('.appliance-header') as HTMLElement).click());
+    act(() => (document.querySelector('.appliance-header') as HTMLElement).click());
+    expect(cards().map(card => card.getAttribute('aria-checked'))).toEqual(['false', 'false']);
+    expect(control()).toEqual(holding('Pick beans first', { disabled: true }));
+  });
+
+  it('keeps Adjust cup open on the other tabs', () => {
+    placeBags('idle');
+    VIEWS.card();
+    const adjust = () => document.querySelector('.cc-ibtn[aria-label="Adjust cup"]') as HTMLButtonElement;
+    expect(adjust().disabled).toBe(true);
+    act(() => tab('Recipes').click());
+    expect(adjust().disabled).toBe(false);
   });
 });

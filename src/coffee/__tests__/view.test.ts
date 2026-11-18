@@ -1,15 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { parseCoffeeBeans, parseCoffeeRecipes } from '../model';
+import { parseCoffeeBeans, parseCoffeeRecipes, usualRecipe } from '../model';
 import { COFFEE_PHASES, isOnHome, type CoffeePhase } from '../state';
 import {
   bagBrews,
+  bagName,
   beanColors,
+  brewBasis,
   brewView,
   canStart,
   maintenanceWord,
   pausedForWater,
   retagChoices,
   startFailure,
+  tileBeans,
   waterCups,
   waterLine,
   waterShort,
@@ -168,8 +171,8 @@ const library = parseCoffeeRecipes({
     v: '1',
     usual_id: 'r1',
     recipes: [
-      { id: 'r1', name: 'Daybreak', total_ml: '255' },
-      { id: 'r2', name: 'Signature Brew', total_ml: '200' },
+      { id: 'r1', name: 'Daybreak', total_ml: '255', pours: '45/93/3.5/circular/15;80/93/3.5/circular/15' },
+      { id: 'r2', name: 'Signature Brew', total_ml: '200', pours: '40/94/3/spiral/20' },
     ],
   },
 })!;
@@ -222,6 +225,45 @@ describe('the beans to pick before a brew', () => {
     const beans = openBags(bagAttrs('b1', 'Daybreak', 'r1'), bagAttrs('b2', 'Signature Brew', 'r9'));
     expect(bagBrews(beans, library).map(item => item.recipe?.name ?? null)).toEqual(['Daybreak', null]);
     expect(bagBrews(beans, null).map(item => item.usual)).toEqual([false, false]);
+  });
+});
+
+describe('what the next cup is made from', () => {
+  const beans = openBags(bagAttrs('b1', 'Daybreak', 'r1'), bagAttrs('b2', 'Signature Brew', 'r2'));
+  const usual = usualRecipe(library);
+  const picks = bagBrews(beans, library);
+  const daybreak = picks.find(item => item.bag.beanId === 'b1') ?? null;
+  const signature = picks.find(item => item.bag.beanId === 'b2') ?? null;
+
+  it('is the usual, with its baseline, where there is nothing to pick', () => {
+    expect(brewBasis(usual, [], null)).toEqual({ recipe: usual, onUsual: true, asking: false });
+  });
+
+  it('is nothing, with no baseline, until a bag is picked', () => {
+    expect(brewBasis(usual, picks, null)).toEqual({ recipe: null, onUsual: false, asking: true });
+  });
+
+  it('is the usual for the usual beans and the picked bag own recipe for the others, with no baseline', () => {
+    expect(brewBasis(usual, picks, daybreak)).toEqual({ recipe: usual, onUsual: true, asking: false });
+    expect(brewBasis(usual, picks, signature)).toEqual({ recipe: signature?.recipe, onUsual: false, asking: false });
+    expect(signature?.recipe?.name).toBe('Signature Brew');
+  });
+
+  it('puts the picked bag on the beans tile, whatever the top-level bag says', () => {
+    expect(tileBeans(beans, null)).toBe(beans);
+    expect(tileBeans(null, signature)).toBeNull();
+    const tile = tileBeans(beans, signature);
+    expect(tile).toMatchObject({ beanId: 'b2', beanName: 'Signature Brew', remainingG: 300, brewsLeft: 20, low: false });
+    expect(tile?.lastOpId).toBe(beans.lastOpId);
+  });
+
+  it('names a picked bag as its recipe is, else as its beans are', () => {
+    expect(bagName(signature!)).toBe('Signature Brew');
+    expect(bagName(daybreak!)).toBe('Daybreak');
+    const unknown = bagBrews(openBags(bagAttrs('b1', 'Daybreak', 'r1'), bagAttrs('b2', 'Guji', 'r9')), library).find(
+      item => item.bag.beanId === 'b2'
+    );
+    expect(bagName(unknown!)).toBe('Guji');
   });
 });
 

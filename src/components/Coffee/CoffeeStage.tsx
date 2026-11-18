@@ -32,8 +32,8 @@ import {
 } from '../../coffee/useCoffee';
 import {
   appHasMachine,
-  bagBrews,
   bandVerdict,
+  brewBasis,
   brewSubtitle,
   brewView,
   deltaTone,
@@ -44,6 +44,7 @@ import {
   pourLine,
   pourStartS,
   staleFromS,
+  tileBeans,
   usualTitle,
   wantsConnect,
   type BrewView,
@@ -64,7 +65,7 @@ import { HoldButton } from './HoldButton';
 import { Chip, CupChip, Legend, LinkChip, NotifyChip, SaveToRecipe, StoryPill, VerdictPill, type LegendItem } from './parts';
 import { AdjustSheet, BeansSheet, RecipesSheet } from './sheets';
 import { TasteRow } from './taste';
-import { useBrewStart, type BrewStart } from './useBrewStart';
+import { useBeanChoice, useBrewStart, type BeanChoice, type BrewStart } from './useBrewStart';
 import { useClock } from './useClock';
 import { PausedFill, WaterChip, WaterSheet } from './WaterTank';
 import { WrongBeans } from './WrongBeans';
@@ -175,7 +176,7 @@ function StageStart({ brew, recipes }: { brew: BrewStart; recipes: CoffeeRecipes
                 {base ? `Trial, grind ${trial.to}` : `Usual, grind ${trial.from ?? usual?.grind ?? ''}`}
               </button>
             ) : (
-              <button type='button' onClick={() => setSheet('tweak')}>
+              <button type='button' disabled={!brew.onUsual} onClick={() => setSheet('tweak')}>
                 <Icon icon='mdi:tune-variant' aria-hidden='true' />
                 Adjust cup
               </button>
@@ -195,23 +196,25 @@ function StageStart({ brew, recipes }: { brew: BrewStart; recipes: CoffeeRecipes
   );
 }
 
-function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
+function IdleSide({ data, nowMs, choice }: { data: StageData; nowMs: number; choice: BeanChoice }) {
   const { state, beans, recipes, advice, brews } = data;
-  const usual = usualRecipe(recipes);
-  const brew = useBrewStart(state, usual, advice, nowMs, bagBrews(beans, recipes));
-  const { adjust, cup, trial, base } = brew;
+  const brew = useBrewStart(state, usualRecipe(recipes), advice, nowMs, choice);
+  const { adjust, cup, trial, base, recipe, onUsual, needsPick, pick } = brew;
+  const bag = tileBeans(beans, pick);
   const [sheet, setSheet] = useState<'beans' | 'water' | null>(null);
   const shownAdvice = advisorShown(advice) ? advice : null;
-  const brewsLeft = beans?.brewsLeft;
-  const total = data.baseline?.status === 'ready' ? data.baseline.totalSMedian : null;
-  const plannedS = total ?? usual?.planS ?? null;
-  const share = beans?.remainingG != null ? Math.min(1, beans.remainingG / Math.max(BEANS_TOP_UP_G, beans.remainingG)) : 0;
+  const brewsLeft = bag?.brewsLeft;
+  const total = onUsual && data.baseline?.status === 'ready' ? data.baseline.totalSMedian : null;
+  const plannedS = total ?? recipe?.planS ?? null;
+  const share = bag?.remainingG != null ? Math.min(1, bag.remainingG / Math.max(BEANS_TOP_UP_G, bag.remainingG)) : 0;
   return (
     <>
       <Tile className='cs-usual'>
         <span className='coffee-lab'>{adjust ? 'Selected · adjusted for this cup' : 'Selected'}</span>
-        <h3>{usualTitle(usual, beans)}</h3>
-        <div className='cs-chips'>
+        <h3 className={needsPick ? 'cs-usual-ask' : undefined}>
+          {needsPick ? 'Pick beans first' : usualTitle(recipe, pick?.bag ?? beans)}
+        </h3>
+        <div className={needsPick ? 'cs-chips cs-chips-ask' : 'cs-chips'}>
           {cup?.doseG != null && <Chip glyph={<Glyph name='bean' />}>{cup.doseG} g</Chip>}
           {cup?.ratio && <Chip>{cup.ratio}</Chip>}
           {cup?.totalMl != null && <Chip icon='mdi:water-outline'>{Math.round(cup.totalMl)} ml</Chip>}
@@ -226,7 +229,7 @@ function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
           {!trial && plannedS != null && <Chip icon='mdi:clock-outline'>≈ {formatMinSec(plannedS)}</Chip>}
         </div>
       </Tile>
-      {beans && beans.remainingG == null && (
+      {bag && bag.remainingG == null && (
         <button type='button' className='cs-tile cs-beans' onClick={() => setSheet('beans')} aria-label='Beans, added some'>
           <span className='cs-beans-disc'>
             <Glyph name='jar' />
@@ -240,21 +243,21 @@ function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
           </Chip>
         </button>
       )}
-      {beans && beans.remainingG != null && (
+      {bag && bag.remainingG != null && (
         <button type='button' className='cs-tile cs-beans' onClick={() => setSheet('beans')} aria-label='Beans, added some'>
           <span className='cs-beans-disc'>
             <Glyph name='jar' />
           </span>
           <span className='cs-beans-tx'>
             <span className='cs-beans-line'>
-              ≈{Math.round(beans.remainingG)} g <span>{beans.beanName}</span>
+              ≈{Math.round(bag.remainingG)} g <span>{bag.beanName}</span>
             </span>
             <span className='cs-bar'>
               <i style={{ width: `${Math.round(share * 100)}%` }} />
             </span>
           </span>
           {brewsLeft != null && (
-            <Chip tone={beans.low ? 'warn' : 'cof'} className='is-mid'>
+            <Chip tone={bag.low ? 'warn' : 'cof'} className='is-mid'>
               ≈ {brewsLeft} brew{brewsLeft === 1 ? '' : 's'}
             </Chip>
           )}
@@ -272,7 +275,7 @@ function IdleSide({ data, nowMs }: { data: StageData; nowMs: number }) {
       )}
       <StageStart brew={brew} recipes={recipes} />
       {sheet === 'beans' && <BeansSheet beans={beans} onClose={() => setSheet(null)} />}
-      {sheet === 'water' && <WaterSheet state={state} usual={usual} nowMs={nowMs} onClose={() => setSheet(null)} />}
+      {sheet === 'water' && <WaterSheet state={state} usual={brew.usual} nowMs={nowMs} onClose={() => setSheet(null)} />}
     </>
   );
 }
@@ -438,7 +441,8 @@ function deltasFor(state: CoffeeState, record: BrewRecord | null, baseline: Coff
 function ReadySide({ data, nowMs, phone }: { data: StageData; nowMs: number; phone: boolean }) {
   const { state, brews, advice, beans } = data;
   const usual = usualRecipe(data.recipes);
-  const brew = useBrewStart(state, usual, advice, nowMs, bagBrews(beans, data.recipes));
+  const choice = useBeanChoice(beans, data.recipes, true);
+  const brew = useBrewStart(state, usual, advice, nowMs, choice);
   const record = brews?.brews.find(item => item.id === state.brewId) ?? null;
   const delta = deltasFor(state, record, data.baseline);
   const planMl = usual?.totalMl ?? null;
@@ -519,7 +523,8 @@ const STOP_REASONS: Record<string, string> = {
 
 function StoppedSide({ data, nowMs }: { data: StageData; nowMs: number }) {
   const { state, live } = data;
-  const brew = useBrewStart(state, usualRecipe(data.recipes), data.advice, nowMs, bagBrews(data.beans, data.recipes));
+  const choice = useBeanChoice(data.beans, data.recipes, true);
+  const brew = useBrewStart(state, usualRecipe(data.recipes), data.advice, nowMs, choice);
   const cupSeries = live ? series(live.cup, live.stepS) : null;
   const at = lastValidS(cupSeries);
   return (
@@ -546,9 +551,9 @@ function StoppedSide({ data, nowMs }: { data: StageData; nowMs: number }) {
   );
 }
 
-function legendFor(mode: BrewView, banded: boolean, n: number): LegendItem[] {
+function legendFor(mode: BrewView, banded: boolean, n: number, planned: boolean): LegendItem[] {
   const band: LegendItem[] = banded ? [{ kind: 'band', label: mode === 'idle' ? `Your usual · n=${n}` : `Usual · n=${n}` }] : [];
-  if (mode === 'idle') return [...band, { kind: 'plan', label: 'Plan' }];
+  if (mode === 'idle') return [...band, ...(planned ? [{ kind: 'plan' as const, label: 'Plan' }] : [])];
   const measured: LegendItem[] = [
     { kind: 'cup', label: 'Cup g' },
     { kind: 'water', label: 'Water ml' },
@@ -558,15 +563,19 @@ function legendFor(mode: BrewView, banded: boolean, n: number): LegendItem[] {
 }
 
 function StageBody({ data, mode, nowMs, phone }: { data: StageData; mode: BrewView; nowMs: number; phone: boolean }) {
-  const { state, live, baseline } = data;
+  const { state, live } = data;
   const stale = staleFromS(live, state, nowMs);
   const usual = usualRecipe(data.recipes);
+  const idle = mode === 'idle';
+  const choice = useBeanChoice(data.beans, data.recipes, idle);
+  const basis = brewBasis(usual, choice.bags, choice.pick);
+  const baseline = idle && !basis.onUsual ? null : data.baseline;
   const t0 = live?.t0Ms ?? state.firstBloomAtMs;
   const realNowS = t0 != null ? Math.max(0, (nowMs - t0) / 1000) : 0;
   const flowing = mode === 'live' && state.phase === 'brewing' && (state.pour ?? 0) >= 1;
   const glow = useMotionSlot('stage:head', 'appliance', flowing);
   const breathe = useMotionSlot('stage:pour', 'appliance', flowing);
-  const plan = planOf(mode === 'idle' ? null : live, baseline, usual);
+  const plan = planOf(idle ? null : live, baseline, idle ? basis.recipe : usual);
   const measuredLive =
     mode !== 'idle' &&
     state.source !== 'power' &&
@@ -610,7 +619,7 @@ function StageBody({ data, mode, nowMs, phone }: { data: StageData; mode: BrewVi
     <div className='cs-body'>
       <div className='cs-chartcard'>
         <div className='cs-top'>
-          <Legend items={legendFor(mode, banded, n)} />
+          <Legend items={legendFor(mode, banded, n, !idle || basis.recipe != null)} />
           <span className='cs-sp' />
           {mode === 'stale' ? (
             <StoryPill tone='up' icon='mdi:bluetooth-off'>
@@ -628,7 +637,7 @@ function StageBody({ data, mode, nowMs, phone }: { data: StageData; mode: BrewVi
           className='cs-chartbox'
           look={phone ? LOOK_STAGE_PHONE : LOOK_STAGE}
           mode={chartMode}
-          label={`Brew chart, ${phaseWord(state) ?? 'the usual'}`}
+          label={`Brew chart, ${phaseWord(state) ?? (choice.bags.length > 0 ? (basis.recipe?.name ?? 'no beans picked') : 'the usual')}`}
           {...inputs}
           nowS={headS}
           pour={state.pour}
@@ -644,7 +653,7 @@ function StageBody({ data, mode, nowMs, phone }: { data: StageData; mode: BrewVi
         />
       </div>
       <aside className={`cs-side is-${mode}`}>
-        {mode === 'idle' && <IdleSide data={data} nowMs={nowMs} />}
+        {idle && <IdleSide data={data} nowMs={nowMs} choice={choice} />}
         {(mode === 'live' || mode === 'paused' || mode === 'stale') && (
           <BrewingSide
             data={data}

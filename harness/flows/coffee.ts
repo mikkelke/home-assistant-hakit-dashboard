@@ -80,6 +80,26 @@ const cardFlows: Flow[] = (['idle', 'live', 'ready', 'awaiting_cup', 'two_bags',
 /** Two open bags: the beans picked, which opens the hold, and a brew's beans being corrected. */
 const beanFlows: Flow[] = [
   {
+    name: 'coffee stage two_bags picked usual',
+    house: { viewer: 'tablet' },
+    open: { search: '?coffee_demo=two_bags', hash: '#coffee' },
+    ready: '.coffee-stage',
+    run: async shots => {
+      await shots.page.locator('.coffee-bean').nth(0).click();
+      await shots.scrolling('.coffee-stage', 'coffee-stage-two-bags-picked-usual');
+    },
+  },
+  {
+    name: 'kitchen coffee card two_bags picked usual',
+    open: { search: '?coffee_demo=two_bags', hash: '#room=kitchen', expanded: true },
+    ready: '.room-detail',
+    run: async shots => {
+      await shots.page.locator('.coffee-bean').nth(0).click();
+      await shots.page.locator('.coffee-card').scrollIntoViewIfNeeded();
+      await shots.shot('kitchen-coffee-two-bags-picked-usual');
+    },
+  },
+  {
     name: 'coffee stage two_bags picked',
     house: { viewer: 'tablet' },
     open: { search: '?coffee_demo=two_bags', hash: '#coffee' },

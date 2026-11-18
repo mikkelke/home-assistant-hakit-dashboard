@@ -264,7 +264,7 @@ Access, media, transit, weather and delivery open the same sheet: #1c1c1e, 24 px
 ### Hold button (coffee)
 Copper fill, 56 px tall, 18 px radius, "Hold 1 s to brew": starting, stopping and resuming a brew need a 1 s hold, shown by a ring that fills.
 
-With two or more open bags of beans the hold has a bean picker above it: a card per bag with its cups left and a pastel accent of its own (the same colours offer the "Wrong beans?" correction on a brew under a day old). Nothing is picked by default, so the hold reads "Pick beans first" and stays shut until a card is tapped, then names that bean's recipe in its colour; a start, or opening the page again, forgets the pick.
+With two or more open bags of beans the hold has a bean picker above it: a card per bag with its cups left and a pastel accent of its own (the same colours offer the "Wrong beans?" correction on a brew under a day old). Nothing is picked by default: the Selected panel reads "Pick beans first" with no plan or band on the chart, and the hold says the same and stays shut until a card is tapped. The panel keeps the room its chips will take, so the picker does not move when a bag is picked. Then everything that describes the cup follows that bag: the Selected panel, the plan on the chart, the water count, the beans tile, and the caption above the hold that names its recipe in its colour. The usual's band, Adjust cup and queued trial belong to the usual's own beans and stay shut for the others. The pick lasts until the brew is under way, and opening the page again forgets it.
 
 ### Charts
 SVG on the card, price-band colours for energy, copper for cup weight and sky for water in coffee, a dashed plan line, a hatched band for "your usual". A dot marks now.

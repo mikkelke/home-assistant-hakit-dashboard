@@ -54,11 +54,18 @@
   font-size: 13px;
   color: var(--cof-t2);
 }
+.cc-usual-ask {
+  font-weight: 600;
+  color: var(--cof);
+}
 .cc-chart {
   margin-top: 6px;
 }
 .cc-chips {
   margin-top: 8px;
+}
+.cc-chips-ask {
+  min-height: 30px;
 }
 .cc-go {
   display: flex;
@@ -413,6 +420,10 @@ a.coffee-rrow {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+}
+.cc-ibtn:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 /* stats sheet */

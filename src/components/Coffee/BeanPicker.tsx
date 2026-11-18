@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import { Icon } from '@iconify/react';
 import type { CoffeeBag } from '../../coffee/model';
+import { bagName } from '../../coffee/view';
 import type { BrewStart } from './useBrewStart';
 
 const accent = (color: string) => ({ '--bean': color }) as CSSProperties;
@@ -42,7 +43,7 @@ export function BeanPicker({ brew, size, className = '' }: { brew: BrewStart; si
         })}
       </div>
       <div className='coffee-picker-recipe' style={pick ? accent(pick.color) : undefined} aria-live='polite'>
-        {pick ? (pick.recipe?.name ?? pick.bag.beanName) : ''}
+        {pick ? bagName(pick) : ''}
       </div>
     </div>
   );

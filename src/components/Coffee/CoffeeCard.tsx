@@ -35,8 +35,8 @@ import {
   useCoffeeState,
 } from '../../coffee/useCoffee';
 import {
-  bagBrews,
   bandVerdict,
+  brewBasis,
   brewDayWord,
   maintenanceWord,
   brewName,
@@ -49,6 +49,7 @@ import {
   pausedForWater,
   pourStartS,
   staleFromS,
+  tileBeans,
   wantsConnect,
   type Tone,
 } from '../../coffee/view';
@@ -72,7 +73,7 @@ import { Chip, LinkChip, NotifyChip, PersonFace, SaveToRecipe, StoryPill, Verdic
 import { AdjustSheet, BeansSheet, RecipeRow } from './sheets';
 import { Spark } from './Spark';
 import { TasteDot, TasteRow } from './taste';
-import { useBrewStart } from './useBrewStart';
+import { useBeanChoice, useBrewStart, type BeanChoice } from './useBrewStart';
 import { useClock } from './useClock';
 import { PausedFill, WaterRow } from './WaterTank';
 import { WrongBeans } from './WrongBeans';
@@ -167,17 +168,29 @@ function LastBrewRow({
   );
 }
 
-function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onSheet: (sheet: Sheet) => void }) {
+function IdleBrew({
+  data,
+  nowMs,
+  choice,
+  onSheet,
+}: {
+  data: CardData;
+  nowMs: number;
+  choice: BeanChoice;
+  onSheet: (sheet: Sheet) => void;
+}) {
   const { state, baseline, beans, brews, recipes, advice } = data;
-  const usual = usualRecipe(recipes);
-  const brew = useBrewStart(state, usual, advice, nowMs, bagBrews(beans, recipes));
-  const { adjust, cup, trial, water } = brew;
+  const brew = useBrewStart(state, usualRecipe(recipes), advice, nowMs, choice);
+  const { adjust, cup, trial, water, recipe, onUsual, needsPick, pick } = brew;
+  const bag = tileBeans(beans, pick);
   const shownAdvice = advisorShown(advice) ? advice : null;
   const last = brews?.brews[0] ?? null;
   const { data: recent } = useCoffeeRecent(true, last?.id ?? null);
-  const banded = hasBand(baseline);
-  const total = banded ? baseline?.totalSMedian : null;
-  const inputs = chartInputs({ plan: planOf(null, baseline, usual), baseline });
+  const band = onUsual ? baseline : null;
+  const banded = hasBand(band);
+  const total = banded ? band?.totalSMedian : null;
+  const timeS = onUsual ? total : (recipe?.planS ?? null);
+  const inputs = chartInputs({ plan: planOf(null, band, recipe), baseline: band });
   const trialBrewed = shownAdvice?.status === 'trial_brewed' && last != null && shownAdvice.trialBrewId === last.id;
 
   if (trialBrewed && last) {
@@ -224,18 +237,27 @@ function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onS
     <>
       <div className='cc-usual-line'>
         <span className='coffee-lab'>{adjust ? 'Selected · adjusted' : 'Selected'}</span>
-        <span>
-          {[
-            usual ? `${usual.pours.length} pours` : null,
-            total != null ? `≈${formatMinSec(total)}` : null,
-            banded ? `n=${baseline?.n}` : null,
-          ]
-            .filter(Boolean)
-            .join(' · ')}
+        <span className={needsPick ? 'cc-usual-ask' : undefined}>
+          {needsPick
+            ? 'Pick beans first'
+            : [
+                recipe ? `${recipe.pours.length} pours` : null,
+                timeS != null ? `≈${formatMinSec(timeS)}` : null,
+                banded ? `n=${band?.n}` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
         </span>
       </div>
-      <ChartBox look={LOOK_MINI} mode='idle' height={116} className='cc-chart' label='The usual: its plan and band' {...inputs} />
-      <div className='coffee-chips cc-chips'>
+      <ChartBox
+        look={LOOK_MINI}
+        mode='idle'
+        height={116}
+        className='cc-chart'
+        label={onUsual ? 'The usual: its plan and band' : recipe ? `${recipe.name}: its plan` : 'No beans picked, nothing planned'}
+        {...inputs}
+      />
+      <div className={needsPick ? 'coffee-chips cc-chips cc-chips-ask' : 'coffee-chips cc-chips'}>
         {cup?.doseG != null && <Chip glyph={<Glyph name='bean' />}>{cup.doseG} g</Chip>}
         {cup?.ratio && <Chip>{cup.ratio}</Chip>}
         {cup?.totalMl != null && <Chip icon='mdi:water-outline'>{Math.round(cup.totalMl)} ml</Chip>}
@@ -252,7 +274,7 @@ function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onS
         <AdviceCard advice={shownAdvice} brews={brews} beanName={beans?.beanName ?? state.beanName} size='sm' />
       )}
       <BrewAction brew={brew} size='md' />
-      {beans && beans.remainingG == null && (
+      {bag && bag.remainingG == null && (
         <>
           <div className='cc-sep' />
           <button type='button' className='cc-beans' onClick={() => onSheet('beans')}>
@@ -269,7 +291,7 @@ function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onS
           </button>
         </>
       )}
-      {beans?.remainingG != null && (
+      {bag?.remainingG != null && (
         <>
           <div className='cc-sep' />
           <button type='button' className='cc-beans' onClick={() => onSheet('beans')}>
@@ -278,13 +300,13 @@ function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onS
             </span>
             <span className='cc-beans-tx'>
               <b>
-                ≈{Math.round(beans.remainingG)} g{beans.beanName ? ` · ${beans.beanName}` : ''}
+                ≈{Math.round(bag.remainingG)} g{bag.beanName ? ` · ${bag.beanName}` : ''}
               </b>
-              <small>{beans.addedAtMs != null ? `added ${dayLabelShort(beans.addedAtMs, nowMs)}` : 'tap when you add beans'}</small>
+              <small>{bag.addedAtMs != null ? `added ${dayLabelShort(bag.addedAtMs, nowMs)}` : 'tap when you add beans'}</small>
             </span>
-            {beans.brewsLeft != null && (
-              <Chip tone={beans.low ? 'warn' : 'cof'}>
-                ≈ {beans.brewsLeft} brew{beans.brewsLeft === 1 ? '' : 's'}
+            {bag.brewsLeft != null && (
+              <Chip tone={bag.low ? 'warn' : 'cof'}>
+                ≈ {bag.brewsLeft} brew{bag.brewsLeft === 1 ? '' : 's'}
               </Chip>
             )}
           </button>
@@ -296,7 +318,7 @@ function IdleBrew({ data, nowMs, onSheet }: { data: CardData; nowMs: number; onS
           {!beans && <div className='cc-sep' />}
           <WaterRow
             state={state}
-            usual={usual}
+            usual={recipe}
             hint={
               state.tankFilledAtMs != null
                 ? `filled ${dayLabelShort(state.tankFilledAtMs, nowMs)}`
@@ -456,7 +478,8 @@ function deltaChip(label: string, value: string, delta: number | null, unit: str
 
 function ReadyBrew({ data, nowMs }: { data: CardData; nowMs: number }) {
   const { state, live, baseline, brews, advice, beans } = data;
-  const brew = useBrewStart(state, usualRecipe(data.recipes), advice, nowMs, bagBrews(beans, data.recipes));
+  const choice = useBeanChoice(beans, data.recipes, true);
+  const brew = useBrewStart(state, usualRecipe(data.recipes), advice, nowMs, choice);
   const record = brews?.brews.find(item => item.id === state.brewId) ?? null;
   const cup = live ? series(live.cup, live.stepS) : null;
   const water = live ? series(live.water, live.stepS) : null;
@@ -718,6 +741,11 @@ export function CoffeeCard({ onOpenStage }: CoffeeCardProps) {
   const { data: recent } = useCoffeeRecent(sheet === 'stats', brews?.brews[0]?.id ?? null);
   useCupAdjustSettle(state);
 
+  const view = state ? brewView(state, staleFromS(live, state, nowMs) != null) : 'idle';
+  const brewing = view === 'live' || view === 'paused' || view === 'stale';
+  const ready = view === 'ready';
+  const picking = !collapsed && tab === 'brew' && !brewing && !ready;
+  const choice = useBeanChoice(beans, recipes, picking);
   const connected = useRef<string | null>(null);
   const connectWanted = state != null && wantsConnect(state);
   useEffect(() => {
@@ -744,9 +772,6 @@ export function CoffeeCard({ onOpenStage }: CoffeeCardProps) {
     if (eventful) setCollapsedBrew(collapsed ? null : brewKey);
     else setStoredCollapsed(!storedCollapsed);
   };
-  const view = brewView(state, staleFromS(live, state, nowMs) != null);
-  const brewing = view === 'live' || view === 'paused' || view === 'stale';
-  const ready = view === 'ready';
 
   return (
     <div className='coffee-card'>
@@ -794,7 +819,7 @@ export function CoffeeCard({ onOpenStage }: CoffeeCardProps) {
             ) : ready ? (
               <ReadyBrew data={data} nowMs={nowMs} />
             ) : (
-              <IdleBrew data={data} nowMs={nowMs} onSheet={setSheet} />
+              <IdleBrew data={data} nowMs={nowMs} choice={choice} onSheet={setSheet} />
             ))}
           {tab === 'history' && <HistoryTab data={data} nowMs={nowMs} />}
           {tab === 'recipes' && (
@@ -817,7 +842,13 @@ export function CoffeeCard({ onOpenStage }: CoffeeCardProps) {
             <button type='button' className='cc-ibtn' onClick={() => setSheet('stats')} aria-label='Coffee statistics'>
               <Icon icon='mdi:chart-bar' />
             </button>
-            <button type='button' className='cc-ibtn' onClick={() => setSheet('tweak')} aria-label='Adjust cup'>
+            <button
+              type='button'
+              className='cc-ibtn'
+              onClick={() => setSheet('tweak')}
+              aria-label='Adjust cup'
+              disabled={picking && !brewBasis(usualRecipe(recipes), choice.bags, choice.pick).onUsual}
+            >
               <Icon icon='mdi:tune-variant' />
             </button>
           </div>

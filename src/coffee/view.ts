@@ -91,6 +91,41 @@ export function bagBrews(beans: Pick<CoffeeBeans, 'bags'> | null, recipes: Pick<
     }));
 }
 
+/** What a bag brews is named as its recipe is, else as the beans are. */
+export const bagName = (pick: Pick<BagBrew, 'bag' | 'recipe'>): string => pick.recipe?.name ?? pick.bag.beanName;
+
+/** What the next cup is made from, on a screen that asks for the beans while two or more bags are open. */
+export interface BrewBasis {
+  /** The usual, another bag's recipe, or nothing before a bag is picked. */
+  recipe: Recipe | null;
+  /** The cup is the usual's: its baseline, held adjustment and queued trial apply. */
+  onUsual: boolean;
+  /** Two or more bags are open and none is picked yet. */
+  asking: boolean;
+}
+
+/** The usual where there is nothing to pick, nothing before a pick, the picked bag's recipe after it. */
+export function brewBasis(usual: Recipe | null, bags: readonly BagBrew[], pick: BagBrew | null): BrewBasis {
+  if (bags.length === 0) return { recipe: usual, onUsual: true, asking: false };
+  if (!pick) return { recipe: null, onUsual: false, asking: true };
+  return pick.usual ? { recipe: usual, onUsual: true, asking: false } : { recipe: pick.recipe, onUsual: false, asking: false };
+}
+
+/** The bag on the beans tile: the one picked for the next cup, else the primary bag the top-level fields describe. */
+export function tileBeans(beans: CoffeeBeans | null, pick: BagBrew | null): CoffeeBeans | null {
+  if (!beans || !pick) return beans;
+  const { bag } = pick;
+  return {
+    ...beans,
+    beanId: bag.beanId,
+    beanName: bag.beanName,
+    remainingG: bag.remainingG,
+    brewsLeft: bag.brewsLeft,
+    low: bag.low,
+    addedAtMs: bag.addedAtMs,
+  };
+}
+
 /** How long after a brew its beans can still be corrected. */
 const RETAG_WINDOW_MS = 24 * 3_600_000;
 
