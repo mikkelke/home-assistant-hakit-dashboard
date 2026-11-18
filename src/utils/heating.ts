@@ -246,6 +246,7 @@ export const PLAN_MODES: Record<string, PlanModeMeta> = {
   party: { icon: 'mdi:party-popper', label: 'Party' },
   guard: { icon: 'mdi:sleep', label: 'Bedtime guard' },
   fallback: { icon: 'mdi:help-circle-outline', label: 'Fallback, no room reading' },
+  away: { icon: 'mdi:home-export-outline', label: 'Away' },
 };
 
 export function planModeMeta(mode: string): PlanModeMeta {
