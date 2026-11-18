@@ -179,71 +179,87 @@ const library = parseCoffeeRecipes({
   },
 })!;
 
-const bagAt = (beanId: string, addedAtMs: number | null) => ({ beanId, addedAtMs });
-const opened = (...ids: string[]) => ids.map((id, index) => bagAt(id, (index + 1) * 1000));
-
 describe('the colours of the beans', () => {
   it('are the same whatever order the bags are listed in, and different for every open bag', () => {
-    const [b1, b2] = opened('b1', 'b2');
-    expect(beanColors([b2, b1])).toEqual(beanColors([b1, b2]));
-    expect(beanColors([b1, b1])).toEqual(beanColors([b1]));
+    expect(beanColors(['b2', 'b1'])).toEqual(beanColors(['b1', 'b2']));
+    expect(beanColors(['b1', 'b1'])).toEqual(beanColors(['b1']));
     for (const ids of [
       ['b1', 'b2'],
       ['b1', 'b2', 'b3'],
       ['a', 'b', 'c', 'd', 'e'],
     ]) {
-      expect(new Set(Object.values(beanColors(opened(...ids)))).size).toBe(ids.length);
+      expect(new Set(Object.values(beanColors(ids))).size).toBe(ids.length);
     }
   });
 
   it('stay what they were: a bean is not recoloured by a release', () => {
-    expect(beanColors(opened('b1'))).toEqual({ b1: '#a5b4fc' });
-    expect(beanColors(opened('b1', 'b2'))).toEqual({ b1: '#a5b4fc', b2: '#fca5a5' });
+    expect(beanColors(['b1'])).toEqual({ b1: '#a5b4fc' });
+    expect(beanColors(['b1', 'b2'])).toEqual({ b1: '#a5b4fc', b2: '#fca5a5' });
   });
 
-  it('come from the bean id alone, so a bag that opens never recolours the bags already open', () => {
+  it('come from the bean id alone, so a new bean never recolours the beans already open', () => {
     const ids = ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7'];
     for (let open = 1; open < 5; open += 1) {
-      const before = beanColors(opened(...ids.slice(0, open)));
-      const after = beanColors(opened(...ids.slice(0, open + 1)));
-      expect(after, `${open} open`).toMatchObject(before);
+      expect(beanColors(ids.slice(0, open + 1)), `${open} open`).toMatchObject(beanColors(ids.slice(0, open)));
     }
   });
 
-  it('give the later-added of two bags that hash alike the next free colour, and the earlier one keeps its own', () => {
-    expect(beanColors(opened('b3'))).toEqual({ b3: '#fcd34d' });
-    expect(beanColors(opened('b4'))).toEqual({ b4: '#fcd34d' });
-    expect(beanColors(opened('b3', 'b4'))).toEqual({ b3: '#fcd34d', b4: '#6ee7b7' });
-    expect(beanColors(opened('b4', 'b3'))).toEqual({ b4: '#fcd34d', b3: '#6ee7b7' });
+  it('give the newer of two beans that hash alike the next free colour, and the older keeps its own', () => {
+    expect(beanColors(['b3'])).toEqual({ b3: '#fcd34d' });
+    expect(beanColors(['b4'])).toEqual({ b4: '#fcd34d' });
+    expect(beanColors(['b3', 'b4'])).toEqual({ b3: '#fcd34d', b4: '#6ee7b7' });
+    expect(beanColors(['b4', 'b3'])).toEqual({ b3: '#fcd34d', b4: '#6ee7b7' });
+    expect(beanColors(['b6', 'b8'])).toEqual({ b6: '#f0abfc', b8: '#fca5a5' });
   });
 
-  it('leave an open bag as it is when a bag of the same colour is reopened, and again when that one empties', () => {
-    const daybreak = bagAt('b4', 5000);
-    const reopened = bagAt('b3', 9000);
-    expect(beanColors([daybreak])).toEqual({ b4: '#fcd34d' });
-    expect(beanColors([daybreak, reopened])).toEqual({ b4: '#fcd34d', b3: '#6ee7b7' });
-    expect(beanColors([reopened, daybreak])).toEqual({ b4: '#fcd34d', b3: '#6ee7b7' });
-    expect(beanColors([daybreak])).toEqual({ b4: '#fcd34d' });
+  it('take the issue order of the ids as a number, so b17 is newer than b2', () => {
+    expect(beanColors(['b17', 'b2'])).toEqual({ b2: '#fca5a5', b17: '#fcd34d' });
+    expect(beanColors(['b2', 'b17'])).toEqual({ b2: '#fca5a5', b17: '#fcd34d' });
   });
 
-  it('take a bag without an add time as the earliest, and break a tie by the order of the ids', () => {
-    expect(beanColors([bagAt('b4', 5000), bagAt('b3', null)])).toEqual({ b3: '#fcd34d', b4: '#6ee7b7' });
-    expect(beanColors([bagAt('b4', 5000), bagAt('b3', 5000)])).toEqual({ b3: '#fcd34d', b4: '#6ee7b7' });
+  it('put an id without a number after the numbered ones, in the order of its text', () => {
+    expect(beanColors(['b3', 'house', 'b4'])).toMatchObject({ b3: '#fcd34d', b4: '#6ee7b7' });
+    expect(beanColors(['zed', 'abc'])).toEqual(beanColors(['abc', 'zed']));
   });
 
   it('colour more bags than there are colours, rather than fail', () => {
     const ids = Array.from({ length: 9 }, (_, index) => `bean-${index}`);
-    expect(Object.keys(beanColors(opened(...ids)))).toHaveLength(9);
+    expect(Object.keys(beanColors(ids))).toHaveLength(9);
+  });
+
+  it('stay put when the older of two bags that hash alike is topped up, which only moves its add time', () => {
+    const bagsOf = (olderAddedAt: string) =>
+      openBags(
+        { ...bagAttrs('b6', 'Daybreak', 'r1'), added_at: olderAddedAt },
+        { ...bagAttrs('b8', 'Signature Brew', 'r2'), added_at: '2026-11-18T06:10:00+00:00' }
+      );
+    const colorsOf = (beans: ReturnType<typeof openBags>) => bagBrews(beans, library).map(item => [item.bag.beanId, item.color]);
+    const before = bagsOf('2026-11-10T06:10:00+00:00');
+    const toppedUp = bagsOf('2026-11-19T07:30:00+00:00');
+    expect(colorsOf(before)).toEqual([
+      ['b6', '#f0abfc'],
+      ['b8', '#fca5a5'],
+    ]);
+    expect(colorsOf(toppedUp)).toEqual(colorsOf(before));
+    const choice = (beans: ReturnType<typeof openBags>) =>
+      retagChoices(beans, { atMs: Date.parse('2026-11-19T08:00:00Z'), beanName: 'Nothing' }, Date.parse('2026-11-19T09:00:00Z'));
+    expect(choice(toppedUp).map(item => [item.bag.beanId, item.color])).toEqual(colorsOf(before));
   });
 });
 
 describe('the recipe of a brew', () => {
-  it('is the library recipe of its id, and nothing when it has none or the library does not', () => {
-    expect(brewRecipe({ recipeId: 'r2' }, library)?.name).toBe('Signature Brew');
-    expect(brewRecipe({ recipeId: 'r1' }, library)?.name).toBe('Daybreak');
-    expect(brewRecipe({ recipeId: 'r9' }, library)).toBeNull();
-    expect(brewRecipe({ recipeId: null }, library)).toBeNull();
-    expect(brewRecipe({ recipeId: 'r2' }, null)).toBeNull();
+  it('is the library recipe its id names, and nothing for an id the library does not have', () => {
+    expect(brewRecipe({ recipeId: 'r2' }, library, false)?.name).toBe('Signature Brew');
+    expect(brewRecipe({ recipeId: 'r1' }, library, false)?.name).toBe('Daybreak');
+    expect(brewRecipe({ recipeId: 'r2' }, library, true)?.name).toBe('Signature Brew');
+    expect(brewRecipe({ recipeId: 'r9' }, library, false)).toBeNull();
+    expect(brewRecipe({ recipeId: 'r2' }, null, false)).toBeNull();
+  });
+
+  it('is the usual for a brew that names none, unless that brew is foreign to the usual', () => {
+    expect(brewRecipe({ recipeId: null }, library, false)?.name).toBe('Daybreak');
+    expect(brewRecipe({ recipeId: null }, library, true)).toBeNull();
+    expect(brewRecipe({ recipeId: null }, null, false)).toBeNull();
   });
 });
 
@@ -258,23 +274,32 @@ describe('the baseline a brew is drawn against', () => {
     expect(brewBaseline({ beanId: 'b1', recipeId: 'r1' }, building)).toEqual({ baseline: building, foreign: false });
   });
 
-  it('is dropped for a brew of other beans or another recipe, which is then foreign to it', () => {
+  it('is dropped for a brew that names other beans or another recipe, which is then foreign to it', () => {
     expect(brewBaseline({ beanId: 'b2', recipeId: 'r1' }, ready)).toEqual({ baseline: null, foreign: true });
     expect(brewBaseline({ beanId: 'b1', recipeId: 'r2' }, ready)).toEqual({ baseline: null, foreign: true });
     expect(brewBaseline({ beanId: 'b2', recipeId: 'r2' }, ready)).toEqual({ baseline: null, foreign: true });
-    expect(brewBaseline({ beanId: null, recipeId: 'r1' }, ready)).toEqual({ baseline: null, foreign: true });
-    expect(brewBaseline({ beanId: 'b1', recipeId: null }, ready)).toEqual({ baseline: null, foreign: true });
+    expect(brewBaseline({ beanId: 'b2', recipeId: null }, ready)).toEqual({ baseline: null, foreign: true });
+    expect(brewBaseline({ beanId: null, recipeId: 'r2' }, ready)).toEqual({ baseline: null, foreign: true });
+  });
+
+  it('is kept for a brew that names neither, or only what the baseline names: a plug-detected brew, a machine brew without a recipe', () => {
+    expect(brewBaseline({ beanId: null, recipeId: null }, ready)).toEqual({ baseline: ready, foreign: false });
+    expect(brewBaseline({ beanId: 'b1', recipeId: null }, ready)).toEqual({ baseline: ready, foreign: false });
+    expect(brewBaseline({ beanId: null, recipeId: 'r1' }, ready)).toEqual({ baseline: ready, foreign: false });
+    const building = published('building');
+    expect(brewBaseline({ beanId: null, recipeId: null }, building)).toEqual({ baseline: building, foreign: false });
+  });
+
+  it('is kept when the baseline names neither its beans nor its recipe, which is nothing to tell a brew from it by', () => {
+    const bare = parseCoffeeBaseline({ state: 'ready', attributes: { v: '1', n: '7' } })!;
+    expect(brewBaseline({ beanId: null, recipeId: null }, bare)).toEqual({ baseline: bare, foreign: false });
+    expect(brewBaseline({ beanId: 'b2', recipeId: 'r2' }, bare)).toEqual({ baseline: bare, foreign: false });
   });
 
   it('leaves a brew with nothing to be foreign to when none is published or none is built', () => {
     expect(brewBaseline({ beanId: 'b2', recipeId: 'r2' }, null)).toEqual({ baseline: null, foreign: false });
     const none = parseCoffeeBaseline({ state: 'none', attributes: { v: '1' } })!;
     expect(brewBaseline({ beanId: 'b2', recipeId: 'r2' }, none)).toEqual({ baseline: none, foreign: false });
-  });
-
-  it('matches a baseline that names neither beans nor recipe with a brew that names neither', () => {
-    const bare = parseCoffeeBaseline({ state: 'ready', attributes: { v: '1', n: '7' } })!;
-    expect(brewBaseline({ beanId: null, recipeId: null }, bare)).toEqual({ baseline: bare, foreign: false });
   });
 });
 
@@ -294,7 +319,7 @@ describe('the beans to pick before a brew', () => {
       ['Daybreak', 'Daybreak', true],
       ['Signature Brew', 'Signature Brew', false],
     ]);
-    const colors = beanColors(beans.bags);
+    const colors = beanColors(['b1', 'b2', 'b3']);
     expect(picks.map(item => item.color)).toEqual([colors.b1, colors.b2]);
   });
 

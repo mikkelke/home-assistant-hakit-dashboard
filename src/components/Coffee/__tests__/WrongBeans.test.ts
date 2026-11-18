@@ -97,7 +97,7 @@ describe('the wrong-beans correction', () => {
     show(brewAt(3), THREE);
     tap(chip());
     expect(chip()?.getAttribute('aria-expanded')).toBe('true');
-    const colors = beanColors(THREE!.bags);
+    const colors = beanColors(['b1', 'b2', 'b3']);
     expect(options().map(option => [option.textContent, option.style.getPropertyValue('--bean')])).toEqual([
       ['Signature Brew', colors.b2],
       ['Guji', colors.b3],

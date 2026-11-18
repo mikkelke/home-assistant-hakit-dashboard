@@ -157,7 +157,7 @@ describe('coffee demo', () => {
       expect([state.beanName, state.beanId, state.recipeId], scenario).toEqual(['Signature Brew', 'b4', '4567890']);
       expect(state.inBand, scenario).toBeNull();
       expect(brewBaseline(state, baseline), scenario).toEqual({ baseline: null, foreign: true });
-      expect(brewRecipe(state, parseCoffeeRecipes(entities['sensor.coffee_recipes'])!)?.name, scenario).toBe('Signature Brew');
+      expect(brewRecipe(state, parseCoffeeRecipes(entities['sensor.coffee_recipes'])!, true)?.name, scenario).toBe('Signature Brew');
       expect(parseCoffeeLive(entities['sensor.coffee_live'])!.planPours, scenario).toHaveLength(5);
     }
     const brewing = parseCoffeeState(coffeeDemo('two_bags_brewing', ANCHOR, ANCHOR).entities['sensor.coffee_state'])!;

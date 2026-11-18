@@ -626,9 +626,10 @@ const placeRan = (
   phase: string,
   ran: Record<string, string>,
   attributes: Record<string, string> = {},
-  baseline: object = usualBaseline()
+  baseline: object = usualBaseline(),
+  bags: object[] = TWO_BAGS
 ) => {
-  placeBags(phase, { ...ran, ...attributes });
+  placeBags(phase, { ...ran, ...attributes }, bags);
   entities.current = { ...entities.current, ...baseline };
 };
 type BrewChart = { planPours: unknown[]; bandLo: unknown; bandHi: unknown; label: string };
@@ -675,12 +676,62 @@ describe.each(Object.entries(VIEWS))('the %s with a brew under way', (name, moun
   it.each([
     ['the usual recipe on other beans', { recipe_id: '1', bean_id: 'b2' }],
     ['another recipe on the usual beans', { recipe_id: '2', bean_id: 'b1' }],
-    ['a brew that names neither', { recipe_id: '', bean_id: '' }],
+    ['other beans with no recipe', { recipe_id: '', bean_id: 'b2' }],
+    ['another recipe with no beans', { recipe_id: '2', bean_id: '' }],
   ])('draws no band for %s', (_, ran) => {
     placeRan('brewing', { ...OF.daybreak, ...ran }, { pour: '2' });
     mount();
     expect(chartOf('live')).toMatchObject({ bandLo: null, bandHi: null });
     expect(story()).toBeNull();
+  });
+});
+
+/** Brews that name no beans or no recipe: the plug saw the machine draw power, or the machine brewed without the app's recipe. */
+const UNNAMED = [
+  ['a brew the plug detected', { source: 'power' }],
+  ['a machine brew whose recipe never arrived', { source: 'machine', bean_id: 'b1', bean_name: 'Daybreak' }],
+  ['a machine brew that names no beans', { source: 'machine', recipe_id: '1', recipe_name: 'Daybreak' }],
+] as const;
+const ONE_BAG = [bag('b1', 'Daybreak', '1', '14', '214')];
+
+describe.each([
+  ['one open bag', ONE_BAG],
+  ['two open bags', TWO_BAGS],
+])('with %s', (_, bags) => {
+  describe.each(Object.entries(VIEWS))('the %s with a brew under way', (name, mount) => {
+    it.each(UNNAMED)('draws %s against the usual: its band, its plan and its verdict', (__, ran) => {
+      placeRan('brewing', ran, { pour: '2', verdict: 'on_track' }, usualBaseline(), bags);
+      mount();
+      expect(chartOf('live').bandLo).not.toBeNull();
+      expect(chartOf('live').planPours).toHaveLength(4);
+      expect(story()).toBe('On track');
+      if (name === 'stage') expect(legend()).toEqual(['Cup g', 'Water ml', 'Plan', 'Usual · n=7']);
+      placeRan('brewing', ran, { pour: '2' }, usualBaseline('building'), bags);
+      again(mount);
+      expect(story()).toBe('Building baseline · n=3');
+    });
+  });
+
+  it.each(UNNAMED)('measures %s against the usual on the card when it is done', (__, ran) => {
+    placeRan('ready', ran, { ...MEASURED, in_band: 'inside' }, usualBaseline(), bags);
+    VIEWS.card();
+    expect(cardDeltas()).toEqual(['+6 s', '+3']);
+    expect(chartOf('ready').bandLo).not.toBeNull();
+    expect(story()).toBe('Inside your usual');
+  });
+
+  it.each(UNNAMED)('measures %s against the usual and its recipe on the stage when it is done', (__, ran) => {
+    placeRan('ready', ran, { ...MEASURED, in_band: 'inside' }, usualBaseline(), bags);
+    VIEWS.stage();
+    expect(verdictChips()).toEqual([
+      ['Time', '+6 s'],
+      ['Cup', '+3'],
+      ['Water', '✓'],
+      ['Drawdown', '+4 s'],
+    ]);
+    expect(chartOf('ready').bandLo).not.toBeNull();
+    expect(legend()).toEqual(['Cup g', 'Water ml', 'Usual · n=7']);
+    expect(story()).toBe('Inside your usual');
   });
 });
 

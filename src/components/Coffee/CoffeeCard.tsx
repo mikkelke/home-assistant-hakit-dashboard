@@ -360,7 +360,7 @@ function LiveBrew({ data, nowMs }: { data: CardData; nowMs: number }) {
   const realNowS = t0 != null ? Math.max(0, (nowMs - t0) / 1000) : 0;
   const headS = stale != null ? realNowS : (lastValidS(cup) ?? realNowS);
   const laneAtS = stale ?? (paused && state.pausedSinceMs != null && t0 != null ? Math.max(0, (state.pausedSinceMs - t0) / 1000) : headS);
-  const inputs = chartInputs({ plan: planOf(live, baseline, brewRecipe(state, recipes)), baseline, cup, water, extraS: headS });
+  const inputs = chartInputs({ plan: planOf(live, baseline, brewRecipe(state, recipes, foreign)), baseline, cup, water, extraS: headS });
   const left = secondsLeft(state.etaMs, nowMs);
   const banded = hasBand(baseline);
   const fault = faultView(state.fault);

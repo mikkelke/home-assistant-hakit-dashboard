@@ -299,7 +299,8 @@ function BrewingSide({
   staleS: number | null;
 }) {
   const { state, live } = data;
-  const plan = planOf(live, brewBaseline(state, data.baseline).baseline, brewRecipe(state, data.recipes));
+  const { baseline, foreign } = brewBaseline(state, data.baseline);
+  const plan = planOf(live, baseline, brewRecipe(state, data.recipes, foreign));
   const pourIndex = (state.pour ?? 0) - 1;
   const pour = plan.planPours[pourIndex];
   const started = pourStartS(live, state.pour) ?? pour?.start ?? null;
@@ -446,8 +447,9 @@ function ReadySide({ data, nowMs, phone }: { data: StageData; nowMs: number; pho
   const choice = useBeanChoice(beans, data.recipes, true);
   const brew = useBrewStart(state, usual, advice, nowMs, choice);
   const record = brews?.brews.find(item => item.id === state.brewId) ?? null;
-  const delta = deltasFor(state, record, brewBaseline(state, data.baseline).baseline);
-  const planMl = brewRecipe(state, data.recipes)?.totalMl ?? null;
+  const { baseline, foreign } = brewBaseline(state, data.baseline);
+  const delta = deltasFor(state, record, baseline);
+  const planMl = brewRecipe(state, data.recipes, foreign)?.totalMl ?? null;
   const shownAdvice = advisorShown(advice) ? advice : null;
   const readyAt = state.readyAtMs;
   const waterOk = state.waterMl != null && planMl != null && Math.abs(state.waterMl - planMl) <= 5;
@@ -581,7 +583,7 @@ function StageBody({ data, mode, nowMs, phone }: { data: StageData; mode: BrewVi
   const flowing = mode === 'live' && state.phase === 'brewing' && (state.pour ?? 0) >= 1;
   const glow = useMotionSlot('stage:head', 'appliance', flowing);
   const breathe = useMotionSlot('stage:pour', 'appliance', flowing);
-  const plan = planOf(idle ? null : live, baseline, idle ? basis.recipe : brewRecipe(state, data.recipes));
+  const plan = planOf(idle ? null : live, baseline, idle ? basis.recipe : brewRecipe(state, data.recipes, foreign));
   const measuredLive =
     mode !== 'idle' &&
     state.source !== 'power' &&
