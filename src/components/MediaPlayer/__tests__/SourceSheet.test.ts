@@ -142,6 +142,27 @@ async function openSpotify() {
   await click(pick('[aria-label="Spotify"]'));
 }
 
+/** Whether `action` opens the Spotify app: the desktop route adds a hidden iframe on spotify:// and takes it away again. */
+async function spotifyAppOpenedBy(action: () => void) {
+  const appended = vi.spyOn(document.body, 'appendChild').mockImplementation(node => node);
+  const removed = vi.spyOn(document.body, 'removeChild').mockImplementation(node => node);
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  let attached: Node[] = [];
+  let detached: Node[] = [];
+  try {
+    await act(async () => action());
+    await act(async () => vi.advanceTimersByTime(2000));
+    attached = appended.mock.calls.map(([node]) => node);
+    detached = removed.mock.calls.map(([node]) => node);
+  } finally {
+    vi.useRealTimers();
+    appended.mockRestore();
+    removed.mockRestore();
+  }
+  const iframes = attached.filter(node => node instanceof HTMLIFrameElement);
+  return iframes.length === 1 && iframes[0].getAttribute('src') === 'spotify://' && detached.includes(iframes[0]);
+}
+
 async function openTracks(playlist = 'Morgenkaffe') {
   await openSpotify();
   await click(rowTitled(playlist));
@@ -331,32 +352,13 @@ describe('the Spotify page', () => {
     expect(tiles()).toContain('Kanal 3');
   });
 
-  it('opens the Spotify app from a button in its header, and nowhere else', async () => {
-    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+  it('opens the Spotify app from a button in its header', async () => {
     connect(library());
     await openSources();
     expect(pick('[aria-label="Open Spotify"]')).toBeNull();
     await click(pick('[aria-label="Spotify"]'));
-
-    // The desktop route adds a hidden iframe on spotify:// and takes it away again; neither is wanted in the test page.
-    const appended = vi.spyOn(document.body, 'appendChild').mockImplementation(node => node);
-    const removed = vi.spyOn(document.body, 'removeChild').mockImplementation(node => node);
-    vi.useFakeTimers({ toFake: ['setTimeout'] });
-    let attached: Node[] = [];
-    let detached: Node[] = [];
-    try {
-      await act(async () => (pick('.sonos-sheet-top [aria-label="Open Spotify"]') as HTMLElement).click());
-      await act(async () => vi.advanceTimersByTime(2000));
-      attached = appended.mock.calls.map(([node]) => node);
-      detached = removed.mock.calls.map(([node]) => node);
-    } finally {
-      vi.useRealTimers();
-      appended.mockRestore();
-      removed.mockRestore();
-    }
-    expect(attached.map(node => (node as HTMLElement).getAttribute('src'))).toEqual(['spotify://']);
-    expect(attached[0]).toBeInstanceOf(HTMLIFrameElement);
-    expect(detached).toEqual(attached);
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    expect(await spotifyAppOpenedBy(() => (pick('.sonos-sheet-top [aria-label="Open Spotify"]') as HTMLElement).click())).toBe(true);
     expect(open).not.toHaveBeenCalled();
     expect(sheetOpen()).toBe(true);
     expect(rowTitles()).toHaveLength(4);
@@ -371,15 +373,34 @@ describe('the Spotify page', () => {
     expect(tiles()).toContain('Spotify · now');
   });
 
-  it('offers no tile to a viewer whose Music Assistant has no Spotify playlists', async () => {
+  it('opens the Spotify app with a tap for a viewer whose Music Assistant has no Spotify playlists', async () => {
     for (const answer of [[], [playlists[2]]]) {
       connect(library({ 'music/playlists/library_items': answer }));
       await openSources();
-      expect(pick('[aria-label="Spotify"]')).toBeNull();
-      expect(tiles()).not.toContain('Spotify ›');
+      expect(tiles()).toContain('Spotify');
       expect(tiles()).toContain('Kanal 3');
+      expect(await spotifyAppOpenedBy(() => (pick('[aria-label="Spotify"]') as HTMLElement).click())).toBe(true);
+      expect(pick('.sonos-rows')).toBeNull();
+      expect(tiles()).toContain('Spotify');
       await click(pick('[aria-label="Close"]'));
     }
+  });
+
+  it('opens the Spotify app with a hold on its tile, and not its playlists', async () => {
+    connect(library());
+    await openSources();
+    const tile = pick('[aria-label="Spotify"]') as HTMLElement;
+    const pointer = (type: string) => tile.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 1, pointerType: 'touch' }));
+    expect(
+      await spotifyAppOpenedBy(() => {
+        pointer('pointerdown');
+        tile.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+        pointer('pointerup');
+        tile.click();
+      })
+    ).toBe(true);
+    expect(pick('.sonos-rows')).toBeNull();
+    expect(tiles()).toContain('Spotify ›');
   });
 
   it('keeps its tile when the playlists cannot be fetched, leaving the stations alone', async () => {

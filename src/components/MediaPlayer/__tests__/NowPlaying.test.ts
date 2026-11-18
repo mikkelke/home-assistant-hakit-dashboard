@@ -168,7 +168,7 @@ describe('a DR stream played as a plain address', () => {
     await act(async () => (pick('[aria-label="Source"]') as HTMLElement).click());
     await settle();
     const tiles = [...document.querySelectorAll('.sonos-srcgrid .sonos-srctile > span')].map(node => node.textContent);
-    expect(tiles).toEqual(['DR P1', 'DR P3 · now', 'DR P4 København']);
+    expect(tiles).toEqual(['Spotify', 'DR P1', 'DR P3 · now', 'DR P4 København']);
   });
 });
 

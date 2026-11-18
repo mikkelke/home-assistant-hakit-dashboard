@@ -657,7 +657,7 @@ export function SonosPlayer({
 
   const handleBackToList = () => setViewingItems(false);
 
-  const handleSpotifyClick = (e: React.MouseEvent) => {
+  const openSpotifyApp = () => {
     const isEmbedded = window.self !== window.top;
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as Window & { MSStream?: unknown }).MSStream;
 
@@ -706,10 +706,8 @@ export function SonosPlayer({
         }, 1000);
       }
     } else if (/Android/i.test(navigator.userAgent)) {
-      e.preventDefault();
       (window.top ?? window).location.href = SPOTIFY_ANDROID_INTENT;
     } else {
-      e.preventDefault();
       let appOpened = false;
       const startTime = Date.now();
       const handleBlur = () => {
@@ -735,6 +733,11 @@ export function SonosPlayer({
       }, 1200);
     }
   };
+
+  const spotifyAppHold = useLongPress(() => {
+    hapticTick();
+    openSpotifyApp();
+  });
 
   const handleMuteToggle = () => {
     if (!callService) return;
@@ -886,9 +889,9 @@ export function SonosPlayer({
   const tvSource = inputSources.find(isTVSourceName) ?? inputSources[0];
   const otherInputSources = inputSources.filter(s => s !== tvSource);
 
-  // Spotify stays on offer when the playlists cannot be fetched, so its app is still one tap away; a viewer whose Music
-  // Assistant has none gets no Spotify tile.
-  const spotifyTile = playlists.status === 'failed' || (playlists.status === 'ready' && playlists.data.length > 0);
+  // A viewer whose Music Assistant has no Spotify playlists gets the Spotify app on a tap; everyone else gets the
+  // playlists on a tap and the app on a hold.
+  const spotifyAppOnTap = playlists.status === 'ready' && playlists.data.length === 0;
   const pageLook = showPodcastModal ? SHEET_PAGES[sheetPage] : null;
   const onSpotifyPage = showPodcastModal && sheetPage === 'spotify';
   const sheetTitle = !viewingItems
@@ -1262,7 +1265,7 @@ export function SonosPlayer({
               </span>
               <span className='sonos-title'>{sheetTitle}</span>
               {onSpotifyPage && (
-                <button className='sonos-sheet-action' onClick={handleSpotifyClick} aria-label='Open Spotify'>
+                <button className='sonos-sheet-action' onClick={openSpotifyApp} aria-label='Open Spotify'>
                   <Icon icon='mdi:open-in-new' />
                 </button>
               )}
@@ -1275,19 +1278,18 @@ export function SonosPlayer({
               {!showPodcastModal ? (
                 <>
                   <div className='sonos-srcgrid'>
-                    {spotifyTile && (
-                      <div className='sonos-srctile'>
-                        <button
-                          type='button'
-                          className='sonos-srcbtn sonos-srcbtn--bare'
-                          onClick={handleOpenSpotifyPage}
-                          aria-label='Spotify'
-                        >
-                          <Icon icon='mdi:spotify' className='sonos-mark--spotify' aria-hidden='true' />
-                        </button>
-                        <span>Spotify{isSpotify ? ' · now' : ' ›'}</span>
-                      </div>
-                    )}
+                    <div className='sonos-srctile'>
+                      <button
+                        type='button'
+                        className='sonos-srcbtn sonos-srcbtn--bare'
+                        onClick={spotifyAppOnTap ? openSpotifyApp : handleOpenSpotifyPage}
+                        aria-label='Spotify'
+                        {...spotifyAppHold}
+                      >
+                        <Icon icon='mdi:spotify' className='sonos-mark--spotify' aria-hidden='true' />
+                      </button>
+                      <span>Spotify{isSpotify ? ' · now' : spotifyAppOnTap ? '' : ' ›'}</span>
+                    </div>
 
                     {library.status === 'ready' &&
                       favoritesFirst(library.data.radios).map(radio => {
