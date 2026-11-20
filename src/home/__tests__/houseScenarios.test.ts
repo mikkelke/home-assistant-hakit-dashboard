@@ -48,6 +48,13 @@ describe('mergeHouseScenarios', () => {
     expect(merged[0].memberMs).toEqual(night.memberMs);
   });
 
+  it('keeps the words of the copy built from more rows', () => {
+    const wolt = scenarios.find(scenario => scenario.id === 'door:1795115431')!;
+    const early = { ...wolt, headline: 'Someone rang the front door', memberMs: wolt.memberMs.slice(0, 2) };
+    expect(mergeHouseScenarios([early], [wolt])[0].headline).toBe('Wolt delivery from WokXpress - Vesterbro');
+    expect(mergeHouseScenarios([wolt], [early])[0].headline).toBe('Wolt delivery from WokXpress - Vesterbro');
+  });
+
   it('reads the scenarios of every recorder state', () => {
     const [door, cooking] = fixture.scenarios;
     const result = { 'sensor.house_scenarios': [{ a: { scenarios: [door] } }, { attributes: { scenarios: [door, cooking] } }] };

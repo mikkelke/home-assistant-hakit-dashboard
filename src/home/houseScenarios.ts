@@ -65,8 +65,9 @@ export function parseHouseScenarios(value: unknown): HouseScenario[] {
   return out;
 }
 
-/** Every scenario once, by id, oldest first. An ended copy wins over a copy still going on, else the first list's copy
- * does; members are the union of every copy's, as a copy built after the rows left the backend's window lacks them. */
+/** Every scenario once, by id, oldest first. An ended copy wins over a copy still going on, then the copy built from
+ * more rows (one built before a backfill row reached the backend lacks it, and its words with it), then the first
+ * list's; members are the union of every copy's, as a copy built after the rows left the backend's window lacks them. */
 export function mergeHouseScenarios(...lists: readonly (readonly HouseScenario[])[]): HouseScenario[] {
   const byId = new Map<string, HouseScenario>();
   for (const list of lists) {
@@ -76,7 +77,8 @@ export function mergeHouseScenarios(...lists: readonly (readonly HouseScenario[]
         byId.set(scenario.id, scenario);
         continue;
       }
-      const kept = known.endMs == null && scenario.endMs != null ? scenario : known;
+      const ends = Number(scenario.endMs != null) - Number(known.endMs != null);
+      const kept = ends > 0 || (ends === 0 && scenario.memberMs.length > known.memberMs.length) ? scenario : known;
       const memberMs = [...new Set([...known.memberMs, ...scenario.memberMs])].sort((a, b) => a - b);
       byId.set(scenario.id, { ...kept, memberMs });
     }
