@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { home } from '../../../energy/__tests__/testUtils';
 import feed from '../../../home/__tests__/fixtures/house-events.json';
+import scenarioDay from '../../../home/__tests__/fixtures/house-scenarios.json';
 import { NOW_RESOLVE_GIVE_UP_MS } from '../../../home/nowResolve';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -589,5 +590,45 @@ describe('rows from sensor.house_upcoming', () => {
       vi.advanceTimersByTime(NOW_RESOLVE_GIVE_UP_MS);
     });
     expect(missing()).toBe(true);
+  });
+});
+
+describe('scenarios on the timeline', () => {
+  const entities = (scenarios: unknown[]): Entities => ({
+    ...houseEvents(scenarioDay.events),
+    'sensor.house_scenarios': { entity_id: 'sensor.house_scenarios', state: '1', attributes: { scenarios } },
+  });
+  const pastTexts = () =>
+    [...document.querySelectorAll('.now-ev.is-past')].map(row => row.querySelector('.now-chip-text')?.textContent ?? '');
+
+  async function openAt(scenarios: unknown[], now: string) {
+    vi.setSystemTime(Date.parse(now));
+    store.setState({ entities: entities(scenarios), connection: {} });
+    await act(async () => {
+      root.render(createElement(NowView, { focus: null, arrival: 'cold', onBack: () => {}, onOpenCoffee: () => {} }));
+    });
+  }
+
+  it('draws each scenario as one row with its summary, and none of the rows it owns', async () => {
+    await openAt(scenarioDay.scenarios, '2026-11-20T12:00:00+01:00');
+    expect(pastTexts()).toEqual([
+      'Someone rang the front door',
+      'Cooking',
+      'Watered Pothos, soil 15% to 69%',
+      'Wolt delivery from WokXpress - Vesterbro',
+      'Night',
+      'Dishwasher',
+    ]);
+    const dish = [...document.querySelectorAll('.now-scn-sum')].map(el => el.textContent);
+    expect(dish).toContain('02:25-06:33 · 0.79 kWh · emptied 09:26 by Mikkel');
+    expect(document.querySelectorAll('.now-card.is-run')).toHaveLength(0);
+  });
+
+  it('puts the night still going on on the NOW line', async () => {
+    const night = scenarioDay.scenarios.find(scenario => scenario.type === 'night')!;
+    await openAt([{ ...night, end: null, summary: 'since 22:36' }], '2026-11-20T03:00:00+01:00');
+    expect(pastTexts()).not.toContain('Night mode on');
+    expect(document.querySelector('.now-ev.is-live .now-pt-name')?.textContent).toBe('Night');
+    expect(document.querySelector('.now-ev.is-live small')?.textContent).toBe('since 22:36');
   });
 });

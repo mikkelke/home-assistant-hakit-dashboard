@@ -8,6 +8,7 @@ import { brewName } from '../../coffee/view';
 import {
   APARTMENT_DOOR,
   APARTMENT_LOCK,
+  COOKING_POWER,
   DELIVERY_ENTITY,
   ROBER_AREA_ENTITY,
   applianceRun,
@@ -21,6 +22,7 @@ import {
   formatOffset,
   nightSummary,
   numeric,
+  onStretches,
   roberRound,
   runFinishBefore,
   unlockMethod,
@@ -515,6 +517,46 @@ function NightBody({
   );
 }
 
+/** A cooking session: how long it ran, and each source's power through it with the stretches it was on shaded. */
+function CookingBody({ spec, nowMs }: { spec: Extract<DetailSpec, { kind: 'cooking' }>; nowMs: number }) {
+  const load = useDetailHistory(spec, nowMs);
+  const { startMs, endMs } = detailWindow(spec, nowMs);
+  const untilMs = spec.endMs ?? nowMs;
+  if (load.status !== 'ready') return <Status load={load} />;
+  return (
+    <>
+      <Headline
+        before={formatHomeClock(spec.atMs)}
+        after={spec.endMs != null ? formatHomeClock(spec.endMs) : 'now'}
+        note={hoursMinutes(Math.max(0, Math.round((untilMs - spec.atMs) / 60_000)))}
+      />
+      {spec.sources.map(source => {
+        const { entity, label, onW } = COOKING_POWER[source];
+        const points = numeric(load.history[entity] ?? []);
+        const on = onStretches(points, onW, spec.atMs, untilMs);
+        const minutes = Math.round(on.reduce((sum, stretch) => sum + stretch.endMs - stretch.startMs, 0) / 60_000);
+        return (
+          <section key={source}>
+            <h3 className='evd-sub'>{label}</h3>
+            <EventChart
+              points={points}
+              startMs={startMs}
+              endMs={endMs}
+              eventMs={spec.atMs}
+              markMs={spec.endMs}
+              unit=' W'
+              holdToEnd
+              bands={on}
+              label={`${label} power`}
+            />
+            <p className='evd-caption'>{minutes > 0 ? `On ${hoursMinutes(minutes)} (shaded).` : 'Not on.'}</p>
+          </section>
+        );
+      })}
+    </>
+  );
+}
+
 const TITLES: Record<DetailSpec['kind'], (spec: DetailSpec) => string> = {
   plant: spec => (spec.kind === 'plant' ? `Watered ${spec.name}` : ''),
   appliance: spec => (spec.kind === 'appliance' ? `${spec.label} run` : ''),
@@ -523,6 +565,7 @@ const TITLES: Record<DetailSpec['kind'], (spec: DetailSpec) => string> = {
   rober: () => 'Rober2 round',
   wolt: spec => (spec.kind === 'wolt' ? spec.title : ''),
   night: () => 'The night',
+  cooking: () => 'Cooking',
 };
 
 const APPLIANCE_ICONS = { washer: 'mdi:washing-machine', dryer: 'mdi:tumble-dryer', dish: 'mdi:dishwasher' } as const;
@@ -535,6 +578,7 @@ const ICONS: Record<DetailSpec['kind'], string> = {
   rober: 'mdi:robot-vacuum',
   wolt: 'mdi:moped',
   night: 'mdi:weather-night',
+  cooking: 'mdi:stove',
 };
 
 export interface EventDetailSheetProps {
@@ -572,6 +616,7 @@ export default function EventDetailSheet({ spec, event, events, onPick, isAdmin,
         {spec.kind === 'rober' && <RoberBody spec={spec} events={events} nowMs={nowMs} />}
         {spec.kind === 'wolt' && <WoltBody spec={spec} events={events} />}
         {spec.kind === 'night' && <NightBody spec={spec} events={events} nowMs={nowMs} showBedroom={isAdmin} />}
+        {spec.kind === 'cooking' && <CookingBody spec={spec} nowMs={nowMs} />}
       </div>
     </ApplianceSheet>
   );

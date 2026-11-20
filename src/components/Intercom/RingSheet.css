@@ -11,3 +11,22 @@
 .ring-none svg {
   font-size: 2rem;
 }
+.ring-lines {
+  margin: 0;
+  padding: 0.5rem 1rem 1rem;
+  list-style: none;
+}
+.ring-lines li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 14.5px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(235, 235, 245, 0.6);
+}
+.ring-lines li span:last-child {
+  color: rgba(235, 235, 245, 0.92);
+  text-align: right;
+}

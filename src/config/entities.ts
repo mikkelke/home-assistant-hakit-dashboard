@@ -281,6 +281,11 @@ export const HOUSE_EVENTS_ENTITY = 'sensor.house_events';
  * (attributes.events, same shape). Its copy of a row wins, so it can also name a row the feed wrote unnamed. */
 export const HOUSE_EVENTS_BACKFILL_ENTITY = 'sensor.house_events_backfill';
 
+/** What was going on (AppDaemon HouseScenarios): attributes.scenarios, oldest first, the ones going on or ended in the
+ * last two days, each naming the feed rows it owns. Older ones come from the recorder and the backfill sensor. */
+export const HOUSE_SCENARIOS_ENTITY = 'sensor.house_scenarios';
+export const HOUSE_SCENARIOS_BACKFILL_ENTITY = 'sensor.house_scenarios_backfill';
+
 // --- Quiet hours (time-only input_datetime helpers): AppDaemon's SonosNotifier speaks no announcement
 // inside them, and keeps 22:00-07:00 for a helper it cannot read. ---
 

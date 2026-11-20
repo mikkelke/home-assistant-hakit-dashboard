@@ -5,6 +5,8 @@ import { Icon } from '@iconify/react';
 import {
   HOUSE_EVENTS_BACKFILL_ENTITY,
   HOUSE_EVENTS_ENTITY,
+  HOUSE_SCENARIOS_BACKFILL_ENTITY,
+  HOUSE_SCENARIOS_ENTITY,
   HOUSE_UPCOMING_ENTITY,
   QUIET_HOURS_END_ENTITY,
   QUIET_HOURS_START_ENTITY,
@@ -19,7 +21,6 @@ import { formatHomeClock } from '../../energy/homeTime';
 import {
   canViewerSeeKind,
   episodeCandidates,
-  houseEpisodes,
   houseEventLabel,
   parseHouseEvents,
   visibleHouseEvents,
@@ -28,6 +29,20 @@ import {
 } from '../../home/houseEvents';
 import { brewForRow, detailSpec, plantOfRow, type DetailSpec } from '../../home/eventDetail';
 import { mergeHouseEvents, withBackfill } from '../../home/houseEventsHistory';
+import {
+  mergeHouseScenarios,
+  ongoingCandidates,
+  ongoingScenarios,
+  parseHouseScenarios,
+  scenarioDetail,
+  scenarioEpisodes,
+  scenarioIcon,
+  scenarioRowId,
+  scenarioTone,
+  scenarioWho,
+  scenarioWords,
+  type HouseScenario,
+} from '../../home/houseScenarios';
 import { canViewerSeeUpcoming, hasSheet, parseHouseUpcoming } from '../../home/houseUpcoming';
 import { MARKERS } from '../../home/markers';
 import { MotionScopeContext, useMotionSlot } from '../../home/motionBudget';
@@ -161,6 +176,114 @@ function CleanedRoom({
   );
 }
 
+/** Who a scenario names, as the row's initials. */
+function WhoMinis({ who }: { who: readonly string[] }) {
+  return (
+    <>
+      {who.slice(0, 3).map(name => (
+        <span key={name} className='now-mini' title={name}>
+          {name.charAt(0).toUpperCase()}
+        </span>
+      ))}
+    </>
+  );
+}
+
+/** A scenario in the past: its headline with who took part, and its one-line summary. The rows it owns are not drawn. */
+function ScenarioRow({
+  row,
+  scenario,
+  age,
+  focused,
+  isAdmin,
+  onOpenRing,
+  detailOf,
+  onOpenDetail,
+}: {
+  row: PastRow;
+  scenario: HouseScenario;
+  age: number;
+  focused: boolean;
+  isAdmin: boolean;
+  onOpenRing: (episode: HouseEpisode) => void;
+  detailOf: (episode: HouseEpisode) => OpenDetail | null;
+  onOpenDetail: (detail: OpenDetail) => void;
+}) {
+  const { headline, summary } = scenarioWords(scenario, isAdmin);
+  const tone = scenarioTone(scenario);
+  const detail = detailOf(row.episode);
+  const ring = detail == null && scenario.type === 'door' && row.episode.rows.length > 0;
+  const onTap = detail ? () => onOpenDetail(detail) : ring ? () => onOpenRing(row.episode) : undefined;
+  return (
+    <RowShell
+      id={row.id}
+      time={formatHomeClock(row.atMs)}
+      tone={tone}
+      focused={focused}
+      className={`is-past age-${Math.min(age, 3)} ${roundClass(row.round)}`}
+    >
+      <RowBody
+        onTap={onTap}
+        className={ring ? 'now-body now-scn is-ring' : 'now-body now-scn'}
+        label={[headline, summary].filter(Boolean).join(', ')}
+      >
+        <span className={`now-chip is-tone tone-${tone}`}>
+          <Icon icon={scenarioIcon(scenario, row.episode.rows)} />
+          <WhoMinis who={scenarioWho(scenario, isAdmin)} />
+          <span className='now-chip-text'>{headline}</span>
+          {isAdmin && (row.restricted || scenario.publicHeadline != null) && (
+            <Icon icon='mdi:eye-off-outline' className='now-chip-adm' role='img' aria-label='Not everyone sees all of this' />
+          )}
+        </span>
+        {summary && <span className='now-scn-sum'>{summary}</span>}
+      </RowBody>
+    </RowShell>
+  );
+}
+
+/** A night or cooking still going on, on the NOW line. A tap opens its sheet. */
+function ScenarioNowCard({
+  scenario,
+  rows,
+  focused,
+  isAdmin,
+  onOpenDetail,
+  detailOf,
+}: {
+  scenario: HouseScenario;
+  rows: HouseEvent[];
+  focused: boolean;
+  isAdmin: boolean;
+  onOpenDetail: (detail: OpenDetail) => void;
+  detailOf: (scenario: HouseScenario, rows: HouseEvent[]) => OpenDetail | null;
+}) {
+  const { headline, summary } = scenarioWords(scenario, isAdmin);
+  const tone = scenarioTone(scenario);
+  const detail = detailOf(scenario, rows);
+  return (
+    <RowShell id={scenarioRowId(scenario)} time={null} tone={null} focused={focused} className='is-live'>
+      <RowBody
+        onTap={detail ? () => onOpenDetail(detail) : undefined}
+        className={`now-card tone-${tone}`}
+        label={`${headline}, ${summary}`}
+      >
+        <span className='now-ph'>
+          <span className={`now-ico tone-${tone}`}>
+            <Icon icon={scenarioIcon(scenario, rows)} />
+          </span>
+          <span className='now-pt'>
+            <b>
+              <span className='now-pt-name'>{headline}</span>
+              <WhoMinis who={scenarioWho(scenario, isAdmin)} />
+            </b>
+            <small>{summary}</small>
+          </span>
+        </span>
+      </RowBody>
+    </RowShell>
+  );
+}
+
 function PastEpisode({
   row,
   age,
@@ -168,6 +291,7 @@ function PastEpisode({
   onOpenRing,
   detailOf,
   onOpenDetail,
+  isAdmin,
 }: {
   row: PastRow;
   age: number;
@@ -175,7 +299,22 @@ function PastEpisode({
   onOpenRing: (episode: HouseEpisode) => void;
   detailOf: (episode: HouseEpisode) => OpenDetail | null;
   onOpenDetail: (detail: OpenDetail) => void;
+  isAdmin: boolean;
 }) {
+  if (row.episode.scenario) {
+    return (
+      <ScenarioRow
+        row={row}
+        scenario={row.episode.scenario}
+        age={age}
+        focused={focused}
+        isAdmin={isAdmin}
+        onOpenRing={onOpenRing}
+        detailOf={detailOf}
+        onOpenDetail={onOpenDetail}
+      />
+    );
+  }
   const rows = row.episode.rows;
   const first = rows[0];
   const last = rows[rows.length - 1];
@@ -534,12 +673,30 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
   const nowMs = useNowMs();
   const feed = entities[HOUSE_EVENTS_ENTITY]?.attributes?.events;
   const live = useMemo(() => parseHouseEvents(feed), [feed]);
-  const { older, loadOlder, loading, pages, exhausted, failed } = useOlderHouseEvents(live);
+  const { older, olderScenarios, loadOlder, loading, pages, exhausted, failed } = useOlderHouseEvents(live);
   const backfillFeed = entities[HOUSE_EVENTS_BACKFILL_ENTITY]?.attributes?.events;
   const backfill = useMemo(() => parseHouseEvents(backfillFeed, Infinity), [backfillFeed]);
   const allEvents = useMemo(() => withBackfill(mergeHouseEvents(live, older), backfill), [live, older, backfill]);
   const visibleEvents = useMemo(() => visibleHouseEvents(allEvents, viewer), [allEvents, viewer]);
-  const episodes = useMemo(() => houseEpisodes(visibleEvents), [visibleEvents]);
+  const scenariosFeed = entities[HOUSE_SCENARIOS_ENTITY]?.attributes?.scenarios;
+  const scenariosBackfillFeed = entities[HOUSE_SCENARIOS_BACKFILL_ENTITY]?.attributes?.scenarios;
+  const scenarios = useMemo(
+    () => mergeHouseScenarios(parseHouseScenarios(scenariosFeed), olderScenarios, parseHouseScenarios(scenariosBackfillFeed)),
+    [scenariosFeed, olderScenarios, scenariosBackfillFeed]
+  );
+  const oldestLoadedMs = useMemo(
+    () => (allEvents.length === 0 ? null : allEvents.reduce((oldest, event) => Math.min(oldest, event.tsMs), Infinity)),
+    [allEvents]
+  );
+  const episodes = useMemo(() => scenarioEpisodes(visibleEvents, scenarios, oldestLoadedMs), [visibleEvents, scenarios, oldestLoadedMs]);
+  const ongoing = useMemo(
+    () =>
+      ongoingScenarios(scenarios).map(scenario => {
+        const members = new Set(scenario.memberMs);
+        return { scenario, rows: visibleEvents.filter(event => members.has(event.tsMs)).sort((a, b) => a.tsMs - b.tsMs) };
+      }),
+    [scenarios, visibleEvents]
+  );
   const coffeeDemo = useCoffeeDemo();
   const upcoming = useMemo(
     () =>
@@ -579,12 +736,17 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
   const exists = useCallback((entityId: string) => peekEntities(entities)[entityId] != null, [entities]);
   const detailOf = useCallback(
     (episode: HouseEpisode): OpenDetail | null => {
+      if (episode.scenario) return scenarioDetail(episode.scenario, episode.rows, exists);
       for (const event of episode.rows) {
         const spec = detailSpec(event, exists);
         if (spec) return { spec, event };
       }
       return null;
     },
+    [exists]
+  );
+  const ongoingDetailOf = useCallback(
+    (scenario: HouseScenario, rows: HouseEvent[]): OpenDetail | null => scenarioDetail(scenario, rows, exists),
     [exists]
   );
   const openDetail = useCallback((open: OpenDetail) => {
@@ -613,8 +775,18 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
   }, []);
   // A hit is kept at once. A miss is not final before the wait is over: the store a warm link finds may
   // be stale, and the row it names can land a moment after the view opens.
-  const candidates = useMemo(() => [...episodeCandidates(episodes), ...upcomingCandidates(upcoming)], [episodes, upcoming]);
-  const rowIds = useMemo(() => [...timeline.past, ...timeline.running, ...timeline.future].map(row => row.id), [timeline]);
+  const candidates = useMemo(
+    () => [...episodeCandidates(episodes), ...ongoingCandidates(scenarios, visibleEvents), ...upcomingCandidates(upcoming)],
+    [episodes, scenarios, visibleEvents, upcoming]
+  );
+  const rowIds = useMemo(
+    () => [
+      ...timeline.past.map(row => row.id),
+      ...ongoing.map(({ scenario }) => scenarioRowId(scenario)),
+      ...[...timeline.running, ...timeline.future].map(row => row.id),
+    ],
+    [timeline, ongoing]
+  );
   const liveResolution = focus ? resolveNowFocus(focus, candidates, gaveUp, itemId) : resolveNowItem(itemId, rowIds, gaveUp);
   const [resolution, setResolution] = useState<NowResolution | null>(null);
   if (resolution == null && liveResolution.status !== 'pending') setResolution(liveResolution);
@@ -759,9 +931,21 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
                     onOpenRing={setRing}
                     detailOf={detailOf}
                     onOpenDetail={openDetail}
+                    isAdmin={viewer.isAdmin === true}
                   />
                 )}
               </div>
+            ))}
+            {ongoing.map(({ scenario, rows }) => (
+              <ScenarioNowCard
+                key={scenario.id}
+                scenario={scenario}
+                rows={rows}
+                focused={isFocused(scenarioRowId(scenario))}
+                isAdmin={viewer.isAdmin === true}
+                onOpenDetail={openDetail}
+                detailOf={ongoingDetailOf}
+              />
             ))}
             {timeline.running.map(row => (
               <RunningCard key={row.id} row={row} quiet={quiet} focused={isFocused(row.id)} onOpenCoffee={onOpenCoffee} />

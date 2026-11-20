@@ -35,6 +35,14 @@ export const NIGHT_ENTITIES = {
   night: 'input_boolean.house_night_mode',
 } as const;
 
+/** The cooking power HouseScenarios reads, with the watts above which each counts as on. */
+export const COOKING_POWER = {
+  hob: { entity: 'sensor.hotplate_power_monitor_total_active_power', label: 'Hob', onW: 300 },
+  oven: { entity: 'sensor.oven_plug_switch_0_power', label: 'Oven', onW: 200 },
+} as const;
+
+export type CookingSource = keyof typeof COOKING_POWER;
+
 export const ROBER_AREA_ENTITY = 'sensor.rober2_total_cleaning_area';
 export const DELIVERY_ENTITY = 'sensor.home_delivery';
 
@@ -70,7 +78,8 @@ export type DetailSpec =
   | { kind: 'coffee'; atMs: number }
   | { kind: 'rober'; atMs: number }
   | { kind: 'wolt'; atMs: number; title: string }
-  | { kind: 'night'; atMs: number };
+  | { kind: 'night'; atMs: number }
+  | { kind: 'cooking'; atMs: number; endMs: number | null; sources: CookingSource[] };
 
 /** The sheets drawn from the recorder's states; a coffee sheet reads the brew ledger, a Wolt sheet the delivery
  * sensor's attributes. */
@@ -184,6 +193,8 @@ export function detailWindow(spec: HistorySpec, nowMs: number): { startMs: numbe
       return span(ROBER_ROUND_MAX_MS, ROBER_ROUND_MAX_MS);
     case 'night':
       return span(30 * MIN_MS, NIGHT_MAX_MS);
+    case 'cooking':
+      return { startMs: spec.atMs - 10 * MIN_MS, endMs: Math.min(nowMs, (spec.endMs ?? nowMs) + 10 * MIN_MS) };
   }
 }
 
@@ -200,6 +211,8 @@ export function detailEntities(spec: HistorySpec): string[] {
       return [ROBER_AREA_ENTITY];
     case 'night':
       return [NIGHT_ENTITIES.feel, NIGHT_ENTITIES.co2, NIGHT_ENTITIES.heating, NIGHT_ENTITIES.night];
+    case 'cooking':
+      return spec.sources.map(source => COOKING_POWER[source].entity);
   }
 }
 
@@ -520,6 +533,8 @@ export interface DoorLine {
 }
 
 const RANG = /^Someone rang the (.+)$/;
+/** The one row a ring the intercom opened writes. */
+const OPENED_AFTER = /^Opened after (\d+) s$/;
 const RING_GROUP_MS = 2 * MIN_MS;
 
 /** How the courier got in over [fromMs, toMs]: one line per ring, merging the ring's rows (rang, opened, missed),
@@ -544,8 +559,10 @@ export function doorLines(
     const ringMs = rows[0].tsMs;
     const by = rows.find(r => r.by)?.by;
     const opened = rows.find(r => r.effect === 'The door was opened for them');
+    const openedAfter = rows.map(r => OPENED_AFTER.exec(r.effect ?? '')).find(match => match != null);
     let how = '';
     if (opened) how = ` · opened${by ? ` by ${by}` : ''} after ${Math.round((opened.tsMs - ringMs) / 1000)} s`;
+    else if (openedAfter) how = ` · opened${by ? ` by ${by}` : ''} after ${openedAfter[1]} s`;
     else if (rows.some(r => r.effect?.startsWith('Auto-open FAILED'))) how = ' · auto-open failed';
     else if (rows.some(r => r.icon === 'mdi:bell-off')) how = ' · nobody answered';
     return { key: `ring-${ringMs}`, text: `Rang the ${door}`, detail: `${formatHomeClock(ringMs)}${how}` };
@@ -626,4 +643,29 @@ export function nightSummary(history: Readonly<Record<string, readonly HistoryPo
 /** The bedtime rows inside a night, oldest first. */
 export function bedtimesIn(events: readonly HouseEvent[], fromMs: number, toMs: number): HouseEvent[] {
   return events.filter(e => e.text === 'Went to bed' && e.tsMs >= fromMs - 30 * MIN_MS && e.tsMs <= toMs).sort((a, b) => a.tsMs - b.tsMs);
+}
+
+/** The stretches over [fromMs, toMs] in which readings were above `onW`, a reading holding until the next. */
+export function onStretches(
+  points: readonly { ts: number; value: number }[],
+  onW: number,
+  fromMs: number,
+  toMs: number
+): { startMs: number; endMs: number }[] {
+  const out: { startMs: number; endMs: number }[] = [];
+  let since: number | null = null;
+  let value: number | null = null;
+  for (const p of points) {
+    if (p.ts > toMs) break;
+    const at = Math.max(p.ts, fromMs);
+    const on = p.value > onW;
+    if (on && since == null) since = at;
+    if (!on && since != null) {
+      if (at > since) out.push({ startMs: since, endMs: at });
+      since = null;
+    }
+    value = p.value;
+  }
+  if (since != null && value != null && toMs > since) out.push({ startMs: since, endMs: toMs });
+  return out;
 }

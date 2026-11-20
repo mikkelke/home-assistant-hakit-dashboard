@@ -1,0 +1,180 @@
+{
+  "_note": "sensor.house_scenarios and the sensor.house_events rows its scenarios own, 19-20.11.2026 (scripts/scenario_replay.py in the AppDaemon repo)",
+  "scenarios": [
+    {
+      "id": "door:1795112306",
+      "type": "door",
+      "start": "2026-11-19T19:18:26+01:00",
+      "end": "2026-11-19T19:18:29+01:00",
+      "where": "front door",
+      "who": [],
+      "members": ["2026-11-19T19:18:26.144874+01:00", "2026-11-19T19:18:29.498461+01:00"],
+      "headline": "Someone rang the front door",
+      "summary": "Rang the front door 19:18 · opened",
+      "facts": {
+        "door": "front door",
+        "street": "opened",
+        "opened_after_s": null,
+        "apartment_at": null,
+        "delivery": null
+      }
+    },
+    {
+      "id": "cooking:1795112981",
+      "type": "cooking",
+      "start": "2026-11-19T19:29:41+01:00",
+      "end": "2026-11-19T19:49:50+01:00",
+      "where": "Kitchen",
+      "who": ["Mikkel", "Claudia"],
+      "members": [],
+      "headline": "Cooking",
+      "summary": "19:29-19:49 · hob 18 min",
+      "facts": {
+        "sources": ["hob"],
+        "on_s": {
+          "hob": 1072
+        }
+      }
+    },
+    {
+      "id": "door:1795115431",
+      "type": "door",
+      "start": "2026-11-19T20:10:31+01:00",
+      "end": "2026-11-19T20:11:38+01:00",
+      "where": "front door",
+      "who": [],
+      "members": ["2026-11-19T20:10:31.831295+01:00", "2026-11-19T20:10:36.393481+01:00", "2026-11-19T19:11:38.613601+00:00"],
+      "headline": "Wolt delivery from WokXpress - Vesterbro",
+      "summary": "Rang the front door 20:10 · opened",
+      "facts": {
+        "door": "front door",
+        "street": "opened",
+        "opened_after_s": null,
+        "apartment_at": null,
+        "delivery": "Wolt order from WokXpress - Vesterbro delivered"
+      }
+    },
+    {
+      "id": "night:1795124201",
+      "type": "night",
+      "start": "2026-11-19T22:36:41+01:00",
+      "end": "2026-11-20T07:33:04+01:00",
+      "where": "home",
+      "who": [],
+      "members": ["2026-11-19T21:36:41.047862+00:00", "2026-11-19T23:21:29.260431+00:00", "2026-11-20T00:24:29.250414+00:00"],
+      "headline": "Night",
+      "summary": "22:36-07:33",
+      "facts": {}
+    },
+    {
+      "id": "machine:1795137918",
+      "type": "machine",
+      "start": "2026-11-20T02:25:18+01:00",
+      "end": "2026-11-20T06:33:06+01:00",
+      "where": null,
+      "who": ["Claudia", "Mikkel"],
+      "members": ["2026-11-20T06:33:06.206299+01:00", "2026-11-20T09:26:08.260365+01:00"],
+      "headline": "Dishwasher",
+      "summary": "02:25-06:33 · 0.79 kWh · emptied 09:26 by Mikkel",
+      "facts": {
+        "machines": ["dish"],
+        "kwh": 0.79,
+        "started_by": "Claudia",
+        "emptied_by": "Mikkel",
+        "emptied_at": "2026-11-20T09:26:08.260365+01:00",
+        "runs": [["2026-11-20T02:25:18+01:00", "2026-11-20T06:33:06+01:00"]]
+      }
+    },
+    {
+      "id": "machine:1795172366",
+      "type": "machine",
+      "start": "2026-11-20T11:59:26+01:00",
+      "end": null,
+      "where": null,
+      "who": [],
+      "members": [],
+      "headline": "Washer",
+      "summary": "running since 11:59",
+      "facts": {
+        "machines": ["washer"],
+        "kwh": null,
+        "started_by": null,
+        "emptied_by": null,
+        "emptied_at": null,
+        "runs": [["2026-11-20T11:59:26+01:00", null]]
+      }
+    }
+  ],
+  "events": [
+    {
+      "ts": "2026-11-20T09:26:08.260365+01:00",
+      "icon": "mdi:basket-check",
+      "text": "Dishwasher emptied",
+      "by": "Mikkel"
+    },
+    {
+      "ts": "2026-11-20T06:33:06.206299+01:00",
+      "icon": "mdi:dishwasher",
+      "text": "Dishwasher finished - used 0.79 kWh",
+      "by": "Claudia"
+    },
+    {
+      "ts": "2026-11-20T00:24:29.250414+00:00",
+      "icon": "mdi:bed",
+      "text": "Went to bed",
+      "by": "Claudia",
+      "audience_users": ["Claudia"]
+    },
+    {
+      "ts": "2026-11-19T23:21:29.260431+00:00",
+      "icon": "mdi:bed",
+      "text": "Went to bed",
+      "by": "Kristine",
+      "audience_users": ["Kristine"]
+    },
+    {
+      "ts": "2026-11-19T21:36:41.047862+00:00",
+      "icon": "mdi:weather-night",
+      "text": "Night mode on"
+    },
+    {
+      "ts": "2026-11-19T20:10:36.393481+01:00",
+      "icon": "mdi:door-open",
+      "text": "Someone rang the front door -> The door was opened for them",
+      "cause": "Someone rang the front door",
+      "effect": "The door was opened for them"
+    },
+    {
+      "ts": "2026-11-19T20:10:31.831295+01:00",
+      "icon": "mdi:bell-ring",
+      "text": "Someone rang the front door -> Announcing on the speakers and opening the door",
+      "cause": "Someone rang the front door",
+      "effect": "Announcing on the speakers and opening the door"
+    },
+    {
+      "ts": "2026-11-19T20:06:42.100+01:00",
+      "icon": "mdi:watering-can-outline",
+      "text": "Watered Pothos, soil 15% to 69%",
+      "audience": "admin"
+    },
+    {
+      "ts": "2026-11-19T19:18:29.498461+01:00",
+      "icon": "mdi:door-open",
+      "text": "Someone rang the front door -> The door was opened for them",
+      "cause": "Someone rang the front door",
+      "effect": "The door was opened for them"
+    },
+    {
+      "ts": "2026-11-19T19:18:26.144874+01:00",
+      "icon": "mdi:bell-ring",
+      "text": "Someone rang the front door -> Announcing on the speakers and opening the door",
+      "cause": "Someone rang the front door",
+      "effect": "Announcing on the speakers and opening the door"
+    },
+    {
+      "ts": "2026-11-19T19:11:38.613601+00:00",
+      "icon": "mdi:moped",
+      "text": "Wolt order from WokXpress - Vesterbro delivered"
+    }
+  ]
+}

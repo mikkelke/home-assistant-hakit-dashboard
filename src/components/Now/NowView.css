@@ -289,6 +289,22 @@
   text-align: left;
 }
 
+/* A scenario: its headline chip, then its summary on a line of its own. */
+.now-scn {
+  row-gap: 2px;
+}
+
+.now-scn-sum {
+  flex-basis: 100%;
+  padding-left: 2px;
+  font-size: 11.5px;
+  color: var(--now-t3);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .now-body.is-link,
 .now-card.is-link {
   cursor: pointer;

@@ -61,7 +61,10 @@ export function loggedRows(count: number, endIso: string, stepMs: number, text =
   }));
 }
 
-/** The history requests among the calls a mocked `sendMessagePromise` has had, whatever else the view asked the connection. */
+/** The feed's history requests among the calls a mocked `sendMessagePromise` has had, whatever else the view asked the
+ * connection, such as the scenarios of the same page. */
 export function historyRequests(sendMessagePromise: { mock: { calls: unknown[][] } }) {
-  return sendMessagePromise.mock.calls.map(([message]) => message as HistoryRequest).filter(message => message.type === HISTORY_MESSAGE);
+  return sendMessagePromise.mock.calls
+    .map(([message]) => message as HistoryRequest)
+    .filter(message => message.type === HISTORY_MESSAGE && message.entity_ids.includes(HOUSE_EVENTS_ID));
 }

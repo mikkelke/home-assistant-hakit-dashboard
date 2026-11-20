@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
-import type { HouseEpisode } from '../../home/houseEvents';
+import { houseEventKind, type HouseEpisode } from '../../home/houseEvents';
+import { doorScenarioLines } from '../../home/houseScenarios';
 import { DoorbellMedia, DoorbellViewer } from './DoorbellGallery';
 import { fetchDoorbellIndex, formatRingTime, ringClips, type DoorbellImage } from './doorbellArchive';
 import { matchRingEntry, ringEntryMayArrive } from './ringMatch';
@@ -16,9 +17,10 @@ interface IndexRead {
 }
 
 /** Who rang, for one doorbell episode of the house feed: the archive's snapshot and clips of that ring (one clip per
- * ring of the visit), else a plain "no photo" rather than the nearest other ring. A fresh ring waits for its entry first. */
+ * ring of the visit), else a plain "no photo" rather than the nearest other ring. A fresh ring waits for its entry first.
+ * A door visit scenario adds how the street door was answered and when the apartment door opened. */
 export default function RingSheet({ episode, onClose }: { episode: HouseEpisode; onClose: () => void }) {
-  const first = episode.rows[0];
+  const first = episode.rows.find(row => houseEventKind(row) === 'ring') ?? episode.rows[0];
   const cause = first.cause ?? first.text;
   const [read, setRead] = useState<IndexRead | null>(null);
   useEffect(() => {
@@ -48,6 +50,7 @@ export default function RingSheet({ episode, onClose }: { episode: HouseEpisode;
 
   const entries = read?.entries ?? null;
   const ring = Array.isArray(entries) ? matchRingEntry(entries, episode.startMs, cause) : null;
+  const lines = episode.scenario ? doorScenarioLines(episode.scenario, episode.rows) : [];
   const when = formatRingTime(ring ?? { datetime: new Date(episode.startMs).toISOString(), ts: '' });
   return (
     <DoorbellViewer door={ring?.door} eventType={ring?.event_type} when={when} historyKey='ring-photo' onClose={onClose}>
@@ -62,6 +65,16 @@ export default function RingSheet({ episode, onClose }: { episode: HouseEpisode;
           <Icon icon={entries === 'failed' ? 'mdi:cloud-off-outline' : 'mdi:image-off-outline'} aria-hidden='true' />
           {entries === 'failed' ? 'Could not load the ring photos' : 'No photo for this ring'}
         </p>
+      )}
+      {lines.length > 0 && (
+        <ul className='ring-lines'>
+          {lines.map(line => (
+            <li key={line.key}>
+              <span>{line.text}</span>
+              <span>{line.detail}</span>
+            </li>
+          ))}
+        </ul>
       )}
     </DoorbellViewer>
   );

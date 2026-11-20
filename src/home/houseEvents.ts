@@ -1,6 +1,7 @@
 /** The `sensor.house_events` feed (AppDaemon HouseEvents): its rows, who may see each, the kind a
  * row's icon names, and the episodes rows of one cause make together. Pure. */
 import type { NowFocusKind } from '../utils/navigation';
+import type { HouseScenario } from './houseScenarios';
 import type { NowCandidate } from './nowResolve';
 
 /** One feed row. `cause` and `effect` are set together or not at all. */
@@ -175,6 +176,8 @@ export interface HouseEpisode {
   endMs: number;
   /** Oldest first. */
   rows: HouseEvent[];
+  /** Set when the episode is a scenario: its rows are the ones it owns that the viewer sees. */
+  scenario?: HouseScenario;
 }
 
 /** Episodes newest first. Rows without a cause stay on their own. */
