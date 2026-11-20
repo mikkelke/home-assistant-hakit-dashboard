@@ -11,9 +11,14 @@
 .ring-none svg {
   font-size: 2rem;
 }
+/* A door visit's lines go under the photo, not beside it. */
+.doorbell-photo-content:has(.ring-lines) {
+  flex-direction: column;
+}
 .ring-lines {
+  align-self: stretch;
   margin: 0;
-  padding: 0.5rem 1rem 1rem;
+  padding: 0.5rem 0 0;
   list-style: none;
 }
 .ring-lines li {
