@@ -30,14 +30,14 @@ const countBy = <T>(items: T[], key: (item: T) => string) =>
   items.reduce<Record<string, number>>((counts, item) => ({ ...counts, [key(item)]: (counts[key(item)] ?? 0) + 1 }), {});
 
 describe('the fixture feed of 13.10.2026 (40 rows, about 3 days)', () => {
-  it('parses every row, newest first', () => {
-    expect(live).toHaveLength(40);
+  it('parses every row but the 5 speaker resets, newest first', () => {
+    expect(live).toHaveLength(35);
     expect(live[0].tsMs).toBe(Date.parse('2026-10-13T14:51:17.205121+02:00'));
     expect(live.every((event, i) => i === 0 || event.tsMs <= live[i - 1].tsMs)).toBe(true);
   });
 
   it('reads a kind from the icons only one producer writes', () => {
-    expect(countBy(live, houseEventKind)).toEqual({ ring: 7, washer: 3, dryer: 1, dish: 1, wake: 2, evt: 26 });
+    expect(countBy(live, houseEventKind)).toEqual({ ring: 7, washer: 3, dryer: 1, dish: 1, wake: 2, evt: 21 });
   });
 
   it('never guesses an appliance from a shared icon', () => {
@@ -65,10 +65,10 @@ describe('the fixture feed of 13.10.2026 (40 rows, about 3 days)', () => {
     }
   });
 
-  it('gives Mikkel 33 episodes and the housemates 22, without admin or wake rows', () => {
+  it('gives Mikkel 28 episodes and the housemates 22, without admin or wake rows', () => {
     const mine = houseEpisodes(visibleHouseEvents(live, MIKKEL));
-    expect(mine).toHaveLength(33);
-    expect(countBy(mine, episode => episode.kind)).toEqual({ ring: 7, washer: 3, dryer: 1, dish: 1, wake: 2, evt: 19 });
+    expect(mine).toHaveLength(28);
+    expect(countBy(mine, episode => episode.kind)).toEqual({ ring: 7, washer: 3, dryer: 1, dish: 1, wake: 2, evt: 14 });
 
     for (const viewer of [KRISTINE, CLAUDIA, ROOFTOP_TABLET, RESOLVING]) {
       const rows = visibleHouseEvents(live, viewer);
@@ -111,6 +111,24 @@ describe('parseHouseEvents', () => {
       { tsMs: Date.parse('2026-10-13T08:00:00+02:00'), text: 'y', icon: 'mdi:information-outline', audience: 'admin', by: 'Kristine' },
     ]);
     expect(parseHouseEvents({ events: [] })).toEqual([]);
+  });
+
+  it('reads rows in older wordings as the backend writes them now', () => {
+    const events = parseHouseEvents([
+      { ts: '2026-11-19T18:20:24+01:00', text: 'Front door unlocked', by: 'One-Touch Lock' },
+      { ts: '2026-11-19T18:10:00+01:00', text: 'Front door opened from inside', by: 'Claudia' },
+      { ts: '2026-11-19T18:00:00+01:00', text: 'Kitchen speaker idle for 20 min -> Kitchen speaker back to default volume and ungrouped' },
+      { ts: '2026-11-19T17:50:00+01:00', text: 'Someone rang the front door -> The door was opened for them' },
+      { ts: '2026-11-19T17:40:00+01:00', text: 'Front door locked', by: 'Home Assistant' },
+      { ts: '2026-11-19T17:30:00+01:00', text: 'Apartment door unlocked', by: 'Liga Cleaning' },
+    ]);
+    expect(events.map(event => [event.text, event.by])).toEqual([
+      ['Apartment door unlocked', undefined],
+      ['Apartment door opened from inside', 'Claudia'],
+      ['Someone rang the front door -> The door was opened for them', undefined],
+      ['Apartment door locked', undefined],
+      ['Apartment door unlocked', 'Liga Cleaning'],
+    ]);
   });
 
   it('caps the feed at 40 rows', () => {

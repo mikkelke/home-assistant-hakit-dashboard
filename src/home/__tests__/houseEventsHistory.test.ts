@@ -260,6 +260,12 @@ describe('withBackfill', () => {
     expect(merged[0].by).toBe('Claudia');
   });
 
+  it('matches a recorded row in its old wording with the backfill copy in the new one', () => {
+    const recorded = parseHouseEvents([{ ts: '2026-11-18T10:00:00Z', text: 'Front door unlocked', by: 'One-Touch Lock' }]);
+    const backfill = parseHouseEvents([{ ts: '2026-11-18T10:00:00Z', text: 'Apartment door unlocked', by: 'Claudia' }]);
+    expect(withBackfill(recorded, backfill).map(event => [event.text, event.by])).toEqual([['Apartment door unlocked', 'Claudia']]);
+  });
+
   it('is the events themselves when the backfill adds nothing', () => {
     expect(withBackfill(events, [])).toBe(events);
     expect(withBackfill(events, [row('2026-11-01T00:00:00Z', 'x')])).toBe(events);

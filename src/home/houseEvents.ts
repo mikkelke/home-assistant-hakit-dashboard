@@ -23,6 +23,18 @@ export interface HouseEvent {
 /** The backend keeps at most this many rows, newest first. */
 export const MAX_HOUSE_EVENTS = 40;
 
+/** Yale's operator words, "<how> <what>" such as "One-Touch Lock", and the integration's own: they say
+ * how the lock moved, never who moved it. */
+const YALE_OPERATOR = /^(?:(?:Auto|One-Touch|Bluetooth|Manual) (?:Lock|Unlock|Unlatch)|Home Assistant(?: user|-bruger)?)$/;
+
+/** The recorder still holds rows in older wordings: the apartment door's lock under the label "Front
+ * door", Yale operator words as `by`, and speaker resets. Rows are read as the backend writes them now,
+ * before any row is matched by its time and text. */
+const LEGACY_LOCK_PREFIX = 'Front door ';
+const isSpeakerReset = (text: string) => text.includes('default volume and ungrouped');
+const currentText = (text: string) =>
+  text.startsWith(LEGACY_LOCK_PREFIX) && !text.includes(' -> ') ? `Apartment door ${text.slice(LEGACY_LOCK_PREFIX.length)}` : text;
+
 /** Defensive parse of `attributes.events`: rows without a string `ts` and `text` or with an
  * unparseable `ts` are dropped, the order is trusted as newest first, and at most `max` are kept. */
 export function parseHouseEvents(value: unknown, max = MAX_HOUSE_EVENTS): HouseEvent[] {
@@ -33,6 +45,7 @@ export function parseHouseEvents(value: unknown, max = MAX_HOUSE_EVENTS): HouseE
     if (typeof raw !== 'object' || raw === null) continue;
     const item = raw as Record<string, unknown>;
     if (typeof item.ts !== 'string' || typeof item.text !== 'string') continue;
+    if (isSpeakerReset(item.text)) continue;
 
     const tsMs = new Date(item.ts).getTime();
     if (!Number.isFinite(tsMs)) continue;
@@ -41,7 +54,8 @@ export function parseHouseEvents(value: unknown, max = MAX_HOUSE_EVENTS): HouseE
     const effect = typeof item.effect === 'string' ? item.effect.trim() : '';
     const hasCauseEffect = cause.length > 0 && effect.length > 0;
 
-    const by = typeof item.by === 'string' ? item.by.trim() : '';
+    const rawBy = typeof item.by === 'string' ? item.by.trim() : '';
+    const by = YALE_OPERATOR.test(rawBy) ? '' : rawBy;
 
     const audienceUsers =
       item.audience !== 'admin' && Array.isArray(item.audience_users)
@@ -53,7 +67,7 @@ export function parseHouseEvents(value: unknown, max = MAX_HOUSE_EVENTS): HouseE
 
     events.push({
       tsMs,
-      text: item.text,
+      text: currentText(item.text),
       icon: typeof item.icon === 'string' ? item.icon : 'mdi:information-outline',
       cause: hasCauseEffect ? cause : undefined,
       effect: hasCauseEffect ? effect : undefined,
