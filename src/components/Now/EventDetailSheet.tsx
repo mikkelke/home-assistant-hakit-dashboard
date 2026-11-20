@@ -6,6 +6,8 @@ import { formatMinSec } from '../../coffee/model';
 import { useCoffeeBrews, useCoffeeRecent, useCoffeeRecipes } from '../../coffee/useCoffee';
 import { brewName } from '../../coffee/view';
 import {
+  APARTMENT_DOOR,
+  APARTMENT_LOCK,
   DELIVERY_ENTITY,
   ROBER_AREA_ENTITY,
   applianceRun,
@@ -14,7 +16,7 @@ import {
   brewForRow,
   detailEntities,
   detailWindow,
-  doorRowsNear,
+  doorLines,
   earlierArrivals,
   formatOffset,
   nightSummary,
@@ -28,7 +30,7 @@ import {
   type HistorySpec,
 } from '../../home/eventDetail';
 import { fetchAttributeHistory, fetchEventHistory, type HistoryPoint } from '../../home/eventHistory';
-import { houseEventLabel, type HouseEvent } from '../../home/houseEvents';
+import type { HouseEvent } from '../../home/houseEvents';
 import { ArchiveImage } from '../Archive/ArchiveMedia';
 import { fetchMapsIndex, type MapEntry } from '../Vacuum/maps';
 import { formatRoberRoomName } from '../Vacuum/rooms';
@@ -368,7 +370,10 @@ function RoberBody({
   );
 }
 
-type WoltLoad = { status: 'loading' } | { status: 'failed' } | { status: 'ready'; snapshots: DeliverySnapshot[] };
+type WoltLoad =
+  | { status: 'loading' }
+  | { status: 'failed' }
+  | { status: 'ready'; snapshots: DeliverySnapshot[]; doors: Record<string, HistoryPoint[]> };
 
 /** A Wolt order's way to the door: ordered, picked up, at the door, the first promised time against the real one,
  * and how the courier got in. */
@@ -378,8 +383,12 @@ function WoltBody({ spec, events }: { spec: Extract<DetailSpec, { kind: 'wolt' }
   useEffect(() => {
     if (!connection) return;
     let live = true;
-    fetchAttributeHistory(connection, DELIVERY_ENTITY, spec.atMs - 2 * 3_600_000, spec.atMs + 60_000).then(
-      points =>
+    const startMs = spec.atMs - 2 * 3_600_000;
+    Promise.all([
+      fetchAttributeHistory(connection, DELIVERY_ENTITY, startMs, spec.atMs + 60_000),
+      fetchEventHistory(connection, [APARTMENT_DOOR, APARTMENT_LOCK], startMs, spec.atMs + 10 * 60_000),
+    ]).then(
+      ([points, doors]) =>
         live &&
         setLoad({
           status: 'ready',
@@ -387,6 +396,7 @@ function WoltBody({ spec, events }: { spec: Extract<DetailSpec, { kind: 'wolt' }
             ts: p.ts,
             deliveries: Array.isArray(p.attributes.deliveries) ? (p.attributes.deliveries as DeliverySnapshot['deliveries']) : [],
           })),
+          doors,
         }),
       () => live && setLoad({ status: 'failed' })
     );
@@ -397,7 +407,7 @@ function WoltBody({ spec, events }: { spec: Extract<DetailSpec, { kind: 'wolt' }
   if (load.status !== 'ready') return <Status load={load} />;
   const order = woltOrder(load.snapshots, spec.title, spec.atMs);
   const late = order.firstEtaMs != null ? Math.round((order.deliveredMs - order.firstEtaMs) / 60_000) : null;
-  const door = doorRowsNear(events, (order.arrivingMs ?? order.pickedUpMs ?? spec.atMs) - 2 * 60_000, spec.atMs + 10 * 60_000);
+  const door = doorLines(events, load.doors, (order.arrivingMs ?? order.pickedUpMs ?? spec.atMs) - 2 * 60_000, spec.atMs + 10 * 60_000);
   const steps: [string, number | null][] = [
     ['Ordered', order.orderedMs],
     ['Picked up', order.pickedUpMs],
@@ -423,13 +433,10 @@ function WoltBody({ spec, events }: { spec: Extract<DetailSpec, { kind: 'wolt' }
       <h3 className='evd-sub'>At the door</h3>
       {door.length > 0 ? (
         <ul className='evd-facts'>
-          {door.map(e => (
-            <li key={`${e.tsMs}|${e.text}`}>
-              <span>{e.cause ?? e.text}</span>
-              <span>
-                {formatHomeClock(e.tsMs)}
-                {e.cause ? ` · ${houseEventLabel(e) ?? e.effect ?? ''}` : ''}
-              </span>
+          {door.map(line => (
+            <li key={line.key}>
+              <span>{line.text}</span>
+              <span>{line.detail}</span>
             </li>
           ))}
         </ul>

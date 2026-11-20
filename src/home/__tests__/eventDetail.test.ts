@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { BrewRecord } from '../../coffee/model';
 import {
+  APARTMENT_DOOR,
+  APARTMENT_LOCK,
   ARRIVAL_RESIDENTS,
   applianceRun,
   arrivalPath,
@@ -8,7 +10,7 @@ import {
   brewForRow,
   detailSpec,
   detailWindow,
-  doorRowsNear,
+  doorLines,
   earlierArrivals,
   nightSummary,
   plantOfRow,
@@ -487,13 +489,52 @@ describe('woltOrder', () => {
     expect(woltOrder(snapshots, 'House of Sushi', at('20:11:38'))).toMatchObject({ orderedMs: null, pickedUpMs: null, firstEtaMs: null });
   });
 
-  it('the door rows are rings and unlocks around the delivery', () => {
-    const events = [
-      ev('2026-11-19T20:10:50+01:00', 'mdi:bell-ring', 'Someone rang the front door'),
-      ev('2026-11-19T20:11:00+01:00', 'mdi:music', 'Kristine started Spotify in Kitchen'),
-      ev('2026-11-19T19:00:00+01:00', 'mdi:bell-ring', 'Someone rang the front door'),
-    ];
-    expect(doorRowsNear(events, at('20:07:08'), at('20:21:38')).map(e => e.text)).toEqual(['Someone rang the front door']);
+  const ring = (iso: string, icon: string, effect: string): HouseEvent => ({
+    tsMs: ms(iso),
+    icon,
+    text: `Someone rang the front door -> ${effect}`,
+    cause: 'Someone rang the front door',
+    effect,
+  });
+  // 19.11 WokXpress: the ring and its auto-open, then the apartment door opened from inside 10 s after the ring.
+  const rows = [
+    ring('2026-11-19T20:10:31.831+01:00', 'mdi:bell-ring', 'Announcing on the speakers and opening the door'),
+    ring('2026-11-19T20:10:36.393+01:00', 'mdi:door-open', 'The door was opened for them'),
+    ev('2026-11-19T20:11:00+01:00', 'mdi:music', 'Kristine started Spotify in Kitchen'),
+    ring('2026-11-19T19:00:00+01:00', 'mdi:bell-ring', 'Announcing on the speakers and opening the door'),
+  ];
+  const doors = {
+    [APARTMENT_DOOR]: series(at('20:00:00'), [
+      [0, 'off'],
+      [641_000, 'on'],
+      [690_000, 'off'],
+    ]),
+    [APARTMENT_LOCK]: series(at('20:00:00'), [
+      [0, 'locked'],
+      [642_000, 'unlocked'],
+      [878_000, 'locked'],
+    ]),
+  };
+
+  it('19.11: one line for the ring with how fast the street door opened, then the apartment door', () => {
+    expect(doorLines(rows, doors, at('20:07:08'), at('20:21:38'))).toEqual([
+      { key: `ring-${at('20:10:31.831')}`, text: 'Rang the front door', detail: '20:10 · opened after 5 s' },
+      { key: `apartment-${at('20:10:41')}`, text: 'Apartment door opened', detail: '20:10 (+9 s)' },
+    ]);
+  });
+
+  it('without a door contact edge the unlock stands in, named from its row', () => {
+    const named = [...rows, ev('2026-11-19T20:10:50+01:00', 'mdi:lock-open-variant', 'Apartment door unlocked', 'Claudia')];
+    const lines = doorLines(named, { [APARTMENT_LOCK]: doors[APARTMENT_LOCK] }, at('20:07:08'), at('20:21:38'));
+    expect(lines[1]).toEqual({ key: `apartment-${at('20:10:42')}`, text: 'Apartment door unlocked', detail: '20:10 (+10 s) · by Claudia' });
+  });
+
+  it('a ring nobody answered says so, and nothing outside the window shows', () => {
+    const missed = [ring('2026-11-19T20:10:31+01:00', 'mdi:bell-off', 'Nobody answered - sent a snapshot to everyone home')];
+    expect(doorLines(missed, {}, at('20:07:08'), at('20:21:38'))).toEqual([
+      { key: `ring-${at('20:10:31')}`, text: 'Rang the front door', detail: '20:10 · nobody answered' },
+    ]);
+    expect(doorLines(rows, {}, at('20:12:00'), at('20:21:38'))).toEqual([]);
   });
 });
 

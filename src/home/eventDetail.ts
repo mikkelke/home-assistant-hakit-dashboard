@@ -5,6 +5,7 @@ import type { BrewRecord } from '../coffee/model';
 import type { MapEntry } from '../components/Vacuum/maps';
 import { SESSION_MAP_LAG_MS, mapEntryMs, roberBoundary } from '../components/Vacuum/sessionRooms';
 import type { HouseEvent } from './houseEvents';
+import { formatHomeClock } from '../energy/homeTime';
 import type { HistoryPoint } from './eventHistory';
 
 export const HOUR_MS = 3_600_000;
@@ -511,11 +512,67 @@ export function woltOrder(snapshots: readonly DeliverySnapshot[], title: string,
   return { orderedMs, pickedUpMs, arrivingMs, deliveredMs, firstEtaMs, lastEtaMs };
 }
 
-/** The door rows around a delivery: rings and apartment-door unlocks from when the courier set off to ten minutes after. */
-export function doorRowsNear(events: readonly HouseEvent[], fromMs: number, toMs: number): HouseEvent[] {
-  return events
-    .filter(e => e.tsMs >= fromMs && e.tsMs <= toMs && /^mdi:(bell|door|lock-open)/.test(e.icon))
-    .sort((a, b) => a.tsMs - b.tsMs);
+/** One line of a delivery's "at the door": a ring at a street door with how it was answered, or the apartment door. */
+export interface DoorLine {
+  key: string;
+  text: string;
+  detail: string;
+}
+
+const RANG = /^Someone rang the (.+)$/;
+const RING_GROUP_MS = 2 * MIN_MS;
+
+/** How the courier got in over [fromMs, toMs]: one line per ring, merging the ring's rows (rang, opened, missed),
+ * then the apartment door's first opening after the first ring, else its first unlock. */
+export function doorLines(
+  events: readonly HouseEvent[],
+  history: Readonly<Record<string, readonly HistoryPoint[]>>,
+  fromMs: number,
+  toMs: number
+): DoorLine[] {
+  const rings: { door: string; cause: string; rows: HouseEvent[] }[] = [];
+  for (const e of [...events].sort((a, b) => a.tsMs - b.tsMs)) {
+    if (e.tsMs < fromMs || e.tsMs > toMs || e.cause == null) continue;
+    const door = RANG.exec(e.cause)?.[1];
+    if (!door) continue;
+    const open = rings.find(r => r.cause === e.cause && e.tsMs - r.rows[0].tsMs <= RING_GROUP_MS);
+    if (open) open.rows.push(e);
+    else rings.push({ door, cause: e.cause, rows: [e] });
+  }
+
+  const lines: DoorLine[] = rings.map(({ door, rows }) => {
+    const ringMs = rows[0].tsMs;
+    const by = rows.find(r => r.by)?.by;
+    const opened = rows.find(r => r.effect === 'The door was opened for them');
+    let how = '';
+    if (opened) how = ` · opened${by ? ` by ${by}` : ''} after ${Math.round((opened.tsMs - ringMs) / 1000)} s`;
+    else if (rows.some(r => r.effect?.startsWith('Auto-open FAILED'))) how = ' · auto-open failed';
+    else if (rows.some(r => r.icon === 'mdi:bell-off')) how = ' · nobody answered';
+    return { key: `ring-${ringMs}`, text: `Rang the ${door}`, detail: `${formatHomeClock(ringMs)}${how}` };
+  });
+
+  const startMs = rings[0]?.rows[0].tsMs ?? fromMs;
+  const firstEdge = (points: readonly HistoryPoint[] | undefined, state: string) => {
+    let prev: HistoryPoint | null = null;
+    for (const p of points ?? []) {
+      if (p.ts > toMs) break;
+      if (prev != null && p.ts >= startMs && p.state === state && prev.state !== state) return p.ts;
+      prev = p;
+    }
+    return null;
+  };
+  const doorMs = firstEdge(history[APARTMENT_DOOR], 'on');
+  const atMs = doorMs ?? firstEdge(history[APARTMENT_LOCK], 'unlocked');
+  if (atMs != null) {
+    const by = events.find(e => e.by && e.icon.startsWith('mdi:lock-open') && Math.abs(e.tsMs - atMs) <= MIN_MS)?.by;
+    const after = rings.length > 0 ? ` (+${Math.round((atMs - startMs) / 1000)} s)` : '';
+    lines.push({
+      key: `apartment-${atMs}`,
+      text: doorMs != null ? 'Apartment door opened' : 'Apartment door unlocked',
+      detail: `${formatHomeClock(atMs)}${after}${by ? ` · by ${by}` : ''}`,
+    });
+  }
+  return lines;
 }
 
 export interface NightSummary {
