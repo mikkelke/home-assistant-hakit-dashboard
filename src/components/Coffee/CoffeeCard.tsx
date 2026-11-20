@@ -66,7 +66,7 @@ import { ApplianceCard } from '../Appliance';
 import { AdviceCard } from './advice';
 import { BrewAction } from './BrewAction';
 import { LOOK_CARD, LOOK_HIST, LOOK_MINI } from './looks';
-import { chartInputs, lastValidS, planOf, series, valueAt } from './chart';
+import { chartInputs, lastValidS, pastBrewInputs, planOf, series, valueAt } from './chart';
 import { ChartBox } from './ChartBox';
 import { BeansUndo, BrewStrip, StatsSheet } from './CoffeeStats';
 import { Glyph } from './Glyph';
@@ -547,25 +547,7 @@ function HistoryTab({ data, nowMs }: { data: CardData; nowMs: number }) {
   const { data: recent, status } = useCoffeeRecent(true, list[0]?.id ?? null);
   const [openId, setOpenId] = useState<string | null>(null);
   const open = list.find(brew => brew.id === openId) ?? list.find(brew => brew.outcome === 'complete') ?? list[0] ?? null;
-  const curve = open ? recent?.curves[open.id] : undefined;
-  const band = curve?.baselineId ? recent?.bands[curve.baselineId] : undefined;
-  const inputs = chartInputs({
-    plan: { planWater: null, planPours: [] },
-    baseline: band
-      ? {
-          status: 'ready',
-          cupLo: band.cupLo,
-          cupHi: band.cupHi,
-          stepS: band.stepS,
-          totalSMedian: null,
-          cupGMedian: null,
-          drawdownSMedian: null,
-        }
-      : null,
-    cup: curve ? series(curve.cup, curve.stepS) : null,
-    water: curve ? series(curve.water, curve.stepS) : null,
-    readyS: curve?.endS ?? null,
-  });
+  const inputs = open ? pastBrewInputs(recent, open.id) : null;
   const groups: { day: string; brews: BrewRecord[] }[] = [];
   for (const brew of list) {
     const day = brew.atMs != null ? dayLabel(brew.atMs, nowMs) : 'Earlier';
@@ -587,7 +569,7 @@ function HistoryTab({ data, nowMs }: { data: CardData; nowMs: number }) {
               <PersonFace person={open.who} size='sm' />
             </span>
           </h4>
-          {curve ? (
+          {inputs ? (
             <ChartBox
               look={LOOK_HIST}
               mode='hist'

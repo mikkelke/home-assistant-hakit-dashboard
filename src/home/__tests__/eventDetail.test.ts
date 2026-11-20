@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { ARRIVAL_RESIDENTS, applianceRun, arrivalPath, detailSpec, detailWindow, earlierArrivals, plantOfRow, slug } from '../eventDetail';
+import type { BrewRecord } from '../../coffee/model';
+import {
+  ARRIVAL_RESIDENTS,
+  applianceRun,
+  arrivalPath,
+  brewForRow,
+  detailSpec,
+  detailWindow,
+  earlierArrivals,
+  plantOfRow,
+  slug,
+  type HistorySpec,
+} from '../eventDetail';
 import type { HistoryPoint } from '../eventHistory';
 import type { HouseEvent } from '../houseEvents';
 
@@ -100,7 +112,10 @@ describe('detailSpec', () => {
   });
 
   it('the plant window is a day either side of the watering, never past now', () => {
-    const spec = detailSpec(ev('2026-11-19T20:00:00+01:00', 'mdi:watering-can-outline', 'Watered Pothos, soil 15% to 69%'), exists)!;
+    const spec = detailSpec(
+      ev('2026-11-19T20:00:00+01:00', 'mdi:watering-can-outline', 'Watered Pothos, soil 15% to 69%'),
+      exists
+    ) as HistorySpec;
     expect(detailWindow(spec, ms('2026-11-25T00:00:00+01:00'))).toEqual({
       startMs: ms('2026-11-18T20:00:00+01:00'),
       endMs: ms('2026-11-20T20:00:00+01:00'),
@@ -129,6 +144,33 @@ describe('detailSpec', () => {
     ).toBeNull();
     expect(detailSpec(ev('2026-11-19T10:00:00+01:00', 'mdi:door-open', 'Went out', 'Mikkel'), exists)).toBeNull();
     expect(detailSpec(ev('2026-11-19T10:00:00+01:00', 'mdi:lock-open-variant', 'Apartment door unlocked'), exists)).toBeNull();
+  });
+
+  it('a Coffee ready row opens its brew; a music row opens nothing', () => {
+    expect(detailSpec(ev('2026-11-19T12:26:23+01:00', 'mdi:coffee', 'Coffee ready', 'Claudia'), exists)).toEqual({
+      kind: 'coffee',
+      atMs: ms('2026-11-19T12:26:23+01:00'),
+    });
+    expect(detailSpec(ev('2026-11-19T12:26:23+01:00', 'mdi:music', 'Kristine started Spotify in Kitchen'), exists)).toBeNull();
+  });
+});
+
+describe('brewForRow', () => {
+  const brew = (id: string, iso: string, outcome: BrewRecord['outcome'] = 'complete') => ({ id, atMs: ms(iso), outcome }) as BrewRecord;
+  const row = ms('2026-11-19T12:26:23+01:00');
+
+  it('takes the complete brew nearest the row within 20 minutes', () => {
+    const brews = [
+      brew('late', '2026-11-19T12:40:00+01:00'),
+      brew('mine', '2026-11-19T12:22:00+01:00'),
+      brew('early', '2026-11-19T11:50:00+01:00'),
+    ];
+    expect(brewForRow(brews, row)?.id).toBe('mine');
+  });
+
+  it('skips stopped brews and brews 20 minutes or more away', () => {
+    expect(brewForRow([brew('stopped', '2026-11-19T12:22:00+01:00', 'stopped')], row)).toBeNull();
+    expect(brewForRow([brew('far', '2026-11-19T12:06:23+01:00')], row)).toBeNull();
   });
 });
 

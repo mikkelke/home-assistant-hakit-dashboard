@@ -142,7 +142,7 @@ async function settle(rounds = 24) {
 async function open(connection: object, rows: readonly LoggedRow[] = log) {
   store.setState({ entities: feedOf(rows), connection });
   await act(async () => {
-    root.render(createElement(NowView, { focus: null, arrival: 'cold', onBack: () => {}, onOpenRoom: () => {} }));
+    root.render(createElement(NowView, { focus: null, arrival: 'cold', onBack: () => {}, onOpenCoffee: () => {} }));
   });
   await settle();
 }

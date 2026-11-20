@@ -91,10 +91,3 @@ export function mapEntryMs(entry: Pick<MapEntry, 'datetime' | 'timestamp'>): num
   const millis = Number((parts[7] ?? '').padEnd(3, '0').slice(0, 3));
   return homeWallTimeToMs(year, month, day, hour, minute) + second * 1000 + millis;
 }
-
-/** The HA area a Rober2 room lies in: both kitchen sides are the kitchen, and Claudia's room is still the area `office`. */
-export function roberRoomAreaId(room: string | undefined): string | undefined {
-  if (room === 'kitchen_2') return 'kitchen';
-  if (room === 'claudias_room') return 'office';
-  return room;
-}

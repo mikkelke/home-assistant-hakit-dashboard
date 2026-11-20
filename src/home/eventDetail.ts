@@ -1,6 +1,7 @@
 /** Which past timeline rows open a detail sheet, what each sheet reads from the recorder, and the pure
  * builders that turn that history into the sheet's numbers: a plant's soil around its watering, an
  * appliance run, and one resident's way in through the apartment door. */
+import type { BrewRecord } from '../coffee/model';
 import type { HouseEvent } from './houseEvents';
 import type { HistoryPoint } from './eventHistory';
 
@@ -46,7 +47,11 @@ export type DetailSpec =
       powerEntity: string;
       kwh: number | null;
     }
-  | { kind: 'arrival'; atMs: number; resident: ArrivalResident };
+  | { kind: 'arrival'; atMs: number; resident: ArrivalResident }
+  | { kind: 'coffee'; atMs: number };
+
+/** The sheets drawn from the recorder's history; a coffee sheet reads the brew ledger instead. */
+export type HistorySpec = Exclude<DetailSpec, { kind: 'coffee' }>;
 
 /** The lowercase ASCII letters and digits of a name, each run of anything else one "_": AppDaemon's plant slug. */
 export function slug(name: string): string {
@@ -96,12 +101,26 @@ export function detailSpec(event: HouseEvent, exists: (entityId: string) => bool
       kwh: kwh ? Number(kwh[1]) : null,
     };
   }
+  if (event.icon === 'mdi:coffee' && event.text.startsWith('Coffee ready')) return { kind: 'coffee', atMs: event.tsMs };
   const resident = arrivalResident(event);
   return resident ? { kind: 'arrival', atMs: event.tsMs, resident } : null;
 }
 
+/** How far a ledger brew's start may lie from its "Coffee ready" row. */
+const BREW_MATCH_MS = 20 * MIN_MS;
+
+/** The finished brew a "Coffee ready" row stands for: the complete brew nearest the row, at most 20 minutes away. */
+export function brewForRow(brews: readonly BrewRecord[], rowMs: number): BrewRecord | null {
+  let best: BrewRecord | null = null;
+  for (const brew of brews) {
+    if (brew.outcome !== 'complete' || brew.atMs == null || Math.abs(brew.atMs - rowMs) >= BREW_MATCH_MS) continue;
+    if (best == null || Math.abs(brew.atMs - rowMs) < Math.abs(best.atMs! - rowMs)) best = brew;
+  }
+  return best;
+}
+
 /** The time a sheet's history covers, in epoch ms, never past now. */
-export function detailWindow(spec: DetailSpec, nowMs: number): { startMs: number; endMs: number } {
+export function detailWindow(spec: HistorySpec, nowMs: number): { startMs: number; endMs: number } {
   const span = (before: number, after: number) => ({ startMs: spec.atMs - before, endMs: Math.min(nowMs, spec.atMs + after) });
   switch (spec.kind) {
     case 'plant':
@@ -114,7 +133,7 @@ export function detailWindow(spec: DetailSpec, nowMs: number): { startMs: number
 }
 
 /** The entities a sheet's history needs. */
-export function detailEntities(spec: DetailSpec): string[] {
+export function detailEntities(spec: HistorySpec): string[] {
   switch (spec.kind) {
     case 'plant':
       return [spec.entity];

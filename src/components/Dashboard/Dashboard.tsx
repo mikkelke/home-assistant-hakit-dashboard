@@ -17,16 +17,7 @@ import {
   type NowFocus,
   type OpenNow,
 } from '../../utils/navigation';
-import {
-  ROOM_OVER_NOW_KEY,
-  isRoomOverNow,
-  leaveNowEntry,
-  nowEntryItem,
-  pushNowEntry,
-  settleNowEntry,
-  type NowEntryBelow,
-  type NowEntryChange,
-} from '../../utils/nowHistory';
+import { leaveNowEntry, nowEntryItem, pushNowEntry, settleNowEntry, type NowEntryBelow, type NowEntryChange } from '../../utils/nowHistory';
 import { onIdle } from '../../utils/idle';
 import { trackUiTap } from '../../utils/trackUiTap';
 import { COFFEE_AREA_ID, COFFEE_TABLET_VIEWER } from '../../coffee/entities';
@@ -84,7 +75,7 @@ const COOK_OVER_KITCHEN_KEY = 'cookOverKitchen';
 const COFFEE_OVER_KITCHEN_KEY = 'coffeeOverKitchen';
 
 /** What opened the coffee stage: the Kitchen's Coffee card, the Kitchen tile, the Home ticker, or a brew on the machine. */
-type CoffeeStageVia = 'card' | 'tile' | 'ticker' | 'takeover';
+type CoffeeStageVia = 'card' | 'tile' | 'ticker' | 'takeover' | 'now';
 
 // The #now timeline is warmed on idle like room detail, and fetched at once when the app opens on a
 // #now link (a tapped push), so the timeline is the first thing that renders.
@@ -473,9 +464,6 @@ export function Dashboard() {
   // The first hash this app instance routes on is an arrival (a cold link or an iframe reload); every later
   // one is a navigation.
   const firstSyncRef = useRef(true);
-  // A room opened from the timeline closes back to it. Mirrors the room entry's state, which keeps it
-  // across Forward and reloads.
-  const roomOverNowRef = useRef(false);
 
   // Filter out excluded areas. Memoised on `areas`: a fresh array on every render would give findRoomById and syncStateFromHash a
   // new identity each time, which tears down and re-creates the hash listeners and the 500 ms poll below on every update.
@@ -595,15 +583,13 @@ export function Dashboard() {
   );
 
   const pushRoomHistory = useCallback(
-    (roomId: string, openClimate?: boolean, overNow = false) => {
-      roomOverNowRef.current = overNow;
+    (roomId: string, openClimate?: boolean) => {
       const targetWindow = getAccessibleHistoryWindow();
       if (!targetWindow) return;
 
       try {
         markHashUpdating();
-        const state = overNow ? { room: roomId, [ROOM_OVER_NOW_KEY]: true } : { room: roomId };
-        targetWindow.history.pushState(state, '', buildHistoryUrlWithHash(targetWindow, buildRoomHash(roomId, openClimate)));
+        targetWindow.history.pushState({ room: roomId }, '', buildHistoryUrlWithHash(targetWindow, buildRoomHash(roomId, openClimate)));
       } catch (err) {
         console.debug('Failed to push room history:', err);
         isUpdatingHashRef.current = false;
@@ -667,7 +653,6 @@ export function Dashboard() {
       window.dispatchEvent(new Event(ROUTE_ADOPTED_EVENT));
       setIsMenuOpen(false);
     }
-    roomOverNowRef.current = view.kind === 'room' && isRoomOverNow(targetWindow?.history.state);
 
     if (view.kind === 'now') {
       // The timeline sits over whatever showed when its link arrived; seeding a cold link puts the grid below it.
@@ -899,13 +884,6 @@ export function Dashboard() {
   };
 
   const handleCloseRoom = () => {
-    const targetWindow = getAccessibleHistoryWindow();
-    if (roomOverNowRef.current && targetWindow) {
-      // Back to the timeline entry below; the hash sync shows it and closes the room.
-      roomOverNowRef.current = false;
-      targetWindow.history.back();
-      return;
-    }
     setSelectedRoom(null);
     replaceRoomHistory(null);
   };
@@ -982,6 +960,7 @@ export function Dashboard() {
     trackUiTap('home.coffee');
   };
   const takeOverForCoffee = useCallback(() => openCoffeeStage(false, 'takeover'), [openCoffeeStage]);
+  const openCoffeeFromNow = useCallback(() => openCoffeeStage(false, 'now'), [openCoffeeStage]);
   const returnFromCoffee = useCallback(
     (to: 'back' | 'grid') => {
       const targetWindow = getAccessibleHistoryWindow();
@@ -1122,17 +1101,6 @@ export function Dashboard() {
     }
   }, [markHashUpdating, showNow]);
 
-  const openRoomFromNow = useCallback(
-    (areaId: string) => {
-      const room = findRoomById(areaId);
-      if (!room) return;
-      showNow(null);
-      setSelectedRoom(room);
-      pushRoomHistory(room.area_id, false, true);
-    },
-    [findRoomById, pushRoomHistory, showNow]
-  );
-
   // Views close by state and the current entry becomes the bare Home URL, as closing them by hand leaves it; modals close in
   // place on the route event. A hash the router has not followed yet is a link arriving, and it wins.
   const resetToHome = useCallback(() => {
@@ -1147,7 +1115,6 @@ export function Dashboard() {
     setCoffeeOpen(false);
     setCookOpen(false);
     showNow(null);
-    roomOverNowRef.current = false;
     window.dispatchEvent(new Event(ROUTE_ADOPTED_EVENT));
     if (targetWindow && parseDashboardHash(targetWindow.location.hash).kind !== 'none') replaceRoomHistory(null);
   }, [replaceRoomHistory, showNow]);
@@ -1319,7 +1286,7 @@ export function Dashboard() {
               arrival={nowRoute.arrival}
               linkArrived={nowRoute.linkArrived}
               onBack={closeNow}
-              onOpenRoom={openRoomFromNow}
+              onOpenCoffee={openCoffeeFromNow}
             />
           </LazyBoundary>
         )}

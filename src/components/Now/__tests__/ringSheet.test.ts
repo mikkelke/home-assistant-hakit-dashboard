@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import feed from '../../../home/__tests__/fixtures/house-events.json';
 import { houseEpisodes, parseHouseEvents } from '../../../home/houseEvents';
 import { archiveConnection } from '../../../utils/__tests__/archiveConnectionStub';
@@ -57,7 +57,6 @@ const ARCHIVE = {
 };
 
 let root: Root;
-let openRoom: Mock<(areaId: string) => void>;
 let ha: ReturnType<typeof archiveConnection>;
 
 beforeEach(() => {
@@ -73,7 +72,6 @@ beforeEach(() => {
     entities: { 'sensor.house_events': { entity_id: 'sensor.house_events', state: 'x', attributes: { events: rows } } },
     connection: ha.connection,
   });
-  openRoom = vi.fn<(areaId: string) => void>();
   root = createRoot(document.createElement('div'));
 });
 
@@ -92,7 +90,7 @@ async function open(props: { arrival: 'cold' | 'warm'; itemId?: string }) {
         itemId: props.itemId ?? null,
         arrival: props.arrival,
         onBack: () => {},
-        onOpenRoom: openRoom,
+        onOpenCoffee: () => {},
       })
     );
   });
@@ -112,7 +110,7 @@ const sheet = () => document.querySelector('.doorbell-photo');
 const ringRow = (id: string) => document.querySelector<HTMLElement>(`[data-row-id="${id}"] .now-body`);
 
 describe('a ring row on the timeline', () => {
-  it('opens who rang instead of the hallway, with the clip waiting for a tap', async () => {
+  it('opens who rang, with the clip waiting for a tap', async () => {
     await open({ arrival: 'cold' });
     expect(sheet()).toBeNull();
     const row = ringRow(rings[0].id);
@@ -120,7 +118,6 @@ describe('a ring row on the timeline', () => {
 
     await act(async () => row!.click());
     await settle();
-    expect(openRoom).not.toHaveBeenCalled();
     const video = sheet()?.querySelector('video');
     expect(video?.getAttribute('src')).toBe('/media/local/abb_doorbell/clip.mp4?authSig=1#t=0.1');
     expect(video?.hasAttribute('autoplay')).toBe(false);
@@ -136,17 +133,13 @@ describe('a ring row on the timeline', () => {
     expect(sheet()?.textContent).toContain('No photo for this ring');
   });
 
-  it('leaves other rows opening their room, and a finished run its own sheet', async () => {
+  it('leaves other rows untappable, and a finished run opens its own sheet', async () => {
     await open({ arrival: 'cold' });
     const links = [...document.querySelectorAll<HTMLElement>('.now-body.is-link')].filter(body => !body.classList.contains('is-ring'));
-    const finished = links.find(body => / finished/.test(body.getAttribute('aria-label') ?? ''));
-    const other = links.find(body => !/ finished/.test(body.getAttribute('aria-label') ?? ''));
-    await act(async () => other!.click());
-    expect(openRoom).toHaveBeenCalledTimes(1);
-    expect(sheet()).toBeNull();
-    await act(async () => finished!.click());
+    expect(links.map(body => body.getAttribute('aria-label')).every(label => / finished/.test(label ?? ''))).toBe(true);
+    expect(document.querySelectorAll('.now-body:not(.is-link)').length).toBeGreaterThan(0);
+    await act(async () => links[0].click());
     await settle();
-    expect(openRoom).toHaveBeenCalledTimes(1);
     expect(document.querySelector('.evd-body')).not.toBeNull();
   });
 
@@ -174,7 +167,7 @@ describe('a ring push opening the timeline', () => {
           arrival: props.arrival ?? 'cold',
           linkArrived: props.linkArrived,
           onBack: () => {},
-          onOpenRoom: openRoom,
+          onOpenCoffee: () => {},
         })
       );
     });
@@ -263,7 +256,7 @@ describe('the sheet of a ring that has just rung', () => {
           arrival: 'cold',
           linkArrived: true,
           onBack: () => {},
-          onOpenRoom: openRoom,
+          onOpenCoffee: () => {},
         })
       );
     });

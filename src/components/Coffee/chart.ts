@@ -1,5 +1,6 @@
 /** Geometry for the one brew chart grammar: grams over seconds since the first bloom, pours on the same axis. Pure. */
 import { planWaterFromPours, recipePlanPours, type CoffeeBaseline, type CoffeeLive, type PlanPour, type Recipe } from '../../coffee/model';
+import type { CoffeeRecentData } from '../../coffee/recent';
 
 export interface ChartSeries {
   values: readonly (number | null)[];
@@ -240,4 +241,28 @@ export function holdTo(data: ChartSeries | null, toS: number): ChartSeries | nul
   const count = Math.floor(toS / data.stepS) + 1;
   if (last == null || data.values.length >= count) return data;
   return { values: [...data.values, ...new Array<number>(count - data.values.length).fill(last)], stepS: data.stepS };
+}
+
+/** A past brew's chart from the recent curves: its cup and water over the band it was compared with; null without a curve. */
+export function pastBrewInputs(recent: CoffeeRecentData | null, brewId: string): BrewChartInputs | null {
+  const curve = recent?.curves[brewId];
+  if (!curve) return null;
+  const band = curve.baselineId ? recent?.bands[curve.baselineId] : undefined;
+  return chartInputs({
+    plan: { planWater: null, planPours: [] },
+    baseline: band
+      ? {
+          status: 'ready',
+          cupLo: band.cupLo,
+          cupHi: band.cupHi,
+          stepS: band.stepS,
+          totalSMedian: null,
+          cupGMedian: null,
+          drawdownSMedian: null,
+        }
+      : null,
+    cup: series(curve.cup, curve.stepS),
+    water: series(curve.water, curve.stepS),
+    readyS: curve.endS,
+  });
 }

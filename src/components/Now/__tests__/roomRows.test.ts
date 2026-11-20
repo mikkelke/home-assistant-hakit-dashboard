@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { home } from '../../../energy/__tests__/testUtils';
 import feed from '../../../home/__tests__/fixtures/house-events.json';
 import { archiveConnection } from '../../../utils/__tests__/archiveConnectionStub';
@@ -69,7 +69,6 @@ const map = (room: string, wall: string): MapEntry => {
 const FEED = [finish('2026-10-14T11:49:05.180'), start('2026-10-14T11:00:41.226'), ...feed.attributes.events];
 
 let root: Root;
-let openRoom: Mock<(areaId: string) => void>;
 let ha: ReturnType<typeof archiveConnection>;
 
 function setUp(events: unknown[], index: unknown) {
@@ -89,7 +88,6 @@ beforeEach(() => {
     unobserve() {}
   } as unknown as typeof ResizeObserver;
   setUp(FEED, archive);
-  openRoom = vi.fn<(areaId: string) => void>();
   root = createRoot(document.createElement('div'));
 });
 
@@ -102,7 +100,7 @@ afterEach(() => {
 /** Opens the timeline and lets the map index read, any lazy sheet and its signature land. */
 async function open() {
   await act(async () => {
-    root.render(createElement(NowView, { focus: null, itemId: null, arrival: 'cold', onBack: () => {}, onOpenRoom: openRoom }));
+    root.render(createElement(NowView, { focus: null, itemId: null, arrival: 'cold', onBack: () => {}, onOpenCoffee: () => {} }));
   });
   await settle();
 }
@@ -156,7 +154,6 @@ describe('room rows of a Rober2 round', () => {
     await open();
     await act(async () => roomRow('Kitchen cook side', 1).querySelector<HTMLButtonElement>('.now-map')!.click());
     await settle();
-    expect(openRoom).not.toHaveBeenCalled();
     expect(title()).toBe('Kitchen cook side');
     expect(sheet()?.querySelector('.date')?.textContent).toBe('Yesterday 10:18');
     expect(sheet()?.querySelector('img')?.getAttribute('src')).toBe(
@@ -181,11 +178,9 @@ describe('room rows of a Rober2 round', () => {
     expect(document.querySelector('.now-view')).not.toBeNull();
   });
 
-  it('open the room they lie in from the row itself', async () => {
+  it('are not a link themselves, only their map button is', async () => {
     await open();
-    await act(async () => roomRow('Kitchen dining side').querySelector<HTMLElement>('.now-body')!.click());
-    expect(openRoom).toHaveBeenCalledWith('kitchen');
-    expect(sheet()).toBeNull();
+    expect(roomRow('Kitchen dining side').querySelector('.now-body')?.tagName).toBe('DIV');
   });
 
   it('come with a round someone came home to, and give a room cleaned twice a row each time', async () => {

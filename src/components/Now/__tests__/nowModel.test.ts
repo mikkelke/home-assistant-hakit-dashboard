@@ -8,17 +8,7 @@ import { isQuietAt, readQuietHours } from '../../../home/quietHours';
 import { readUpcoming, type UpcomingAppliance, type UpcomingEntity } from '../../../home/upcoming';
 import archive from '../../Vacuum/__tests__/fixtures/rober2-maps.json';
 import { roberRounds } from '../../Vacuum/sessionRooms';
-import {
-  buildNowTimeline,
-  dayBreaks,
-  dayLabel,
-  episodeAreaId,
-  etaInQuietHours,
-  rowTone,
-  timelineMarkers,
-  type PastRow,
-  type RoomRow,
-} from '../nowModel';
+import { buildNowTimeline, dayBreaks, dayLabel, etaInQuietHours, rowTone, timelineMarkers, type PastRow, type RoomRow } from '../nowModel';
 
 const MIKKEL: HouseEventViewer = { isAdmin: true, name: 'Mikkel' };
 const KRISTINE: HouseEventViewer = { isAdmin: false, name: 'Kristine' };
@@ -29,24 +19,11 @@ const episodesFor = (viewer: HouseEventViewer) => houseEpisodes(visibleHouseEven
 const entity = (state: string, attributes: Record<string, unknown> = {}): UpcomingEntity => ({ state, attributes });
 
 describe('past rows from the fixture feed', () => {
-  it('lists episodes oldest first and gives each the room a tap opens', () => {
+  it('lists episodes oldest first', () => {
     const { past } = buildNowTimeline(episodesFor(MIKKEL), []);
     expect(past[0].atMs).toBe(Date.parse('2026-10-10T10:17:44.065312+02:00'));
     expect(past.at(-1)?.atMs).toBe(Date.parse('2026-10-13T14:51:12.742031+02:00'));
     expect(past.every((row, i) => i === 0 || row.atMs >= past[i - 1].atMs)).toBe(true);
-
-    const areaOf = (iso: string) => past.find(row => row.atMs === Date.parse(iso))?.areaId;
-    expect(areaOf('2026-10-13T14:51:12.742031+02:00')).toBe('hallway');
-    expect(areaOf('2026-10-13T13:37:44.605454+02:00')).toBe('guest_bathroom');
-    expect(areaOf('2026-10-11T06:14:22.538871+02:00')).toBe('kitchen');
-    expect(areaOf('2026-10-12T09:20:00.143551+02:00')).toBe('bedroom');
-    expect(areaOf('2026-10-13T10:06:52.493110+02:00')).toBe('kitchen');
-  });
-
-  it('gives no room to rows several rooms share or none owns', () => {
-    const { past } = buildNowTimeline(episodesFor(MIKKEL), []);
-    const areaOf = (iso: string) => past.find(row => row.atMs === Date.parse(iso))?.areaId;
-    expect(areaOf('2026-10-13T13:37:44.775803+02:00')).toBeNull();
   });
 
   it('marks rows only part of the household sees, and shows a housemate none of the admin ones', () => {
@@ -67,31 +44,17 @@ describe('past rows from the fixture feed', () => {
     expect(rowTone({ icon: 'mdi:watering-can' })).toBe('slate');
   });
 
-  it('shows a plant watered as a plain row of its own, with no room to open', () => {
+  it('shows a plant watered as a plain row of its own', () => {
     const watered = parseHouseEvents([
       { ts: '2026-10-21T08:00:30+02:00', icon: 'mdi:watering-can', text: 'Watered Strelitzia', audience: 'admin' },
       { ts: '2026-10-21T08:00:00+02:00', icon: 'mdi:watering-can', text: 'Watered Fig', audience: 'admin' },
     ]);
     const { past } = buildNowTimeline(houseEpisodes(visibleHouseEvents(watered, MIKKEL)), []);
-    expect(
-      past.map(row => (row.type === 'past' ? [row.episode.kind, row.areaId, row.restricted, row.episode.rows[0].text] : null))
-    ).toEqual([
-      ['evt', null, true, 'Watered Fig'],
-      ['evt', null, true, 'Watered Strelitzia'],
+    expect(past.map(row => (row.type === 'past' ? [row.episode.kind, row.restricted, row.episode.rows[0].text] : null))).toEqual([
+      ['evt', true, 'Watered Fig'],
+      ['evt', true, 'Watered Strelitzia'],
     ]);
     expect(buildNowTimeline(houseEpisodes(visibleHouseEvents(watered, KRISTINE)), []).past).toEqual([]);
-  });
-
-  it('owns a generic row only when all its rows point at one room', () => {
-    const episode = (icons: string[]) => ({
-      id: '1',
-      kind: 'evt' as const,
-      startMs: 0,
-      endMs: 0,
-      rows: icons.map(icon => ({ tsMs: 0, icon, text: icon })),
-    });
-    expect(episodeAreaId(episode(['mdi:lock-open-variant']))).toBe('hallway');
-    expect(episodeAreaId(episode(['mdi:lock-open-variant', 'mdi:television']))).toBeNull();
   });
 });
 
@@ -119,13 +82,13 @@ describe('the rooms of Rober2 rounds on the rail', () => {
     ]);
   });
 
-  it('step through their own round from the map sheet, and open the room they lie in', () => {
+  it('step through their own round from the map sheet', () => {
     const past = timelineFor(KRISTINE);
     const kitchen = past.find(row => row.id === 'rober2:rober2_map_20261013_102731_kitchen_2.png');
     expect(kitchen?.type).toBe('room');
     if (kitchen?.type !== 'room') return;
     expect(kitchen.maps.map(map => map.room)).toEqual(['hallway', 'kitchen', 'kitchen_2', 'living_room', 'dining_room']);
-    expect([kitchen.index, kitchen.areaId]).toEqual([2, 'kitchen']);
+    expect(kitchen.index).toBe(2);
   });
 
   it("put other rows that fell in a round on the round's line", () => {
@@ -198,10 +161,7 @@ describe('the NOW line and what comes after it', () => {
 
   it('puts running and paused appliances on the line, and no separate done row for them', () => {
     const { running, future } = buildNowTimeline([], upcoming);
-    expect(running.map(row => [row.id, row.areaId])).toEqual([
-      ['dryer', 'guest_bathroom'],
-      ['washer', 'guest_bathroom'],
-    ]);
+    expect(running.map(row => row.id)).toEqual(['dryer', 'washer']);
     expect(running[1].atMs).toBe(Date.parse('2026-10-13T16:50:00Z'));
     expect(running[1].item.atMs).toBe(home(2026, 10, 13, 20, 23));
     expect(future.map(row => row.id)).toEqual(['wake', 'rober2']);

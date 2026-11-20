@@ -61,13 +61,11 @@ const without = (...keys: string[]) => Object.fromEntries(Object.entries(FILTERS
 let root: Root;
 let send: Mock<(message: unknown) => Promise<unknown>>;
 let onClose: Mock<() => void>;
-let onOpenRoom: Mock<(areaId: string) => void>;
 
 beforeEach(() => {
   send = vi.fn(() => Promise.resolve(null));
   store.setState({ connection: { sendMessagePromise: send } });
   onClose = vi.fn<() => void>();
-  onOpenRoom = vi.fn<(areaId: string) => void>();
   root = createRoot(document.createElement('div'));
 });
 
@@ -78,7 +76,7 @@ afterEach(() => {
 
 async function open(row: HouseUpcomingRow, isAdmin = true) {
   await act(async () => {
-    root.render(createElement(MaintSheet, { row, isAdmin, onClose, onOpenRoom }));
+    root.render(createElement(MaintSheet, { row, isAdmin, onClose }));
   });
 }
 
@@ -225,13 +223,12 @@ describe('the Done button', () => {
     expect(sent()).toEqual([]);
   });
 
-  it('is only on a row that has one, which has no Open room button and keeps its place after a Done', async () => {
+  it('is only on a row that has one, and keeps its place after a Done', async () => {
     await open(parse(without('done')));
     expect(button('Done')).toBeUndefined();
     await act(async () => root.unmount());
     root = createRoot(document.createElement('div'));
     await open(parse(FILTERS));
-    expect(button('Open room')).toBeUndefined();
     await press('Done');
     await press('Yes, done');
     await act(async () => {
@@ -244,7 +241,6 @@ describe('the Done button', () => {
           }),
           isAdmin: true,
           onClose,
-          onOpenRoom,
         })
       );
     });
@@ -261,19 +257,12 @@ describe('a row with a guide but no Done button', () => {
     detail: 'Intensive 75, due, last unknown',
   };
 
-  it('shows the guide and opens its room', async () => {
+  it('shows the guide', async () => {
     await open(parse(HYGIENE));
     expect(button('Done')).toBeUndefined();
     await press('How to');
     expect(document.body.querySelectorAll('.maint-steps li')).toHaveLength(3);
-    await press('Open room');
-    expect(onOpenRoom).toHaveBeenCalledExactlyOnceWith('kitchen');
     expect(sent()).toEqual([]);
-  });
-
-  it('has no Open room button without a room', async () => {
-    await open(parse(Object.fromEntries(Object.entries(HYGIENE).filter(([key]) => key !== 'area'))));
-    expect(button('Open room')).toBeUndefined();
   });
 });
 
@@ -289,66 +278,12 @@ describe('a row with info lines only', () => {
     info: ['The big plant with banana leaves', 'On the floor by the window'],
   };
 
-  it('shows what it says and its info lines, with no guide and no Done button, and offers the room that lists it as due', async () => {
+  it('shows what it says and its info lines, with no guide, no Done button and no other button', async () => {
     await open(parse(PLANT));
     expect(text()).toContain('soil 15%, water at 15%');
     expect([...document.body.querySelectorAll('.maint-info li')].map(li => li.textContent)).toEqual(PLANT.info);
-    expect(buttons().map(b => b.textContent)).toEqual(['Open room']);
-    expect(document.body.querySelector('.maint-guide')).toBeNull();
-    await press('Open room');
-    expect(onOpenRoom).toHaveBeenCalledExactlyOnceWith('dining_room');
-  });
-
-  it('offers no room while it is not due yet, since the room has nothing about it', async () => {
-    await open(parse({ ...PLANT, at: '2026-12-27T08:00:00+00:00' }));
-    expect(text()).toContain('soil 15%, water at 15%');
     expect(buttons()).toEqual([]);
-  });
-});
-
-describe('the Open room button', () => {
-  const GUIDE = { ...without('done', 'info'), area: 'kitchen' };
-  const rowWith = (id: string) => parse({ ...GUIDE, id });
-
-  it.each(['maint:washer:drum', 'maint:dryer:plinth', 'maint:dishwasher:hygiene', 'maint:coffee:rinse', 'maint:rober2:filter'])(
-    'is on %s, whose room panel has a card for the appliance',
-    async id => {
-      await open(rowWith(id));
-      await press('Open room');
-      expect(onOpenRoom).toHaveBeenCalledExactlyOnceWith('kitchen');
-    }
-  );
-
-  it.each(['maint:plant:test', 'maint:once:test', 'maint:battery:sensor.test_battery', 'maint:more'])(
-    'is not on %s, whose room panel has nothing about it, though the row names a room and has a guide',
-    async id => {
-      const row = rowWith(id);
-      expect(row.areaId).toBe('kitchen');
-      expect(row.steps.length).toBeGreaterThan(0);
-      await open(row);
-      expect(button('How to')).toBeDefined();
-      expect(button('Open room')).toBeUndefined();
-    }
-  );
-
-  it('is on a row that is due whatever it is, since the room panel lists it under To do', async () => {
-    await open(parse({ ...without('done', 'info', 'at'), id: 'maint:plant:test' }));
-    await press('Open room');
-    expect(onOpenRoom).toHaveBeenCalledExactlyOnceWith('kitchen');
-  });
-
-  it('is not offered to a sheet that is opened without a way into the room', async () => {
-    await act(async () => {
-      root.render(createElement(MaintSheet, { row: rowWith('maint:washer:drum'), isAdmin: true, onClose }));
-    });
-    expect(button('How to')).toBeDefined();
-    expect(button('Open room')).toBeUndefined();
-  });
-
-  it('is not on an appliance row that has a Done button, as before', async () => {
-    await open(parse({ ...FILTERS, id: 'maint:coffee:tank' }));
-    expect(button('Done')).toBeDefined();
-    expect(button('Open room')).toBeUndefined();
+    expect(document.body.querySelector('.maint-guide')).toBeNull();
   });
 });
 
@@ -464,11 +399,11 @@ describe('a plant row', () => {
     expect(picture()?.getAttribute('src')).toBe('/photos/monstera.webp');
   });
 
-  it('shows the photo of a plant a sensor closes too, which has no Done button and offers its room while it is due', async () => {
+  it('shows the photo of a plant a sensor closes too, which has no Done button', async () => {
     await open(parse({ ...withoutKeys('done'), detail: 'soil 20%, water at 20%' }));
     expect(picture()?.getAttribute('src')).toBe('/photos/monstera.webp');
     expect(text()).toContain('soil 20%, water at 20%');
     expect(pins()).toEqual([false, true, false, false]);
-    expect(buttons().map(b => b.textContent)).toEqual(['Open room']);
+    expect(buttons()).toEqual([]);
   });
 });

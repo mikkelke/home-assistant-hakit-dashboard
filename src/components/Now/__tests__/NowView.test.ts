@@ -86,7 +86,7 @@ async function open() {
         focus: { kind: 'washer', epochS: Math.floor(FINISHED_MS / 1000) },
         arrival: 'cold',
         onBack: () => {},
-        onOpenRoom: () => {},
+        onOpenCoffee: () => {},
       })
     );
   });
@@ -142,7 +142,7 @@ describe('sun and quiet hours on the timeline', () => {
     vi.setSystemTime(nowMs);
     store.setState({ entities });
     await act(async () => {
-      root.render(createElement(NowView, { focus: null, arrival: 'cold', onBack: () => {}, onOpenRoom: () => {} }));
+      root.render(createElement(NowView, { focus: null, arrival: 'cold', onBack: () => {}, onOpenCoffee: () => {} }));
     });
   }
 
@@ -204,7 +204,7 @@ describe('the running appliance card', () => {
     vi.setSystemTime(home(2026, 10, 13, 21, 0));
     store.setState({ entities });
     await act(async () => {
-      root.render(createElement(NowView, { focus: null, arrival: 'cold', onBack: () => {}, onOpenRoom: () => {} }));
+      root.render(createElement(NowView, { focus: null, arrival: 'cold', onBack: () => {}, onOpenCoffee: () => {} }));
     });
   }
 
@@ -308,7 +308,6 @@ describe('a maintenance row with a sheet', () => {
   async function openAs(isAdmin: boolean, ...rows: unknown[]) {
     user.current = { is_admin: isAdmin, name: isAdmin ? 'Mikkel' : 'Kristine' };
     vi.setSystemTime(NOW);
-    const opened: string[] = [];
     const send = vi.fn(() => Promise.resolve(null));
     store.setState({ entities: upcoming(...rows), connection: { sendMessagePromise: send } });
     await act(async () => {
@@ -318,79 +317,57 @@ describe('a maintenance row with a sheet', () => {
           focus: null,
           arrival: 'cold',
           onBack: () => {},
-          onOpenRoom: areaId => opened.push(areaId),
+          onOpenCoffee: () => {},
         })
       );
     });
-    return { opened, send };
+    return { send };
   }
 
   const row = (id: string) => document.querySelector<HTMLButtonElement>(`[data-row-id="${id}"] button`);
   const sheet = () => document.querySelector('.maint-sheet');
   const sheetText = () => document.querySelector('.maint-body')?.textContent ?? '';
 
-  it('opens the sheet of a tapped row instead of its room', async () => {
-    const { opened } = await openAs(true, TAPPED, BATTERY);
+  it('opens the sheet of a tapped row', async () => {
+    await openAs(true, TAPPED, BATTERY);
     expect(sheet()).toBeNull();
     await act(async () => row(TAPPED.id)?.click());
     expect(sheet()).not.toBeNull();
-    expect(opened).toEqual([]);
     expect(document.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Dishwasher filters + spray arms');
     expect(sheetText()).toContain('rinse filter + arms, 30 runs left, ~27.12');
     expect(sheetText()).toContain('Done');
   });
 
-  it('leaves a maintenance row that is not due, has no sheet and no card in its room untappable, with nothing that looks tappable', async () => {
-    const { opened } = await openAs(true, TAPPED, BATTERY_LATER);
+  it('leaves a maintenance row without a sheet untappable, with nothing that looks tappable', async () => {
+    await openAs(true, TAPPED, BATTERY_LATER);
     const card = document.querySelector(`[data-row-id="${BATTERY_LATER.id}"] .now-card`);
     expect(card).not.toBeNull();
     expect(row(BATTERY_LATER.id)).toBeNull();
     expect(card?.tagName).toBe('DIV');
     expect(card?.classList.contains('is-link')).toBe(false);
     await act(async () => (card as HTMLElement).click());
-    expect(opened).toEqual([]);
     expect(sheet()).toBeNull();
   });
 
-  it('opens the room of a maintenance row that is due, where the room panel lists it under To do', async () => {
-    const { opened } = await openAs(true, TAPPED, BATTERY);
-    await act(async () => row(BATTERY.id)?.click());
-    expect(opened).toEqual(['rooftop']);
-    expect(sheet()).toBeNull();
+  it('leaves a due maintenance row and an appliance row without a sheet untappable', async () => {
+    await openAs(true, TAPPED, BATTERY, PLAIN_APPLIANCE);
+    expect(row(BATTERY.id)).toBeNull();
+    expect(row(PLAIN_APPLIANCE.id)).toBeNull();
   });
 
-  it('still opens the room of an appliance row that has no sheet, where its card is', async () => {
-    const { opened } = await openAs(true, PLAIN_APPLIANCE);
-    await act(async () => row(PLAIN_APPLIANCE.id)?.click());
-    expect(opened).toEqual(['kitchen']);
-    expect(sheet()).toBeNull();
-  });
-
-  it('opens a guide without a Done button for a row that is closed some other way, and it opens the room from there', async () => {
-    const { opened } = await openAs(true, GUIDE_ONLY);
+  it('opens a guide without a Done button for a row that is closed some other way', async () => {
+    await openAs(true, GUIDE_ONLY);
     await act(async () => row(GUIDE_ONLY.id)?.click());
     expect(sheet()).not.toBeNull();
-    expect([...document.querySelectorAll('.maint-body button')].map(button => button.textContent)).toEqual(['How to', 'Open room']);
-    await act(async () => document.querySelector<HTMLButtonElement>('.maint-body .maint-btn')?.click());
-    expect(opened).toEqual(['guest_bathroom']);
+    expect([...document.querySelectorAll('.maint-body button')].map(button => button.textContent)).toEqual(['How to']);
   });
 
-  it('opens the sheet of a row that has info lines only, which shows them and offers the room that lists it as due', async () => {
-    const { opened } = await openAs(true, INFO_ONLY);
+  it('opens the sheet of a row that has info lines only, which shows them and no button', async () => {
+    await openAs(true, INFO_ONLY);
     await act(async () => row(INFO_ONLY.id)?.click());
     expect(sheet()).not.toBeNull();
-    expect(opened).toEqual([]);
     expect(sheetText()).toContain('soil 15%, water at 15%');
     expect(sheetText()).toContain('On the floor by the window');
-    expect([...document.querySelectorAll('.maint-body button')].map(button => button.textContent)).toEqual(['Open room']);
-    await act(async () => document.querySelector<HTMLButtonElement>('.maint-body .maint-btn')?.click());
-    expect(opened).toEqual(['dining_room']);
-  });
-
-  it('offers no room from the sheet of such a row while it is not due yet', async () => {
-    await openAs(true, { ...INFO_ONLY, at: iso(home(2026, 10, 20, 9, 0)) });
-    await act(async () => row(INFO_ONLY.id)?.click());
-    expect(sheet()).not.toBeNull();
     expect(document.querySelectorAll('.maint-body button')).toHaveLength(0);
   });
 
@@ -405,11 +382,10 @@ describe('a maintenance row with a sheet', () => {
     expect(document.querySelectorAll('.maint-info [data-icon]')).toHaveLength(1);
   });
 
-  it('opens the sheet of an overview row from its card, with its lines, no Done button and no room', async () => {
-    const { opened } = await openAs(true, OVERVIEW);
+  it('opens the sheet of an overview row from its card, with its lines and no Done button', async () => {
+    await openAs(true, OVERVIEW);
     await act(async () => row(OVERVIEW.id)?.click());
     expect(sheet()).not.toBeNull();
-    expect(opened).toEqual([]);
     expect(sheetText()).toContain('Fig: next 27.10, watered 20.10');
     expect(sheetText()).toContain('Palm: next 29.10, watered 19.10');
     expect(document.querySelectorAll('.maint-body button')).toHaveLength(0);
@@ -468,7 +444,7 @@ describe('a plant watered, on the past side of the timeline', () => {
     user.current = { is_admin: isAdmin, name: isAdmin ? 'Mikkel' : 'Kristine' };
     store.setState({ entities: houseEvents(watered), connection: {} });
     await act(async () => {
-      root.render(createElement(NowView, { key: `${isAdmin}`, focus: null, arrival: 'cold', onBack: () => {}, onOpenRoom: () => {} }));
+      root.render(createElement(NowView, { key: `${isAdmin}`, focus: null, arrival: 'cold', onBack: () => {}, onOpenCoffee: () => {} }));
     });
   }
   const pastRows = () =>
@@ -545,7 +521,6 @@ describe('rows from sensor.house_upcoming', () => {
   async function openAs(name: string, isAdmin: boolean, props: { itemId?: string } = {}, expiresMs = NOW + 10 * 60_000) {
     user.current = { is_admin: isAdmin, name };
     vi.setSystemTime(NOW);
-    const opened: string[] = [];
     store.setState({ entities: upcoming(expiresMs), connection: {} });
     await act(async () => {
       root.render(
@@ -555,11 +530,10 @@ describe('rows from sensor.house_upcoming', () => {
           itemId: props.itemId ?? null,
           arrival: 'cold',
           onBack: () => {},
-          onOpenRoom: areaId => opened.push(areaId),
+          onOpenCoffee: () => {},
         })
       );
     });
-    return opened;
   }
 
   const cards = () =>
@@ -584,11 +558,9 @@ describe('rows from sensor.house_upcoming', () => {
     expect(cards().map(card => card.label?.split(',')[0])).toEqual(['Rain forecast']);
   });
 
-  it('opens the room of a tapped card and leaves cards without a room untappable', async () => {
-    const opened = await openAs('Mikkel', true);
-    const rain = document.querySelector<HTMLButtonElement>('[data-row-id="rain:terrace"] button');
-    await act(async () => rain?.click());
-    expect(opened).toEqual(['living_room']);
+  it('leaves cards without a sheet untappable', async () => {
+    await openAs('Mikkel', true);
+    expect(document.querySelector('[data-row-id="rain:terrace"] button')).toBeNull();
     expect(document.querySelector('[data-row-id="rain:kristine"] button')).toBeNull();
   });
 

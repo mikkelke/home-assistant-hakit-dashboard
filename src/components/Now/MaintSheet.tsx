@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
-import { opensRoom, type HouseUpcomingRow } from '../../home/houseUpcoming';
+import type { HouseUpcomingRow } from '../../home/houseUpcoming';
 import { fireHaEvent } from '../../utils/haEvents';
 import { ApplianceSheet } from '../Appliance';
 import '../Appliance/Appliance.css';
@@ -25,8 +25,6 @@ export interface MaintSheetProps {
   row: HouseUpcomingRow;
   isAdmin: boolean;
   onClose: () => void;
-  /** Without it the sheet offers no way into the room, as when it is opened from the room's own panel. */
-  onOpenRoom?: (areaId: string) => void;
   /** A plant row's soil sensor and last watering: the sheet charts the soil a day either side of it, or the last day when
    * no watering is known. */
   soil?: { entity: string; wateredMs: number | null } | null;
@@ -34,14 +32,13 @@ export interface MaintSheetProps {
 
 /** What to do about a maintenance row: the photo of a plant, its numbers, the lines of an overview row, a step-by-step guide
  * behind the info button, and for a tapped row a Done button that asks before it fires. */
-export function MaintSheet({ row, isAdmin, onClose, onOpenRoom, soil }: MaintSheetProps) {
+export function MaintSheet({ row, isAdmin, onClose, soil }: MaintSheetProps) {
   const connection = useHass(s => s.connection);
   const [phase, setPhase] = useState<Phase>('idle');
   const [failed, setFailed] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const guideId = useId();
   const canDone = isAdmin && row.tapDone;
-  const roomId = onOpenRoom && !row.tapDone && opensRoom(row) ? row.areaId : null;
   const photo = row.photo ? plantPhoto(row.photo) : undefined;
   const [openedMs] = useState(() => Date.now());
 
@@ -156,12 +153,6 @@ export function MaintSheet({ row, isAdmin, onClose, onOpenRoom, soil }: MaintShe
             <Icon icon='mdi:alert-circle-outline' aria-hidden='true' />
             Home Assistant did not take that. Try again.
           </p>
-        )}
-        {roomId && (
-          <button type='button' className='maint-btn is-ghost' onClick={() => onOpenRoom?.(roomId)}>
-            <Icon icon='mdi:door-open' aria-hidden='true' />
-            Open room
-          </button>
         )}
       </div>
     </ApplianceSheet>

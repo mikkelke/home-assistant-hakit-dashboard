@@ -26,9 +26,9 @@ import {
   type HouseEpisode,
   type HouseEvent,
 } from '../../home/houseEvents';
-import { detailSpec, plantOfRow, type DetailSpec } from '../../home/eventDetail';
+import { brewForRow, detailSpec, plantOfRow, type DetailSpec } from '../../home/eventDetail';
 import { mergeHouseEvents, withBackfill } from '../../home/houseEventsHistory';
-import { canViewerSeeUpcoming, hasSheet, opensRoom, parseHouseUpcoming } from '../../home/houseUpcoming';
+import { canViewerSeeUpcoming, hasSheet, parseHouseUpcoming } from '../../home/houseUpcoming';
 import { MARKERS } from '../../home/markers';
 import { MotionScopeContext, useMotionSlot } from '../../home/motionBudget';
 import { linkedRing, NOW_RESOLVE_GIVE_UP_MS, resolveNowFocus, resolveNowItem, type NowResolution } from '../../home/nowResolve';
@@ -108,25 +108,10 @@ function RowShell({ id, time, tone, focused, className = '', children }: RowShel
   );
 }
 
-/** A row's body: a tap runs `onTap` when given, else opens the room that owns the row, when one does. */
-function RowBody({
-  areaId,
-  onOpenRoom,
-  onTap,
-  className,
-  label,
-  children,
-}: {
-  areaId: string | null;
-  onOpenRoom: (areaId: string) => void;
-  onTap?: () => void;
-  className: string;
-  label: string;
-  children: ReactNode;
-}) {
-  const open = onTap ?? (areaId ? () => onOpenRoom(areaId) : null);
-  return open ? (
-    <button type='button' className={`${className} is-link`} onClick={open} aria-label={label}>
+/** A row's body: a button when a tap opens something, else plain. */
+function RowBody({ onTap, className, label, children }: { onTap?: () => void; className: string; label: string; children: ReactNode }) {
+  return onTap ? (
+    <button type='button' className={`${className} is-link`} onClick={onTap} aria-label={label}>
       {children}
     </button>
   ) : (
@@ -141,19 +126,17 @@ function roundClass(round: RoundSpan | null): string {
   return round == null ? '' : round === 'inner' ? 'in-round' : `in-round round-${round}`;
 }
 
-/** A room a Rober2 round cleaned: a tap opens the room, and its map button that room's map, from which the sheet steps
- * through the round's other rooms. */
+/** A room a Rober2 round cleaned: its map button opens that room's map, from which the sheet steps through the round's
+ * other rooms. */
 function CleanedRoom({
   row,
   age,
   focused,
-  onOpenRoom,
   onOpenMap,
 }: {
   row: RoomRow;
   age: number;
   focused: boolean;
-  onOpenRoom: (areaId: string) => void;
   onOpenMap: (maps: MapEntry[], index: number) => void;
 }) {
   const name = formatRoberRoomName(row.map.room) ?? '';
@@ -165,7 +148,7 @@ function CleanedRoom({
       focused={focused}
       className={`is-past is-room age-${Math.min(age, 3)} ${roundClass(row.round)}`}
     >
-      <RowBody areaId={row.areaId} onOpenRoom={onOpenRoom} className='now-body' label={`${name} cleaned`}>
+      <RowBody className='now-body' label={`${name} cleaned`}>
         <span className='now-chip tone-green'>
           <Icon icon='mdi:robot-vacuum' />
           <span className='now-chip-text'>{name} cleaned</span>
@@ -182,7 +165,6 @@ function PastEpisode({
   row,
   age,
   focused,
-  onOpenRoom,
   onOpenRing,
   detailOf,
   onOpenDetail,
@@ -190,7 +172,6 @@ function PastEpisode({
   row: PastRow;
   age: number;
   focused: boolean;
-  onOpenRoom: (areaId: string) => void;
   onOpenRing: (episode: HouseEpisode) => void;
   detailOf: (episode: HouseEpisode) => OpenDetail | null;
   onOpenDetail: (detail: OpenDetail) => void;
@@ -204,7 +185,7 @@ function PastEpisode({
   const ring = row.episode.kind === 'ring';
   const detail = ring ? null : detailOf(row.episode);
   if (row.episode.kind === 'coffee' && !cause) {
-    return <CoffeePastRow row={row} age={age} focused={focused} onOpenRoom={onOpenRoom} by={by} />;
+    return <CoffeePastRow row={row} age={age} focused={focused} by={by} onTap={detail ? () => onOpenDetail(detail) : undefined} />;
   }
   return (
     <RowShell
@@ -215,8 +196,6 @@ function PastEpisode({
       className={`is-past age-${Math.min(age, 3)} ${roundClass(row.round)}`}
     >
       <RowBody
-        areaId={row.areaId}
-        onOpenRoom={onOpenRoom}
         onTap={ring ? () => onOpenRing(row.episode) : detail ? () => onOpenDetail(detail) : undefined}
         className={ring ? 'now-body is-ring' : 'now-body'}
         label={[cause, last.effect ?? last.text].filter(Boolean).join(', ')}
@@ -260,23 +239,24 @@ function ApplianceTitle({ item }: { item: UpcomingAppliance }) {
   );
 }
 
-/** A finished brew in the past: its cup weight and curve when the ledger has it, else the feed's words. */
+/** A finished brew in the past: its cup weight and curve when the ledger has it, else the feed's words. A tap shows how it
+ * brewed. */
 function CoffeePastRow({
   row,
   age,
   focused,
-  onOpenRoom,
   by,
+  onTap,
 }: {
   row: PastRow;
   age: number;
   focused: boolean;
-  onOpenRoom: (areaId: string) => void;
   by: string | undefined;
+  onTap?: () => void;
 }) {
   const brews = useCoffeeBrews();
   const first = row.episode.rows[0];
-  const brew = brews?.brews.find(item => item.outcome === 'complete' && item.atMs != null && Math.abs(item.atMs - row.atMs) < 20 * 60_000);
+  const brew = brews ? brewForRow(brews.brews, row.atMs) : null;
   const newest = brew != null && brews?.brews.find(item => item.outcome === 'complete')?.id === brew.id;
   const text = brew?.cupG != null ? `Coffee ${Math.round(brew.cupG)} g` : first.text;
   return (
@@ -287,7 +267,7 @@ function CoffeePastRow({
       focused={focused}
       className={`is-past age-${Math.min(age, 3)} ${roundClass(row.round)}`}
     >
-      <RowBody areaId={row.areaId} onOpenRoom={onOpenRoom} className='now-body' label={text}>
+      <RowBody onTap={onTap} className='now-body' label={text}>
         <span className='now-chip is-tone tone-copper now-coffee-chip'>
           <Icon icon={first.icon} />
           {by && <span className='now-mini'>{by.charAt(0).toUpperCase()}</span>}
@@ -299,8 +279,8 @@ function CoffeePastRow({
   );
 }
 
-/** A brew on the NOW line: its stage, the one ETA, its live curve. */
-function CoffeeRunningCard({ row, focused, onOpenRoom }: { row: RunningRow; focused: boolean; onOpenRoom: (areaId: string) => void }) {
+/** A brew on the NOW line: its stage, the one ETA, its live curve. A tap opens the brew screen. */
+function CoffeeRunningCard({ row, focused, onOpenCoffee }: { row: RunningRow; focused: boolean; onOpenCoffee: () => void }) {
   const state = useCoffeeState();
   const live = useCoffeeLive();
   const recipes = useCoffeeRecipes();
@@ -316,12 +296,7 @@ function CoffeeRunningCard({ row, focused, onOpenRoom }: { row: RunningRow; focu
   const pct = state ? brewProgressPct(state, nowMs) : 0;
   return (
     <RowShell id={row.id} time={null} tone='copper' focused={focused} className='is-live'>
-      <RowBody
-        areaId={row.areaId}
-        onOpenRoom={onOpenRoom}
-        className='now-card is-run is-coffee'
-        label={[title, sub].filter(Boolean).join(', ')}
-      >
+      <RowBody onTap={onOpenCoffee} className='now-card is-run is-coffee' label={[title, sub].filter(Boolean).join(', ')}>
         <span className='now-ph'>
           <span className='now-ico tone-copper'>
             <Icon icon='mdi:coffee' />
@@ -346,29 +321,19 @@ function RunningCard({
   row,
   quiet,
   focused,
-  onOpenRoom,
+  onOpenCoffee,
 }: {
   row: RunningRow;
   quiet: QuietHours;
   focused: boolean;
-  onOpenRoom: (areaId: string) => void;
+  onOpenCoffee: () => void;
 }) {
-  if (row.item.id === 'coffee') return <CoffeeRunningCard row={row} focused={focused} onOpenRoom={onOpenRoom} />;
-  return <ApplianceRunningCard row={row} quiet={quiet} focused={focused} onOpenRoom={onOpenRoom} />;
+  if (row.item.id === 'coffee') return <CoffeeRunningCard row={row} focused={focused} onOpenCoffee={onOpenCoffee} />;
+  return <ApplianceRunningCard row={row} quiet={quiet} focused={focused} />;
 }
 
 /** A running or paused appliance, on the NOW line: when it started goes in the card, not on the rail. */
-function ApplianceRunningCard({
-  row,
-  quiet,
-  focused,
-  onOpenRoom,
-}: {
-  row: RunningRow;
-  quiet: QuietHours;
-  focused: boolean;
-  onOpenRoom: (areaId: string) => void;
-}) {
+function ApplianceRunningCard({ row, quiet, focused }: { row: RunningRow; quiet: QuietHours; focused: boolean }) {
   const { cycle, appliance, announce } = row.item;
   const sheen = useMotionSlot(`sheen:${row.id}`, 'appliance', cycle.status === 'running');
   const startedBy = useHass(s => s.entities[appliance.config.stateEntityId]?.attributes?.started_by);
@@ -382,12 +347,7 @@ function ApplianceRunningCard({
   ];
   return (
     <RowShell id={row.id} time={null} tone={null} focused={focused} className='is-live'>
-      <RowBody
-        areaId={row.areaId}
-        onOpenRoom={onOpenRoom}
-        className={`now-card is-run tone-${appliance.kind}`}
-        label={`${appliance.config.label}, ${pct} %`}
-      >
+      <RowBody className={`now-card is-run tone-${appliance.kind}`} label={`${appliance.config.label}, ${pct} %`}>
         <span className='now-ph'>
           <span className={`now-ico tone-${appliance.kind}`}>
             <Icon icon={appliance.config.icon} />
@@ -436,27 +396,12 @@ function Marker({ row, focused }: { row: MarkerRow; focused: boolean }) {
   );
 }
 
-function PlanCard({
-  row,
-  isAdmin,
-  focused,
-  onOpenRoom,
-}: {
-  row: PlanRow;
-  isAdmin: boolean;
-  focused: boolean;
-  onOpenRoom: (areaId: string) => void;
-}) {
+function PlanCard({ row, isAdmin, focused }: { row: PlanRow; isAdmin: boolean; focused: boolean }) {
   const item = row.item;
   if (item.type === 'wake') {
     return (
       <RowShell id={row.id} time={item.clock} tone='gold' focused={focused} className={item.enabled ? '' : 'is-off'}>
-        <RowBody
-          areaId={row.areaId}
-          onOpenRoom={onOpenRoom}
-          className='now-card'
-          label={`Wake alarm ${item.clock}, ${item.enabled ? 'on' : 'off'}`}
-        >
+        <RowBody className='now-card' label={`Wake alarm ${item.clock}, ${item.enabled ? 'on' : 'off'}`}>
           <span className='now-ph'>
             <span className='now-ico tone-gold'>
               <Icon icon='mdi:alarm' />
@@ -480,7 +425,7 @@ function PlanCard({
   const cleaning = item.vacuumState === 'cleaning' || item.vacuumState === 'returning';
   return (
     <RowShell id={row.id} time='—' tone='green' focused={focused}>
-      <RowBody areaId={row.areaId} onOpenRoom={onOpenRoom} className='now-card' label='Rober2'>
+      <RowBody className='now-card' label='Rober2'>
         <span className='now-ph'>
           <span className='now-ico tone-green'>
             <Icon icon='mdi:robot-vacuum' />
@@ -502,25 +447,13 @@ function PlanCard({
 }
 
 /** A `sensor.house_upcoming` row, drawn like the Rober2 card: no buttons, a tap opens its sheet when it has one
- * (a maintenance row with a guide or a Done button), else its room. */
-function UpCard({
-  row,
-  focused,
-  onOpenRoom,
-  onOpenSheet,
-}: {
-  row: UpRow;
-  focused: boolean;
-  onOpenRoom: (areaId: string) => void;
-  onOpenSheet: (id: string) => void;
-}) {
+ * (a maintenance row with a guide or a Done button). */
+function UpCard({ row, focused, onOpenSheet }: { row: UpRow; focused: boolean; onOpenSheet: (id: string) => void }) {
   const up = row.row;
   const tone = UP_TONES[up.kind];
   return (
     <RowShell id={row.id} time={up.atMs != null ? formatHomeClock(up.atMs) : null} tone={tone} focused={focused}>
       <RowBody
-        areaId={opensRoom(up) ? up.areaId : null}
-        onOpenRoom={onOpenRoom}
         onTap={hasSheet(up) ? () => onOpenSheet(up.id) : undefined}
         className='now-card'
         label={[up.title, up.detail, up.chip].filter(Boolean).join(', ')}
@@ -588,12 +521,13 @@ export interface NowViewProps {
    * with its sheet up. */
   linkArrived?: boolean;
   onBack: () => void;
-  onOpenRoom: (areaId: string) => void;
+  /** Opens the brew screen, from the running brew's card. */
+  onOpenCoffee: () => void;
 }
 
 /** The `#now` timeline: what the house did, what runs now, and what comes next, opened on the item a
  * link names. */
-export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, onOpenRoom }: NowViewProps) {
+export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, onOpenCoffee }: NowViewProps) {
   const entities = useTrackedEntities();
   const hassUrl = useHass(s => s.hassUrl);
   const viewer = useViewer();
@@ -815,7 +749,6 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
                     row={row}
                     age={timeline.past.length - 1 - index}
                     focused={isFocused(row.id)}
-                    onOpenRoom={onOpenRoom}
                     onOpenMap={(maps, index) => setRoomMaps({ maps, index })}
                   />
                 ) : (
@@ -823,7 +756,6 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
                     row={row}
                     age={timeline.past.length - 1 - index}
                     focused={isFocused(row.id)}
-                    onOpenRoom={onOpenRoom}
                     onOpenRing={setRing}
                     detailOf={detailOf}
                     onOpenDetail={openDetail}
@@ -832,7 +764,7 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
               </div>
             ))}
             {timeline.running.map(row => (
-              <RunningCard key={row.id} row={row} quiet={quiet} focused={isFocused(row.id)} onOpenRoom={onOpenRoom} />
+              <RunningCard key={row.id} row={row} quiet={quiet} focused={isFocused(row.id)} onOpenCoffee={onOpenCoffee} />
             ))}
             <NowLine nowMs={nowMs} missing={missing} quietUntil={isQuietAt(quiet, nowMs) ? quietEndClock(quiet) : null} />
             {timeline.future.map((row, index) => (
@@ -841,9 +773,9 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
                 {row.type === 'marker' ? (
                   <Marker row={row} focused={isFocused(row.id)} />
                 ) : row.type === 'up' ? (
-                  <UpCard row={row} focused={isFocused(row.id)} onOpenRoom={onOpenRoom} onOpenSheet={setSheetId} />
+                  <UpCard row={row} focused={isFocused(row.id)} onOpenSheet={setSheetId} />
                 ) : (
-                  <PlanCard row={row} isAdmin={viewer.isAdmin === true} focused={isFocused(row.id)} onOpenRoom={onOpenRoom} />
+                  <PlanCard row={row} isAdmin={viewer.isAdmin === true} focused={isFocused(row.id)} />
                 )}
               </Fragment>
             ))}
@@ -872,7 +804,6 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
           row={sheetRow}
           isAdmin={viewer.isAdmin === true}
           onClose={() => setSheetId(null)}
-          onOpenRoom={onOpenRoom}
           soil={plantOfRow(sheetRow.id, visibleEvents, exists)}
         />
       )}

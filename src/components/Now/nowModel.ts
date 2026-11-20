@@ -7,9 +7,8 @@ import { isDue, type HouseUpcomingKind, type HouseUpcomingRow } from '../../home
 import type { MarkerRow } from '../../home/markers';
 import { isQuietAt, type QuietHours } from '../../home/quietHours';
 import type { UpcomingAppliance, UpcomingItem } from '../../home/upcoming';
-import type { NowFocusKind } from '../../utils/navigation';
 import type { MapEntry } from '../Vacuum/maps';
-import { roberRoomAreaId, type RoberRound } from '../Vacuum/sessionRooms';
+import type { RoberRound } from '../Vacuum/sessionRooms';
 
 export { timelineMarkers, type MarkerRow } from '../../home/markers';
 
@@ -22,8 +21,6 @@ export interface PastRow {
   id: string;
   episode: HouseEpisode;
   atMs: number;
-  /** HA area id a tap opens; null when no single room owns the row. */
-  areaId: string | null;
   /** Hidden from part of the household. */
   restricted: boolean;
   round: RoundSpan | null;
@@ -39,7 +36,6 @@ export interface RoomRow {
   /** The maps of its round, which its map sheet steps through, and its own place among them. */
   maps: MapEntry[];
   index: number;
-  areaId: string | null;
   round: RoundSpan | null;
 }
 
@@ -51,7 +47,6 @@ export interface RunningRow {
   item: UpcomingAppliance;
   /** Cycle start; null when unknown. */
   atMs: number | null;
-  areaId: string;
 }
 
 export interface PlanRow {
@@ -59,7 +54,6 @@ export interface PlanRow {
   id: string;
   item: Exclude<UpcomingItem, UpcomingAppliance>;
   atMs: number | null;
-  areaId: string;
 }
 
 /** A `sensor.house_upcoming` card: maintenance or a rain forecast. */
@@ -80,31 +74,6 @@ export interface NowTimeline {
   running: RunningRow[];
   /** Rows due now first, then soonest first; the other untimed rows last. */
   future: FutureRow[];
-}
-
-const AREA_BY_KIND: Partial<Record<NowFocusKind, string>> = {
-  ring: 'hallway',
-  washer: 'guest_bathroom',
-  dryer: 'guest_bathroom',
-  dish: 'kitchen',
-  coffee: 'kitchen',
-  wake: 'bedroom',
-};
-
-/** Icon prefixes of generic rows that still name one room: the front door and its lock, and Rober2's
- * dock in the kitchen. */
-const AREA_BY_ICON_PREFIX: readonly (readonly [string, string])[] = [
-  ['mdi:lock', 'hallway'],
-  ['mdi:door', 'hallway'],
-  ['mdi:bell', 'hallway'],
-  ['mdi:robot-vacuum', 'kitchen'],
-];
-
-export function episodeAreaId(episode: HouseEpisode): string | null {
-  const byKind = AREA_BY_KIND[episode.kind];
-  if (byKind) return byKind;
-  const areas = episode.rows.map(row => AREA_BY_ICON_PREFIX.find(([prefix]) => row.icon.startsWith(prefix))?.[1] ?? null);
-  return areas.every(area => area != null && area === areas[0]) ? areas[0] : null;
 }
 
 const isRestricted = (row: HouseEvent) => row.audience === 'admin' || row.audienceUsers != null;
@@ -135,7 +104,6 @@ function pastRows(episodes: readonly HouseEpisode[], rounds: readonly RoberRound
         atMs: room.atMs,
         maps,
         index,
-        areaId: roberRoomAreaId(room.map.room) ?? null,
         round: null,
       })
     );
@@ -148,7 +116,6 @@ function pastRows(episodes: readonly HouseEpisode[], rounds: readonly RoberRound
         id: episode.id,
         episode,
         atMs: episode.startMs,
-        areaId: episodeAreaId(episode),
         restricted: episode.rows.some(isRestricted),
         round: null,
       })
@@ -179,9 +146,9 @@ export function buildNowTimeline(
   const future: FutureRow[] = [];
   for (const item of upcoming) {
     if (item.type === 'appliance') {
-      running.push({ type: 'running', id: item.id, item, atMs: item.cycle.startMs, areaId: item.appliance.areaId });
+      running.push({ type: 'running', id: item.id, item, atMs: item.cycle.startMs });
     } else {
-      future.push({ type: 'plan', id: item.id, item, atMs: item.atMs, areaId: item.areaId });
+      future.push({ type: 'plan', id: item.id, item, atMs: item.atMs });
     }
   }
   future.push(...markers, ...upRows.map((row): UpRow => ({ type: 'up', id: row.id, row, atMs: row.atMs })));

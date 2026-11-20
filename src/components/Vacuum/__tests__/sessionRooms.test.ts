@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import feed from '../../../home/__tests__/fixtures/house-events.json';
 import { houseEpisodes, parseHouseEvents, type HouseEpisode } from '../../../home/houseEvents';
 import type { MapEntry } from '../maps';
-import { SESSION_MAP_LAG_MS, mapEntryMs, roberRoomAreaId, roberRounds, type RoberRoom } from '../sessionRooms';
+import { SESSION_MAP_LAG_MS, mapEntryMs, roberRounds, type RoberRoom } from '../sessionRooms';
 import archive from './fixtures/rober2-maps.json';
 
 const START = ['Nobody home', 'Vacuum starting its cleaning round'] as const;
@@ -237,11 +237,5 @@ describe('mapEntryMs', () => {
     expect(mapEntryMs({ timestamp: '20261014_114905' })).toBe(Date.parse('2026-10-14T11:49:05+02:00'));
     expect(mapEntryMs({ datetime: 'soon', timestamp: '' })).toBeNull();
     expect(mapEntryMs({ timestamp: '' })).toBeNull();
-  });
-});
-
-describe('roberRoomAreaId', () => {
-  it('puts both kitchen sides in the kitchen and Claudias room in its old area id', () => {
-    expect(['kitchen', 'kitchen_2', 'claudias_room', 'hallway'].map(roberRoomAreaId)).toEqual(['kitchen', 'kitchen', 'office', 'hallway']);
   });
 });

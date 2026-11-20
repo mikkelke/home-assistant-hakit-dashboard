@@ -8,7 +8,6 @@ import {
   isUpcomingFor,
   MAX_HOUSE_UPCOMING_ROWS,
   MAX_ROW_ITEMS,
-  opensRoom,
   parseHouseUpcoming,
   type HouseUpcomingRow,
 } from '../houseUpcoming';
@@ -220,11 +219,10 @@ const OVERVIEW = {
 describe('the overview lines of a row', () => {
   const without = (...keys: string[]) => Object.fromEntries(Object.entries(OVERVIEW).filter(([key]) => !keys.includes(key)));
 
-  it('are read as they come, and a row of them opens a sheet with no Done button and no room', () => {
+  it('are read as they come, and a row of them opens a sheet with no Done button', () => {
     const [row] = parse([OVERVIEW]);
     expect(row).toMatchObject({ items: OVERVIEW.items, tapDone: false, steps: [], info: [], areaId: null, adminOnly: true });
     expect(hasSheet(row)).toBe(true);
-    expect(opensRoom(row)).toBe(false);
   });
 
   it('keep only the non-empty lines, trimmed, and at most twenty', () => {
@@ -253,7 +251,6 @@ describe('the overview lines of a row', () => {
     expect(seenBy(rows, KRISTINE)).toEqual([]);
     expect(isDue(rows[1])).toBe(true);
     expect(dueRows(rows, MIKKEL)).toEqual([]);
-    expect(opensRoom(rows[1])).toBe(false);
   });
 });
 
@@ -372,37 +369,6 @@ describe('a rain row', () => {
     const soon = new Date(NOW + 10 * MINUTE).toISOString();
     expect(dueRows(publish(entry('maint:plant:fig', 'maint', { at: soon })), MIKKEL)).toEqual([]);
     expect(ids(dueRows(publish(entry('maint:plant:fig', 'maint')), MIKKEL))).toEqual(['maint:plant:fig']);
-  });
-});
-
-describe('the room a row opens', () => {
-  const opens = (raw: ReturnType<typeof entry>) => opensRoom(publish(raw)[0]);
-
-  it('is the room of an appliance row, whose room panel has a card for the appliance, due or not', () => {
-    for (const id of ['maint:washer:drum', 'maint:dryer:plinth', 'maint:dishwasher:hygiene', 'maint:coffee:rinse', 'maint:rober2:filter']) {
-      expect(opens(entry(id, 'maint', { at: SOON })), id).toBe(true);
-      expect(opens(entry(id, 'maint', { next: 'skip' })), id).toBe(true);
-    }
-  });
-
-  it('is none for a plant, a battery or a one off task that is not due yet, whose room panel has nothing about it', () => {
-    for (const id of ['maint:plant:fig', 'maint:once:mites', 'maint:battery:sensor.test_battery']) {
-      expect(opens(entry(id, 'maint', { at: SOON })), id).toBe(false);
-      expect(opens(entry(id, 'maint', { next: 'skip' })), id).toBe(false);
-    }
-  });
-
-  it('is the room of any row that is due, since the room panel lists it under To do', () => {
-    for (const id of ['maint:plant:fig', 'maint:once:mites', 'maint:battery:sensor.test_battery']) {
-      expect(opens(entry(id, 'maint')), id).toBe(true);
-    }
-  });
-
-  it('is none for a row that names no room, and still the room of a rain row, which is no maintenance', () => {
-    expect(opens(entry('maint:washer:drum', 'maint', {}, null))).toBe(false);
-    expect(opens(entry('maint:plant:fig', 'maint', {}, null))).toBe(false);
-    expect(opensRoom(parse(ROWS)[1])).toBe(true);
-    expect(opensRoom(parse(ROWS)[0])).toBe(false);
   });
 });
 

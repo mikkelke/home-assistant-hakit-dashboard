@@ -41,15 +41,6 @@ export const hasSheet = (row: HouseUpcomingRow): boolean =>
 /** Whether the row is due: it has no time, and does not ask the next chip to pass over it (a log row). */
 export const isDue = (row: HouseUpcomingRow): boolean => row.atMs == null && !row.skipNext;
 
-/** The maintenance rows whose room panel holds a card for the thing itself: the appliances' own (washer, dryer, dishwasher,
- * xBloom) and Rober2's. */
-const ROOM_CARD_PREFIXES = ['maint:washer:', 'maint:dryer:', 'maint:dishwasher:', 'maint:coffee:', 'maint:rober2:'];
-
-/** Whether a tap may take the viewer to the row's room: the row names one, and a maintenance row only if that room holds a card
- * for it or lists it as due (see `dueRows`). A plant, a battery or a one-off task that is not due yet has nothing there. */
-export const opensRoom = (row: HouseUpcomingRow): boolean =>
-  row.areaId != null && (row.kind !== 'maint' || isDue(row) || ROOM_CARD_PREFIXES.some(prefix => row.id.startsWith(prefix)));
-
 /** The publisher keeps at most this many rows. */
 export const MAX_HOUSE_UPCOMING_ROWS = 30;
 

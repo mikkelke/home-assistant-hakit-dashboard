@@ -22,9 +22,6 @@ export const NOW_ENTRY_KEY = 'dashboardNow';
 /** The exact timeline item an in-app tap opened the entry on; the hash only names a second. */
 export const NOW_ITEM_KEY = 'dashboardNowItem';
 
-/** On a room entry pushed over a `#now` entry: closing that room goes back to the timeline. */
-export const ROOM_OVER_NOW_KEY = 'dashboardRoomOverNow';
-
 /** What the entry directly below a `#now` entry shows: the grid, or anything else. */
 export type NowEntryBelow = 'grid' | 'other';
 
@@ -58,10 +55,6 @@ export function nowEntryBelow(state: unknown): NowEntryBelow | null {
   if (!isRecord(state)) return null;
   const below = state[NOW_ENTRY_KEY];
   return below === 'grid' || below === 'other' ? below : null;
-}
-
-export function isRoomOverNow(state: unknown): boolean {
-  return isRecord(state) && state[ROOM_OVER_NOW_KEY] === true;
 }
 
 /** An entry nothing but Home Assistant has written to: an arriving link. Any other key means this
