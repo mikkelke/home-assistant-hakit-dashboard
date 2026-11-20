@@ -277,6 +277,10 @@ export const BEDROOM_SOLAR_SHADE_STATUS = 'sensor.bedroom_solar_shade_status';
  */
 export const HOUSE_EVENTS_ENTITY = 'sensor.house_events';
 
+/** Rows of `sensor.house_events` worked out afterwards from the recorder, for days before a source fed the feed
+ * (attributes.events, same shape). Its copy of a row wins, so it can also name a row the feed wrote unnamed. */
+export const HOUSE_EVENTS_BACKFILL_ENTITY = 'sensor.house_events_backfill';
+
 // --- Quiet hours (time-only input_datetime helpers): AppDaemon's SonosNotifier speaks no announcement
 // inside them, and keeps 22:00-07:00 for a helper it cannot read. ---
 

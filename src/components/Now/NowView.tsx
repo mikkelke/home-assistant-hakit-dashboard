@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import {
+  HOUSE_EVENTS_BACKFILL_ENTITY,
   HOUSE_EVENTS_ENTITY,
   HOUSE_UPCOMING_ENTITY,
   QUIET_HOURS_END_ENTITY,
@@ -24,7 +25,7 @@ import {
   visibleHouseEvents,
   type HouseEpisode,
 } from '../../home/houseEvents';
-import { mergeHouseEvents } from '../../home/houseEventsHistory';
+import { mergeHouseEvents, withBackfill } from '../../home/houseEventsHistory';
 import { canViewerSeeUpcoming, hasSheet, opensRoom, parseHouseUpcoming } from '../../home/houseUpcoming';
 import { MARKERS } from '../../home/markers';
 import { MotionScopeContext, useMotionSlot } from '../../home/motionBudget';
@@ -585,7 +586,9 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
   const feed = entities[HOUSE_EVENTS_ENTITY]?.attributes?.events;
   const live = useMemo(() => parseHouseEvents(feed), [feed]);
   const { older, loadOlder, loading, pages, exhausted, failed } = useOlderHouseEvents(live);
-  const allEvents = useMemo(() => mergeHouseEvents(live, older), [live, older]);
+  const backfillFeed = entities[HOUSE_EVENTS_BACKFILL_ENTITY]?.attributes?.events;
+  const backfill = useMemo(() => parseHouseEvents(backfillFeed), [backfillFeed]);
+  const allEvents = useMemo(() => withBackfill(mergeHouseEvents(live, older), backfill), [live, older, backfill]);
   const episodes = useMemo(() => houseEpisodes(visibleHouseEvents(allEvents, viewer)), [allEvents, viewer]);
   const coffeeDemo = useCoffeeDemo();
   const upcoming = useMemo(

@@ -29,6 +29,16 @@ export function mergeHouseEvents(primary: HouseEvent[], secondary: readonly Hous
   return added.length === 0 ? primary : [...primary, ...added].sort(newestFirst);
 }
 
+/** `events` plus the `backfill` rows from the time they already reach back to, newest first. A backfill row stops
+ * where the loaded history does, so it never shows in a stretch whose own rows have not been read yet, and its copy
+ * of a row wins. */
+export function withBackfill(events: HouseEvent[], backfill: readonly HouseEvent[]): HouseEvent[] {
+  if (backfill.length === 0 || events.length === 0) return events;
+  const fromMs = events.reduce((oldest, event) => Math.min(oldest, event.tsMs), Infinity);
+  const reached = backfill.filter(event => event.tsMs >= fromMs);
+  return reached.length === 0 ? events : mergeHouseEvents([...reached].sort(newestFirst), events);
+}
+
 /** The attributes of one history row, which comes compressed (`a`) from the websocket and in full (`attributes`) from
  * the REST API. A row has none when a minimal response strips them. */
 function rowAttributes(row: unknown): Record<string, unknown> | null {
