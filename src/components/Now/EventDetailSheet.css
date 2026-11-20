@@ -1,0 +1,169 @@
+/* The detail sheet of a past row on the Now timeline: a before -> after headline, one chart with the row's moment
+   marked, or a resident's way in as a path. Portaled to document.body on the shared ApplianceSheet shell, so it
+   sets its own accent. */
+
+.evd-sheet {
+  --appliance-accent: #94a3b8;
+  --appliance-accent-bg: rgba(148, 163, 184, 0.16);
+}
+.evd-plant {
+  --appliance-accent: #34d399;
+  --appliance-accent-bg: rgba(52, 211, 153, 0.16);
+}
+.evd-arrival {
+  --appliance-accent: #38bdf8;
+  --appliance-accent-bg: rgba(56, 189, 248, 0.16);
+}
+
+.evd-sheet .appliance-sheet-close {
+  width: 44px !important;
+  height: 44px !important; /* Override index.css's 32px !important. */
+}
+
+.evd-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.evd-headline {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.evd-num {
+  font-size: 28px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+}
+.evd-arrow {
+  align-self: center;
+  color: var(--appliance-accent);
+}
+.evd-note {
+  font-size: 14px;
+  color: var(--text-1);
+}
+
+.evd-chart {
+  width: 100%;
+  height: auto;
+}
+.evd-line {
+  fill: none;
+  stroke: var(--appliance-accent);
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+}
+.evd-after {
+  fill: rgba(255, 255, 255, 0.04);
+}
+.evd-event {
+  stroke: rgba(255, 255, 255, 0.7);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.evd-mark,
+.evd-level {
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  vector-effect: non-scaling-stroke;
+}
+.evd-axis {
+  font-size: 12px;
+  fill: var(--text-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.evd-caption,
+.evd-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-1);
+}
+
+.evd-lead {
+  margin: 0;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.evd-path {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+.evd-path li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  font-size: 14.5px;
+}
+.evd-path li + li::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: -10px;
+  height: 20px;
+  border-left: 2px solid rgba(255, 255, 255, 0.15);
+}
+.evd-path-dot {
+  width: 10px;
+  height: 10px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--appliance-accent);
+}
+.evd-path li.is-missing .evd-path-dot {
+  background: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+.evd-path li.is-missing {
+  color: var(--text-1);
+}
+.evd-path-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-1);
+}
+
+.evd-sub {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-1);
+}
+.evd-earlier {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.evd-earlier button {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: none;
+  color: rgba(255, 255, 255, 0.9);
+  font: inherit;
+  font-size: 14.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  cursor: pointer;
+}
+.evd-earlier-how {
+  color: var(--text-1);
+}

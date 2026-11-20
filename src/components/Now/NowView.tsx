@@ -24,7 +24,9 @@ import {
   parseHouseEvents,
   visibleHouseEvents,
   type HouseEpisode,
+  type HouseEvent,
 } from '../../home/houseEvents';
+import { detailSpec, plantOfRow, type DetailSpec } from '../../home/eventDetail';
 import { mergeHouseEvents, withBackfill } from '../../home/houseEventsHistory';
 import { canViewerSeeUpcoming, hasSheet, opensRoom, parseHouseUpcoming } from '../../home/houseUpcoming';
 import { MARKERS } from '../../home/markers';
@@ -33,8 +35,9 @@ import { linkedRing, NOW_RESOLVE_GIVE_UP_MS, resolveNowFocus, resolveNowItem, ty
 import { isQuietAt, quietEndClock, readQuietHours, type QuietHours } from '../../home/quietHours';
 import { applianceStarter, readUpcoming, upcomingCandidates, type UpcomingAppliance } from '../../home/upcoming';
 import { useNowMs } from '../../hooks/useNowMs';
-import { useTrackedEntities } from '../../hooks/useTrackedEntities';
+import { peekEntities, useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { useViewer } from '../../hooks/useViewer';
+import { trackUiTap } from '../../utils/trackUiTap';
 import { formatKWh } from '../../utils/format';
 import type { NowFocus } from '../../utils/navigation';
 import { series } from '../Coffee/chart';
@@ -67,6 +70,13 @@ import './NowView.css';
 
 const RingSheet = lazy(() => import('../Intercom/RingSheet'));
 const RoomMapModal = lazy(() => import('../Vacuum/RoomMapModal'));
+const EventDetailSheet = lazy(() => import('./EventDetailSheet'));
+
+/** A row with a detail sheet, and the row of its episode the sheet is about. */
+interface OpenDetail {
+  spec: DetailSpec;
+  event: HouseEvent;
+}
 
 /** How long a focused item keeps its ring, in ms; its glow plays three times within it. */
 const FOCUS_MS = 10_000;
@@ -174,12 +184,16 @@ function PastEpisode({
   focused,
   onOpenRoom,
   onOpenRing,
+  detailOf,
+  onOpenDetail,
 }: {
   row: PastRow;
   age: number;
   focused: boolean;
   onOpenRoom: (areaId: string) => void;
   onOpenRing: (episode: HouseEpisode) => void;
+  detailOf: (episode: HouseEpisode) => OpenDetail | null;
+  onOpenDetail: (detail: OpenDetail) => void;
 }) {
   const rows = row.episode.rows;
   const first = rows[0];
@@ -188,6 +202,7 @@ function PastEpisode({
   const effectText = cause ? (houseEventLabel(last) ?? last.effect ?? last.text) : first.text;
   const by = rows.find(event => event.by)?.by;
   const ring = row.episode.kind === 'ring';
+  const detail = ring ? null : detailOf(row.episode);
   if (row.episode.kind === 'coffee' && !cause) {
     return <CoffeePastRow row={row} age={age} focused={focused} onOpenRoom={onOpenRoom} by={by} />;
   }
@@ -202,7 +217,7 @@ function PastEpisode({
       <RowBody
         areaId={row.areaId}
         onOpenRoom={onOpenRoom}
-        onTap={ring ? () => onOpenRing(row.episode) : undefined}
+        onTap={ring ? () => onOpenRing(row.episode) : detail ? () => onOpenDetail(detail) : undefined}
         className={ring ? 'now-body is-ring' : 'now-body'}
         label={[cause, last.effect ?? last.text].filter(Boolean).join(', ')}
       >
@@ -589,7 +604,8 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
   const backfillFeed = entities[HOUSE_EVENTS_BACKFILL_ENTITY]?.attributes?.events;
   const backfill = useMemo(() => parseHouseEvents(backfillFeed, Infinity), [backfillFeed]);
   const allEvents = useMemo(() => withBackfill(mergeHouseEvents(live, older), backfill), [live, older, backfill]);
-  const episodes = useMemo(() => houseEpisodes(visibleHouseEvents(allEvents, viewer)), [allEvents, viewer]);
+  const visibleEvents = useMemo(() => visibleHouseEvents(allEvents, viewer), [allEvents, viewer]);
+  const episodes = useMemo(() => houseEpisodes(visibleEvents), [visibleEvents]);
   const coffeeDemo = useCoffeeDemo();
   const upcoming = useMemo(
     () =>
@@ -624,6 +640,30 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
     arrival === 'warm' && itemId ? (episodes.find(episode => episode.id === itemId && episode.kind === 'ring') ?? null) : null
   );
   const [roomMaps, setRoomMaps] = useState<{ maps: MapEntry[]; index: number } | null>(null);
+  const [detail, setDetail] = useState<OpenDetail | null>(null);
+  // Only whether HA knows the entity, so a plant sensor's every reading does not re-render the timeline.
+  const exists = useCallback((entityId: string) => peekEntities(entities)[entityId] != null, [entities]);
+  const detailOf = useCallback(
+    (episode: HouseEpisode): OpenDetail | null => {
+      for (const event of episode.rows) {
+        const spec = detailSpec(event, exists);
+        if (spec) return { spec, event };
+      }
+      return null;
+    },
+    [exists]
+  );
+  const openDetail = useCallback((open: OpenDetail) => {
+    trackUiTap('now.detail', open.spec.kind);
+    setDetail(open);
+  }, []);
+  const pickDetail = useCallback(
+    (event: HouseEvent) => {
+      const spec = detailSpec(event, exists);
+      if (spec) setDetail({ spec, event });
+    },
+    [exists]
+  );
   // The row whose sheet is open, by id: the sheet reads the live row, so it follows a Done and closes with the row.
   const [sheetId, setSheetId] = useState<string | null>(null);
   const sheetRow = sheetId == null ? null : (upRows.find(row => row.id === sheetId && hasSheet(row)) ?? null);
@@ -785,6 +825,8 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
                     focused={isFocused(row.id)}
                     onOpenRoom={onOpenRoom}
                     onOpenRing={setRing}
+                    detailOf={detailOf}
+                    onOpenDetail={openDetail}
                   />
                 )}
               </div>
@@ -814,7 +856,26 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
           <RingSheet episode={ring} onClose={() => setRing(null)} />
         </LazyBoundary>
       )}
-      {sheetRow && <MaintSheet row={sheetRow} isAdmin={viewer.isAdmin === true} onClose={() => setSheetId(null)} onOpenRoom={onOpenRoom} />}
+      {detail && (
+        <LazyBoundary fallback={null} error={null}>
+          <EventDetailSheet
+            spec={detail.spec}
+            event={detail.event}
+            events={visibleEvents}
+            onPick={pickDetail}
+            onClose={() => setDetail(null)}
+          />
+        </LazyBoundary>
+      )}
+      {sheetRow && (
+        <MaintSheet
+          row={sheetRow}
+          isAdmin={viewer.isAdmin === true}
+          onClose={() => setSheetId(null)}
+          onOpenRoom={onOpenRoom}
+          soil={plantOfRow(sheetRow.id, visibleEvents, exists)}
+        />
+      )}
       {roomMaps && (
         <LazyBoundary fallback={null} error={null}>
           <RoomMapModal

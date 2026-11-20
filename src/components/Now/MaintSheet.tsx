@@ -6,6 +6,7 @@ import { fireHaEvent } from '../../utils/haEvents';
 import { ApplianceSheet } from '../Appliance';
 import '../Appliance/Appliance.css';
 import { plantPhoto } from './plantPhotos';
+import { PlantSoilChart } from './PlantSoilChart';
 import './MaintSheet.css';
 
 /** The events HouseUpcoming listens for, with the row's id as `row`. HA lets only an admin fire them. */
@@ -26,11 +27,14 @@ export interface MaintSheetProps {
   onClose: () => void;
   /** Without it the sheet offers no way into the room, as when it is opened from the room's own panel. */
   onOpenRoom?: (areaId: string) => void;
+  /** A plant row's soil sensor and last watering: the sheet charts the soil a day either side of it, or the last day when
+   * no watering is known. */
+  soil?: { entity: string; wateredMs: number | null } | null;
 }
 
 /** What to do about a maintenance row: the photo of a plant, its numbers, the lines of an overview row, a step-by-step guide
  * behind the info button, and for a tapped row a Done button that asks before it fires. */
-export function MaintSheet({ row, isAdmin, onClose, onOpenRoom }: MaintSheetProps) {
+export function MaintSheet({ row, isAdmin, onClose, onOpenRoom, soil }: MaintSheetProps) {
   const connection = useHass(s => s.connection);
   const [phase, setPhase] = useState<Phase>('idle');
   const [failed, setFailed] = useState(false);
@@ -39,6 +43,7 @@ export function MaintSheet({ row, isAdmin, onClose, onOpenRoom }: MaintSheetProp
   const canDone = isAdmin && row.tapDone;
   const roomId = onOpenRoom && !row.tapDone && opensRoom(row) ? row.areaId : null;
   const photo = row.photo ? plantPhoto(row.photo) : undefined;
+  const [openedMs] = useState(() => Date.now());
 
   const send = (event: string, going: Phase, arrived: Phase, back: Phase) => {
     setPhase(going);
@@ -57,6 +62,7 @@ export function MaintSheet({ row, isAdmin, onClose, onOpenRoom }: MaintSheetProp
       <div className='maint-body'>
         {photo && <img className='maint-photo' src={photo} alt='' loading='lazy' decoding='async' />}
         {row.detail && <p className='maint-detail'>{row.detail}</p>}
+        {soil && <PlantSoilChart entity={soil.entity} atMs={soil.wateredMs ?? openedMs} name={row.title} />}
         {row.items.length > 0 && (
           <ul className='maint-items'>
             {row.items.map((line, index) => (

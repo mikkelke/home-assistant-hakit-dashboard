@@ -136,12 +136,18 @@ describe('a ring row on the timeline', () => {
     expect(sheet()?.textContent).toContain('No photo for this ring');
   });
 
-  it('leaves other rows opening their room', async () => {
+  it('leaves other rows opening their room, and a finished run its own sheet', async () => {
     await open({ arrival: 'cold' });
-    const washer = [...document.querySelectorAll<HTMLElement>('.now-body.is-link')].find(body => !body.classList.contains('is-ring'));
-    await act(async () => washer!.click());
+    const links = [...document.querySelectorAll<HTMLElement>('.now-body.is-link')].filter(body => !body.classList.contains('is-ring'));
+    const finished = links.find(body => / finished/.test(body.getAttribute('aria-label') ?? ''));
+    const other = links.find(body => !/ finished/.test(body.getAttribute('aria-label') ?? ''));
+    await act(async () => other!.click());
     expect(openRoom).toHaveBeenCalledTimes(1);
     expect(sheet()).toBeNull();
+    await act(async () => finished!.click());
+    await settle();
+    expect(openRoom).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('.evd-body')).not.toBeNull();
   });
 
   it('opens with the sheet up when the app taps a ring on the way in, and not when Back returns to it', async () => {
