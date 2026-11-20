@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { parseHouseEvents, type HouseEvent } from '../houseEvents';
-import { fetchHouseEventsPage, HISTORY_OVERLAP_MS, HISTORY_PAGE_MS, houseEventsFromHistory, mergeHouseEvents, withBackfill } from '../houseEventsHistory';
+import {
+  fetchHouseEventsPage,
+  HISTORY_OVERLAP_MS,
+  HISTORY_PAGE_MS,
+  houseEventsFromHistory,
+  mergeHouseEvents,
+  withBackfill,
+} from '../houseEventsHistory';
 import feed from './fixtures/house-events.json';
 import { fakeRecorder, HOUSE_EVENTS_ID, loggedRows } from './houseEventsRecorder';
 
@@ -247,7 +254,7 @@ describe('withBackfill', () => {
     expect(withBackfill(events, backfill).map(event => event.text)).toEqual(['Front door unlocked', 'Night mode on', 'b']);
   });
 
-  it("lets the backfill copy of a row win, so it can name a row the feed wrote unnamed", () => {
+  it('lets the backfill copy of a row win, so it can name a row the feed wrote unnamed', () => {
     const merged = withBackfill(events, [row('2026-11-18T10:00:00Z', 'Front door unlocked', { by: 'Claudia' })]);
     expect(merged).toHaveLength(2);
     expect(merged[0].by).toBe('Claudia');
