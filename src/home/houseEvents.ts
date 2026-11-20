@@ -24,8 +24,8 @@ export interface HouseEvent {
 export const MAX_HOUSE_EVENTS = 40;
 
 /** Defensive parse of `attributes.events`: rows without a string `ts` and `text` or with an
- * unparseable `ts` are dropped, the order is trusted as newest first, and the count is capped. */
-export function parseHouseEvents(value: unknown): HouseEvent[] {
+ * unparseable `ts` are dropped, the order is trusted as newest first, and at most `max` are kept. */
+export function parseHouseEvents(value: unknown, max = MAX_HOUSE_EVENTS): HouseEvent[] {
   if (!Array.isArray(value)) return [];
 
   const events: HouseEvent[] = [];
@@ -61,7 +61,7 @@ export function parseHouseEvents(value: unknown): HouseEvent[] {
       audience: item.audience === 'admin' ? 'admin' : undefined,
       audienceUsers: audienceUsers.length > 0 ? audienceUsers : undefined,
     });
-    if (events.length >= MAX_HOUSE_EVENTS) break;
+    if (events.length >= max) break;
   }
   return events;
 }

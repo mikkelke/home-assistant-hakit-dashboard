@@ -587,7 +587,7 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
   const live = useMemo(() => parseHouseEvents(feed), [feed]);
   const { older, loadOlder, loading, pages, exhausted, failed } = useOlderHouseEvents(live);
   const backfillFeed = entities[HOUSE_EVENTS_BACKFILL_ENTITY]?.attributes?.events;
-  const backfill = useMemo(() => parseHouseEvents(backfillFeed), [backfillFeed]);
+  const backfill = useMemo(() => parseHouseEvents(backfillFeed, Infinity), [backfillFeed]);
   const allEvents = useMemo(() => withBackfill(mergeHouseEvents(live, older), backfill), [live, older, backfill]);
   const episodes = useMemo(() => houseEpisodes(visibleHouseEvents(allEvents, viewer)), [allEvents, viewer]);
   const coffeeDemo = useCoffeeDemo();

@@ -89,6 +89,12 @@ describe('the fixture feed of 13.10.2026 (40 rows, about 3 days)', () => {
 });
 
 describe('parseHouseEvents', () => {
+  it('keeps the backend cap unless told otherwise', () => {
+    const rows = Array.from({ length: 60 }, (_, i) => ({ ts: `2026-11-01T00:${String(i).padStart(2, '0')}:00Z`, text: `r${i}` }));
+    expect(parseHouseEvents(rows)).toHaveLength(40);
+    expect(parseHouseEvents(rows, Infinity)).toHaveLength(60);
+  });
+
   it('drops malformed rows and fields', () => {
     const events = parseHouseEvents([
       null,
