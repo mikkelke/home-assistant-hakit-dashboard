@@ -27,11 +27,14 @@ export const MAX_HOUSE_EVENTS = 40;
  * how the lock moved, never who moved it. */
 const YALE_OPERATOR = /^(?:(?:Auto|One-Touch|Bluetooth|Manual) (?:Lock|Unlock|Unlatch)|Home Assistant(?: user|-bruger)?)$/;
 
-/** The recorder still holds rows in older wordings: the apartment door's lock under the label "Front
- * door", Yale operator words as `by`, and speaker resets. Rows are read as the backend writes them now,
- * before any row is matched by its time and text. */
+/** The recorder still holds rows in older forms: the apartment door's lock under the label "Front
+ * door", Yale operator words as `by`, speaker resets, vacuum door skips written before the vacuum got
+ * there, and Wolt rows for the admin alone. Rows are read as the backend writes them now, before any
+ * row is matched by its time and text. */
 const LEGACY_LOCK_PREFIX = 'Front door ';
-const isSpeakerReset = (text: string) => text.includes('default volume and ungrouped');
+const isRetired = (text: string) =>
+  text.includes('default volume and ungrouped') || text.startsWith('Doors closed to queued rooms -> ');
+const isFoodDelivery = (text: string) => text.startsWith('Wolt order from ');
 const currentText = (text: string) =>
   text.startsWith(LEGACY_LOCK_PREFIX) && !text.includes(' -> ') ? `Apartment door ${text.slice(LEGACY_LOCK_PREFIX.length)}` : text;
 
@@ -45,7 +48,7 @@ export function parseHouseEvents(value: unknown, max = MAX_HOUSE_EVENTS): HouseE
     if (typeof raw !== 'object' || raw === null) continue;
     const item = raw as Record<string, unknown>;
     if (typeof item.ts !== 'string' || typeof item.text !== 'string') continue;
-    if (isSpeakerReset(item.text)) continue;
+    if (isRetired(item.text)) continue;
 
     const tsMs = new Date(item.ts).getTime();
     if (!Number.isFinite(tsMs)) continue;
@@ -72,7 +75,7 @@ export function parseHouseEvents(value: unknown, max = MAX_HOUSE_EVENTS): HouseE
       cause: hasCauseEffect ? cause : undefined,
       effect: hasCauseEffect ? effect : undefined,
       by: by.length > 0 ? by : undefined,
-      audience: item.audience === 'admin' ? 'admin' : undefined,
+      audience: item.audience === 'admin' && !isFoodDelivery(item.text) ? 'admin' : undefined,
       audienceUsers: audienceUsers.length > 0 ? audienceUsers : undefined,
     });
     if (events.length >= max) break;

@@ -6,7 +6,7 @@ export type DeliveryKind = 'food' | 'groceries' | 'parcel';
 /** The household members who see each kind, by key. Nobody else gets a chip or a sheet for it, a housemate
  * included; opening a kind to them is adding their keys to its list. */
 export const DELIVERY_AUDIENCE: Readonly<Record<DeliveryKind, readonly HouseholdMember['key'][]>> = {
-  food: ['mikkel'],
+  food: ['mikkel', 'kristine', 'claudia'],
   groceries: ['mikkel'],
   parcel: ['mikkel'],
 };

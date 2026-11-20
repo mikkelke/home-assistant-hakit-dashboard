@@ -201,7 +201,13 @@ describe('visibleDeliveries', () => {
     expect(visibleDeliveries(everything, { name: 'Mikkel' })).toEqual(everything);
   });
 
-  it.each(['Kristine', 'Claudia', 'Rooftop', 'Another admin', null])('gives %s nothing', name => {
+  it.each(['Kristine', 'Claudia'])('gives %s the food alone', name => {
+    const seen = visibleDeliveries(everything, { name });
+    expect(seen.active.map(item => item.kind)).toEqual(['food']);
+    expect(seen.upcoming).toEqual([]);
+  });
+
+  it.each(['Rooftop', 'Another admin', null])('gives %s nothing', name => {
     expect(visibleDeliveries(everything, { name })).toBe(NO_DELIVERIES);
   });
 });

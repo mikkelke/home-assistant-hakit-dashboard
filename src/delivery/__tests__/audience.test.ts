@@ -20,8 +20,14 @@ describe('the delivery audience', () => {
     }
   });
 
-  it('is Mikkel alone for every kind during the test period', () => {
-    for (const kind of KINDS) expect(DELIVERY_AUDIENCE[kind]).toEqual(['mikkel']);
+  it('opens food to the whole household and keeps groceries and parcels to Mikkel', () => {
+    expect(DELIVERY_AUDIENCE.food).toEqual(['mikkel', 'kristine', 'claudia']);
+    expect(DELIVERY_AUDIENCE.groceries).toEqual(['mikkel']);
+    expect(DELIVERY_AUDIENCE.parcel).toEqual(['mikkel']);
+  });
+
+  it('lets the housemates see food', () => {
+    for (const name of ['Kristine', 'Claudia']) expect(canViewerSeeDelivery('food', { name })).toBe(true);
   });
 
   it.each(KINDS)('lets Mikkel see %s, whatever the case or spacing of his display name', kind => {
@@ -29,14 +35,19 @@ describe('the delivery audience', () => {
     expect(canViewerSeeDelivery(kind, { name: '  mikkel ' })).toBe(true);
   });
 
-  it.each(KINDS)('keeps %s from the housemates, the shared tablet, other users and a viewer still resolving', kind => {
-    for (const name of ['Kristine', 'Claudia', 'Rooftop', 'Another admin', 'Mikkel Eskildsen', '', '   ', null]) {
+  it.each(KINDS)('keeps %s from the shared tablet, other users and a viewer still resolving', kind => {
+    for (const name of ['Rooftop', 'Another admin', 'Mikkel Eskildsen', '', '   ', null]) {
       expect(canViewerSeeDelivery(kind, { name })).toBe(false);
     }
   });
 
+  it.each(['groceries', 'parcel'] as const)('keeps %s from the housemates', kind => {
+    for (const name of ['Kristine', 'Claudia']) expect(canViewerSeeDelivery(kind, { name })).toBe(false);
+  });
+
   it('opens one kind to a housemate by adding their key to that kind alone', () => {
     editable.food = ['mikkel', 'kristine'];
+    editable.groceries = ['mikkel'];
     expect(canViewerSeeDelivery('food', { name: 'Kristine' })).toBe(true);
     expect(canViewerSeeDelivery('food', { name: 'Claudia' })).toBe(false);
     expect(canViewerSeeDelivery('groceries', { name: 'Kristine' })).toBe(false);

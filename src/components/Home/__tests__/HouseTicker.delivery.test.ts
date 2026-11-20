@@ -119,14 +119,22 @@ describe('the delivery chip', () => {
     expect(render()).toBe('');
   });
 
-  it.each(['Kristine', 'Claudia', 'Rooftop', 'Another admin', null])('is not there for %s, even an admin', name => {
+  it.each(['Kristine', 'Claudia'])('shows %s the food and not the parcels', name => {
+    world.name = name;
+    feed([food()], [upcoming]);
+    expect(render()).toContain('is-delivery');
+    feed([], [upcoming]);
+    expect(render()).toBe('');
+  });
+
+  it.each(['Rooftop', 'Another admin', null])('is not there for %s, even an admin', name => {
     world.name = name;
     world.isAdmin = true;
     feed([food()], [upcoming]);
     expect(render()).toBe('');
   });
 
-  it.each(['Kristine', 'Claudia', 'Rooftop', null])('leaves the rest of the ticker alone for %s', name => {
+  it.each(['Rooftop', null])('leaves the rest of the ticker alone for %s', name => {
     world.name = name;
     world.coffee = true;
     feed([food()], [upcoming]);

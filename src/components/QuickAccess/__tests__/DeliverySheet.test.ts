@@ -146,7 +146,15 @@ describe('the delivery sheet', () => {
     expect(render()).toContain('Nothing on the way');
   });
 
-  it.each(['Kristine', 'Claudia', 'Rooftop', null])('shows %s nothing, whatever is on its way', name => {
+  it.each(['Kristine', 'Claudia'])('shows %s the food and none of the parcels', name => {
+    world.name = name;
+    feed([food()], [shop]);
+    const markup = render();
+    expect(markup).toContain('Test Kitchen');
+    expect(markup).not.toContain('Test Shop');
+  });
+
+  it.each(['Rooftop', null])('shows %s nothing, whatever is on its way', name => {
     world.name = name;
     feed([food()], [shop]);
     const markup = render();

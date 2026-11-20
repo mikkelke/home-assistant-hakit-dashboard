@@ -131,6 +131,22 @@ describe('parseHouseEvents', () => {
     ]);
   });
 
+  it('drops vacuum door skips written while the vacuum was not going in', () => {
+    const events = parseHouseEvents([
+      { ts: '2026-11-20T07:00:00+01:00', text: 'Doors closed to queued rooms -> Vacuum skipped Bedroom, Bathroom - doors closed' },
+      { ts: '2026-11-20T06:59:00+01:00', text: 'Vacuum finished the open rooms -> Vacuum skipped Bedroom - doors closed' },
+    ]);
+    expect(events.map(event => event.text)).toEqual(['Vacuum finished the open rooms -> Vacuum skipped Bedroom - doors closed']);
+  });
+
+  it('shows Wolt rows to everyone and keeps other admin rows admin', () => {
+    const events = parseHouseEvents([
+      { ts: '2026-11-20T18:00:00+01:00', text: 'Wolt order from WokXpress - Vesterbro delivered', audience: 'admin' },
+      { ts: '2026-11-20T17:00:00+01:00', text: 'GLS parcel delivered', audience: 'admin' },
+    ]);
+    expect(events.map(event => event.audience)).toEqual([undefined, 'admin']);
+  });
+
   it('caps the feed at 40 rows', () => {
     const many = Array.from({ length: 50 }, (_, i) => ({ ts: new Date(Date.UTC(2026, 9, 13, 0, 50 - i)).toISOString(), text: `${i}` }));
     expect(parseHouseEvents(many)).toHaveLength(40);
