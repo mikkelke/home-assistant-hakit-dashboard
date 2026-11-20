@@ -29,12 +29,19 @@ const YALE_OPERATOR = /^(?:(?:Auto|One-Touch|Bluetooth|Manual) (?:Lock|Unlock|Un
 
 /** The recorder still holds rows in older forms: the apartment door's lock under the label "Front
  * door", Yale operator words as `by`, speaker resets, vacuum door skips written before the vacuum got
- * there, and Wolt rows for the admin alone. Rows are read as the backend writes them now, before any
+ * there, Wolt rows for the admin alone, the apartment door opened from inside with nobody named as
+ * going out, TV lift moves, and windows left open in a recently heated room. Rows are read as the backend writes them now, before any
  * row is matched by its time and text. */
 const LEGACY_LOCK_PREFIX = 'Front door ';
 const isRetired = (text: string) =>
-  text.includes('default volume and ungrouped') || text.startsWith('Doors closed to queued rooms -> ');
+  text.includes('default volume and ungrouped') ||
+  text.startsWith('Doors closed to queued rooms -> ') ||
+  text.includes(' in a recently heated room -> The room has been heated recently');
 const isFoodDelivery = (text: string) => text.startsWith('Wolt order from ');
+const isInsideOpening = (text: string) => text.endsWith('door opened from inside');
+const TV_LIFT_MOVE = / -> (?:TV lift going (?:up|down)|TV moving to |Gave up after .* the lift needs a manual raise)/;
+const isTvLiftMove = (icon: unknown, text: string) =>
+  typeof icon === 'string' && icon.startsWith('mdi:television') && TV_LIFT_MOVE.test(text);
 const currentText = (text: string) =>
   text.startsWith(LEGACY_LOCK_PREFIX) && !text.includes(' -> ') ? `Apartment door ${text.slice(LEGACY_LOCK_PREFIX.length)}` : text;
 
@@ -48,7 +55,7 @@ export function parseHouseEvents(value: unknown, max = MAX_HOUSE_EVENTS): HouseE
     if (typeof raw !== 'object' || raw === null) continue;
     const item = raw as Record<string, unknown>;
     if (typeof item.ts !== 'string' || typeof item.text !== 'string') continue;
-    if (isRetired(item.text)) continue;
+    if (isRetired(item.text) || isTvLiftMove(item.icon, item.text)) continue;
 
     const tsMs = new Date(item.ts).getTime();
     if (!Number.isFinite(tsMs)) continue;
@@ -59,6 +66,7 @@ export function parseHouseEvents(value: unknown, max = MAX_HOUSE_EVENTS): HouseE
 
     const rawBy = typeof item.by === 'string' ? item.by.trim() : '';
     const by = YALE_OPERATOR.test(rawBy) ? '' : rawBy;
+    if (!by && isInsideOpening(item.text)) continue;
 
     const audienceUsers =
       item.audience !== 'admin' && Array.isArray(item.audience_users)

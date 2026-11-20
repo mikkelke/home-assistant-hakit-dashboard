@@ -30,14 +30,14 @@ const countBy = <T>(items: T[], key: (item: T) => string) =>
   items.reduce<Record<string, number>>((counts, item) => ({ ...counts, [key(item)]: (counts[key(item)] ?? 0) + 1 }), {});
 
 describe('the fixture feed of 13.10.2026 (40 rows, about 3 days)', () => {
-  it('parses every row but the 5 speaker resets, newest first', () => {
-    expect(live).toHaveLength(35);
+  it('parses every row but the 5 speaker resets and the 3 TV lift moves, newest first', () => {
+    expect(live).toHaveLength(32);
     expect(live[0].tsMs).toBe(Date.parse('2026-10-13T14:51:17.205121+02:00'));
     expect(live.every((event, i) => i === 0 || event.tsMs <= live[i - 1].tsMs)).toBe(true);
   });
 
   it('reads a kind from the icons only one producer writes', () => {
-    expect(countBy(live, houseEventKind)).toEqual({ ring: 7, washer: 3, dryer: 1, dish: 1, wake: 2, evt: 21 });
+    expect(countBy(live, houseEventKind)).toEqual({ ring: 7, washer: 3, dryer: 1, dish: 1, wake: 2, evt: 18 });
   });
 
   it('never guesses an appliance from a shared icon', () => {
@@ -65,18 +65,18 @@ describe('the fixture feed of 13.10.2026 (40 rows, about 3 days)', () => {
     }
   });
 
-  it('gives Mikkel 28 episodes and the housemates 22, without admin or wake rows', () => {
+  it('gives Mikkel 25 episodes and the housemates 21, without admin or wake rows', () => {
     const mine = houseEpisodes(visibleHouseEvents(live, MIKKEL));
-    expect(mine).toHaveLength(28);
-    expect(countBy(mine, episode => episode.kind)).toEqual({ ring: 7, washer: 3, dryer: 1, dish: 1, wake: 2, evt: 14 });
+    expect(mine).toHaveLength(25);
+    expect(countBy(mine, episode => episode.kind)).toEqual({ ring: 7, washer: 3, dryer: 1, dish: 1, wake: 2, evt: 11 });
 
     for (const viewer of [KRISTINE, CLAUDIA, ROOFTOP_TABLET, RESOLVING]) {
       const rows = visibleHouseEvents(live, viewer);
-      expect(rows).toHaveLength(29);
+      expect(rows).toHaveLength(28);
       expect(rows.some(event => event.audience === 'admin' || houseEventKind(event) === 'wake')).toBe(false);
       const episodes = houseEpisodes(rows);
-      expect(episodes).toHaveLength(22);
-      expect(countBy(episodes, episode => episode.kind)).toEqual({ ring: 7, washer: 3, dryer: 1, dish: 1, evt: 10 });
+      expect(episodes).toHaveLength(21);
+      expect(countBy(episodes, episode => episode.kind)).toEqual({ ring: 7, washer: 3, dryer: 1, dish: 1, evt: 9 });
     }
   });
 
@@ -137,6 +137,46 @@ describe('parseHouseEvents', () => {
       { ts: '2026-11-20T06:59:00+01:00', text: 'Vacuum finished the open rooms -> Vacuum skipped Bedroom - doors closed' },
     ]);
     expect(events.map(event => event.text)).toEqual(['Vacuum finished the open rooms -> Vacuum skipped Bedroom - doors closed']);
+  });
+
+  it('drops the apartment door opened from inside unless someone is named as going out', () => {
+    const events = parseHouseEvents([
+      { ts: '2026-11-20T08:10:00+01:00', text: 'Apartment door opened from inside' },
+      { ts: '2026-11-20T08:00:00+01:00', text: 'Front door opened from inside', by: 'Manual Unlock' },
+      { ts: '2026-11-20T07:50:00+01:00', text: 'Apartment door opened from inside', by: 'Kristine', entry: 'left' },
+      { ts: '2026-11-20T07:40:00+01:00', text: 'Went out', by: 'Mikkel', entry: 'left' },
+    ]);
+    expect(events.map(event => [event.text, event.by])).toEqual([
+      ['Apartment door opened from inside', 'Kristine'],
+      ['Went out', 'Mikkel'],
+    ]);
+  });
+
+  it('drops windows left open in a recently heated room', () => {
+    const events = parseHouseEvents([
+      {
+        ts: '2026-11-18T10:00:00+01:00',
+        icon: 'mdi:window-open-variant',
+        text: 'Dining room window open 12+ min in a recently heated room -> The room has been heated recently - worth closing the window soon',
+      },
+      { ts: '2026-11-18T09:00:00+01:00', icon: 'mdi:window-open-variant', text: 'Rain on the roof sensor -> Close the terrace door' },
+    ]);
+    expect(events.map(event => event.text)).toEqual(['Rain on the roof sensor -> Close the terrace door']);
+  });
+
+  it('drops TV lift moves and keeps other TV rows', () => {
+    const events = parseHouseEvents([
+      { ts: '2026-11-19T22:00:00+01:00', icon: 'mdi:television', text: 'Bedroom TV turned off -> TV lift going up' },
+      { ts: '2026-11-19T21:00:00+01:00', icon: 'mdi:television', text: 'Living room TV button 3 held -> TV moving to kitchen' },
+      {
+        ts: '2026-11-19T20:00:00+01:00',
+        icon: 'mdi:television',
+        text: 'Bedroom TV lift never confirmed going up -> Gave up after 3 retries - the lift needs a manual raise',
+      },
+      { ts: '2026-11-19T19:00:00+01:00', icon: 'mdi:television', text: 'Kristine turned on the TV' },
+      { ts: '2026-11-19T18:00:00+01:00', icon: 'mdi:auto-fix', text: 'Something -> TV moving to kitchen' },
+    ]);
+    expect(events.map(event => event.text)).toEqual(['Kristine turned on the TV', 'Something -> TV moving to kitchen']);
   });
 
   it('shows Wolt rows to everyone and keeps other admin rows admin', () => {

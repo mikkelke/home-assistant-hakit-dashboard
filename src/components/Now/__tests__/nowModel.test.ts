@@ -47,12 +47,11 @@ describe('past rows from the fixture feed', () => {
     const { past } = buildNowTimeline(episodesFor(MIKKEL), []);
     const areaOf = (iso: string) => past.find(row => row.atMs === Date.parse(iso))?.areaId;
     expect(areaOf('2026-10-13T13:37:44.775803+02:00')).toBeNull();
-    expect(areaOf('2026-10-11T20:36:52.778620+02:00')).toBeNull();
   });
 
   it('marks rows only part of the household sees, and shows a housemate none of the admin ones', () => {
     const mine = buildNowTimeline(episodesFor(MIKKEL), []).past.filter(row => row.type === 'past');
-    expect(mine.filter(row => row.restricted)).toHaveLength(6);
+    expect(mine.filter(row => row.restricted)).toHaveLength(4);
     const hers = buildNowTimeline(episodesFor(KRISTINE), []).past.filter(row => row.type === 'past');
     expect(hers.some(row => row.restricted)).toBe(false);
     expect(hers.some(row => row.episode.kind === 'wake')).toBe(false);
@@ -130,9 +129,7 @@ describe('the rooms of Rober2 rounds on the rail', () => {
   });
 
   it("put other rows that fell in a round on the round's line", () => {
-    const other = parseHouseEvents([
-      { ts: '2026-10-12T13:01:15+02:00', icon: 'mdi:television', text: 'Living room TV turned on -> TV lift going down' },
-    ]);
+    const other = parseHouseEvents([{ ts: '2026-10-12T13:01:15+02:00', icon: 'mdi:music', text: 'Kristine started Spotify in Kitchen' }]);
     const episodes = houseEpisodes(
       visibleHouseEvents(
         [...events, ...other].sort((a, b) => b.tsMs - a.tsMs),
@@ -143,7 +140,7 @@ describe('the rooms of Rober2 rounds on the rail', () => {
     expect(span(past, '2026-10-12T12:49:27.035+02:00', '2026-10-12T14:38:02.716+02:00')).toEqual([
       ['12:49', 'mdi:robot-vacuum', 'first'],
       ['12:54', 'hallway', 'inner'],
-      ['13:01', 'mdi:television', 'inner'],
+      ['13:01', 'mdi:music', 'inner'],
       ['13:06', 'kitchen', 'inner'],
       ['13:17', 'kitchen_2', 'inner'],
       ['13:33', 'living_room', 'inner'],
