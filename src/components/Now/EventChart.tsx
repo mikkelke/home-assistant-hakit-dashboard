@@ -1,3 +1,4 @@
+import { HOME_TIME_ZONE } from '../../config/plan';
 import { formatHomeClock } from '../../energy/homeTime';
 
 const W = 600;
@@ -20,10 +21,19 @@ export interface EventChartProps {
   label: string;
 }
 
+/** The value range drawn, with a little room around the readings; never below zero for readings that are not. */
 function ticks(lo: number, hi: number): [number, number] {
-  if (lo === hi) return [lo - 1, hi + 1];
+  const floor = lo >= 0 ? 0 : -Infinity;
+  if (lo === hi) return [Math.max(floor, lo - 1), hi + 1];
   const pad = (hi - lo) * 0.12;
-  return [lo - pad, hi + pad];
+  return [Math.max(floor, lo - pad), hi + pad];
+}
+
+/** A clock, with the weekday when the window spans more than a day's worth of clock times. */
+function clock(ms: number, long: boolean): string {
+  return long
+    ? `${new Date(ms).toLocaleDateString('en-GB', { weekday: 'short', timeZone: HOME_TIME_ZONE })} ${formatHomeClock(ms)}`
+    : formatHomeClock(ms);
 }
 
 /** One series around a timeline event, the event marked. */
@@ -45,6 +55,7 @@ export function EventChart({ points, startMs, endMs, eventMs, markMs, unit, leve
     .join(' ');
   const fmt = (v: number) => `${Math.round(v)}${unit}`;
   const ex = x(Math.min(Math.max(eventMs, startMs), endMs));
+  const long = endMs - startMs > 20 * 3_600_000;
 
   return (
     <svg className='evd-chart' viewBox={`0 0 ${W} ${H}`} role='img' aria-label={label}>
@@ -61,17 +72,17 @@ export function EventChart({ points, startMs, endMs, eventMs, markMs, unit, leve
       )}
       <line className='evd-event' x1={ex} x2={ex} y1={PAD.top} y2={H - PAD.bottom} />
       <path className='evd-line' d={path} />
-      {ex - PAD.left > 80 && (
+      {ex - PAD.left > (long ? 110 : 80) && (
         <text className='evd-axis' x={PAD.left} y={H - 6}>
-          {formatHomeClock(startMs)}
+          {clock(startMs, long)}
         </text>
       )}
       <text className='evd-axis' x={ex} y={H - 6} textAnchor='middle'>
-        {formatHomeClock(eventMs)}
+        {clock(eventMs, long)}
       </text>
-      {W - PAD.right - ex > 80 && (
+      {W - PAD.right - ex > (long ? 110 : 80) && (
         <text className='evd-axis' x={W - PAD.right} y={H - 6} textAnchor='end'>
-          {formatHomeClock(endMs)}
+          {clock(endMs, long)}
         </text>
       )}
     </svg>
