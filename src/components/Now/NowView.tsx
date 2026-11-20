@@ -795,6 +795,7 @@ export function NowView({ focus, itemId, arrival, linkArrived = false, onBack, o
             event={detail.event}
             events={visibleEvents}
             onPick={pickDetail}
+            isAdmin={viewer.isAdmin === true}
             onClose={() => setDetail(null)}
           />
         </LazyBoundary>

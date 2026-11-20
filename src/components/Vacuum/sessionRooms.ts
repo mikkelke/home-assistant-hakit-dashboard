@@ -23,14 +23,20 @@ export interface RoberRound {
   rooms: RoberRoom[];
 }
 
-type Boundary = 'start' | 'end';
+export type RoberBoundary = 'start' | 'end';
 
-/** The rober2 app's wording for a round starting, and for one ending: finished, or stopped by someone coming home or an
- * error. */
-function boundaryOf(row: HouseEvent): Boundary | null {
+/** The rober2 app's wording for a round starting, and for one ending: finished (every queued room, or the open ones
+ * when doors kept it out of the rest), or stopped by someone coming home, the cleaner arriving or an error. */
+export function roberBoundary(row: Pick<HouseEvent, 'icon' | 'cause' | 'effect'>): RoberBoundary | null {
   if (row.icon !== 'mdi:robot-vacuum') return null;
   if (row.effect === 'Vacuum starting its cleaning round') return 'start';
-  if (row.cause === 'All queued rooms cleaned' || row.effect?.startsWith('Vacuum stopped') || row.effect?.startsWith('Cleaning stopped')) {
+  if (
+    row.cause === 'All queued rooms cleaned' ||
+    row.cause === 'Vacuum finished the open rooms' ||
+    row.effect === 'Vacuum went to dock' ||
+    row.effect?.startsWith('Vacuum stopped') ||
+    row.effect?.startsWith('Cleaning stopped')
+  ) {
     return 'end';
   }
   return null;
@@ -45,7 +51,7 @@ export function roberRounds(episodes: readonly HouseEpisode[], entries: readonly
   const fromMs = Math.min(...episodes.map(episode => episode.startMs));
   const marks = episodes.flatMap(episode =>
     episode.rows.flatMap(row => {
-      const boundary = boundaryOf(row);
+      const boundary = roberBoundary(row);
       return boundary ? [{ atMs: row.tsMs, boundary, episode }] : [];
     })
   );

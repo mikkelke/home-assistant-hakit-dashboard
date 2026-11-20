@@ -6,20 +6,32 @@ import { formatMinSec } from '../../coffee/model';
 import { useCoffeeBrews, useCoffeeRecent, useCoffeeRecipes } from '../../coffee/useCoffee';
 import { brewName } from '../../coffee/view';
 import {
+  DELIVERY_ENTITY,
+  ROBER_AREA_ENTITY,
   applianceRun,
   arrivalPath,
+  bedtimesIn,
   brewForRow,
   detailEntities,
   detailWindow,
+  doorRowsNear,
   earlierArrivals,
   formatOffset,
+  nightSummary,
   numeric,
+  roberRound,
+  runFinishBefore,
   unlockMethod,
+  woltOrder,
+  type DeliverySnapshot,
   type DetailSpec,
   type HistorySpec,
 } from '../../home/eventDetail';
-import { fetchEventHistory, type HistoryPoint } from '../../home/eventHistory';
-import type { HouseEvent } from '../../home/houseEvents';
+import { fetchAttributeHistory, fetchEventHistory, type HistoryPoint } from '../../home/eventHistory';
+import { houseEventLabel, type HouseEvent } from '../../home/houseEvents';
+import { ArchiveImage } from '../Archive/ArchiveMedia';
+import { fetchMapsIndex, type MapEntry } from '../Vacuum/maps';
+import { formatRoberRoomName } from '../Vacuum/rooms';
 import { ApplianceSheet } from '../Appliance';
 import '../Appliance/Appliance.css';
 import { pastBrewInputs } from '../Coffee/chart';
@@ -88,29 +100,73 @@ function PlantBody({ spec }: { spec: Extract<DetailSpec, { kind: 'plant' }> }) {
   );
 }
 
-function ApplianceBody({ spec, nowMs }: { spec: Extract<DetailSpec, { kind: 'appliance' }>; nowMs: number }) {
+/** "2 h 10 min", "45 min". */
+function hoursMinutes(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h} h ${m} min` : `${m} min`;
+}
+
+const FINISHED_KWH = /used (\d+(?:\.\d+)?) kWh/;
+
+function ApplianceBody({
+  spec,
+  event,
+  events,
+  nowMs,
+}: {
+  spec: Extract<DetailSpec, { kind: 'appliance' }>;
+  event: HouseEvent;
+  events: readonly HouseEvent[];
+  nowMs: number;
+}) {
   const load = useDetailHistory(spec, nowMs);
   const { startMs, endMs } = detailWindow(spec, nowMs);
-  const run = useMemo(
-    () =>
-      load.status === 'ready' ? applianceRun(load.history[spec.stateEntity] ?? [], load.history[spec.powerEntity] ?? [], spec.atMs) : null,
+  const finishMs = useMemo(
+    () => (!spec.emptied ? spec.atMs : load.status === 'ready' ? runFinishBefore(load.history[spec.stateEntity] ?? [], spec.atMs) : null),
     [load, spec]
   );
+  const run = useMemo(
+    () =>
+      load.status === 'ready' && finishMs != null
+        ? applianceRun(load.history[spec.stateEntity] ?? [], load.history[spec.powerEntity] ?? [], finishMs)
+        : null,
+    [load, spec, finishMs]
+  );
+  // An emptied row does not carry the run's energy; its finished row does.
+  const kwh = useMemo(() => {
+    if (spec.kwh != null || finishMs == null) return spec.kwh;
+    const finished = events.find(
+      e => e.icon !== 'mdi:basket-check' && Math.abs(e.tsMs - finishMs) <= 5 * 60_000 && FINISHED_KWH.test(e.text)
+    );
+    const match = finished ? FINISHED_KWH.exec(finished.text) : null;
+    return match ? Number(match[1]) : null;
+  }, [events, finishMs, spec.kwh]);
   const chartStart = run?.startMs != null ? Math.max(startMs, run.startMs - 10 * 60_000) : startMs;
-  const duration = run?.minutes != null ? `${Math.floor(run.minutes / 60)} h ${run.minutes % 60} min` : '–';
+  const chartEnd = spec.emptied && finishMs != null ? Math.min(endMs, finishMs + 10 * 60_000) : endMs;
+  const sat = spec.emptied && finishMs != null ? Math.round((spec.atMs - finishMs) / 60_000) : null;
+  if (spec.emptied && load.status === 'ready' && finishMs == null) {
+    return <p className='evd-empty'>No finished run in the day before this.</p>;
+  }
   return (
     <>
       <Headline
-        before={spec.kwh != null ? `${spec.kwh.toFixed(2)} kWh` : '–'}
-        after={duration}
-        note={run?.startMs != null ? `${formatHomeClock(run.startMs)}–${formatHomeClock(spec.atMs)}` : null}
+        before={kwh != null ? `${kwh.toFixed(2)} kWh` : '–'}
+        after={run?.minutes != null ? hoursMinutes(run.minutes) : '–'}
+        note={run?.startMs != null && finishMs != null ? `${formatHomeClock(run.startMs)}–${formatHomeClock(finishMs)}` : null}
       />
-      {load.status === 'ready' ? (
+      {spec.emptied && sat != null && (
+        <p className='evd-lead'>
+          Emptied {formatHomeClock(spec.atMs)}
+          {event.by ? ` by ${event.by}` : ''}, {hoursMinutes(sat)} after it finished
+        </p>
+      )}
+      {load.status === 'ready' && finishMs != null ? (
         <EventChart
           points={numeric(load.history[spec.powerEntity] ?? [])}
           startMs={chartStart}
-          endMs={endMs}
-          eventMs={spec.atMs}
+          endMs={chartEnd}
+          eventMs={finishMs}
           markMs={run?.startMs ?? null}
           unit=' W'
           label={`${spec.label} power`}
@@ -220,18 +276,258 @@ function CoffeeBody({ spec }: { spec: Extract<DetailSpec, { kind: 'coffee' }> })
   );
 }
 
+/** The maps index, read once per open. */
+function useRoberMapsIndex(): MapEntry[] | null {
+  const [maps, setMaps] = useState<MapEntry[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetchMapsIndex().then(
+      entries => live && setMaps(entries),
+      () => live && setMaps([])
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
+  return maps;
+}
+
+/** A Rober2 round: how long, how much floor, the rooms it did with their maps, and the rooms it left out. */
+function RoberBody({
+  spec,
+  events,
+  nowMs,
+}: {
+  spec: Extract<DetailSpec, { kind: 'rober' }>;
+  events: readonly HouseEvent[];
+  nowMs: number;
+}) {
+  const load = useDetailHistory(spec, nowMs);
+  const maps = useRoberMapsIndex();
+  const round = useMemo(
+    () => (load.status === 'ready' && maps ? roberRound(events, maps, load.history[ROBER_AREA_ENTITY] ?? [], spec.atMs) : null),
+    [load, maps, events, spec]
+  );
+  const [picked, setPicked] = useState<number | null>(null);
+  if (!round) return load.status === 'ready' ? <p className='evd-empty'>Loading…</p> : <Status load={load} />;
+  const lastMs = round.endMs ?? round.lastRoomMs;
+  const minutes = round.startMs != null && lastMs != null ? Math.round((lastMs - round.startMs) / 60_000) : null;
+  const shown = round.rooms[picked ?? round.rooms.length - 1];
+  const name = (slug: string) => formatRoberRoomName(slug) ?? slug;
+  return (
+    <>
+      <Headline
+        before={`${round.rooms.length} room${round.rooms.length === 1 ? '' : 's'}`}
+        after={minutes != null ? hoursMinutes(minutes) : '–'}
+        note={round.areaM2 != null ? `${round.areaM2} m²` : null}
+      />
+      <ul className='evd-facts'>
+        {round.startMs != null && (
+          <li>
+            <span>Started</span>
+            <span>{formatHomeClock(round.startMs)}</span>
+          </li>
+        )}
+        {round.endMs == null && round.lastRoomMs != null && (
+          <li>
+            <span>Last room</span>
+            <span>{formatHomeClock(round.lastRoomMs)}</span>
+          </li>
+        )}
+        {round.endMs != null && (
+          <li>
+            <span>Ended</span>
+            <span>
+              {formatHomeClock(round.endMs)}
+              {round.endReason ? ` · ${round.endReason}` : ''}
+            </span>
+          </li>
+        )}
+        {round.skipped.length > 0 && (
+          <li>
+            <span>Left out</span>
+            <span>{round.skipped.join(', ')}</span>
+          </li>
+        )}
+      </ul>
+      {round.rooms.length > 0 ? (
+        <>
+          <div className='evd-rooms'>
+            {round.rooms.map((room, index) => (
+              <button key={`${room.room}|${room.atMs}`} type='button' aria-pressed={room === shown} onClick={() => setPicked(index)}>
+                {name(room.room)} {formatHomeClock(room.atMs)}
+              </button>
+            ))}
+          </div>
+          {shown && <ArchiveImage className='evd-map' path={shown.map.url} alt={`${name(shown.room)} map`} />}
+        </>
+      ) : (
+        <p className='evd-empty'>No room maps saved for this round.</p>
+      )}
+    </>
+  );
+}
+
+type WoltLoad = { status: 'loading' } | { status: 'failed' } | { status: 'ready'; snapshots: DeliverySnapshot[] };
+
+/** A Wolt order's way to the door: ordered, picked up, at the door, the first promised time against the real one,
+ * and how the courier got in. */
+function WoltBody({ spec, events }: { spec: Extract<DetailSpec, { kind: 'wolt' }>; events: readonly HouseEvent[] }) {
+  const connection = useHass(s => s.connection);
+  const [load, setLoad] = useState<WoltLoad>({ status: 'loading' });
+  useEffect(() => {
+    if (!connection) return;
+    let live = true;
+    fetchAttributeHistory(connection, DELIVERY_ENTITY, spec.atMs - 2 * 3_600_000, spec.atMs + 60_000).then(
+      points =>
+        live &&
+        setLoad({
+          status: 'ready',
+          snapshots: points.map(p => ({
+            ts: p.ts,
+            deliveries: Array.isArray(p.attributes.deliveries) ? (p.attributes.deliveries as DeliverySnapshot['deliveries']) : [],
+          })),
+        }),
+      () => live && setLoad({ status: 'failed' })
+    );
+    return () => {
+      live = false;
+    };
+  }, [connection, spec.atMs]);
+  if (load.status !== 'ready') return <Status load={load} />;
+  const order = woltOrder(load.snapshots, spec.title, spec.atMs);
+  const late = order.firstEtaMs != null ? Math.round((order.deliveredMs - order.firstEtaMs) / 60_000) : null;
+  const door = doorRowsNear(events, (order.arrivingMs ?? order.pickedUpMs ?? spec.atMs) - 2 * 60_000, spec.atMs + 10 * 60_000);
+  const steps: [string, number | null][] = [
+    ['Ordered', order.orderedMs],
+    ['Picked up', order.pickedUpMs],
+    ['At the door', order.arrivingMs],
+    ['Delivered', order.deliveredMs],
+  ];
+  return (
+    <>
+      <Headline
+        before={order.firstEtaMs != null ? formatHomeClock(order.firstEtaMs) : '–'}
+        after={formatHomeClock(order.deliveredMs)}
+        note={late == null ? null : late === 0 ? 'on time' : late > 0 ? `${late} min late` : `${-late} min early`}
+      />
+      <ol className='evd-path'>
+        {steps.map(([label, atMs]) => (
+          <li key={label} className={atMs == null ? 'is-missing' : undefined}>
+            <span className='evd-path-dot' aria-hidden='true' />
+            <span className='evd-path-label'>{label}</span>
+            <span className='evd-path-time'>{atMs == null ? 'not seen' : formatHomeClock(atMs)}</span>
+          </li>
+        ))}
+      </ol>
+      <h3 className='evd-sub'>At the door</h3>
+      {door.length > 0 ? (
+        <ul className='evd-facts'>
+          {door.map(e => (
+            <li key={`${e.tsMs}|${e.text}`}>
+              <span>{e.cause ?? e.text}</span>
+              <span>
+                {formatHomeClock(e.tsMs)}
+                {e.cause ? ` · ${houseEventLabel(e) ?? e.effect ?? ''}` : ''}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className='evd-empty'>No ring or unlock around the delivery.</p>
+      )}
+    </>
+  );
+}
+
+/** The night: when it started and ended and who went to bed; for the bedroom's sleeper, its feel temperature, CO2
+ * and when it called for heat. */
+function NightBody({
+  spec,
+  events,
+  nowMs,
+  showBedroom,
+}: {
+  spec: Extract<DetailSpec, { kind: 'night' }>;
+  events: readonly HouseEvent[];
+  nowMs: number;
+  showBedroom: boolean;
+}) {
+  const load = useDetailHistory(spec, nowMs);
+  const night = useMemo(() => (load.status === 'ready' ? nightSummary(load.history, spec.atMs, nowMs) : null), [load, spec, nowMs]);
+  if (!night) return <Status load={load} />;
+  const endMs = night.endMs ?? nowMs;
+  const minutes = Math.round((endMs - spec.atMs) / 60_000);
+  const beds = bedtimesIn(events, spec.atMs, endMs);
+  return (
+    <>
+      <Headline
+        before={formatHomeClock(spec.atMs)}
+        after={night.endMs != null ? formatHomeClock(night.endMs) : 'now'}
+        note={hoursMinutes(minutes)}
+      />
+      {beds.length > 0 && (
+        <ul className='evd-facts'>
+          {beds.map(e => (
+            <li key={`${e.tsMs}|${e.by ?? ''}`}>
+              <span>{e.by ?? 'Someone'} went to bed</span>
+              <span>{formatHomeClock(e.tsMs)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {showBedroom && (
+        <>
+          <h3 className='evd-sub'>Bedroom</h3>
+          <EventChart
+            points={night.feel}
+            startMs={spec.atMs}
+            endMs={endMs}
+            eventMs={spec.atMs}
+            unit=' °C'
+            decimals={1}
+            bands={night.heat}
+            label='Bedroom temperature through the night'
+          />
+          <p className='evd-caption'>
+            Feels {night.feelLow != null ? night.feelLow.toFixed(1) : '–'}–{night.feelHigh != null ? night.feelHigh.toFixed(1) : '–'} °C
+            {night.heatMinutes > 0 ? `, heating ${hoursMinutes(night.heatMinutes)} (shaded)` : ', no heating'}.
+          </p>
+          <EventChart
+            points={night.co2}
+            startMs={spec.atMs}
+            endMs={endMs}
+            eventMs={spec.atMs}
+            unit=' ppm'
+            label='Bedroom CO2 through the night'
+          />
+          <p className='evd-caption'>CO₂{night.co2High != null ? `, highest ${Math.round(night.co2High)} ppm` : ''}.</p>
+        </>
+      )}
+    </>
+  );
+}
+
 const TITLES: Record<DetailSpec['kind'], (spec: DetailSpec) => string> = {
   plant: spec => (spec.kind === 'plant' ? `Watered ${spec.name}` : ''),
   appliance: spec => (spec.kind === 'appliance' ? `${spec.label} run` : ''),
   arrival: spec => (spec.kind === 'arrival' ? `${spec.resident.name} came home` : ''),
   coffee: () => 'Coffee',
+  rober: () => 'Rober2 round',
+  wolt: spec => (spec.kind === 'wolt' ? spec.title : ''),
+  night: () => 'The night',
 };
+
+const APPLIANCE_ICONS = { washer: 'mdi:washing-machine', dryer: 'mdi:tumble-dryer', dish: 'mdi:dishwasher' } as const;
 
 const ICONS: Record<DetailSpec['kind'], string> = {
   plant: 'mdi:watering-can-outline',
   appliance: 'mdi:washing-machine',
   arrival: 'mdi:home-import-outline',
   coffee: 'mdi:coffee',
+  rober: 'mdi:robot-vacuum',
+  wolt: 'mdi:moped',
+  night: 'mdi:weather-night',
 };
 
 export interface EventDetailSheetProps {
@@ -242,14 +538,16 @@ export interface EventDetailSheetProps {
   events: readonly HouseEvent[];
   /** Another row to show instead, such as an earlier arrival. */
   onPick: (event: HouseEvent) => void;
+  /** Whether the viewer sees the bedroom's night: the admin, who sleeps there. */
+  isAdmin: boolean;
   onClose: () => void;
 }
 
 /** What a timeline row looked like before and after: a plant's soil around its watering, an appliance's power through
  * its run, a brew's curve, or one resident's way in through the apartment door. No buttons beyond close. */
-export default function EventDetailSheet({ spec, event, events, onPick, onClose }: EventDetailSheetProps) {
+export default function EventDetailSheet({ spec, event, events, onPick, isAdmin, onClose }: EventDetailSheetProps) {
   const [nowMs] = useState(() => Date.now());
-  const icon = spec.kind === 'appliance' ? event.icon : ICONS[spec.kind];
+  const icon = spec.kind === 'appliance' ? APPLIANCE_ICONS[spec.appliance] : ICONS[spec.kind];
   return (
     <ApplianceSheet
       accentClassName={`evd-sheet evd-${spec.kind}`}
@@ -261,9 +559,12 @@ export default function EventDetailSheet({ spec, event, events, onPick, onClose 
     >
       <div className='evd-body'>
         {spec.kind === 'plant' && <PlantBody spec={spec} />}
-        {spec.kind === 'appliance' && <ApplianceBody spec={spec} nowMs={nowMs} />}
+        {spec.kind === 'appliance' && <ApplianceBody spec={spec} event={event} events={events} nowMs={nowMs} />}
         {spec.kind === 'arrival' && <ArrivalBody spec={spec} nowMs={nowMs} events={events} onPick={onPick} />}
         {spec.kind === 'coffee' && <CoffeeBody spec={spec} />}
+        {spec.kind === 'rober' && <RoberBody spec={spec} events={events} nowMs={nowMs} />}
+        {spec.kind === 'wolt' && <WoltBody spec={spec} events={events} />}
+        {spec.kind === 'night' && <NightBody spec={spec} events={events} nowMs={nowMs} showBedroom={isAdmin} />}
       </div>
     </ApplianceSheet>
   );

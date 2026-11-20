@@ -18,6 +18,18 @@
   --appliance-accent: #38bdf8;
   --appliance-accent-bg: rgba(56, 189, 248, 0.16);
 }
+.evd-rober {
+  --appliance-accent: #4ade80;
+  --appliance-accent-bg: rgba(74, 222, 128, 0.16);
+}
+.evd-wolt {
+  --appliance-accent: #22d3ee;
+  --appliance-accent-bg: rgba(34, 211, 238, 0.16);
+}
+.evd-night {
+  --appliance-accent: #a78bfa;
+  --appliance-accent-bg: rgba(167, 139, 250, 0.16);
+}
 
 .evd-sheet .appliance-sheet-close {
   width: 44px !important;
@@ -63,6 +75,9 @@
 }
 .evd-after {
   fill: rgba(255, 255, 255, 0.04);
+}
+.evd-band {
+  fill: rgba(251, 146, 60, 0.18);
 }
 .evd-event {
   stroke: rgba(255, 255, 255, 0.7);
@@ -170,4 +185,49 @@
 }
 .evd-earlier-how {
   color: var(--text-1);
+}
+
+.evd-facts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.evd-facts li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 14.5px;
+  font-variant-numeric: tabular-nums;
+}
+.evd-facts li span:last-child {
+  color: var(--text-1);
+  text-align: right;
+}
+
+.evd-rooms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.evd-rooms button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  background: none;
+  color: rgba(255, 255, 255, 0.9);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.evd-rooms button[aria-pressed='true'] {
+  border-color: var(--appliance-accent);
+  background: var(--appliance-accent-bg);
+}
+.evd-map {
+  width: 100%;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
 }

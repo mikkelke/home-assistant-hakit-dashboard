@@ -4,14 +4,22 @@ import {
   ARRIVAL_RESIDENTS,
   applianceRun,
   arrivalPath,
+  bedtimesIn,
   brewForRow,
   detailSpec,
   detailWindow,
+  doorRowsNear,
   earlierArrivals,
+  nightSummary,
   plantOfRow,
+  roberRound,
+  runFinishBefore,
+  skippedRooms,
   slug,
+  woltOrder,
   type HistorySpec,
 } from '../eventDetail';
+import type { MapEntry } from '../../components/Vacuum/maps';
 import type { HistoryPoint } from '../eventHistory';
 import type { HouseEvent } from '../houseEvents';
 
@@ -123,10 +131,46 @@ describe('detailSpec', () => {
     expect(detailWindow(spec, ms('2026-11-20T08:00:00+01:00')).endMs).toBe(ms('2026-11-20T08:00:00+01:00'));
   });
 
-  it('a finished appliance opens its run with the kWh from the row; emptied rows open nothing', () => {
+  it('a finished appliance opens its run with the kWh from the row; an emptied row opens the run before it', () => {
     const dish = detailSpec(ev('2026-11-20T06:33:06+01:00', 'mdi:dishwasher', 'Dishwasher finished - used 0.79 kWh', 'Claudia'), exists);
-    expect(dish).toMatchObject({ kind: 'appliance', appliance: 'dish', kwh: 0.79, powerEntity: 'sensor.athom_smart_plug_v3_50ec44_power' });
-    expect(detailSpec(ev('2026-11-20T07:00:00+01:00', 'mdi:basket-check', 'Dishwasher emptied', 'Claudia'), exists)).toBeNull();
+    expect(dish).toMatchObject({
+      kind: 'appliance',
+      appliance: 'dish',
+      kwh: 0.79,
+      powerEntity: 'sensor.athom_smart_plug_v3_50ec44_power',
+      emptied: false,
+    });
+    const emptied = detailSpec(ev('2026-11-18T14:20:43+01:00', 'mdi:basket-check', 'Dishwasher emptied', 'Claudia'), exists);
+    expect(emptied).toMatchObject({ kind: 'appliance', appliance: 'dish', kwh: null, emptied: true });
+    expect(detailWindow(emptied as HistorySpec, ms('2026-11-20T00:00:00+01:00'))).toEqual({
+      startMs: ms('2026-11-17T08:20:43+01:00'),
+      endMs: ms('2026-11-18T14:25:43+01:00'),
+    });
+    expect(detailSpec(ev('2026-11-15T11:11:42+01:00', 'mdi:basket-check', 'Washer emptied'), exists)).toMatchObject({
+      appliance: 'washer',
+    });
+  });
+
+  it('Rober2 round rows, Wolt deliveries and the night open their sheets; a no-start row does not', () => {
+    const rober = (text: string, cause: string, effect: string) => ({
+      ...ev('2026-11-17T18:54:03+01:00', 'mdi:robot-vacuum', text),
+      cause,
+      effect,
+    });
+    expect(detailSpec(rober('x', 'Nobody home', 'Vacuum starting its cleaning round'), exists)).toMatchObject({ kind: 'rober' });
+    expect(detailSpec(rober('x', 'Someone came home', 'Vacuum stopped cleaning'), exists)).toMatchObject({ kind: 'rober' });
+    expect(detailSpec(rober('x', 'Vacuum finished the open rooms', 'Vacuum skipped Bedroom - doors closed'), exists)).toMatchObject({
+      kind: 'rober',
+    });
+    expect(
+      detailSpec(rober('x', "Couldn't reach the Hallway after several tries", 'Room skipped and its cleaning flag cleared'), exists)
+    ).toMatchObject({ kind: 'rober' });
+    expect(detailSpec(rober('x', 'Nobody home', "Vacuum didn't start: Bedroom - doors closed"), exists)).toBeNull();
+    expect(
+      detailSpec(ev('2026-11-19T20:11:38+01:00', 'mdi:moped', 'Wolt order from WokXpress - Vesterbro delivered'), exists)
+    ).toMatchObject({ kind: 'wolt', title: 'WokXpress - Vesterbro' });
+    expect(detailSpec(ev('2026-11-19T22:36:41+01:00', 'mdi:weather-night', 'Night mode on'), exists)).toMatchObject({ kind: 'night' });
+    expect(detailSpec(ev('2026-11-20T00:24:29+01:00', 'mdi:bed', 'Went to bed', 'Claudia'), exists)).toBeNull();
   });
 
   it('arrivals: Came home and resident-named apartment unlocks; keypad users and Went out do not', () => {
@@ -217,5 +261,285 @@ describe('earlierArrivals and plants', () => {
       wateredMs: ms('2026-11-19T20:06:42+01:00'),
     });
     expect(plantOfRow('maint:dishwasher:filters', events, () => true)).toBeNull();
+  });
+});
+
+/* Recorder states from the box (CO2 thinned to every 150th reading). */
+const REAL = {
+  area17: [
+    { ts: 1794853416817, state: '20028.4' },
+    { ts: 1794938318756, state: '20032.7' },
+    { ts: 1794938686018, state: '20040.6' },
+    { ts: 1794939222970, state: '20051.3' },
+    { ts: 1794939345749, state: '20054.6' },
+  ],
+  area18: [
+    { ts: 1794989648846, state: '20069.7' },
+    { ts: 1794993153851, state: '20074.0' },
+    { ts: 1794993509673, state: '20082.0' },
+    { ts: 1794994064059, state: '20092.9' },
+    { ts: 1794995091985, state: '20108.1' },
+    { ts: 1794995916309, state: '20120.2' },
+    { ts: 1794996696249, state: '20124.9' },
+    { ts: 1794997195887, state: '20132.0' },
+    { ts: 1794997564395, state: '20136.8' },
+    { ts: 1794997969926, state: '20143.7' },
+    { ts: 1795003454437, state: '20148.1' },
+    { ts: 1795003710039, state: '20150.0' },
+  ],
+  dish: [
+    { ts: 1794842496986, state: 'Off' },
+    { ts: 1794968185904, state: 'Running' },
+    { ts: 1794983053863, state: 'Unemptied' },
+    { ts: 1795008043660, state: 'Emptied' },
+    { ts: 1795008471035, state: 'Off' },
+  ],
+  feel: [
+    { ts: 1795121651743, state: '20.9' },
+    { ts: 1795122552046, state: '21.0' },
+    { ts: 1795123452598, state: '21.1' },
+    { ts: 1795124353361, state: '21.2' },
+    { ts: 1795125253952, state: '21.3' },
+    { ts: 1795127956049, state: '21.4' },
+    { ts: 1795131558963, state: '21.5' },
+    { ts: 1795142366370, state: '21.6' },
+    { ts: 1795159478785, state: '21.7' },
+  ],
+  co2: [
+    { ts: 1795121993615, state: '817.0' },
+    { ts: 1795122670664, state: '755.0' },
+    { ts: 1795123354719, state: '759.0' },
+    { ts: 1795124044779, state: '809.0' },
+    { ts: 1795124757855, state: '795.0' },
+    { ts: 1795125466911, state: '807.0' },
+    { ts: 1795126182968, state: '815.0' },
+    { ts: 1795126883068, state: '775.0' },
+    { ts: 1795127530133, state: '789.0' },
+    { ts: 1795128241199, state: '771.0' },
+    { ts: 1795128925232, state: '754.0' },
+    { ts: 1795129528276, state: '810.0' },
+    { ts: 1795130274352, state: '758.0' },
+    { ts: 1795131033412, state: '734.0' },
+    { ts: 1795131793464, state: '734.0' },
+    { ts: 1795132606551, state: '720.0' },
+    { ts: 1795133324646, state: '722.0' },
+    { ts: 1795134031660, state: '730.0' },
+    { ts: 1795134767771, state: '718.0' },
+    { ts: 1795135488777, state: '725.0' },
+    { ts: 1795136224834, state: '691.0' },
+    { ts: 1795137017923, state: '687.0' },
+    { ts: 1795137843981, state: '675.0' },
+    { ts: 1795138693072, state: '671.0' },
+    { ts: 1795139524151, state: '707.0' },
+    { ts: 1795140278172, state: '677.0' },
+    { ts: 1795141057285, state: '687.0' },
+    { ts: 1795141776288, state: '719.0' },
+    { ts: 1795142553371, state: '669.0' },
+    { ts: 1795143238434, state: '661.0' },
+    { ts: 1795144035507, state: '685.0' },
+    { ts: 1795144726587, state: '711.0' },
+    { ts: 1795145461642, state: '703.0' },
+    { ts: 1795146297735, state: '693.0' },
+    { ts: 1795147050859, state: '683.0' },
+    { ts: 1795147851865, state: '697.0' },
+    { ts: 1795148617911, state: '715.0' },
+    { ts: 1795149397977, state: '671.0' },
+    { ts: 1795149847030, state: '768.0' },
+    { ts: 1795150461142, state: '724.0' },
+    { ts: 1795151140130, state: '712.0' },
+    { ts: 1795152001200, state: '728.0' },
+    { ts: 1795152871281, state: '750.0' },
+    { ts: 1795153617311, state: '758.0' },
+    { ts: 1795154359384, state: '730.0' },
+    { ts: 1795155211476, state: '752.0' },
+    { ts: 1795155943521, state: '774.0' },
+    { ts: 1795156543570, state: '862.0' },
+    { ts: 1795157295629, state: '838.0' },
+    { ts: 1795158044740, state: '799.0' },
+    { ts: 1795158766252, state: '760.0' },
+    { ts: 1795159127323, state: '958.0' },
+    { ts: 1795159755380, state: '860.0' },
+    { ts: 1795160388574, state: '788.0' },
+    { ts: 1795161056223, state: '720.0' },
+  ],
+  heat: [{ ts: 1795068364110, state: 'off' }],
+  night: [
+    { ts: 1795068345721, state: 'off' },
+    { ts: 1795124201048, state: 'on' },
+    { ts: 1795156384361, state: 'off' },
+  ],
+} as Record<string, HistoryPoint[]>;
+
+const map = (datetime: string, room: string): MapEntry => ({
+  filename: `${room}.png`,
+  timestamp: '',
+  datetime,
+  room,
+  url: `/media/local/rober2_maps/${room}.png`,
+});
+const roberRow = (iso: string, cause: string, effect: string): HouseEvent => ({
+  tsMs: ms(iso),
+  icon: 'mdi:robot-vacuum',
+  text: `${cause} -> ${effect}`,
+  cause,
+  effect,
+});
+
+describe('roberRound', () => {
+  const rows = [
+    roberRow('2026-11-17T18:54:03+01:00', 'Nobody home', 'Vacuum starting its cleaning round'),
+    roberRow('2026-11-17T19:15:42+01:00', 'Someone came home', 'Vacuum stopped cleaning'),
+    roberRow('2026-11-17T19:39:50+01:00', 'Nobody home', 'Vacuum starting its cleaning round'),
+    roberRow('2026-11-18T10:08:08+01:00', 'Clean-while-home is on (someone is home)', 'Vacuum starting its cleaning round'),
+    roberRow('2026-11-18T12:59:40+01:00', 'Nobody home', 'Vacuum starting its cleaning round'),
+    roberRow('2026-11-18T13:11:18+01:00', 'Vacuum error: Robot Trapped', "Cleaning stopped - automation paused until it's rescued"),
+  ];
+  const maps = [
+    map('2026-11-17T18:58:37.777967', 'hallway'),
+    map('2026-11-17T19:04:44.625371', 'kitchen'),
+    map('2026-11-17T19:13:42.607884', 'kitchen_2'),
+    map('2026-11-17T19:56:03.172793', 'living_room'),
+    map('2026-11-18T10:12:33.199714', 'hallway'),
+    map('2026-11-18T10:18:29.236070', 'kitchen'),
+    map('2026-11-18T11:32:17.308301', 'bathroom'),
+    map('2026-11-18T13:04:13.634414', 'hallway'),
+  ];
+
+  it('17.11: the start row and the stop row both open the same round: three rooms in 22 minutes, 26 m²', () => {
+    const fromStart = roberRound(rows, maps, REAL.area17, ms('2026-11-17T18:54:03+01:00'));
+    expect(fromStart).toMatchObject({
+      startMs: ms('2026-11-17T18:54:03+01:00'),
+      endMs: ms('2026-11-17T19:15:42+01:00'),
+      endReason: 'Someone came home',
+      areaM2: 26.2,
+      skipped: [],
+    });
+    expect(fromStart.rooms.map(r => r.room)).toEqual(['hallway', 'kitchen', 'kitchen_2']);
+    expect(roberRound(rows, maps, REAL.area17, ms('2026-11-17T19:15:42+01:00')).rooms).toHaveLength(3);
+  });
+
+  it('18.11 10:08 ended without a row before the next round started: its rooms stop at that start', () => {
+    const round = roberRound(rows, maps, REAL.area18, ms('2026-11-18T10:08:08+01:00'));
+    expect(round.endMs).toBeNull();
+    expect(round.rooms.map(r => r.room)).toEqual(['hallway', 'kitchen', 'bathroom']);
+    expect(round.lastRoomMs).toBe(ms('2026-11-18T11:32:17.308+01:00'));
+  });
+
+  it('18.11 13:11: an error row ends the 12:59 round', () => {
+    const round = roberRound(rows, maps, [], ms('2026-11-18T13:11:18+01:00'));
+    expect(round).toMatchObject({ startMs: ms('2026-11-18T12:59:40+01:00'), endReason: 'Vacuum error: Robot Trapped', areaM2: null });
+    expect(round.rooms.map(r => r.room)).toEqual(['hallway']);
+  });
+
+  it('names the rooms a round left out', () => {
+    const end = roberRow('2026-11-21T10:30:00+01:00', 'Vacuum finished the open rooms', 'Vacuum skipped Bedroom, Bathroom - doors closed');
+    const start = roberRow('2026-11-21T10:00:00+01:00', 'Nobody home', 'Vacuum starting its cleaning round');
+    const reach = roberRow(
+      '2026-11-21T10:10:00+01:00',
+      "Couldn't reach the Hallway after several tries",
+      'Room skipped and its cleaning flag cleared'
+    );
+    expect(skippedRooms(end)).toEqual(['Bedroom', 'Bathroom']);
+    expect(roberRound([start, reach, end], [], [], end.tsMs).skipped).toEqual(['Hallway', 'Bedroom', 'Bathroom']);
+  });
+});
+
+describe('runFinishBefore', () => {
+  it('18.11: Dishwasher emptied 14:20 belongs to the run that finished 07:24', () => {
+    expect(runFinishBefore(REAL.dish, ms('2026-11-18T14:20:43+01:00'))).toBe(ms('2026-11-18T07:24:13.863+01:00'));
+    expect(runFinishBefore(REAL.dish, ms('2026-11-18T05:00:00+01:00'))).toBeNull();
+  });
+});
+
+describe('woltOrder', () => {
+  const at = (hhmmss: string) => ms(`2026-11-19T${hhmmss}+01:00`);
+  const snap = (hhmmss: string, stage: string, eta: string | null) => ({
+    ts: at(hhmmss),
+    deliveries: [{ source: 'wolt', title: 'WokXpress - Vesterbro', stage, eta: eta && `2026-11-19T${eta}+01:00` }],
+  });
+  // 19.11, thinned: Wolt flips between preparing and on the way while the courier waits at the restaurant.
+  const snapshots = [
+    snap('19:31:07', 'preparing', null),
+    snap('19:32:06', 'preparing', '20:09:32'),
+    snap('19:51:37', 'on_the_way', '20:10:37'),
+    snap('19:54:07', 'preparing', '20:10:33'),
+    snap('19:58:08', 'on_the_way', '20:11:31'),
+    snap('19:59:08', 'preparing', '20:11:34'),
+    snap('20:08:38', 'on_the_way', '20:12:06'),
+    snap('20:09:08', 'arriving', '20:12:06'),
+    snap('20:09:38', 'on_the_way', '20:13:12'),
+    snap('20:10:38', 'arriving', '20:13:12'),
+    { ts: at('20:11:38'), deliveries: [{ source: 'wolt', title: 'WokXpress - Vesterbro', stage: 'delivered', eta: null }] },
+  ];
+
+  it('picked up at the start of the last stretch on the way, first promised 20:09, delivered 20:11', () => {
+    expect(woltOrder(snapshots, 'WokXpress - Vesterbro', at('20:11:38'))).toEqual({
+      orderedMs: at('19:31:07'),
+      pickedUpMs: at('20:08:38'),
+      arrivingMs: at('20:09:08'),
+      deliveredMs: at('20:11:38'),
+      firstEtaMs: at('20:09:32'),
+      lastEtaMs: at('20:13:12'),
+    });
+  });
+
+  it('another order in the sensor is not mixed in, and a missing order gives no steps', () => {
+    expect(woltOrder(snapshots, 'House of Sushi', at('20:11:38'))).toMatchObject({ orderedMs: null, pickedUpMs: null, firstEtaMs: null });
+  });
+
+  it('the door rows are rings and unlocks around the delivery', () => {
+    const events = [
+      ev('2026-11-19T20:10:50+01:00', 'mdi:bell-ring', 'Someone rang the front door'),
+      ev('2026-11-19T20:11:00+01:00', 'mdi:music', 'Kristine started Spotify in Kitchen'),
+      ev('2026-11-19T19:00:00+01:00', 'mdi:bell-ring', 'Someone rang the front door'),
+    ];
+    expect(doorRowsNear(events, at('20:07:08'), at('20:21:38')).map(e => e.text)).toEqual(['Someone rang the front door']);
+  });
+});
+
+describe('nightSummary', () => {
+  const rowMs = ms('2026-11-19T22:36:41.048+01:00');
+  const history = {
+    'sensor.bedroom_feel': REAL.feel,
+    'sensor.airdot_b49928_co2': REAL.co2,
+    'binary_sensor.bedroom_heating_active': REAL.heat,
+    'input_boolean.house_night_mode': REAL.night,
+  };
+
+  it('19-20.11: the night ends when the house night mode goes off, no heating, feel 21.1-21.7', () => {
+    const night = nightSummary(history, rowMs, ms('2026-11-20T12:00:00+01:00'));
+    expect(night.endMs).toBe(ms('2026-11-20T07:33:04.361+01:00'));
+    expect(night.heat).toEqual([]);
+    expect(night.heatMinutes).toBe(0);
+    expect(night.feelLow).toBeGreaterThanOrEqual(20.9);
+    expect(night.feelHigh).toBeLessThanOrEqual(21.7);
+    expect(night.co2High).toBeGreaterThan(700);
+  });
+
+  it('heat stretches are clipped to the night and one still on runs to its end', () => {
+    const heat = [
+      { ts: rowMs - 3_600_000, state: 'on' },
+      { ts: rowMs + 600_000, state: 'off' },
+      { ts: rowMs + 3_600_000, state: 'on' },
+    ];
+    const night = nightSummary({ ...history, 'binary_sensor.bedroom_heating_active': heat }, rowMs, ms('2026-11-20T12:00:00+01:00'));
+    expect(night.heat).toEqual([
+      { startMs: rowMs, endMs: rowMs + 600_000 },
+      { startMs: rowMs + 3_600_000, endMs: ms('2026-11-20T07:33:04.361+01:00') },
+    ]);
+  });
+
+  it('a night still going reads to now', () => {
+    const night = nightSummary({ 'input_boolean.house_night_mode': [{ ts: rowMs, state: 'on' }] }, rowMs, rowMs + 3_600_000);
+    expect(night.endMs).toBeNull();
+  });
+
+  it('bedtimes are the Went to bed rows inside it', () => {
+    const rows = [
+      ev('2026-11-19T22:20:00+01:00', 'mdi:bed', 'Went to bed', 'Mikkel'),
+      ev('2026-11-20T01:24:29+01:00', 'mdi:bed', 'Went to bed', 'Claudia'),
+      ev('2026-11-20T21:00:00+01:00', 'mdi:bed', 'Went to bed', 'Kristine'),
+    ];
+    expect(bedtimesIn(rows, rowMs, ms('2026-11-20T07:33:04+01:00')).map(e => e.by)).toEqual(['Mikkel', 'Claudia']);
   });
 });

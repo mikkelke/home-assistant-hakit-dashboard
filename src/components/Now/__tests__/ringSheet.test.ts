@@ -133,12 +133,14 @@ describe('a ring row on the timeline', () => {
     expect(sheet()?.textContent).toContain('No photo for this ring');
   });
 
-  it('leaves other rows untappable, and a finished run opens its own sheet', async () => {
+  it('makes only rows with a sheet tappable, and a finished run opens its own sheet', async () => {
     await open({ arrival: 'cold' });
     const links = [...document.querySelectorAll<HTMLElement>('.now-body.is-link')].filter(body => !body.classList.contains('is-ring'));
-    expect(links.map(body => body.getAttribute('aria-label')).every(label => / finished/.test(label ?? ''))).toBe(true);
-    expect(document.querySelectorAll('.now-body:not(.is-link)').length).toBeGreaterThan(0);
-    await act(async () => links[0].click());
+    const labels = links.map(body => body.getAttribute('aria-label') ?? '');
+    expect(labels.every(label => / finished| emptied|Vacuum|Night mode on|Wolt order/.test(label))).toBe(true);
+    expect(document.querySelectorAll('button.now-body:not(.is-link)').length).toBe(0);
+    const finished = links[labels.findIndex(label => / finished/.test(label))];
+    await act(async () => finished.click());
     await settle();
     expect(document.querySelector('.evd-body')).not.toBeNull();
   });

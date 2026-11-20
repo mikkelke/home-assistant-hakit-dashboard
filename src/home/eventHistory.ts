@@ -81,3 +81,47 @@ export function fetchEventHistory(
   cache.set(key, { at: now, promise });
   return promise;
 }
+
+/** One state with its attributes. */
+export interface AttributePoint {
+  ts: number;
+  attributes: Record<string, unknown>;
+}
+
+const attributeCache = new Map<string, { at: number; promise: Promise<AttributePoint[]> }>();
+
+/** The raw entries of one entity with their attributes, oldest first. The websocket's compact form carries them as `a`. */
+export function toAttributePoints(entries: readonly (RawHistoryEntry & { a?: Record<string, unknown> })[] | undefined): AttributePoint[] {
+  const out: AttributePoint[] = [];
+  for (const entry of entries ?? []) {
+    const ts = entryMs(entry);
+    const attributes = entry.a ?? entry.attributes;
+    if (ts != null && attributes && typeof attributes === 'object') out.push({ ts, attributes });
+  }
+  return out;
+}
+
+/** One entity's states with attributes over [startMs, endMs], at most a day; kept five minutes like the states. */
+export function fetchAttributeHistory(conn: Connection, entityId: string, startMs: number, endMs: number): Promise<AttributePoint[]> {
+  const key = `${entityId}|${Math.round(startMs / 60_000)}|${Math.round(endMs / 60_000)}`;
+  const now = Date.now();
+  const hit = attributeCache.get(key);
+  if (hit && now - hit.at < CACHE_TTL_MS) return hit.promise;
+  const promise = conn
+    .sendMessagePromise<Record<string, RawHistoryEntry[]>>({
+      type: 'history/history_during_period',
+      start_time: new Date(startMs).toISOString(),
+      end_time: new Date(Math.min(endMs, startMs + PIECE_MS)).toISOString(),
+      entity_ids: [entityId],
+      minimal_response: false,
+      no_attributes: false,
+      significant_changes_only: false,
+    })
+    .then(answer => toAttributePoints(answer?.[entityId]))
+    .catch(error => {
+      attributeCache.delete(key);
+      throw error;
+    });
+  attributeCache.set(key, { at: now, promise });
+  return promise;
+}

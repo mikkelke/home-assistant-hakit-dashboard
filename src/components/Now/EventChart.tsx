@@ -18,6 +18,10 @@ export interface EventChartProps {
   level?: number | null;
   /** Readings change only when they move, so the line is held to the window's end at its last value. */
   holdToEnd?: boolean;
+  /** Decimals on the axis labels, such as one for a temperature. */
+  decimals?: number;
+  /** Stretches to shade, such as when a room called for heat. */
+  bands?: readonly { startMs: number; endMs: number }[];
   label: string;
 }
 
@@ -37,7 +41,19 @@ function clock(ms: number, long: boolean): string {
 }
 
 /** One series around a timeline event, the event marked. */
-export function EventChart({ points, startMs, endMs, eventMs, markMs, unit, level, holdToEnd = true, label }: EventChartProps) {
+export function EventChart({
+  points,
+  startMs,
+  endMs,
+  eventMs,
+  markMs,
+  unit,
+  level,
+  holdToEnd = true,
+  decimals = 0,
+  bands = [],
+  label,
+}: EventChartProps) {
   const inside = points.filter(p => p.ts <= endMs);
   const before = [...inside].reverse().find(p => p.ts <= startMs);
   const series = [...(before ? [{ ts: startMs, value: before.value }] : []), ...inside.filter(p => p.ts > startMs)];
@@ -53,13 +69,29 @@ export function EventChart({ points, startMs, endMs, eventMs, markMs, unit, leve
   const path = series
     .map((p, i) => (i === 0 ? `M ${x(p.ts).toFixed(1)} ${y(p.value).toFixed(1)}` : `H ${x(p.ts).toFixed(1)} V ${y(p.value).toFixed(1)}`))
     .join(' ');
-  const fmt = (v: number) => `${Math.round(v)}${unit}`;
+  const fmt = (v: number) => `${v.toFixed(decimals)}${unit}`;
   const ex = x(Math.min(Math.max(eventMs, startMs), endMs));
   const long = endMs - startMs > 20 * 3_600_000;
 
   return (
     <svg className='evd-chart' viewBox={`0 0 ${W} ${H}`} role='img' aria-label={label}>
       <rect className='evd-after' x={ex} y={PAD.top} width={Math.max(0, W - PAD.right - ex)} height={H - PAD.top - PAD.bottom} />
+      {bands
+        .filter(band => band.endMs > startMs && band.startMs < endMs)
+        .map(band => {
+          const x1 = x(Math.max(band.startMs, startMs));
+          const x2 = x(Math.min(band.endMs, endMs));
+          return (
+            <rect
+              key={band.startMs}
+              className='evd-band'
+              x={x1}
+              y={PAD.top}
+              width={Math.max(1, x2 - x1)}
+              height={H - PAD.top - PAD.bottom}
+            />
+          );
+        })}
       <text className='evd-axis' x={PAD.left - 6} y={PAD.top + 4} textAnchor='end'>
         {fmt(hi)}
       </text>
