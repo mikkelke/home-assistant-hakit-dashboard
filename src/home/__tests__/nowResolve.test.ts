@@ -144,7 +144,7 @@ describe('linkedRing: the sheet a link that has just arrived opens', () => {
 });
 
 describe('resolveNowItem: a tap that names an exact item and no link identity', () => {
-  const ids = ['1760346930468', 'washer', 'sun:set', 'quiet', 'train:kristine', 'maint:battery:sensor.ecowitt_battery_8351'];
+  const ids = ['1760346930468', 'washer', 'sun:set', 'quiet', 'rain:kristine', 'maint:battery:sensor.ecowitt_battery_8351'];
 
   it('focuses the item when the viewer has it', () => {
     expect(resolveNowItem('sun:set', ids, false)).toEqual({ status: 'found', id: 'sun:set' });

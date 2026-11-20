@@ -21,14 +21,14 @@ const RESOLVING: HouseEventViewer = { isAdmin: null, name: null };
 const NOW = Date.parse('2026-10-14T05:00:00Z');
 const LEASE = '2026-10-14T05:15:00+00:00';
 
-/** The rows the publisher's dry run on 14.10.2026 gave, plus a train and a rain row. */
+/** The rows the publisher's dry run on 14.10.2026 gave, plus a named and a public rain row. */
 const ROWS = [
   {
-    id: 'train:kristine',
-    kind: 'train',
+    id: 'rain:kristine',
+    kind: 'rain',
     at: '2026-10-14T05:46:00+00:00',
-    icon: 'mdi:train',
-    title: 'Train to Odense',
+    icon: 'mdi:weather-pouring',
+    title: 'Rain at the office',
     detail: '07:46, 08:02 +5',
     chip: 'S-tog delayed',
     audience_users: ['Kristine'],
@@ -68,13 +68,13 @@ const seenBy = (rows: HouseUpcomingRow[], viewer: HouseEventViewer) => ids(rows.
 
 describe('parseHouseUpcoming', () => {
   it('reads every field of a row', () => {
-    const [train, rain, ws90] = parse(ROWS);
-    expect(train).toEqual({
-      id: 'train:kristine',
-      kind: 'train',
+    const [named, rain, ws90] = parse(ROWS);
+    expect(named).toEqual({
+      id: 'rain:kristine',
+      kind: 'rain',
       atMs: Date.parse('2026-10-14T05:46:00Z'),
-      icon: 'mdi:train',
-      title: 'Train to Odense',
+      icon: 'mdi:weather-pouring',
+      title: 'Rain at the office',
       detail: '07:46, 08:02 +5',
       chip: 'S-tog delayed',
       areaId: null,
@@ -407,10 +407,10 @@ describe('the room a row opens', () => {
 });
 
 describe('who sees which row', () => {
-  it('shows maintenance to admins only, the train to Kristine and admins, rain to everyone', () => {
+  it('shows maintenance to admins only, a named row to Kristine and admins, rain to everyone', () => {
     const rows = parse(ROWS);
     expect(seenBy(rows, MIKKEL)).toEqual(ids(rows));
-    expect(seenBy(rows, KRISTINE)).toEqual(['train:kristine', 'rain:terrace']);
+    expect(seenBy(rows, KRISTINE)).toEqual(['rain:kristine', 'rain:terrace']);
     expect(seenBy(rows, CLAUDIA)).toEqual(['rain:terrace']);
     expect(seenBy(rows, RESOLVING)).toEqual(['rain:terrace']);
   });
@@ -439,10 +439,8 @@ describe('who sees which row', () => {
     }
   });
 
-  it('drops a train row that names no one', () => {
-    const unnamed: Record<string, unknown> = { ...ROWS[0] };
-    delete unnamed.audience_users;
-    expect(parse([unnamed])).toEqual([]);
+  it('drops a train row, a kind the publisher no longer sends', () => {
+    expect(parse([{ ...ROWS[0], id: 'train:kristine', kind: 'train' }])).toEqual([]);
   });
 
   it('keeps a row that asks to be passed over out of the next chip, but not out of sight', () => {
@@ -456,10 +454,10 @@ describe('who sees which row', () => {
   });
 
   it('offers the next chip a named row only for the people it names', () => {
-    const [train, rain, ws90] = parse(ROWS);
-    expect(isUpcomingFor(train, KRISTINE)).toBe(true);
-    expect(isUpcomingFor(train, MIKKEL)).toBe(false);
-    expect(isUpcomingFor(train, CLAUDIA)).toBe(false);
+    const [named, rain, ws90] = parse(ROWS);
+    expect(isUpcomingFor(named, KRISTINE)).toBe(true);
+    expect(isUpcomingFor(named, MIKKEL)).toBe(false);
+    expect(isUpcomingFor(named, CLAUDIA)).toBe(false);
     expect(isUpcomingFor(rain, CLAUDIA)).toBe(true);
     expect(isUpcomingFor(ws90, MIKKEL)).toBe(true);
     expect(isUpcomingFor(ws90, KRISTINE)).toBe(false);

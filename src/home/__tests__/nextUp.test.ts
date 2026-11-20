@@ -74,23 +74,23 @@ describe('the next chip offers the soonest item of any kind', () => {
     expect(next).toMatchObject({ itemId: 'quiet', atMs: home(2026, 10, 14, 22, 0), icon: 'mdi:volume-off', name: 'Quiet' });
   });
 
-  it('gives Kristine her train before sunset, and nobody else her train', () => {
+  it('gives Kristine her own rain row before sunset, and nobody else', () => {
     const nowMs = home(2026, 10, 14, 7, 0);
     const train = {
-      id: 'train:kristine',
-      kind: 'train',
+      id: 'rain:kristine',
+      kind: 'rain',
       at: new Date(home(2026, 10, 14, 7, 46)).toISOString(),
-      icon: 'mdi:train',
-      title: 'Train to Odense',
+      icon: 'mdi:weather-pouring',
+      title: 'Rain at the office',
       detail: '07:46, 08:02',
       audience_users: ['Kristine'],
     };
     expect(chip(nowMs, KRISTINE, AFTERNOON_SUN, null, [train])).toEqual({
-      itemId: 'train:kristine',
+      itemId: 'rain:kristine',
       focus: null,
       atMs: home(2026, 10, 14, 7, 46),
-      icon: 'mdi:train',
-      name: 'Train to Odense',
+      icon: 'mdi:weather-pouring',
+      name: 'Rain at the office',
     });
     expect(chip(nowMs, MIKKEL, AFTERNOON_SUN, null, [train])?.itemId).toBe('sun:set');
     expect(chip(nowMs, CLAUDIA, AFTERNOON_SUN, null, [train])?.itemId).toBe('sun:set');

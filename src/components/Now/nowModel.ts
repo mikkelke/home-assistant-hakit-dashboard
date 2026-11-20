@@ -62,7 +62,7 @@ export interface PlanRow {
   areaId: string;
 }
 
-/** A `sensor.house_upcoming` card: maintenance, a train or a rain forecast. */
+/** A `sensor.house_upcoming` card: maintenance or a rain forecast. */
 export interface UpRow {
   type: 'up';
   id: string;
@@ -72,7 +72,7 @@ export interface UpRow {
 
 export type FutureRow = PlanRow | MarkerRow | UpRow;
 
-export const UP_TONES: Record<HouseUpcomingKind, string> = { rain: 'sky', train: 'mint', maint: 'slate' };
+export const UP_TONES: Record<HouseUpcomingKind, string> = { rain: 'sky', maint: 'slate' };
 
 export interface NowTimeline {
   /** Oldest first. */
@@ -204,7 +204,7 @@ export function rowTone(row: Pick<HouseEvent, 'icon'>): string {
   if (/^robot/.test(name)) return 'green';
   if (/^(hand-back|lightbulb|ceiling-light)/.test(name)) return 'light';
   if (/^(blinds|weather|white-balance)/.test(name)) return 'sun';
-  if (/^(smoke|fire)/.test(name)) return 'rose';
+  if (/^(smoke|fire|fridge-alert)/.test(name)) return 'rose';
   return 'slate';
 }
 

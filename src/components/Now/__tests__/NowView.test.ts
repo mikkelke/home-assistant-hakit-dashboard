@@ -505,11 +505,11 @@ describe('rows from sensor.house_upcoming', () => {
         expires: iso(expiresMs),
         rows: [
           {
-            id: 'train:kristine',
-            kind: 'train',
+            id: 'rain:kristine',
+            kind: 'rain',
             at: iso(home(2026, 10, 14, 7, 46)),
-            icon: 'mdi:train',
-            title: 'Train to Odense',
+            icon: 'mdi:weather-pouring',
+            title: 'Rain at the office',
             detail: '07:46, 08:02 +5',
             chip: 'S-tog delayed',
             audience_users: ['Kristine'],
@@ -572,14 +572,14 @@ describe('rows from sensor.house_upcoming', () => {
     await openAs('Mikkel', true);
     expect(cards()).toEqual([
       { label: 'Roof weather station, replace, 2x AA', restricted: true },
-      { label: 'Train to Odense, 07:46, 08:02 +5, S-tog delayed', restricted: true },
+      { label: 'Rain at the office, 07:46, 08:02 +5, S-tog delayed', restricted: true },
       { label: 'Rain forecast, living-room terrace door open', restricted: false },
     ]);
   });
 
-  it('shows Kristine her train and the rain, and Claudia only the rain', async () => {
+  it('shows Kristine her own row and the rain, and Claudia only the rain', async () => {
     await openAs('Kristine', false);
-    expect(cards().map(card => card.label?.split(',')[0])).toEqual(['Train to Odense', 'Rain forecast']);
+    expect(cards().map(card => card.label?.split(',')[0])).toEqual(['Rain at the office', 'Rain forecast']);
     await openAs('Claudia', false);
     expect(cards().map(card => card.label?.split(',')[0])).toEqual(['Rain forecast']);
   });
@@ -589,7 +589,7 @@ describe('rows from sensor.house_upcoming', () => {
     const rain = document.querySelector<HTMLButtonElement>('[data-row-id="rain:terrace"] button');
     await act(async () => rain?.click());
     expect(opened).toEqual(['living_room']);
-    expect(document.querySelector('[data-row-id="train:kristine"] button')).toBeNull();
+    expect(document.querySelector('[data-row-id="rain:kristine"] button')).toBeNull();
   });
 
   it('drops every card once the lease has run out', async () => {
@@ -603,15 +603,15 @@ describe('rows from sensor.house_upcoming', () => {
   });
 
   it('opens on the exact row the next chip names, a marker included', async () => {
-    await openAs('Kristine', false, { itemId: 'train:kristine' });
-    expect(focused()).toBe('train:kristine');
+    await openAs('Kristine', false, { itemId: 'rain:kristine' });
+    expect(focused()).toBe('rain:kristine');
     await openAs('Claudia', false, { itemId: 'sun:set' });
     expect(focused()).toBe('sun:set');
     expect(missing()).toBe(false);
   });
 
   it('says the row is gone when the one the chip named has vanished', async () => {
-    await openAs('Claudia', false, { itemId: 'train:kristine' });
+    await openAs('Claudia', false, { itemId: 'rain:kristine' });
     expect(focused()).toBeNull();
     await act(async () => {
       vi.advanceTimersByTime(NOW_RESOLVE_GIVE_UP_MS);

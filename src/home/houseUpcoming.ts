@@ -1,8 +1,8 @@
-/** The `sensor.house_upcoming` rows (AppDaemon HouseUpcoming): maintenance, Kristine's train and rain
- * while a terrace door is open. Pure. */
+/** The `sensor.house_upcoming` rows (AppDaemon HouseUpcoming): maintenance and rain while a
+ * terrace door is open. Pure. */
 import type { HouseEventViewer } from './houseEvents';
 
-export type HouseUpcomingKind = 'rain' | 'train' | 'maint';
+export type HouseUpcomingKind = 'rain' | 'maint';
 
 export interface HouseUpcomingRow {
   id: string;
@@ -56,7 +56,7 @@ export const MAX_HOUSE_UPCOMING_ROWS = 30;
 /** The most lines an overview row lists. */
 export const MAX_ROW_ITEMS = 20;
 
-const KINDS: readonly string[] = ['rain', 'train', 'maint'];
+const KINDS: readonly string[] = ['rain', 'maint'];
 
 const text = (value: unknown): string | null => (typeof value === 'string' && value.trim() ? value.trim() : null);
 
@@ -69,8 +69,8 @@ const itemLines = (value: unknown): string[] =>
   Array.isArray(value) && value.every(item => typeof item === 'string') ? lines(value).slice(0, MAX_ROW_ITEMS) : [];
 
 /** One row, or null when it breaks the contract: every value a string or a list of strings, an id,
- * a known kind and a title, an `at` that parses. A row that names an audience it gets wrong, or a
- * train row that names no one, is dropped rather than shown to everyone. */
+ * a known kind and a title, an `at` that parses. A row that names an audience it gets wrong is
+ * dropped rather than shown to everyone. */
 function parseRow(raw: unknown): HouseUpcomingRow | null {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
   const row = raw as Record<string, unknown>;
@@ -89,7 +89,6 @@ function parseRow(raw: unknown): HouseUpcomingRow | null {
   const users = listed ? (listed as string[]).map(name => name.trim()).filter(Boolean) : null;
   if (row.audience !== undefined && (row.audience !== 'admin' || listed)) return null;
   if (listed && (!users?.length || users.length !== listed.length)) return null;
-  if (kind === 'train' && !users) return null;
   const adminOnly = kind === 'maint' || row.audience === 'admin';
   // Only a maintenance row, which only admins see, has a sheet.
   const sheet = kind === 'maint';
@@ -142,7 +141,7 @@ export const dueRows = (rows: readonly HouseUpcomingRow[], viewer: HouseEventVie
   rows.filter(row => (row.kind === 'rain' || isDue(row)) && row.areaId != null && canViewerSeeUpcoming(row, viewer));
 
 /** Whether the next chip may offer `row`: the row does not ask to be passed over, the viewer sees it,
- * and a row that names people names them, so an admin's chip never offers someone else's train. */
+ * and a row that names people names them, so an admin's chip never offers someone else's row. */
 export function isUpcomingFor(row: HouseUpcomingRow, viewer: HouseEventViewer): boolean {
   return !row.skipNext && canViewerSeeUpcoming(row, viewer) && (row.users == null || names(row, viewer));
 }
