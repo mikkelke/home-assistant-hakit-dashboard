@@ -3,7 +3,7 @@ import { formatHomeClock } from '../../energy/homeTime';
 
 const W = 600;
 const H = 180;
-const PAD = { top: 12, right: 12, bottom: 24, left: 40 };
+const PAD = { top: 12, right: 12, bottom: 24, left: 60 };
 
 export interface EventChartProps {
   points: readonly { ts: number; value: number }[];
