@@ -121,6 +121,7 @@ export function addWeather(h: HouseBuilder): void {
     const mean = iceBath(start + 30 * MINUTE);
     return { mean, min: mean - 0.3, max: mean + 0.3 };
   };
+  h.put('binary_sensor.raining', 'off', { friendly_name: 'Raining', device_class: 'moisture' }, { ago: 3 });
   h.put('binary_sensor.weather_opening_alert_active', 'off', { friendly_name: 'Opening alert' });
   h.put('binary_sensor.weather_opening_alert_window_rain', 'off', { friendly_name: 'Window rain alert' });
   h.put('binary_sensor.weather_opening_alert_rooftop_rain', 'off', { friendly_name: 'Rooftop rain alert' });

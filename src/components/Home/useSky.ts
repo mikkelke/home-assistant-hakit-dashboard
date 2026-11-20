@@ -1,6 +1,6 @@
 import { useHass } from '@hakit/core';
 import {
-  OUTDOOR_RAIN_RATE_SENSOR,
+  OUTDOOR_RAINING_ENTITY,
   OUTDOOR_TEMP_SENSOR,
   OUTDOOR_WIND_DIRECTION_SENSOR,
   OUTDOOR_WIND_SPEED_SENSOR,
@@ -72,7 +72,7 @@ export function useSky(): SkyReadings {
   const stationC = useHass(s => reading(s.entities[OUTDOOR_TEMP_SENSOR]));
   const stationWind = useHass(s => windMs(reading(s.entities[OUTDOOR_WIND_SPEED_SENSOR])));
   const stationFrom = useHass(s => roundTo(reading(s.entities[OUTDOOR_WIND_DIRECTION_SENSOR]), 10));
-  const raining = useHass(s => (reading(s.entities[OUTDOOR_RAIN_RATE_SENSOR]) ?? 0) > 0);
+  const raining = useHass(s => s.entities[OUTDOOR_RAINING_ENTITY]?.state === 'on');
   const bucket = useHass(s => stationBucket(s.entities[OUTDOOR_TEMP_SENSOR], s.entities[OUTDOOR_WIND_SPEED_SENSOR]));
 
   const outdoor = pickOutdoorTemperature({

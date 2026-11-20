@@ -370,8 +370,9 @@ export const OUTDOOR_HUMIDITY_SENSOR = 'sensor.gw2000a_humidity';
 export const OUTDOOR_WIND_SPEED_SENSOR = 'sensor.gw2000a_wind_speed';
 /** Degrees the wind blows from. */
 export const OUTDOOR_WIND_DIRECTION_SENSOR = 'sensor.gw2000a_wind_direction';
-/** mm/h. */
-export const OUTDOOR_RAIN_RATE_SENSOR = 'sensor.gw2000a_rain_rate_piezo';
+/** AppDaemon's RainNow: on while rain is measured, not when the rain plate is only tapped. Read this to decide that it
+ * rains; the station's rate sensor is for showing the number. */
+export const OUTDOOR_RAINING_ENTITY = 'binary_sensor.raining';
 
 /** The forecast (met.no): condition, cloud cover, and the temperature while the roof station is quiet. */
 export const WEATHER_ENTITY = 'weather.forecast_home';
