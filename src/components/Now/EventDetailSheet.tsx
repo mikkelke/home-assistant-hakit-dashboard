@@ -201,7 +201,7 @@ function CoffeeBody({ spec }: { spec: Extract<DetailSpec, { kind: 'coffee' }> })
     brew.beanName,
     brew.grind != null ? `grind ${brew.grind}` : null,
     brew.drawdownS != null ? `drawdown ${formatMinSec(brew.drawdownS)}` : null,
-  ].filter(Boolean);
+  ].filter((part, index, parts) => part && parts.indexOf(part) === index);
   return (
     <>
       <Headline
