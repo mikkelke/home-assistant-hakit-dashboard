@@ -342,10 +342,11 @@ export function waterShort(state: TankLevel | null, recipe: Pick<Recipe, 'totalM
   return leftMl == null || needMl == null || leftMl >= needMl ? null : { leftMl, needMl };
 }
 
-/** Whole cups of `recipe` the tank still holds; null while the level or the recipe's volume is unknown. */
+/** Cups of `recipe` that can start before the brew asks for a fill (only the last one needs the reserve); null while the level or the recipe's volume is unknown. */
 export function waterCups(state: TankLevel, recipe: Pick<Recipe, 'totalMl'> | null): number | null {
   const needMl = waterNeedMl(recipe);
-  return state.tankLeftMl == null || needMl == null ? null : Math.floor(state.tankLeftMl / needMl);
+  if (state.tankLeftMl == null || needMl == null || recipe?.totalMl == null) return null;
+  return state.tankLeftMl < needMl ? 0 : Math.floor((state.tankLeftMl - needMl) / Math.ceil(recipe.totalMl)) + 1;
 }
 
 /** The brew waits for water: paused on the machine's no-water fault. */

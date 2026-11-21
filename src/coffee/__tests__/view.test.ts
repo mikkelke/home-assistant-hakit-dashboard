@@ -94,6 +94,9 @@ describe('the water tank', () => {
     expect(waterCups({ tankLeftMl: 314 }, usual)).toBe(0);
     expect(waterCups({ tankLeftMl: null }, usual)).toBeNull();
     expect(waterCups({ tankLeftMl: 640 }, null)).toBeNull();
+    expect(waterCups({ tankLeftMl: 946 }, { totalMl: 288 })).toBe(3);
+    expect(waterCups({ tankLeftMl: 370 }, { totalMl: 288 })).toBe(1);
+    expect(waterCups({ tankLeftMl: 347 }, { totalMl: 288 })).toBe(0);
   });
 
   it('says it on the idle line, low once the usual no longer fits', () => {
