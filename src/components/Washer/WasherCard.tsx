@@ -29,6 +29,7 @@ import {
   WASHER_ANNOUNCE_BOOLEAN,
   WASHER_EMPTIED_BUTTON,
   WASHER_PROGRAMME_SELECT,
+  WASHER_SHORT_BOOLEAN,
   WASHER_SOAK_BOOLEAN,
   WASHER_SPIN_SELECT,
   WASHER_STATE_ENTITY,
@@ -36,6 +37,7 @@ import {
 } from '../../config/entities';
 import './WasherCard.css';
 import { stateSinceIso } from '../../utils/stateSince';
+import { washerSupportsShort } from '../../utils/washerOptions';
 
 const ACCENT_CLASS = 'appliance-accent-washer';
 const GLYPH_ICON = 'mdi:washing-machine';
@@ -86,6 +88,7 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
   const spinSelect = entities?.[WASHER_SPIN_SELECT];
   const temperatureSelect = entities?.[WASHER_TEMPERATURE_SELECT];
   const soakToggle = entities?.[WASHER_SOAK_BOOLEAN];
+  const shortToggle = entities?.[WASHER_SHORT_BOOLEAN];
 
   const [collapsed, setCollapsed] = useLocalStorageBoolean('washercard-collapsed', true);
 
@@ -157,6 +160,7 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
   // of truth for which programmes support it) - true/'true' handles either HA attribute form.
   const supportsSoak = attrs.supports_soak === true || attrs.supports_soak === 'true';
   const soakOn = soakToggle?.state === 'on';
+  const shortOn = shortToggle?.state === 'on';
 
   const handleProgrammeChange = (option: string) => {
     if (!callService || !programmeSelect) return;
@@ -174,6 +178,15 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
       domain: 'input_boolean',
       service: soakOn ? 'turn_off' : 'turn_on',
       target: { entity_id: WASHER_SOAK_BOOLEAN },
+    });
+  };
+
+  const handleShortToggle = () => {
+    if (!callService || !shortToggle) return;
+    callService({
+      domain: 'input_boolean',
+      service: shortOn ? 'turn_off' : 'turn_on',
+      target: { entity_id: WASHER_SHORT_BOOLEAN },
     });
   };
 
@@ -248,6 +261,9 @@ export function WasherCard({ entities, callService }: WasherCardProps) {
         />
       )}
       {showSpin && <ApplianceChip label={spinChipValue} isInteractive={isInteractive} onClick={() => setOpenPicker('spin')} />}
+      {shortToggle && washerSupportsShort(programmeSelect?.state) && (
+        <ApplianceChip label='Kort' isInteractive={isInteractive} onClick={handleShortToggle} tinted={shortOn} />
+      )}
       {soakToggle && supportsSoak && (
         <ApplianceToggleChip
           icon='mdi:water-sync'

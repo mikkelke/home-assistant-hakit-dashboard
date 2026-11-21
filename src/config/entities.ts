@@ -127,6 +127,9 @@ export const WASHER_SPIN_SELECT = 'input_select.washer_spin_speed';
 /** Soak option, for the programmes that support it. */
 export const WASHER_SOAK_BOOLEAN = 'input_boolean.washer_option_soak';
 
+/** Kort (Miele's shorter wash), for the programmes that offer it. */
+export const WASHER_SHORT_BOOLEAN = 'input_boolean.washer_option_short';
+
 /** Announce when finished. */
 export const WASHER_ANNOUNCE_BOOLEAN = 'input_boolean.washer_announce';
 
