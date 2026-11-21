@@ -59,7 +59,7 @@ export function useOlderHouseEvents(live: HouseEvent[]): OlderHouseEvents {
   const [seenLive, setSeenLive] = useState(live);
   if (seenLive !== live) {
     setSeenLive(live);
-    if (feed.started) setFeed({ ...feed, older: mergeHouseEvents(feed.older, seenLive) });
+    if (feed.started) setFeed({ ...feed, older: mergeHouseEvents(seenLive, feed.older) });
   }
 
   useEffect(() => {

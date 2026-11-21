@@ -19,6 +19,8 @@ export interface HouseEvent {
   /** HA user display names, matched case-insensitively, who see the row besides admins. Never set
    * together with `audience`; an empty or junk list degrades to everyone. */
   audienceUsers?: string[];
+  /** The backend's id for a row it rewrites as it grows; such a row is the same row whatever its text. */
+  key?: string;
 }
 
 /** The backend keeps at most this many rows, newest first. */
@@ -86,6 +88,7 @@ export function parseHouseEvents(value: unknown, max = MAX_HOUSE_EVENTS): HouseE
       by: by.length > 0 ? by : undefined,
       audience: item.audience === 'admin' && !isFoodDelivery(item.text) ? 'admin' : undefined,
       audienceUsers: audienceUsers.length > 0 ? audienceUsers : undefined,
+      key: typeof item.key === 'string' && item.key.trim() ? item.key.trim() : undefined,
     });
     if (events.length >= max) break;
   }

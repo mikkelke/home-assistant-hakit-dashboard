@@ -12,12 +12,12 @@ export const HISTORY_PAGE_MS = 3 * 24 * 3_600_000;
  * before a page's end can sit in a state just after it. */
 export const HISTORY_OVERLAP_MS = 60_000;
 
-const eventKey = (event: HouseEvent) => `${event.tsMs}|${event.text}`;
+const eventKey = (event: HouseEvent) => (event.key ? `${event.tsMs}|key|${event.key}` : `${event.tsMs}|${event.text}`);
 
 const newestFirst = (a: HouseEvent, b: HouseEvent) => b.tsMs - a.tsMs;
 
-/** `primary` plus the rows of `secondary` it lacks, newest first. A row is the same row when its time and text are,
- * and `primary`'s copy stays. `primary` itself when nothing is added. */
+/** `primary` plus the rows of `secondary` it lacks, newest first. A row is the same row when its time and text are, or
+ * its time and key, and `primary`'s copy stays. `primary` itself when nothing is added. */
 export function mergeHouseEvents(primary: HouseEvent[], secondary: readonly HouseEvent[]): HouseEvent[] {
   const seen = new Set(primary.map(eventKey));
   const added = secondary.filter(event => {

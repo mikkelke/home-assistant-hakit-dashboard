@@ -97,6 +97,15 @@ describe('houseEventsFromHistory', () => {
     ]);
   });
 
+  it('keeps the newest state’s copy of a keyed row whose text grew', () => {
+    const first = raw('2026-11-20T17:48:15+01:00', 'Kristine started Spotify in Kitchen', { key: 'music:k:1', by: 'Kristine' });
+    const grown = raw('2026-11-20T17:48:15+01:00', 'Kristine and Mikkel started Spotify in Kitchen', { key: 'music:k:1' });
+    const result = { [HOUSE_EVENTS_ID]: [compressed(100, [first]), compressed(200, [grown])] };
+    expect(houseEventsFromHistory(result, HOUSE_EVENTS_ID).events).toEqual([
+      row('2026-11-20T17:48:15+01:00', 'Kristine and Mikkel started Spotify in Kitchen', { key: 'music:k:1' }),
+    ]);
+  });
+
   it('keeps a row that only an older state carries, as the backend may drop one later', () => {
     const result = { [HOUSE_EVENTS_ID]: [compressed(100, [e2, e1]), compressed(200, [e3, e2])] };
     expect(houseEventsFromHistory(result, HOUSE_EVENTS_ID).events.map(event => event.text)).toEqual(['three', 'two', 'one']);
