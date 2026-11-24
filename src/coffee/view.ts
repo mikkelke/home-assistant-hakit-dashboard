@@ -308,6 +308,9 @@ export function appHasMachine(state: Pick<CoffeeState, 'phase' | 'startError' | 
   );
 }
 
+/** What to do when the machine ran dry mid-brew: it holds the unfinished brew until it is restarted. */
+export const RAN_DRY_HINT = 'Fill the tank, then turn the machine off and on.';
+
 const START_ERRORS: Record<string, { icon: string; text: string }> = {
   no_water: { icon: 'mdi:water-off-outline', text: 'No water' },
   not_on_home_screen: { icon: 'mdi:home-alert-outline', text: 'Not on its home screen' },
@@ -325,6 +328,7 @@ const START_ERRORS: Record<string, { icon: string; text: string }> = {
 /** "Didn't start · No water", with the machine's reason. */
 export function startFailure(state: Pick<CoffeeState, 'phase' | 'startError' | 'machine'>): { icon: string; label: string } | null {
   if (state.phase !== 'start_failed') return null;
+  if (state.startError === 'out_of_water') return { icon: 'mdi:water-off-outline', label: `Out of water. ${RAN_DRY_HINT}` };
   if (appHasMachine(state)) return { icon: 'mdi:cellphone-link', label: 'Held by the xBloom app' };
   const reason = state.startError ? START_ERRORS[state.startError] : undefined;
   return { icon: reason?.icon ?? 'mdi:alert-outline', label: `Didn't start${reason ? ` · ${reason.text}` : ''}` };

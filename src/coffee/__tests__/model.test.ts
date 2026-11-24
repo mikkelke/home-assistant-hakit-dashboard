@@ -166,6 +166,8 @@ describe('sensor.coffee_state', () => {
     expect(phaseWord({ phase: 'brewing', pour: 1, poursTotal: 4 })).toBe('Bloom 1/4');
     expect(phaseWord({ phase: 'ready', pour: 4, poursTotal: 4 })).toBe('Ready');
     expect(phaseWord({ phase: 'idle', pour: null, poursTotal: null })).toBeNull();
+    expect(phaseWord({ phase: 'stopped', pour: 2, poursTotal: 3, stopReason: 'ran_dry' })).toBe('Out of water');
+    expect(phaseWord({ phase: 'stopped', pour: 2, poursTotal: 3, stopReason: 'machine' })).toBe('Stopped');
   });
 
   it('counts down to the ETA and never below zero', () => {

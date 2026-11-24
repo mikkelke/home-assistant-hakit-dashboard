@@ -45,6 +45,7 @@ import {
   pausedForWater,
   pourLine,
   pourStartS,
+  RAN_DRY_HINT,
   staleFromS,
   tileBeans,
   usualTitle,
@@ -109,7 +110,7 @@ function subtitle(mode: BrewView, state: CoffeeState, usualName: string | null):
   if (mode === 'paused') return state.fault ? 'Paused by the machine' : 'Paused';
   if (mode === 'live' && state.source === 'power') return 'Brewing · seen by the plug';
   if (mode === 'live' || mode === 'ready') return brewSubtitle(state, usualName);
-  if (mode === 'stopped') return 'Stopped';
+  if (mode === 'stopped') return state.stopReason === 'ran_dry' ? 'Out of water' : 'Stopped';
   if (state.phase === 'awaiting_cup') return 'Waiting for your cup';
   if (state.phase === 'starting') return 'Starting…';
   if (state.machine === 'asleep') return 'Asleep';
@@ -535,11 +536,16 @@ function StoppedSide({ data, nowMs }: { data: StageData; nowMs: number }) {
   return (
     <>
       <Tile label='Stopped'>
-        <div className='cs-cue'>Stopped</div>
+        <div className='cs-cue'>{state.stopReason === 'ran_dry' ? 'Out of water' : 'Stopped'}</div>
         <div className='cs-sub'>
-          {[state.stopReason ? STOP_REASONS[state.stopReason] : null, state.stoppedAtMs != null ? formatHomeClock(state.stoppedAtMs) : null]
-            .filter(Boolean)
-            .join(' · ')}
+          {state.stopReason === 'ran_dry'
+            ? RAN_DRY_HINT
+            : [
+                state.stopReason ? STOP_REASONS[state.stopReason] : null,
+                state.stoppedAtMs != null ? formatHomeClock(state.stoppedAtMs) : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
         </div>
       </Tile>
       <div className='cs-pair'>

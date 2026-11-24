@@ -61,7 +61,7 @@ export type CupState = 'present' | 'absent' | 'unknown';
 export type CoffeeFault = 'no_water' | 'no_beans' | 'dose_water_error' | 'gear_position_error';
 export type BrewSource = 'tablet' | 'phone' | 'machine' | 'ha' | 'power';
 export type BrewVariant = 'usual' | 'trial' | 'base' | 'tweak' | 'other' | 'unknown';
-export type StopReason = 'home_assistant' | 'machine' | 'fault' | 'abandoned';
+export type StopReason = 'home_assistant' | 'machine' | 'fault' | 'abandoned' | 'ran_dry';
 export type LiveVerdict = 'on_track' | 'slower' | 'ahead' | 'building';
 export type BandVerdict = 'inside' | 'above' | 'below' | 'building';
 export type PersonKey = HouseholdMember['key'];
@@ -157,7 +157,7 @@ export function parseCoffeeState(entity: CoffeeEntity): CoffeeState | null {
     readyAtMs: timeOf(a.ready_at),
     pickedUpAtMs: timeOf(a.picked_up_at),
     stoppedAtMs: timeOf(a.stopped_at),
-    stopReason: oneOf(a.stop_reason, ['home_assistant', 'machine', 'fault', 'abandoned'] as const),
+    stopReason: oneOf(a.stop_reason, ['home_assistant', 'machine', 'fault', 'abandoned', 'ran_dry'] as const),
     startError: text(a.start_error),
     verdict: oneOf(a.verdict, ['on_track', 'slower', 'ahead', 'building'] as const),
     inBand: oneOf(a.in_band, ['inside', 'above', 'below', 'building'] as const),
@@ -194,12 +194,14 @@ export function stageLabel(pour: number | null, poursTotal: number | null): stri
 }
 
 /** The one word for where a brew is: its stage, "Grinding" before the bloom. */
-export function phaseWord(state: Pick<CoffeeState, 'phase' | 'pour' | 'poursTotal'>): string | null {
+export function phaseWord(
+  state: Pick<CoffeeState, 'phase' | 'pour' | 'poursTotal'> & Partial<Pick<CoffeeState, 'stopReason'>>
+): string | null {
   if (state.phase === 'awaiting_cup') return 'Put cup on';
   if (state.phase === 'starting') return 'Starting';
   if (state.phase === 'ready' || state.phase === 'picked_up') return 'Ready';
   if (state.phase === 'paused') return 'Paused';
-  if (state.phase === 'stopped') return 'Stopped';
+  if (state.phase === 'stopped') return state.stopReason === 'ran_dry' ? 'Out of water' : 'Stopped';
   if (state.phase === 'start_failed') return "Didn't start";
   if (state.phase === 'grinding') return 'Grinding';
   if (state.phase === 'brewing') return stageLabel(state.pour, state.poursTotal) ?? 'Brewing';

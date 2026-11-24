@@ -91,6 +91,13 @@ describe('the stage after a brew', () => {
     expect(document.querySelector(`.cs-side.${side}`)).not.toBeNull();
   });
 
+  it('says what to do when the machine ran dry, instead of a ready cup', () => {
+    finished('stopped', { cup: 'present', stop_reason: 'ran_dry', stopped_at: new Date().toISOString() });
+    const side = document.querySelector('.cs-side.is-stopped')?.textContent ?? '';
+    expect(side).toContain('Out of water');
+    expect(side).toContain('Fill the tank, then turn the machine off and on.');
+  });
+
   it('puts the hold under the taste row, outside what scrolls, with the links to change the cup beside it', () => {
     finished('picked_up', { cup: 'absent' });
     const taste = document.querySelector('.cs-taste');

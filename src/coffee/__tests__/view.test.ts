@@ -63,6 +63,9 @@ describe('a refused start', () => {
       "Didn't start · Machine not found"
     );
     expect(startFailure({ phase: 'idle', startError: null, machine: 'awake' })).toBeNull();
+    expect(startFailure({ phase: 'start_failed', startError: 'out_of_water', machine: 'awake' })?.label).toBe(
+      'Out of water. Fill the tank, then turn the machine off and on.'
+    );
   });
 });
 
