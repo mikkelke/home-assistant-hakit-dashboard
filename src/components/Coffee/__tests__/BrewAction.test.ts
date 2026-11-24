@@ -493,7 +493,7 @@ describe.each(Object.entries(VIEWS))('the %s describing the beans picked', (name
     mount();
     expect(document.querySelector(at.water)?.textContent).toContain('≈ 600 ml');
     pickBeans('Daybreak');
-    expect(document.querySelector(at.water)?.textContent).toContain('≈ 1 cup');
+    expect(document.querySelector(at.water)?.textContent).toContain('≈ 2 cups');
     pickBeans('Signature Brew');
     expect(document.querySelector(at.water)?.textContent).toContain('≈ 2 cups');
   });
