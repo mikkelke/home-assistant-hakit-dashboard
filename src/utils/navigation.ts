@@ -65,6 +65,7 @@ export type DashboardView =
   | CoffeeView
   | CookView
   | { kind: 'heating' }
+  | { kind: 'body' }
   | { kind: 'lists' }
   | NowView
   | { kind: 'none' };
@@ -132,6 +133,11 @@ export function isHeatingHash(hash: string): boolean {
   return hash === '#heating' || hash.startsWith('#heating=') || hash.startsWith('#heating&');
 }
 
+/** `#body` opens Mikkel's scale readings; anything after it is reserved. */
+export function isBodyHash(hash: string): boolean {
+  return hash === '#body' || hash.startsWith('#body=') || hash.startsWith('#body&');
+}
+
 /** `#lists` opens the to-do lists page; anything after it is reserved. */
 export function isListsHash(hash: string): boolean {
   return hash === '#lists' || hash.startsWith('#lists=') || hash.startsWith('#lists&');
@@ -143,6 +149,7 @@ export function parseDashboardHash(hash: string): DashboardView {
   if (isCoffeeHash(hash)) return { kind: 'coffee', takeover: parseStageTakeover(hash) };
   if (isCookHash(hash)) return { kind: 'cook', takeover: parseStageTakeover(hash) };
   if (isHeatingHash(hash)) return { kind: 'heating' };
+  if (isBodyHash(hash)) return { kind: 'body' };
   if (isListsHash(hash)) return { kind: 'lists' };
   if (isNowHash(hash)) return { kind: 'now', focus: parseNowFocus(hash) };
   if (hash.startsWith('#room=')) {

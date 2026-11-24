@@ -46,6 +46,7 @@ vi.mock('../../Now', () => ({ NowView: () => createElement('div', { id: 'now-vie
 vi.mock('../../Energy', () => ({ EnergyPage: () => createElement('div', { id: 'energy-page' }) }));
 vi.mock('../../SensorMap', () => ({ SensorMapPage: () => createElement('div', { id: 'sensor-map' }) }));
 vi.mock('../../Heating/HeatingPage', () => ({ HeatingPage: () => createElement('div', { id: 'heating-page' }) }));
+vi.mock('../../Body/BodyPage', () => ({ BodyPage: () => createElement('div', { id: 'body-page' }) }));
 vi.mock('../../Menu', () => ({
   Menu: ({ onOpenLists, onOpenEnergy }: { onOpenLists?: () => void; onOpenEnergy?: () => void }) =>
     createElement(
@@ -150,6 +151,7 @@ describe('the #lists route', () => {
     for (const [hash, id] of [
       ['#energy', '#energy-page'],
       ['#heating', '#heating-page'],
+      ['#body', '#body-page'],
       ['#map', '#sensor-map'],
     ] as const) {
       window.history.replaceState(null, '', `/dashboard-rooftop/home${hash}`);

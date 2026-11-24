@@ -5,6 +5,7 @@ import type { HassEntities } from '../../types';
 import { useModalBackButton, useViewer } from '../../hooks';
 import { SmokeAlarmSheet } from '../FireSafety';
 import { FIRE_SAFETY_SENSOR } from '../../config/entities';
+import { BODY_PERSON } from '../../body/weighings';
 import './Menu.css';
 
 // Rendered only after a tap, so it stays out of the main bundle.
@@ -23,19 +24,31 @@ interface MenuProps {
   onOpenEnergy?: () => void;
   onOpenMap?: () => void;
   onOpenHeating?: () => void;
+  onOpenBody?: () => void;
   onOpenLists?: () => void;
 }
 
 const KIOSK_TOGGLE_ENTITY = 'input_boolean.kiosk_mode';
 const BUILD_VERSION = __APP_BUILD_VERSION__;
 
-export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy, onOpenMap, onOpenHeating, onOpenLists }: MenuProps) {
+export function Menu({
+  isOpen,
+  onClose,
+  entities,
+  callService,
+  onOpenEnergy,
+  onOpenMap,
+  onOpenHeating,
+  onOpenBody,
+  onOpenLists,
+}: MenuProps) {
   const [isKioskActive, setIsKioskActive] = useState(false);
   const [isBatteryOverviewOpen, setIsBatteryOverviewOpen] = useState(false);
   const [isSmokeAlarmOpen, setIsSmokeAlarmOpen] = useState(false);
   const viewer = useViewer();
   const isAdmin = viewer.isAdmin === true;
   const showSmokeAlarm = isAdmin && !!entities?.[FIRE_SAFETY_SENSOR];
+  const showBody = viewer.id != null && entities?.[BODY_PERSON]?.attributes?.user_id === viewer.id;
 
   const handleCloseBatteryOverview = useCallback(() => {
     setIsBatteryOverviewOpen(false);
@@ -106,6 +119,11 @@ export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy, onO
     onOpenHeating?.();
   };
 
+  const handleOpenBody = () => {
+    onClose();
+    onOpenBody?.();
+  };
+
   const handleOpenLists = () => {
     onClose();
     onOpenLists?.();
@@ -152,6 +170,13 @@ export function Menu({ isOpen, onClose, entities, callService, onOpenEnergy, onO
                 <span>Heating</span>
               </button>
             </>
+          )}
+
+          {showBody && (
+            <button className='menu-item' onClick={handleOpenBody}>
+              <Icon icon='mdi:human' />
+              <span>Body</span>
+            </button>
           )}
 
           {showSmokeAlarm && (

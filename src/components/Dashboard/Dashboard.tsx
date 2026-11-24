@@ -55,6 +55,8 @@ const EnergyPage = lazy(() => import('../Energy').then(module => ({ default: mod
 const SensorMapPage = lazy(() => import('../SensorMap').then(module => ({ default: module.SensorMapPage })));
 // The admin-only heating overview, behind Menu → Heating or a #heating link from a push.
 const HeatingPage = lazy(() => import('../Heating/HeatingPage').then(module => ({ default: module.HeatingPage })));
+// Mikkel's scale readings, behind Menu → Body or a #body link.
+const BodyPage = lazy(() => import('../Body/BodyPage').then(module => ({ default: module.BodyPage })));
 const ListsPage = lazy(() => import('../Lists/ListsPage').then(module => ({ default: module.ListsPage })));
 
 // Room detail is the app's other big subtree (every card lives in it) and only mounts on a room tap,
@@ -435,6 +437,7 @@ export function Dashboard() {
   const [energyOpen, setEnergyOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [heatingOpen, setHeatingOpen] = useState(false);
+  const [bodyOpen, setBodyOpen] = useState(false);
   const [listsOpen, setListsOpen] = useState(false);
   const [coffeeOpen, setCoffeeOpen] = useState(false);
   const [cookOpen, setCookOpen] = useState(false);
@@ -456,6 +459,7 @@ export function Dashboard() {
   const energyOpenRef = useRef(false);
   const mapOpenRef = useRef(false);
   const heatingOpenRef = useRef(false);
+  const bodyOpenRef = useRef(false);
   const listsOpenRef = useRef(false);
   const coffeeOpenRef = useRef(false);
   const cookOpenRef = useRef(false);
@@ -515,10 +519,11 @@ export function Dashboard() {
     energyOpenRef.current = energyOpen;
     mapOpenRef.current = mapOpen;
     heatingOpenRef.current = heatingOpen;
+    bodyOpenRef.current = bodyOpen;
     listsOpenRef.current = listsOpen;
     coffeeOpenRef.current = coffeeOpen;
     cookOpenRef.current = cookOpen;
-  }, [energyOpen, mapOpen, heatingOpen, listsOpen, coffeeOpen, cookOpen]);
+  }, [energyOpen, mapOpen, heatingOpen, bodyOpen, listsOpen, coffeeOpen, cookOpen]);
 
   const showNow = useCallback((route: NowRoute | null) => {
     nowRouteRef.current = route;
@@ -601,7 +606,7 @@ export function Dashboard() {
   // The Energy, map, heating, lists and coffee pages are hash routes of the same kind: opening pushes one entry, closing swaps
   // it for the bare URL.
   const replaceRouteHistory = useCallback(
-    (route: 'energy' | 'map' | 'heating' | 'lists' | 'coffee' | 'cook') => {
+    (route: 'energy' | 'map' | 'heating' | 'body' | 'lists' | 'coffee' | 'cook') => {
       const targetWindow = getAccessibleHistoryWindow();
       if (!targetWindow) return;
 
@@ -617,7 +622,7 @@ export function Dashboard() {
   );
 
   const pushRouteHistory = useCallback(
-    (route: 'energy' | 'map' | 'heating' | 'lists' | 'coffee' | 'cook', hash: string, extra: Record<string, unknown> = {}) => {
+    (route: 'energy' | 'map' | 'heating' | 'body' | 'lists' | 'coffee' | 'cook', hash: string, extra: Record<string, unknown> = {}) => {
       const targetWindow = getAccessibleHistoryWindow();
       if (!targetWindow) return;
 
@@ -661,6 +666,7 @@ export function Dashboard() {
         energyOpenRef.current ||
         mapOpenRef.current ||
         heatingOpenRef.current ||
+        bodyOpenRef.current ||
         listsOpenRef.current ||
         coffeeOpenRef.current ||
         cookOpenRef.current ||
@@ -684,6 +690,7 @@ export function Dashboard() {
       if (energyOpenRef.current) setEnergyOpen(false);
       if (mapOpenRef.current) setMapOpen(false);
       if (heatingOpenRef.current) setHeatingOpen(false);
+      if (bodyOpenRef.current) setBodyOpen(false);
       if (listsOpenRef.current) setListsOpen(false);
       if (coffeeOpenRef.current) setCoffeeOpen(false);
       if (cookOpenRef.current) setCookOpen(false);
@@ -696,12 +703,14 @@ export function Dashboard() {
       view.kind === 'energy' ||
       view.kind === 'map' ||
       view.kind === 'heating' ||
+      view.kind === 'body' ||
       view.kind === 'lists' ||
       view.kind === 'coffee' ||
       view.kind === 'cook'
     ) {
       if (mapOpenRef.current !== (view.kind === 'map')) setMapOpen(view.kind === 'map');
       if (heatingOpenRef.current !== (view.kind === 'heating')) setHeatingOpen(view.kind === 'heating');
+      if (bodyOpenRef.current !== (view.kind === 'body')) setBodyOpen(view.kind === 'body');
       if (listsOpenRef.current !== (view.kind === 'lists')) setListsOpen(view.kind === 'lists');
       if (energyOpenRef.current !== (view.kind === 'energy')) setEnergyOpen(view.kind === 'energy');
       if (coffeeOpenRef.current !== (view.kind === 'coffee')) setCoffeeOpen(view.kind === 'coffee');
@@ -715,6 +724,7 @@ export function Dashboard() {
     if (energyOpenRef.current) setEnergyOpen(false);
     if (mapOpenRef.current) setMapOpen(false);
     if (heatingOpenRef.current) setHeatingOpen(false);
+    if (bodyOpenRef.current) setBodyOpen(false);
     if (listsOpenRef.current) setListsOpen(false);
     if (coffeeOpenRef.current) setCoffeeOpen(false);
     if (cookOpenRef.current) setCookOpen(false);
@@ -834,6 +844,7 @@ export function Dashboard() {
       setEnergyOpen(false);
       setMapOpen(false);
       setHeatingOpen(false);
+      setBodyOpen(false);
       setListsOpen(false);
       showNow(null);
       trackUiTap('coffee.stage', via);
@@ -925,6 +936,18 @@ export function Dashboard() {
     replaceRouteHistory('heating');
   }, [replaceRouteHistory]);
 
+  const handleOpenBody = () => {
+    pushRouteHistory('body', '#body');
+    setBodyOpen(true);
+    setCookOpen(false);
+    setSelectedRoom(null);
+  };
+
+  const handleCloseBody = useCallback(() => {
+    setBodyOpen(false);
+    replaceRouteHistory('body');
+  }, [replaceRouteHistory]);
+
   const handleOpenLists = () => {
     pushRouteHistory('lists', '#lists');
     setListsOpen(true);
@@ -985,6 +1008,7 @@ export function Dashboard() {
       setEnergyOpen(false);
       setMapOpen(false);
       setHeatingOpen(false);
+      setBodyOpen(false);
       setListsOpen(false);
       showNow(null);
       trackUiTap('cook.stage', via);
@@ -1064,6 +1088,7 @@ export function Dashboard() {
               energyOpenRef.current ||
               mapOpenRef.current ||
               heatingOpenRef.current ||
+              bodyOpenRef.current ||
               listsOpenRef.current ||
               coffeeOpenRef.current ||
               cookOpenRef.current
@@ -1081,6 +1106,7 @@ export function Dashboard() {
       setEnergyOpen(false);
       setMapOpen(false);
       setHeatingOpen(false);
+      setBodyOpen(false);
       setListsOpen(false);
       setCoffeeOpen(false);
       setCookOpen(false);
@@ -1111,6 +1137,7 @@ export function Dashboard() {
     setEnergyOpen(false);
     setMapOpen(false);
     setHeatingOpen(false);
+    setBodyOpen(false);
     setListsOpen(false);
     setCoffeeOpen(false);
     setCookOpen(false);
@@ -1132,7 +1159,7 @@ export function Dashboard() {
     ? 'timeline'
     : coffeeOpen || cookOpen
       ? 'stage'
-      : energyOpen || mapOpen || heatingOpen || listsOpen || selectedRoom || isMenuOpen
+      : energyOpen || mapOpen || heatingOpen || bodyOpen || listsOpen || selectedRoom || isMenuOpen
         ? null
         : 'grid';
 
@@ -1149,6 +1176,7 @@ export function Dashboard() {
         onOpenEnergy={() => handleOpenEnergy()}
         onOpenMap={handleOpenMap}
         onOpenHeating={handleOpenHeating}
+        onOpenBody={handleOpenBody}
         onOpenLists={handleOpenLists}
       />
       <FireAlarmTakeover entities={displayEntities} callService={callService} />
@@ -1182,7 +1210,7 @@ export function Dashboard() {
           </main>
           {/* Fixed bar at z-index 1000 — would float above the Energy, map, heating, lists and coffee pages (z-index 90) and the
               timeline, so it unmounts while any is open. */}
-          {!energyOpen && !mapOpen && !heatingOpen && !listsOpen && !coffeeOpen && !cookOpen && !nowRoute && (
+          {!energyOpen && !mapOpen && !heatingOpen && !bodyOpen && !listsOpen && !coffeeOpen && !cookOpen && !nowRoute && (
             <QuickAccess hassUrl={hassUrl} callService={callService} onOpenNow={openNow} />
           )}
         </div>
@@ -1226,6 +1254,12 @@ export function Dashboard() {
         {heatingOpen && (
           <Suspense fallback={<div className='energy-page-loading' />}>
             <HeatingPage onClose={handleCloseHeating} />
+          </Suspense>
+        )}
+
+        {bodyOpen && (
+          <Suspense fallback={<div className='energy-page-loading' />}>
+            <BodyPage onClose={handleCloseBody} />
           </Suspense>
         )}
 

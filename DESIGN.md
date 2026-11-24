@@ -223,7 +223,7 @@ A single scroll container per page; `html` and `body` do not scroll. Home is a c
 - **Overlays portal to `document.body`.** The phone room panel's transform breaks `position: fixed` for anything rendered inside it.
 
 ### Pages
-Home grid; room panel (to-do chips, then collapsible cards: Sonos, TV, wake-up, access, washer, dryer, dishwasher, lights, blind, robot vacuum, clean toggles, coffee); Timeline (`#now`); Energy (`#energy`, tabs Live, Plan, Usage, Rooms, Bill, Utilities); Lists (`#lists`); Heating (`#heating`, admin); Sensor map (`#map`, admin); Coffee stage (`#coffee`, the tablet's brew screen); Menu drawer (Batteries, Smoke alarm, Kiosk); quick-access sheets (doors, media with media requests, transit, weather, delivery); fire takeover; person timeline.
+Home grid; room panel (to-do chips, then collapsible cards: Sonos, TV, wake-up, access, washer, dryer, dishwasher, lights, blind, robot vacuum, clean toggles, coffee); Timeline (`#now`); Energy (`#energy`, tabs Live, Plan, Usage, Rooms, Bill, Utilities); Lists (`#lists`); Heating (`#heating`, admin); Body (`#body`, Mikkel only: scale weight and body fat, a scoped indigo and magenta pair); Sensor map (`#map`, admin); Coffee stage (`#coffee`, the tablet's brew screen); Menu drawer (Batteries, Smoke alarm, Kiosk); quick-access sheets (doors, media with media requests, transit, weather, delivery); fire takeover; person timeline.
 
 ## Elevation & Depth
 
