@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, type CSSProperties } from 'react';
 import { Icon } from '@iconify/react';
 import { sendCoffeeCommand } from '../../coffee/command';
 import { BEANS_TOP_UP_G } from '../../coffee/entities';
@@ -10,9 +10,10 @@ import {
   type CoffeeBaseline,
   type CoffeeBeans,
   type CoffeeBrews,
+  type WhoCount,
 } from '../../coffee/model';
 import type { CoffeeRecentData } from '../../coffee/recent';
-import { formatDayMonth } from '../../coffee/view';
+import { formatDayMonth, PERSON_COLOURS, whoLabel } from '../../coffee/view';
 import { homeDayStartMs, homeWallTime } from '../../energy/homeTime';
 import { HOME_TIME_ZONE } from '../../config/plan';
 import { bandPath, linePath, series } from './chart';
@@ -233,10 +234,31 @@ export function BeansUndo({ beans, nowMs }: { beans: CoffeeBeans | null; nowMs: 
   );
 }
 
+/** One row of the Who tile: a bar split by who, each part as wide as its count. Nothing for a row without counts. */
+export function WhoBar({ label, counts }: { label: string; counts: WhoCount[] }) {
+  if (counts.length === 0) return null;
+  return (
+    <div className='cst-who'>
+      <div className='cst-who-label'>{label}</div>
+      <div className='cst-who-bar'>
+        {counts.map(({ who, count }) => (
+          <span
+            key={who}
+            className={who === 'none' ? 'is-none' : undefined}
+            style={{ flex: count, '--who': who === 'none' ? undefined : PERSON_COLOURS[who] } as CSSProperties}
+          >
+            {whoLabel(who)} {count}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const tasteTotal = (taste: { sour: number; balanced: number; bitter: number }) => taste.sour + taste.balanced + taste.bitter;
 
-/** Four tiles that stay interesting when one recipe repeats: how much, how many beans are left, how steady the usual
- * is, and how it tastes on these beans. Bean grams are the planned doses. */
+/** Tiles that stay interesting when one recipe repeats: how much, how many beans are left, how steady the usual
+ * is, how it tastes on these beans, who made the brews and filled the tank, and when. Bean grams are the planned doses. */
 export function StatsSheet({
   brews,
   beans,
@@ -349,6 +371,15 @@ export function StatsSheet({
                 Suggested: try {adviceFieldWord(suggestion.field)} {suggestion.to} once · from these {rated}
               </div>
             )}
+          </div>
+        )}
+        {brews && (brews.whoBrews.length > 0 || brews.whoFills.length > 0) && (
+          <div className='coffee-tile'>
+            <h4>
+              Who<span className='coffee-tile-r'>60 days</span>
+            </h4>
+            <WhoBar label='Brews' counts={brews.whoBrews} />
+            <WhoBar label='Water fills' counts={brews.whoFills} />
           </div>
         )}
         {brews && brews.hours.some(count => count > 0) && (

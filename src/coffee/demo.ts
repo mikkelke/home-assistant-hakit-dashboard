@@ -373,6 +373,16 @@ function signedText(value: number): string {
   return rounded > 0 ? `+${rounded}` : String(rounded);
 }
 
+/** `mikkel:5,none:9`: most first, nobody named last, as the coffee app publishes who made what. */
+function whoCsv(whos: string[]): string {
+  const counts = new Map<string, number>();
+  for (const who of whos) counts.set(who, (counts.get(who) ?? 0) + 1);
+  return [...counts]
+    .sort(([a, x], [b, y]) => Number(a === 'none') - Number(b === 'none') || y - x || a.localeCompare(b))
+    .map(([who, count]) => `${who}:${count}`)
+    .join(',');
+}
+
 function brewsEntity(brews: LedgerBrew[]): CoffeeEntity {
   const hours = new Array<number>(24).fill(0);
   for (const brew of brews) {
@@ -392,6 +402,8 @@ function brewsEntity(brews: LedgerBrew[]): CoffeeEntity {
     hours: hours.join(','),
     taste: 'sour:2,balanced:2,bitter:0',
     rated_current_beans: '4',
+    who_brews: whoCsv(brews.map(brew => brew.record.who)),
+    who_fills: 'mikkel:4,claudia:1,none:3',
     last_curve: tenths(cupCurve),
   });
 }

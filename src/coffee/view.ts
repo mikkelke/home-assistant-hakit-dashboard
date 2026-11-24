@@ -3,6 +3,7 @@ import { HOME_TIME_ZONE } from '../config/plan';
 import { formatHomeClock, homeDayKey, homeDayStartMs, homeWallTime } from '../energy/homeTime';
 import type { HouseUpcomingRow } from '../home/houseUpcoming';
 import {
+  personName,
   usualRecipe,
   type BandVerdict,
   type CoffeeBag,
@@ -222,6 +223,14 @@ export function deltaTone(delta: number | null, near: number): Tone {
   if (delta == null) return 'mute';
   if (Math.abs(delta) <= near) return 'ok';
   return delta > 0 ? 'up' : 'dn';
+}
+
+/** One colour per housemate, on their face and on the Who tile alike. */
+export const PERSON_COLOURS: Record<PersonKey, string> = { mikkel: '#5b6b7d', kristine: '#9a7a5c', claudia: '#7d8aa0' };
+
+/** Who a count on the Who tile is for: the person's name, or "Not named" for the brews and fills nobody was named for. */
+export function whoLabel(who: PersonKey | 'none'): string {
+  return who === 'none' ? 'Not named' : (personName(who) ?? who);
 }
 
 /** Who the chip names: this brew's push while one runs, else the next brew's guess. */

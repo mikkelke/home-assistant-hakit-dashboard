@@ -469,7 +469,8 @@ a.coffee-rrow {
 .cst-spread + .coffee-row {
   margin-top: 8px;
 }
-.cst-taste {
+.cst-taste,
+.cst-who-bar {
   display: flex;
   height: 22px;
   margin-top: 8px;
@@ -478,7 +479,8 @@ a.coffee-rrow {
   font-size: 11.5px;
   font-weight: 600;
 }
-.cst-taste span {
+.cst-taste span,
+.cst-who-bar span {
   display: grid;
   place-items: center;
   white-space: nowrap;
@@ -494,6 +496,26 @@ a.coffee-rrow {
 .cst-taste .is-bitter {
   background: rgba(251, 113, 133, 0.22);
   color: #fda4af;
+}
+.cst-who {
+  margin-top: 10px;
+}
+.cst-who-label {
+  font-size: 12.5px;
+  color: var(--cof-t2);
+}
+.cst-who-bar {
+  gap: 2px;
+  margin-top: 5px;
+}
+.cst-who-bar span {
+  padding: 0 5px;
+  background: color-mix(in srgb, var(--who) 80%, #000);
+  color: #fff;
+}
+.cst-who-bar .is-none {
+  background: #3f3f46;
+  color: var(--cof-t2);
 }
 .cst-suggest {
   display: flex;

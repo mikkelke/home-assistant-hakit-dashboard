@@ -429,6 +429,23 @@ function parseBrewRecord(raw: unknown): BrewRecord | null {
   };
 }
 
+/** What one person, or nobody named ('none'), counts for. */
+export interface WhoCount {
+  who: PersonKey | 'none';
+  count: number;
+}
+
+/** `"mikkel:18,claudia:2,none:15"`, in the order the coffee app gives: most first, nobody last. A field that is not a person
+ * or a positive count is left out. */
+export function parseWhoCounts(value: unknown): WhoCount[] {
+  return fields(value, ',').flatMap(field => {
+    const [name, count] = field.split(':');
+    const who = name === 'none' ? 'none' : person(name);
+    const number = Number(count);
+    return who && Number.isFinite(number) && number > 0 ? [{ who, count: number }] : [];
+  });
+}
+
 export interface CoffeeBrews {
   /** Newest first. */
   brews: BrewRecord[];
@@ -440,6 +457,10 @@ export interface CoffeeBrews {
   hours: number[];
   taste: TasteCounts | null;
   ratedCurrentBeans: number | null;
+  /** Who made the brews of the last 60 days; empty when the feed does not say. */
+  whoBrews: WhoCount[];
+  /** Who filled the water tank in the last 60 days; empty when the feed does not say. */
+  whoFills: WhoCount[];
   /** The last complete brew's cup at 4 s steps. */
   lastCurve: (number | null)[];
 }
@@ -456,6 +477,8 @@ export function parseCoffeeBrews(entity: CoffeeEntity): CoffeeBrews | null {
     hours: parseCounts(a.hours),
     taste: parseTasteCounts(a.taste),
     ratedCurrentBeans: numberOf(a.rated_current_beans),
+    whoBrews: parseWhoCounts(a.who_brews),
+    whoFills: parseWhoCounts(a.who_fills),
     lastCurve: parseTenths(a.last_curve),
   };
 }

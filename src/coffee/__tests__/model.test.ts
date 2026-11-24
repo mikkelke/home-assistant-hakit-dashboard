@@ -334,6 +334,32 @@ describe('the other entities', () => {
     expect(brews.lastCurve).toEqual([0, 1, 4]);
   });
 
+  it('reads who made the brews and filled the tank, in the order given, and drops what is not a count of a person', () => {
+    const brews = parseCoffeeBrews(
+      entity('2026-11-23T08:00:00+00:00', {
+        who_brews: 'mikkel:19,claudia:6,none:27',
+        who_fills: 'mikkel:9,stranger:4,claudia:0,kristine:x,none:5,claudia:1',
+      })
+    )!;
+    expect(brews.whoBrews).toEqual([
+      { who: 'mikkel', count: 19 },
+      { who: 'claudia', count: 6 },
+      { who: 'none', count: 27 },
+    ]);
+    expect(brews.whoFills).toEqual([
+      { who: 'mikkel', count: 9 },
+      { who: 'none', count: 5 },
+      { who: 'claudia', count: 1 },
+    ]);
+  });
+
+  it('has no who counts when the coffee app does not publish them, or publishes none', () => {
+    const missing = parseCoffeeBrews(entity('2026-11-23T08:00:00+00:00', { weeks: '2,3' }))!;
+    expect([missing.whoBrews, missing.whoFills]).toEqual([[], []]);
+    const empty = parseCoffeeBrews(entity('2026-11-23T08:00:00+00:00', { who_brews: '', who_fills: 'none:0' }))!;
+    expect([empty.whoBrews, empty.whoFills]).toEqual([[], []]);
+  });
+
   it('reads recipes and finds the usual', () => {
     const recipes = parseCoffeeRecipes(
       entity('4 Pour Recipe', {

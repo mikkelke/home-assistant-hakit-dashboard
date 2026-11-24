@@ -115,6 +115,16 @@ describe('coffee demo', () => {
     expect(parseCoffeeBaseline(coffeeDemo('building', ANCHOR, ANCHOR).entities['sensor.coffee_baseline'])!.status).toBe('building');
   });
 
+  it('says who made the brews, as many as the ledger holds with nobody named last, and who filled the tank', () => {
+    const brews = parseCoffeeBrews(coffeeDemo('idle', ANCHOR, ANCHOR).entities['sensor.coffee_brews'])!;
+    const countOf = (who: string) => brews.whoBrews.find(item => item.who === who)?.count ?? 0;
+    expect(brews.whoBrews.reduce((sum, item) => sum + item.count, 0)).toBe(brews.brews.length);
+    expect(brews.whoBrews[brews.whoBrews.length - 1].who).toBe('none');
+    for (const who of ['mikkel', 'kristine', 'claudia'] as const)
+      expect(countOf(who), who).toBe(brews.brews.filter(brew => brew.who === who).length);
+    expect(brews.whoFills.length).toBeGreaterThan(0);
+  });
+
   it('carries recent curves for the history', () => {
     const { recent } = coffeeDemo('idle', ANCHOR, ANCHOR);
     expect(Object.keys(recent!.curves).length).toBe(21);

@@ -3,12 +3,10 @@ import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import { sendCoffeeCommand } from '../../coffee/command';
 import { personName, type CoffeeState, type PersonKey, type Recipe } from '../../coffee/model';
-import { linkView, notifyPerson, type Tone, type VerdictView } from '../../coffee/view';
+import { linkView, notifyPerson, PERSON_COLOURS, type Tone, type VerdictView } from '../../coffee/view';
 import { HOUSEHOLD } from '../../home/household';
 import { ApplianceSheet } from '../Appliance';
 import { Glyph } from './Glyph';
-
-const FACE_COLOURS: Record<PersonKey, string> = { mikkel: '#5b6b7d', kristine: '#9a7a5c', claudia: '#7d8aa0' };
 
 /** A housemate's face: their HA photo, else their initial; "?" for nobody known. */
 export function PersonFace({ person, size = 'sm' }: { person: PersonKey | null; size?: 'xs' | 'sm' | 'md' }) {
@@ -19,7 +17,7 @@ export function PersonFace({ person, size = 'sm' }: { person: PersonKey | null; 
   return (
     <span
       className={`coffee-face coffee-face--${size} ${member ? '' : 'is-unknown'}`}
-      style={member ? { background: FACE_COLOURS[member.key] } : undefined}
+      style={member ? { background: PERSON_COLOURS[member.key] } : undefined}
       role='img'
       aria-label={member?.name ?? 'Nobody known'}
     >

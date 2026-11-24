@@ -12,6 +12,7 @@ import {
   canStart,
   maintenanceWord,
   pausedForWater,
+  PERSON_COLOURS,
   retagChoices,
   startFailure,
   tileBeans,
@@ -19,6 +20,7 @@ import {
   waterLine,
   waterShort,
   wantsConnect,
+  whoLabel,
   type BrewView,
 } from '../view';
 
@@ -399,5 +401,17 @@ describe('correcting the beans of a brew', () => {
     const picks = bagBrews(two, library);
     const choices = retagChoices(two, { atMs: hoursAgo(1), beanName: 'Daybreak' }, nowMs);
     expect(choices[0].color).toBe(picks.find(item => item.bag.beanId === 'b2')?.color);
+  });
+});
+
+describe('the Who tile', () => {
+  it('names a resident, and calls the brews and fills nobody was named for "Not named"', () => {
+    expect(whoLabel('mikkel')).toBe('Mikkel');
+    expect(whoLabel('claudia')).toBe('Claudia');
+    expect(whoLabel('none')).toBe('Not named');
+  });
+
+  it('gives each housemate a colour of their own', () => {
+    expect(new Set(Object.values(PERSON_COLOURS)).size).toBe(Object.keys(PERSON_COLOURS).length);
   });
 });
