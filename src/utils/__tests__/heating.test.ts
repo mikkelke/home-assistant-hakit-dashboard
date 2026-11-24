@@ -246,6 +246,10 @@ describe('zone helpers', () => {
     ]);
   });
 
+  it('describes travel as the user being away on a trip', () => {
+    expect(planModeMeta('travel')).toEqual({ icon: 'mdi:airplane', label: 'Travelling' });
+  });
+
   it('describes warm as a zone that is warm enough, held at the minimum with no change planned', () => {
     expect(planModeMeta('warm')).toEqual({ icon: 'mdi:thermometer-check', label: 'Warm enough' });
     expect(parseDayBlocks([{ start: '12:05', end: '12:10', mode: 'warm', setpoint: '19.0' }])).toEqual([

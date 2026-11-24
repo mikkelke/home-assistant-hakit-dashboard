@@ -247,6 +247,7 @@ export const PLAN_MODES: Record<string, PlanModeMeta> = {
   guard: { icon: 'mdi:sleep', label: 'Bedtime guard' },
   fallback: { icon: 'mdi:help-circle-outline', label: 'Fallback, no room reading' },
   away: { icon: 'mdi:home-export-outline', label: 'Away' },
+  travel: { icon: 'mdi:airplane', label: 'Travelling' },
 };
 
 export function planModeMeta(mode: string): PlanModeMeta {
