@@ -55,11 +55,14 @@ export function BodyChart({ points, trend, domain, width, height, dense, selecte
     return { ts: from, value: p.value + f * (next.value - p.value), skip: false };
   });
   let path = '';
+  let bridges = '';
+  const at = (p: { ts: number; value: number }) => `${x(p.ts).toFixed(1)},${y(p.value).toFixed(1)}`;
   drawn.forEach((p, i) => {
     if (p.skip) return;
     const prev = drawn[i - 1];
-    const move = !prev || prev.skip || p.ts - prev.ts > GAP_MS;
-    path += `${move ? 'M' : 'L'}${x(p.ts).toFixed(1)},${y(p.value).toFixed(1)}`;
+    const gap = prev != null && !prev.skip && p.ts - prev.ts > GAP_MS;
+    if (gap) bridges += `M${at(prev)}L${at(p)}`;
+    path += `${!prev || prev.skip || gap ? 'M' : 'L'}${at(p)}`;
   });
 
   const pick = (event: ReactPointerEvent<SVGSVGElement>, toggle: boolean) => {
@@ -118,6 +121,7 @@ export function BodyChart({ points, trend, domain, width, height, dense, selecte
       {visible.map(p => (
         <circle key={p.ts} className='body-chart-dot' cx={x(p.ts)} cy={y(p.value)} r={r} />
       ))}
+      {bridges && <path className='body-chart-bridge' d={bridges} />}
       <path className='body-chart-trend' d={path} />
       {last && !sel && <circle className='body-chart-mark' cx={x(last.ts)} cy={y(last.value)} r={4.5} />}
       {sel && <circle className='body-chart-mark' cx={x(sel.ts)} cy={y(sel.value)} r={5} />}
