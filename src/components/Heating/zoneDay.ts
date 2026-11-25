@@ -39,23 +39,13 @@ export function dayLabel(day: LocalDay, today: LocalDay): string {
   return `${WEEKDAYS[date.getDay()]} ${date.getDate()} ${MONTHS[date.getMonth()]}`;
 }
 
-export interface AirSource {
-  entityId: string;
-  /** The controller's weight for this room in the zone's control air. */
-  weight: number;
-}
-
-/** The feel sensors a zone steers by (the controller's `control_air` and its weights). */
-export const ZONE_AIR: Record<HeatingZone, readonly AirSource[]> = {
-  family: [
-    { entityId: 'sensor.living_room_feel', weight: 19 },
-    { entityId: 'sensor.dining_room_feel', weight: 18.5 },
-    { entityId: 'sensor.kitchen_feel', weight: 18.5 },
-  ],
-  kristines_room: [{ entityId: 'sensor.kristines_room_feel', weight: 1 }],
-  claudias_room: [{ entityId: 'sensor.claudias_room_feel', weight: 1 }],
-  bathroom: [{ entityId: 'sensor.bathroom_feel', weight: 1 }],
-  guest_bathroom: [{ entityId: 'sensor.guest_bathroom_feel', weight: 1 }],
+/** The feel sensor a zone steers by (the controller's `control_air`). The family zone steers by the living room alone. */
+export const ZONE_AIR: Record<HeatingZone, string> = {
+  family: 'sensor.living_room_feel',
+  kristines_room: 'sensor.kristines_room_feel',
+  claudias_room: 'sensor.claudias_room_feel',
+  bathroom: 'sensor.bathroom_feel',
+  guest_bathroom: 'sensor.guest_bathroom_feel',
 };
 
 /** The floor thermometers of a zone; the controller judges the warmest one. */
@@ -66,41 +56,6 @@ export const ZONE_FLOORS: Record<HeatingZone, readonly string[]> = {
   bathroom: ['sensor.bathroom_floor_thermometer_temperature'],
   guest_bathroom: ['sensor.guest_bathroom_floor_thermometer_temperature'],
 };
-
-export interface Reading {
-  value: number;
-  weight: number;
-}
-
-export interface SeriesPart {
-  points: readonly TempPoint[];
-  weight: number;
-}
-
-/** The mean of the readings, each counted by its weight. */
-export const weightedMean = (readings: readonly Reading[]): number => {
-  const total = readings.reduce((sum, reading) => sum + reading.weight, 0);
-  return readings.reduce((sum, reading) => sum + reading.value * reading.weight, 0) / total;
-};
-
-/** One series from several sensors that each hold their value until they change: at every moment any of them changes,
- * the latest readings of those that have started are combined. A sensor that has not read yet leaves the others to
- * carry the value, as the controller's own mean does. Points that repeat the previous value are dropped. */
-export function mergeSeries(parts: readonly SeriesPart[], combine: (readings: readonly Reading[]) => number): TempPoint[] {
-  const times = [...new Set(parts.flatMap(part => part.points.map(point => point.ts)))].sort((a, b) => a - b);
-  const reached = parts.map(() => 0);
-  const merged: TempPoint[] = [];
-  for (const ts of times) {
-    const readings: Reading[] = [];
-    parts.forEach((part, index) => {
-      while (reached[index] < part.points.length && part.points[reached[index]].ts <= ts) reached[index] += 1;
-      if (reached[index] > 0) readings.push({ value: part.points[reached[index] - 1].value, weight: part.weight });
-    });
-    const value = combine(readings);
-    if (merged.length === 0 || merged[merged.length - 1].value !== value) merged.push({ ts, value });
-  }
-  return merged;
-}
 
 const changesOnly = (points: readonly TempPoint[]): TempPoint[] =>
   points.filter((point, index) => index === 0 || point.value !== points[index - 1].value);
@@ -186,7 +141,7 @@ export function stepPath(points: readonly PlotPoint[], endX: number): string {
 /** What one day of one zone leaves in the recorder. */
 export interface ZoneDayData {
   calls: CallPoint[];
-  /** The zone's control air: the weighted mean of its feel sensors. */
+  /** The zone's control air: its feel sensor. */
   air: TempPoint[];
   target: TempPoint[];
   /** One series per floor thermometer, in `ZONE_FLOORS` order. */
@@ -212,7 +167,7 @@ export function floorRoom(entityId: string): string {
 export const zoneDayEntities = (zone: HeatingZone): string[] => [
   zoneCallSensorId(zone),
   zoneSensorId(zone),
-  ...ZONE_AIR[zone].map(source => source.entityId),
+  ZONE_AIR[zone],
   ...ZONE_FLOORS[zone],
 ];
 
@@ -236,10 +191,7 @@ export async function fetchZoneDay(
   const series = (entityId: string) => normalizeHistory(response?.[entityId]);
   return {
     calls: callPointsOf(response?.[zoneCallSensorId(zone)]),
-    air: mergeSeries(
-      ZONE_AIR[zone].map(source => ({ points: series(source.entityId), weight: source.weight })),
-      weightedMean
-    ),
+    air: changesOnly(series(ZONE_AIR[zone])),
     target: changesOnly(series(zoneSensorId(zone))),
     floors: ZONE_FLOORS[zone].map(entityId => ({ room: floorRoom(entityId), points: changesOnly(series(entityId)) })),
   };

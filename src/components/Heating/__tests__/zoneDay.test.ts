@@ -4,7 +4,6 @@ import { lastSignalText, readLastSignal } from '../../../utils/heating';
 import type { TempPoint } from '../../../utils/temperatureHistory';
 import {
   MAX_DAYS_BACK,
-  ZONE_AIR,
   ZONE_FLOORS,
   callingAt,
   clearZoneDayCache,
@@ -16,12 +15,10 @@ import {
   holdUntil,
   linePath,
   loadZoneDay,
-  mergeSeries,
   shiftDay,
   stepPath,
   temperatureTicks,
   valueAt,
-  weightedMean,
   zoneDayEntities,
   zoneDayView,
 } from '../zoneDay';
@@ -139,69 +136,6 @@ describe('the day browser', () => {
   });
 });
 
-describe('mergeSeries', () => {
-  const series = (...points: [number, number][]): TempPoint[] => points.map(([ts, value]) => ({ ts, value }));
-
-  it('weighs the family rooms like the controller, each holding its value until it changes', () => {
-    const living = series([1, 22], [3, 23]);
-    const dining = series([2, 21]);
-    const kitchen = series([4, 20]);
-    const merged = mergeSeries(
-      [
-        { points: living, weight: ZONE_AIR.family[0].weight },
-        { points: dining, weight: ZONE_AIR.family[1].weight },
-        { points: kitchen, weight: ZONE_AIR.family[2].weight },
-      ],
-      weightedMean
-    );
-    expect(merged.map(point => point.ts)).toEqual([1, 2, 3, 4]);
-    expect(merged[0].value).toBe(22);
-    expect(merged[1].value).toBeCloseTo((22 * 19 + 21 * 18.5) / 37.5, 9);
-    expect(merged[2].value).toBeCloseTo((23 * 19 + 21 * 18.5) / 37.5, 9);
-    expect(merged[3].value).toBeCloseTo((23 * 19 + 21 * 18.5 + 20 * 18.5) / 56, 9);
-  });
-
-  it('uses the family weights the controller is configured with', () => {
-    expect(ZONE_AIR.family).toEqual([
-      { entityId: 'sensor.living_room_feel', weight: 19 },
-      { entityId: 'sensor.dining_room_feel', weight: 18.5 },
-      { entityId: 'sensor.kitchen_feel', weight: 18.5 },
-    ]);
-  });
-
-  it('lets the sensors that read carry the value until the others start', () => {
-    const merged = mergeSeries(
-      [
-        { points: series([10, 21]), weight: 19 },
-        { points: series([20, 25]), weight: 1 },
-      ],
-      weightedMean
-    );
-    expect(merged).toEqual([
-      { ts: 10, value: 21 },
-      { ts: 20, value: (21 * 19 + 25) / 20 },
-    ]);
-  });
-
-  it('drops points that repeat the value, merges equal times, and is empty without readings', () => {
-    expect(mergeSeries([{ points: series([1, 21], [2, 21], [3, 22], [4, 22]), weight: 1 }], weightedMean)).toEqual([
-      { ts: 1, value: 21 },
-      { ts: 3, value: 22 },
-    ]);
-    expect(
-      mergeSeries(
-        [
-          { points: series([1, 20]), weight: 1 },
-          { points: series([1, 22]), weight: 1 },
-        ],
-        weightedMean
-      )
-    ).toEqual([{ ts: 1, value: 21 }]);
-    expect(mergeSeries([], weightedMean)).toEqual([]);
-    expect(mergeSeries([{ points: [], weight: 1 }], weightedMean)).toEqual([]);
-  });
-});
-
 describe('held series', () => {
   const points: TempPoint[] = [
     { ts: 10, value: 21 },
@@ -293,8 +227,6 @@ const familyHistory = () => ({
   'binary_sensor.family_room_heating_active': [row('off', unix(0, 0, 4)), row('on', unix(6, 0, 4)), row('off', unix(7, 30, 4))],
   'sensor.heating_zone_family': [row('21.5', unix(0, 0, 4)), row('21.5', unix(3, 0, 4)), row('22.0', unix(15, 0, 4))],
   'sensor.living_room_feel': [row('22.0', unix(0, 0, 4)), row('23.0', unix(12, 0, 4))],
-  'sensor.dining_room_feel': [row('21.0', unix(0, 0, 4))],
-  'sensor.kitchen_feel': [row('unavailable', unix(0, 0, 4)), row('20.0', unix(18, 0, 4))],
   'sensor.living_room_floor_thermometer_temperature': [row('23.0', unix(0, 0, 4)), row('24.5', unix(7, 0, 4))],
   'sensor.dining_room_floor_thermometer_temperature': [row('23.5', unix(0, 0, 4))],
 });
@@ -315,7 +247,7 @@ describe('floorRoom', () => {
 describe('fetchZoneDay', () => {
   const yesterday = shiftDay(today, -1);
 
-  it('reads the call sensor, the target, every feel sensor and every floor of the zone in one call for the day', async () => {
+  it('reads the call sensor, the target, the feel sensor and every floor of the zone in one call for the day', async () => {
     const connection = connectionOf(async () => familyHistory());
     await fetchZoneDay(connection, 'family', yesterday, yesterday.endMs);
     expect(connection.requests).toHaveBeenCalledTimes(1);
@@ -327,8 +259,6 @@ describe('fetchZoneDay', () => {
         'binary_sensor.family_room_heating_active',
         'sensor.heating_zone_family',
         'sensor.living_room_feel',
-        'sensor.dining_room_feel',
-        'sensor.kitchen_feel',
         'sensor.living_room_floor_thermometer_temperature',
         'sensor.dining_room_floor_thermometer_temperature',
       ],
@@ -357,7 +287,7 @@ describe('fetchZoneDay', () => {
     expect(ZONE_FLOORS.family).toHaveLength(2);
   });
 
-  it('turns the answer into calls, a weighted air, a stepped target and a floor per room', async () => {
+  it('turns the answer into calls, the living room air, a stepped target and a floor per room', async () => {
     const data = await fetchZoneDay(
       connectionOf(async () => familyHistory()),
       'family',
@@ -373,10 +303,10 @@ describe('fetchZoneDay', () => {
       { ts: at(0, 0, 4), value: 21.5 },
       { ts: at(15, 0, 4), value: 22 },
     ]);
-    expect(data.air.map(point => point.ts)).toEqual([at(0, 0, 4), at(12, 0, 4), at(18, 0, 4)]);
-    expect(data.air[0].value).toBeCloseTo((22 * 19 + 21 * 18.5) / 37.5, 9);
-    expect(data.air[1].value).toBeCloseTo((23 * 19 + 21 * 18.5) / 37.5, 9);
-    expect(data.air[2].value).toBeCloseTo((23 * 19 + 21 * 18.5 + 20 * 18.5) / 56, 9);
+    expect(data.air).toEqual([
+      { ts: at(0, 0, 4), value: 22 },
+      { ts: at(12, 0, 4), value: 23 },
+    ]);
     expect(data.floors).toEqual([
       {
         room: 'Living',
@@ -478,8 +408,8 @@ describe('zoneDayView', () => {
     expect(view.spans[0].width).toBeCloseTo(6.25, 9);
     expect(view.summary.hours).toBe(1.5);
     expect(view.summary.kwh).toBeCloseTo(1.5 * 1.45, 9);
-    expect(view.summary.airMinC).toBeCloseTo((23 * 19 + 21 * 18.5 + 20 * 18.5) / 56, 9);
-    expect(view.summary.airMaxC).toBeCloseTo((23 * 19 + 21 * 18.5) / 37.5, 9);
+    expect(view.summary.airMinC).toBe(22);
+    expect(view.summary.airMaxC).toBe(23);
   });
 
   it('stops today at now, and ends a call still on there', async () => {

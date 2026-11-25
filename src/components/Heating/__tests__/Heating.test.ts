@@ -1263,8 +1263,6 @@ const familyDay = (date: number) => ({
     { s: '21.0', lu: unixOn(date, 0) },
     { s: '23.0', lu: unixOn(date, 12) },
   ],
-  'sensor.dining_room_feel': [{ s: '21.0', lu: unixOn(date, 0) }],
-  'sensor.kitchen_feel': [{ s: '21.0', lu: unixOn(date, 0) }],
   [LIVING_FLOOR]: [{ s: '23.0', lu: unixOn(date, 0) }],
   [DINING_FLOOR]: [
     { s: '22.5', lu: unixOn(date, 0) },
@@ -1356,15 +1354,7 @@ describe('the day browser in the zone sheet', () => {
         type: 'history/history_during_period',
         start_time: new Date(2026, 10, 4).toISOString(),
         end_time: new Date(2026, 10, 5).toISOString(),
-        entity_ids: [
-          zoneCallSensorId('family'),
-          'sensor.heating_zone_family',
-          'sensor.living_room_feel',
-          'sensor.dining_room_feel',
-          'sensor.kitchen_feel',
-          LIVING_FLOOR,
-          DINING_FLOOR,
-        ],
+        entity_ids: [zoneCallSensorId('family'), 'sensor.heating_zone_family', 'sensor.living_room_feel', LIVING_FLOOR, DINING_FLOOR],
         include_start_time_state: true,
         significant_changes_only: false,
         minimal_response: true,
@@ -1378,7 +1368,7 @@ describe('the day browser in the zone sheet', () => {
     expect(parseFloat(marks[0].getAttribute('width') as string)).toBeCloseTo((2 / 24) * 552, 6);
     expect(sheet().querySelector('.heat-chart-now')).toBeNull();
     const chips = [...sheet().querySelectorAll('.heat-day-summary .climate-chip')];
-    expect(chips.map(chip => chip.textContent)).toEqual(['2.0 h', '2.9 kWh', '21.0–21.7°']);
+    expect(chips.map(chip => chip.textContent)).toEqual(['2.0 h', '2.9 kWh', '21.0–23.0°']);
     expect(chips.map(chip => icons(chip)[0])).toEqual(['mdi:timer-sand', 'mdi:flash-outline', 'mdi:home-thermometer-outline']);
   });
 
