@@ -8,9 +8,12 @@ import type { SurveyPoint, SurveyProgress } from '../../sensorMap/survey';
 import { CoverageDots, CoverageFills } from './CoverageLayer';
 import { DeviceMarker } from './DeviceMarker';
 import { Crosshair, FacingHandle, FingerprintMarks, GhostMarker, type Ghost } from './MarkLayers';
+import { LampLayer } from './LampLayer';
 import { PlanDefs, PlanFurniture, PlanGrid, PlanLabels, PlanVents, PlanWalls } from './PlanLayers';
 import { RadarFootprint } from './RadarFootprint';
+import { Rober2Layer } from './Rober2Layer';
 import { SurveyLayer } from './SurveyLayer';
+import { TemperatureLayer } from './TemperatureLayer';
 import { ZoneFills } from './ZoneFills';
 import { typeVisible, type DragPreview, type Layers, type Selection } from './types';
 import type { PlanViewport } from './usePlanViewport';
@@ -137,6 +140,8 @@ export const PlanCanvas = memo(function PlanCanvas(props: PlanCanvasProps) {
       <PlanDefs plan={plan} />
       {layers.grid && <PlanGrid plan={plan} />}
       <ZoneFills zones={plan.zones} yTop={yTop} selectedId={selection?.kind === 'zone' ? selection.id : null} phoneAreas={phoneAreas} />
+      {layers.temperature && <TemperatureLayer zones={plan.zones} yTop={yTop} />}
+      {layers.lamps && <LampLayer plan={plan} />}
       {coverage && <CoverageFills rooms={coverage.rooms} zones={plan.zones} yTop={yTop} />}
       <PlanFurniture plan={plan} selectedId={selection?.kind === 'furniture' ? selection.id : null} onActivate={onActivateFurniture} />
       <PlanLabels plan={plan} />
@@ -167,6 +172,7 @@ export const PlanCanvas = memo(function PlanCanvas(props: PlanCanvasProps) {
         moved={drag?.kind === 'vent' ? drag : null}
         onActivate={onActivateVent}
       />
+      {layers.rober2 && <Rober2Layer zones={plan.zones} yTop={yTop} />}
       {layers.fingerprints && (
         <FingerprintMarks
           items={fingerprints}

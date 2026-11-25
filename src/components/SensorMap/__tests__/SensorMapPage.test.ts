@@ -2602,6 +2602,9 @@ describe('the Layers sheet', () => {
       'Fingerprints',
       'Coverage',
       'Suggestions',
+      'Lamps and sun',
+      'Temperature',
+      'Rober2 round',
       'Light theme',
     ]);
     expect(layerRow('Suggestions').querySelector('.sm-count')?.textContent).toBe('2');

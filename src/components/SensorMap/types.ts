@@ -12,13 +12,28 @@ export interface Layers {
   coverage: boolean;
   suggestions: boolean;
   light: boolean;
+  lamps: boolean;
+  temperature: boolean;
+  rober2: boolean;
 }
 
 /** What the map is for right now: looking at it, changing it, or walking a Wi-Fi survey. */
 export type Mode = 'view' | 'edit' | 'survey';
 
 /** The layers the Layers sheet offers as switches. `survey` is a mode, not a switch. */
-export const SWITCHES = ['names', 'grid', 'footprints', 'phones', 'fingerprints', 'coverage', 'suggestions', 'light'] as const;
+export const SWITCHES = [
+  'names',
+  'grid',
+  'footprints',
+  'phones',
+  'fingerprints',
+  'coverage',
+  'suggestions',
+  'lamps',
+  'temperature',
+  'rober2',
+  'light',
+] as const;
 export type Switch = (typeof SWITCHES)[number];
 
 export const DEFAULT_LAYERS: Layers = {
@@ -32,6 +47,9 @@ export const DEFAULT_LAYERS: Layers = {
   coverage: false,
   suggestions: true,
   light: false,
+  lamps: true,
+  temperature: false,
+  rober2: false,
 };
 
 export type Selection =

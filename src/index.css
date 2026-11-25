@@ -41,6 +41,8 @@ html, body {
   --appliance-dryer: #fb923c;
   --appliance-dish: #2dd4bf;
   --heat: #ff9f0a;
+  --light-lamp: #ffc96b;
+  --light-sun: #fff0c2;
   --radius-chip: 12px;
   /* Relative price bands: each day's hours ranked into quarters. One palette on every chart. */
   --band-cheap: #34d399;

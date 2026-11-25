@@ -1810,3 +1810,122 @@ select.sm-input {
     animation: none !important;
   }
 }
+
+/* Lamps, sun, temperature and Rober2 layers ------------------------------------------------------------------ */
+
+.sm-light-layer {
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.sm-workspace[data-theme='light'] .sm-light-layer {
+  mix-blend-mode: multiply;
+}
+
+.sm-lamp {
+  transition: opacity 0.4s var(--ease-out);
+}
+
+.sm-lamp-stop {
+  stop-color: var(--light-lamp);
+}
+
+.sm-lamp-room {
+  fill: var(--light-lamp);
+  fill-opacity: 0.1;
+}
+
+.sm-sun-stop {
+  stop-color: var(--light-sun);
+}
+
+.sm-sun.low .sm-sun-stop {
+  stop-color: var(--heat);
+}
+
+.sm-temp-layer {
+  pointer-events: none;
+}
+
+.sm-temp.cool {
+  --temp-tone: var(--accent-sky);
+}
+
+.sm-temp.warm {
+  --temp-tone: var(--heat);
+}
+
+.sm-temp-fill {
+  fill: var(--temp-tone);
+}
+
+.sm-temp-text {
+  fill: var(--temp-tone);
+  font-size: 12px;
+  font-weight: 700;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--sm-plan-bg);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.sm-rober {
+  pointer-events: none;
+}
+
+.sm-rober-path {
+  fill: none;
+  stroke: var(--appliance-washer);
+  stroke-width: 0.05;
+  stroke-dasharray: 0.12 0.1;
+  stroke-linecap: round;
+  opacity: 0.6;
+}
+
+.sm-rober.live .sm-rober-path {
+  opacity: 0.9;
+}
+
+.sm-rober-step {
+  fill: var(--sm-plan-bg);
+  stroke: var(--appliance-washer);
+  stroke-width: 2;
+}
+
+.sm-rober-step.now {
+  fill: var(--appliance-washer);
+  animation: sm-rober-pulse 1.6s ease-in-out infinite;
+}
+
+.sm-rober-num {
+  fill: var(--sm-fg);
+  font-size: 10px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.sm-rober-step.now + .sm-rober-num {
+  fill: var(--sm-plan-bg);
+}
+
+.sm-rober-time {
+  fill: var(--sm-muted);
+  font-size: 9px;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--sm-plan-bg);
+  stroke-width: 3px;
+}
+
+@keyframes sm-rober-pulse {
+  50% {
+    stroke-width: 5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sm-rober-step.now {
+    animation: none;
+  }
+}

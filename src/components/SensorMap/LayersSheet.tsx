@@ -12,6 +12,9 @@ const SWITCH_LABEL: Record<Switch, string> = {
   fingerprints: 'Fingerprints',
   coverage: 'Coverage',
   suggestions: 'Suggestions',
+  lamps: 'Lamps and sun',
+  temperature: 'Temperature',
+  rober2: 'Rober2 round',
   light: 'Light theme',
 };
 
