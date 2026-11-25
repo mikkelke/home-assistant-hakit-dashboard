@@ -15,6 +15,24 @@ export function getAccessibleHistoryWindow(): Window | null {
  * alone: going back would pop the entry that belongs to the route. */
 export const ROUTE_ADOPTED_EVENT = 'dashboardRouteAdopted';
 
+/** Fired on the dashboard's window by a surface that is not part of the grid (a sheet's chip) to have the dashboard open a
+ * room, as a tap on its tile does. Sheets over the grid close in place. */
+export const OPEN_ROOM_EVENT = 'dashboardOpenRoom';
+
+/** The parts of a room a request can scroll to on arrival. */
+export type RoomSection = 'terrace';
+
+export interface OpenRoomRequest {
+  /** HA area id of the room. */
+  areaId: string;
+  section?: RoomSection;
+}
+
+export function requestOpenRoom(request: OpenRoomRequest): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent<OpenRoomRequest>(OPEN_ROOM_EVENT, { detail: request }));
+}
+
 export function getHistoryUrl(targetWindow: Window | null = getAccessibleHistoryWindow()): string {
   if (!targetWindow) return '';
   const { pathname, search, hash } = targetWindow.location;

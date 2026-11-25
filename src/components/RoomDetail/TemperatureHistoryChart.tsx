@@ -3,7 +3,7 @@ import { CHART_PAD_LEFT, CHART_PAD_RIGHT, CHART_VIEW_WIDTH } from '../Energy/cha
 import { useChartScrub, type ScrubPhase } from '../Energy/useChartScrub';
 import { ChartCallout } from '../Energy/ChartCallout';
 import { useTemperatureHistory } from './useTemperatureHistory';
-import { rangeStartMs, type TemperatureRange, type TempPoint } from '../../utils/temperatureHistory';
+import { holdToNow, rangeStartMs, type TemperatureRange, type TempPoint } from '../../utils/temperatureHistory';
 import './TemperatureHistoryChart.css';
 
 interface TemperatureHistoryChartProps {
@@ -23,12 +23,6 @@ interface TemperatureHistoryChartProps {
    * its last recorded point to now at the current value (only when that value is known). */
   roomNow?: number | null;
   outdoorNow?: number | null;
-}
-
-function holdToNow(series: TempPoint[], current: number | null | undefined, nowMs: number): TempPoint[] {
-  if (current == null || !Number.isFinite(current) || series.length === 0) return series;
-  const last = series[series.length - 1];
-  return last.ts >= nowMs - 60_000 ? series : [...series, { ts: nowMs, value: current }];
 }
 
 const VIEW_WIDTH = CHART_VIEW_WIDTH;

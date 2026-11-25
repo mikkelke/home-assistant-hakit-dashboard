@@ -1,9 +1,24 @@
-import { useMemo, useState, useCallback, useEffect } from 'react';
+import { useMemo, useState, useCallback, useEffect, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useWeather, useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import type { HassEntities, HassEntity } from '../../types';
 import { useModalBackButton, useSwipeToClose } from '../../hooks';
+import { HOUSE_UPCOMING_ENTITY } from '../../config/entities';
+import {
+  TERRACE_AREA_ID,
+  compass16,
+  formatTemp,
+  frostFor,
+  getNumber,
+  getSeaTemperatureFeel,
+  iceBathRow,
+  iceBathWord,
+  isPlausibleGustMs,
+  toMetersPerSecond,
+} from '../../home/terrace';
+import { requestOpenRoom } from '../../utils/navigation';
+import { IceFlake, IceLayers } from '../IceBath/IceBath';
 import { LazyTimeline } from '../Timeline';
 import { TemperatureHistoryChart } from '../RoomDetail/TemperatureHistoryChart';
 import { getWeatherConditionIcon } from './weatherIcons';
@@ -79,11 +94,9 @@ const HISTORY_LABELS: Record<string, string> = {
   [SENSOR_IDS.rainDaily]: 'Rain today',
   [SENSOR_IDS.uv]: 'UV',
   [SENSOR_IDS.seaTemperature]: 'Sea temperature',
-  [SENSOR_IDS.iceBath]: 'Ice bath',
 };
 const WATER_CHART_LABELS: Record<string, string> = {
   [SENSOR_IDS.seaTemperature]: 'Sea',
-  [SENSOR_IDS.iceBath]: 'Ice bath',
 };
 
 /** The roof stops being the headline once it has said nothing for this long - a dead station
@@ -101,32 +114,6 @@ const COMPARE_WINDOW_HOURS = 24;
 const getEntity = (entities: HassEntities, entityId: string) => entities?.[entityId] as EntityLike | undefined;
 const getState = (entities: HassEntities, entityId: string) => getEntity(entities, entityId)?.state;
 
-const getNumber = (value: unknown) => {
-  if (value === undefined || value === null || value === '') return undefined;
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : undefined;
-};
-
-const getSeaTemperatureFeel = (temperature?: number) => {
-  if (temperature === undefined) return undefined;
-  if (temperature < 8) return 'Very cold';
-  if (temperature < 13) return 'Cold';
-  if (temperature < 18) return 'Fresh';
-  if (temperature < 22) return 'Pleasant';
-  if (temperature < 26) return 'Warm';
-  return 'Very warm';
-};
-
-const toMetersPerSecond = (value: unknown, unit?: string) => {
-  const numeric = getNumber(value);
-  if (numeric === undefined) return undefined;
-  const normalizedUnit = unit?.toLowerCase() ?? '';
-  if (normalizedUnit.includes('km')) return numeric / 3.6;
-  if (normalizedUnit.includes('mph')) return numeric * 0.44704;
-  if (normalizedUnit.includes('kn')) return numeric * 0.514444;
-  return numeric;
-};
-
 /** Header/hero condition word - lowercase throughout ("partly cloudy", not "Partly Cloudy"). */
 function lowerCondition(condition?: string): string {
   if (!condition) return '—';
@@ -137,27 +124,10 @@ function lowerCondition(condition?: string): string {
     .toLowerCase();
 }
 
-const COMPASS_16 = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
-/** 16-point compass name for a bearing in degrees. */
-function compass16(deg: number): string {
-  const n = ((deg % 360) + 360) % 360;
-  return COMPASS_16[Math.round(n / 22.5) % 16];
-}
-
 /** Terrace axis: the sector the wind row and storm alert both care about. */
 function isTerraceAxis(bearingDeg: number): boolean {
   const b = ((bearingDeg % 360) + 360) % 360;
   return b >= 300 && b <= 350;
-}
-
-/** Gust plausibility filter (critical): the station emits ~1 bogus spike/day (worst seen: 143
- * km/h during a 9 km/h hour). Reject readings failing basic physical plausibility - applied
- * before display AND before the pill classification. Ratio/absolute thresholds expressed in
- * m/s (our canonical unit here) so no separate km/h bookkeeping is needed. */
-function isPlausibleGustMs(gustMs: number, windMs: number): boolean {
-  if (gustMs > 110 / 3.6) return false;
-  if (windMs > 1 / 3.6 && gustMs > windMs * 4) return false;
-  return true;
 }
 
 function classifyGustWord(gustMs: number): string {
@@ -1280,6 +1250,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   const rainDaily = getNumber(getState(entities, SENSOR_IDS.rainDaily));
   const uvIndex = getNumber(getState(entities, SENSOR_IDS.uv));
   const iceBathTemperature = getNumber(getState(entities, SENSOR_IDS.iceBath));
+  const iceLikely = iceBathRow(getEntity(entities, HOUSE_UPCOMING_ENTITY)?.attributes, nowMs) !== null;
 
   // Only while the sheet is up - otherwise the minute tick would re-walk both series for nothing.
   const compareStats = compareOpen && compareSeries ? computeCompareStats(compareSeries) : null;
@@ -1593,9 +1564,20 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
             </button>
           )}
           {iceBathTemperature !== undefined && (
-            <button type='button' className='quick-weather-fact' onClick={() => setHistoryEntityId(SENSOR_IDS.iceBath)}>
+            <button
+              type='button'
+              className='quick-weather-fact quick-weather-fact--ice ice-skin'
+              style={{ '--frost': Number(frostFor(iceBathTemperature).toFixed(2)) } as CSSProperties}
+              data-ice={iceLikely ? '' : undefined}
+              onClick={() => requestOpenRoom({ areaId: TERRACE_AREA_ID, section: 'terrace' })}
+            >
+              <IceLayers />
               <span className='quick-weather-fact-label'>Ice bath</span>
-              <span className='quick-weather-fact-value'>{iceBathTemperature.toFixed(1)}°</span>
+              <span className='quick-weather-fact-value'>
+                {iceLikely && <IceFlake />}
+                {formatTemp(iceBathTemperature)}°
+              </span>
+              <span className='quick-weather-fact-sub'>{iceLikely ? 'ice likely' : iceBathWord(iceBathTemperature)}</span>
             </button>
           )}
         </div>

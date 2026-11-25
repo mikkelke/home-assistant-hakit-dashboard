@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useRef, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import type { RoomDetailProps } from '../../types';
@@ -19,6 +19,7 @@ import { isEventful } from '../../coffee/model';
 import { useCoffeeState } from '../../coffee/useCoffee';
 import { RoomClimateHeader } from './RoomClimateHeader';
 import { RoomTodo } from './RoomTodo';
+import { TerraceSection } from './TerraceSection';
 import { ROBOT_CLEAN_PREFIX, VACUUM_ENTITY, roomThermostat } from '../../config/entities';
 import { asleepAreaIds, roomGlow, roomLightIds } from '../../home/roomAmbient';
 import { useSwipeToClose } from '../../hooks';
@@ -36,6 +37,8 @@ export function RoomDetail({
   isMobile,
   autoOpenClimate,
   onAutoOpenClimateHandled,
+  scrollToSection,
+  onScrollToSectionHandled,
   onOpenCoffee,
   onOpenCook,
 }: RoomDetailProps) {
@@ -65,6 +68,21 @@ export function RoomDetail({
 
   // Use standardized swipe-to-close hook
   const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(onClose);
+
+  // One-shot scroll to a part of the room, asked for by whatever opened it (the weather sheet's Ice bath chip). Nothing
+  // scrolls on an ordinary open, so the Sonos stays first.
+  const contentRef = useRef<HTMLDivElement>(null);
+  const terraceRef = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    if (scrollToSection !== 'terrace') return;
+    const content = contentRef.current;
+    const target = terraceRef.current;
+    if (content && target) {
+      content.scrollTo({ top: content.scrollTop + target.getBoundingClientRect().top - content.getBoundingClientRect().top - 4 });
+    }
+    onScrollToSectionHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onScrollToSectionHandled is re-created each render; only the request matters here
+  }, [scrollToSection]);
 
   // Get room-specific entities
   const presenceSensor = `binary_sensor.${areaName}_active`;
@@ -167,7 +185,7 @@ export function RoomDetail({
         )}
       </div>
 
-      <div className='room-detail-content'>
+      <div className='room-detail-content' ref={contentRef}>
         <RoomTodo areaId={area.area_id} />
 
         {coffeeFirst && <CoffeeCard onOpenStage={onOpenCoffee} />}
@@ -188,6 +206,9 @@ export function RoomDetail({
             dockedEntityId={isRooftop ? 'binary_sensor.rooftop_charging' : undefined}
           />
         )}
+
+        {/* Terrace (Rooftop): the ice bath, the roof station's air and wind - under the Sonos, which stays first. */}
+        {isRooftop && <TerraceSection entities={entities} ref={terraceRef} />}
 
         {/* TV Card (Bedroom and Living Room) */}
         {isBedroom && bedroomTv && (

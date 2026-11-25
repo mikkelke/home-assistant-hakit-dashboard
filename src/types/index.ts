@@ -1,4 +1,5 @@
 import type { HouseUpcomingRow } from '../home/houseUpcoming';
+import type { RoomSection } from '../utils/navigation';
 
 // Home Assistant Entity Types
 export interface HassEntity {
@@ -70,6 +71,10 @@ export interface RoomDetailProps {
    * onAutoOpenClimateHandled. */
   autoOpenClimate?: boolean;
   onAutoOpenClimateHandled?: () => void;
+  /** A part of the room to scroll to once, as the weather sheet's Ice bath chip asks for the terrace. Consumed via
+   * onScrollToSectionHandled. */
+  scrollToSection?: RoomSection | null;
+  onScrollToSectionHandled?: () => void;
   /** Opens the coffee stage over the Kitchen; the wine-fridge tablet's Coffee entry does this instead of expanding. */
   onOpenCoffee?: () => void;
   onOpenCook?: () => void;

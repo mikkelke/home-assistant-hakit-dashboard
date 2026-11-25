@@ -7,6 +7,7 @@ import { useAppOpenTracking } from '../../hooks/useAppOpenTracking';
 import { EXCLUDED_AREAS } from '../../config/dashboard';
 import type { Area, HassEntities } from '../../types';
 import {
+  OPEN_ROOM_EVENT,
   ROUTE_ADOPTED_EVENT,
   buildHistoryUrlWithHash,
   buildRoomHash,
@@ -16,6 +17,8 @@ import {
   replaceHistoryState,
   type NowFocus,
   type OpenNow,
+  type OpenRoomRequest,
+  type RoomSection,
 } from '../../utils/navigation';
 import { leaveNowEntry, nowEntryItem, pushNowEntry, settleNowEntry, type NowEntryBelow, type NowEntryChange } from '../../utils/nowHistory';
 import { onIdle } from '../../utils/idle';
@@ -434,6 +437,9 @@ export function Dashboard() {
   // One-shot: which room's climate sheet should auto-open on arrival (room-card temp/humidity tap,
   // or a `#room=<id>&climate=1` deep link). Cleared by RoomClimateHeader once it has acted on it.
   const [climateAutoOpenAreaId, setClimateAutoOpenAreaId] = useState<string | null>(null);
+  // One-shot: the part of a room its panel scrolls to on arrival (the weather sheet's Ice bath chip asks for the terrace).
+  // Cleared by RoomDetail once it has scrolled.
+  const [roomScroll, setRoomScroll] = useState<{ areaId: string; section: RoomSection } | null>(null);
   const [energyOpen, setEnergyOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [heatingOpen, setHeatingOpen] = useState(false);
@@ -894,6 +900,23 @@ export function Dashboard() {
     }
   };
 
+  // A sheet's chip asking for a room: the sheets close in place, and the room opens as from its tile. A sheet's own
+  // history entry is on top while it is open, and the room takes its place so Back returns to where the sheet was opened.
+  useEffect(() => {
+    const handleOpenRoom = (event: Event) => {
+      const { areaId, section } = (event as CustomEvent<OpenRoomRequest>).detail;
+      const room = findRoomById(areaId);
+      if (!room) return;
+      window.dispatchEvent(new Event(ROUTE_ADOPTED_EVENT));
+      if (typeof getAccessibleHistoryWindow()?.history.state?.modal === 'string') replaceRoomHistory(room.area_id);
+      else pushRoomHistory(room.area_id);
+      setSelectedRoom(room);
+      setRoomScroll(section ? { areaId: room.area_id, section } : null);
+    };
+    window.addEventListener(OPEN_ROOM_EVENT, handleOpenRoom);
+    return () => window.removeEventListener(OPEN_ROOM_EVENT, handleOpenRoom);
+  }, [findRoomById, pushRoomHistory, replaceRoomHistory]);
+
   const handleCloseRoom = () => {
     setSelectedRoom(null);
     replaceRoomHistory(null);
@@ -1232,6 +1255,8 @@ export function Dashboard() {
                 isMobile={isMobile}
                 autoOpenClimate={climateAutoOpenAreaId === selectedRoom.area_id}
                 onAutoOpenClimateHandled={() => setClimateAutoOpenAreaId(null)}
+                scrollToSection={roomScroll?.areaId === selectedRoom.area_id ? roomScroll.section : null}
+                onScrollToSectionHandled={() => setRoomScroll(null)}
                 onOpenCoffee={() => openCoffeeStage(true, 'card')}
                 onOpenCook={() => openCookStage(true, 'card')}
               />

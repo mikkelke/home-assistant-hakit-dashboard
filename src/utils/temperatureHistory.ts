@@ -1,16 +1,43 @@
 import type { Connection } from 'home-assistant-js-websocket';
 
-export type TemperatureRange = '24h' | '7d';
+/** `8d` is a week plus the day a 24 h mean needs before its first point. */
+export type TemperatureRange = '24h' | '7d' | '8d';
 
 export interface TempPoint {
   ts: number; // epoch ms
   value: number; // °C
 }
 
+/** Statistics trail the clock by up to an hour and change-only sensors record nothing while steady: a series is held from
+ * its last point to `nowMs` at the live reading (only when that is known and the series has something to hold). */
+export function holdToNow(series: TempPoint[], current: number | null | undefined, nowMs: number): TempPoint[] {
+  if (current == null || !Number.isFinite(current) || series.length === 0) return series;
+  const last = series[series.length - 1];
+  return last.ts >= nowMs - 60_000 ? series : [...series, { ts: nowMs, value: current }];
+}
+
+/** Each point's mean over the `windowMs` that ends at it, oldest first in and out. The first points average what there is
+ * of their window, so a caller that wants full windows fetches the extra time and cuts it off afterwards. */
+export function rollingMean(points: readonly TempPoint[], windowMs: number): TempPoint[] {
+  const out: TempPoint[] = [];
+  let first = 0;
+  let sum = 0;
+  for (let i = 0; i < points.length; i++) {
+    sum += points[i].value;
+    while (first < i && points[first].ts <= points[i].ts - windowMs) {
+      sum -= points[first].value;
+      first += 1;
+    }
+    out.push({ ts: points[i].ts, value: sum / (i - first + 1) });
+  }
+  return out;
+}
+
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const RANGE_WINDOW_MS: Record<TemperatureRange, number> = {
   '24h': 24 * 60 * 60 * 1000,
   '7d': 7 * 24 * 60 * 60 * 1000,
+  '8d': 8 * 24 * 60 * 60 * 1000,
 };
 
 const cache = new Map<string, { fetchedAt: number; promise: Promise<TempPoint[]> }>();
@@ -85,12 +112,17 @@ interface RawStatisticValue {
   mean?: number | null;
 }
 
-/** 7d path: hourly recorder statistics (mean) rather than raw history - the endpoint above can't
+/** Multi-day path: hourly recorder statistics (mean) rather than raw history - the endpoint above can't
  * reach back a full week on this instance. */
-async function fetchStatistics7d(conn: Connection, entityId: string, nowMs: number): Promise<TempPoint[]> {
+async function fetchStatistics(
+  conn: Connection,
+  entityId: string,
+  range: Exclude<TemperatureRange, '24h'>,
+  nowMs: number
+): Promise<TempPoint[]> {
   const response = await conn.sendMessagePromise<Record<string, RawStatisticValue[]>>({
     type: 'recorder/statistics_during_period',
-    start_time: new Date(rangeStartMs('7d', nowMs)).toISOString(),
+    start_time: new Date(rangeStartMs(range, nowMs)).toISOString(),
     end_time: new Date(nowMs).toISOString(),
     statistic_ids: [entityId],
     period: 'hour',
@@ -125,7 +157,7 @@ function withCache(key: string, now: number, run: () => Promise<TempPoint[]>): P
 export function fetchTemperatureSeries(conn: Connection, entityId: string, range: TemperatureRange): Promise<TempPoint[]> {
   const now = Date.now();
   return withCache(cacheKey(entityId, range), now, () =>
-    range === '24h' ? fetchHistory24h(conn, entityId, now) : fetchStatistics7d(conn, entityId, now)
+    range === '24h' ? fetchHistory24h(conn, entityId, now) : fetchStatistics(conn, entityId, range, now)
   );
 }
 

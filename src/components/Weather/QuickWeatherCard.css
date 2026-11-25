@@ -365,6 +365,24 @@
   color: rgba(235, 235, 245, 0.4);
 }
 
+/* The ice bath chip: the same anatomy and height as its siblings; the frost, water line and ice sheet come from
+   IceBath.css and follow --frost. */
+.quick-weather-fact--ice {
+  background: color-mix(in oklab, #2c2c2e, var(--ice-tint) calc(var(--frost) * 100%));
+  transition:
+    background-color 600ms var(--ease-out),
+    transform 120ms var(--ease-out);
+}
+
+.quick-weather-fact--ice .quick-weather-fact-value {
+  color: color-mix(in oklab, rgba(255, 255, 255, 0.92), var(--ice-ink) calc(var(--frost) * 100%));
+}
+
+.quick-weather-fact--ice .quick-weather-fact-value,
+.quick-weather-fact--ice .quick-weather-fact-sub {
+  white-space: nowrap;
+}
+
 /* (The footer that used to carry "roof quiet N min" is gone - that line now rides on the hero
    sub-line, beside the number whose provenance it explains.) */
 

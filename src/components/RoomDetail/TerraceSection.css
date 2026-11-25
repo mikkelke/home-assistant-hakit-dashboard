@@ -1,0 +1,390 @@
+/* The Rooftop's terrace section. The section is a container, so it lays itself out by the width the panel gives it: stacked
+   below 700px, the ice bath beside the air and wind with the week full width above that. */
+.terrace {
+  container-type: inline-size;
+}
+
+.terrace-title {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.terrace-grid {
+  display: grid;
+  gap: 10px;
+}
+
+@container (min-width: 700px) {
+  .terrace-grid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    grid-template-areas:
+      'hero after'
+      'chart chart';
+  }
+  .terrace-hero {
+    grid-area: hero;
+  }
+  .terrace-after {
+    grid-area: after;
+  }
+  .terrace-chart {
+    grid-area: chart;
+  }
+}
+
+/* The ice bath: the weather chip's frost and water line at the scale of a tile (see IceBath.css). */
+.terrace-hero {
+  --ice-water-h: 18px;
+  --ice-wave-h: 8px;
+  --ice-wave-w: 64px;
+  --ice-crystal-size: 38px;
+  --ice-reach: 30%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 168px;
+  padding: 16px 18px 30px;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: color-mix(in oklab, rgba(24, 25, 28, 0.95), var(--ice-tint) calc(var(--frost) * 100%));
+  transition: background-color 600ms var(--ease-out);
+}
+
+.terrace-hero-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-2);
+}
+
+.terrace-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(224, 242, 254, 0.14);
+  color: var(--ice-ink);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.terrace-badge .ice-flake {
+  width: 11px;
+  height: 11px;
+  margin: 0;
+}
+
+.terrace-hero-value {
+  font-size: 3.4rem;
+  font-weight: 650;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in oklab, #fff, var(--ice-ink) calc(var(--frost) * 100%));
+}
+
+.terrace-hero-value small {
+  margin-left: 1px;
+  font-size: 1.6rem;
+  font-weight: 500;
+  vertical-align: 0.95em;
+}
+
+.terrace-hero-word {
+  font-size: 1rem;
+  font-weight: 500;
+  color: color-mix(in oklab, var(--text-1), var(--ice-ink) calc(var(--frost) * 100%));
+}
+
+.terrace-hero-row {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* After the plunge: the air and wind, and how the air feels coming out of the water. */
+.terrace-after,
+.terrace-chart {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: rgba(24, 25, 28, 0.8);
+}
+
+.terrace-after {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.terrace-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.terrace-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.6rem 0.7rem;
+  border-radius: 14px;
+  background: #2c2c2e;
+}
+
+.terrace-fact-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  color: rgba(235, 235, 245, 0.4);
+}
+
+.terrace-fact-label svg {
+  width: 13px;
+  height: 13px;
+  opacity: 0.75;
+}
+
+.terrace-fact-value {
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.terrace-fact-value small {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.terrace-fact-sub {
+  font-size: 0.72rem;
+  color: rgba(235, 235, 245, 0.4);
+  font-variant-numeric: tabular-nums;
+}
+
+.terrace-feels {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: var(--text-1);
+}
+
+.terrace-feels-k {
+  color: var(--text-2);
+}
+
+.terrace-feels b {
+  font-weight: 600;
+}
+
+.terrace-chill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.terrace-chill[data-band='chilly'] {
+  background: rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
+}
+
+.terrace-chill[data-band='cold'] {
+  background: rgba(56, 189, 248, 0.16);
+  color: #7dd3fc;
+}
+
+.terrace-chill[data-band='biting'] {
+  background: rgba(129, 140, 248, 0.2);
+  color: #c7d2fe;
+}
+
+.terrace-chill[data-band='frostbite'] {
+  background: rgba(251, 113, 133, 0.18);
+  color: #fda4af;
+}
+
+.terrace-bar[data-band='chilly'] {
+  color: #cbd5e1;
+}
+
+.terrace-bar[data-band='cold'] {
+  color: #7dd3fc;
+}
+
+.terrace-bar[data-band='biting'] {
+  color: #c7d2fe;
+}
+
+.terrace-bar[data-band='frostbite'] {
+  color: #fda4af;
+}
+
+.terrace-bar-steps,
+.terrace-bar-labels {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.terrace-bar-steps {
+  gap: 3px;
+}
+
+.terrace-bar-steps i {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.terrace-bar-steps i.is-on {
+  background: currentColor;
+}
+
+.terrace-bar-labels {
+  margin-top: 3px;
+  font-size: 0.62rem;
+  color: var(--text-3);
+}
+
+/* The week: a button, since a tap opens the longer history. */
+.terrace-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out);
+}
+
+.terrace-chart:active {
+  transform: scale(0.995);
+}
+
+.terrace-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 0.72rem;
+  color: var(--text-2);
+}
+
+.terrace-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.terrace-legend i {
+  display: inline-block;
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.terrace-legend .terrace-legend-water {
+  background: #38bdf8;
+}
+
+.terrace-legend .terrace-legend-mean {
+  background: #d4d4d8;
+}
+
+.terrace-legend .terrace-legend-air {
+  height: 1px;
+  background: rgba(161, 161, 170, 0.5);
+}
+
+.terrace-caption {
+  font-size: 0.75rem;
+  color: var(--text-2);
+}
+
+.terrace-chart-box {
+  display: block;
+  height: 200px;
+}
+
+@container (min-width: 700px) {
+  .terrace-chart-box {
+    height: 230px;
+  }
+}
+
+.terrace-chart-box svg {
+  display: block;
+}
+
+.terrace-chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 0.8rem;
+  color: var(--text-2);
+}
+
+.terrace-chart-tick {
+  font-size: 10px;
+  fill: var(--text-3);
+}
+
+.terrace-chart-grid {
+  stroke: rgba(255, 255, 255, 0.05);
+}
+
+.terrace-chart-zero {
+  stroke: rgba(186, 230, 253, 0.35);
+  stroke-dasharray: 3 3;
+}
+
+.terrace-chart-day {
+  stroke: rgba(255, 255, 255, 0.04);
+}
+
+.terrace-chart-air {
+  fill: none;
+  stroke: rgba(161, 161, 170, 0.28);
+  stroke-width: 1;
+}
+
+.terrace-chart-mean {
+  fill: none;
+  stroke: #d4d4d8;
+  stroke-width: 1.6;
+}
+
+.terrace-chart-water {
+  fill: none;
+  stroke: #38bdf8;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.terrace-chart-water-dot {
+  fill: #38bdf8;
+}
+
+.terrace-chart-end {
+  font-size: 11px;
+  fill: #d4d4d8;
+}
+
+.terrace-chart-end--water {
+  font-weight: 600;
+  fill: #7dd3fc;
+}

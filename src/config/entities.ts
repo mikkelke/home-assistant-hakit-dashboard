@@ -376,8 +376,12 @@ export const OUTDOOR_TEMP_SENSOR = 'sensor.gw2000a_outdoor_temperature';
 export const OUTDOOR_HUMIDITY_SENSOR = 'sensor.gw2000a_humidity';
 /** km/h. */
 export const OUTDOOR_WIND_SPEED_SENSOR = 'sensor.gw2000a_wind_speed';
+/** km/h; the station emits about one bogus spike a day, so read it through `isPlausibleGustMs`. */
+export const OUTDOOR_WIND_GUST_SENSOR = 'sensor.gw2000a_wind_gust';
 /** Degrees the wind blows from. */
 export const OUTDOOR_WIND_DIRECTION_SENSOR = 'sensor.gw2000a_wind_direction';
+/** The water in the ice bath on the terrace (a floating WN36 on the station's hub), °C. */
+export const ICE_BATH_SENSOR = 'sensor.ice_bath_temperature';
 /** AppDaemon's RainNow: on while rain is measured, not when the rain plate is only tapped. Read this to decide that it
  * rains; the station's rate sensor is for showing the number. */
 export const OUTDOOR_RAINING_ENTITY = 'binary_sensor.raining';
