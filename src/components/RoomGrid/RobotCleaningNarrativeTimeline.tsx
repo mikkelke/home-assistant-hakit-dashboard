@@ -2,12 +2,8 @@ import { useState, useEffect } from 'react';
 import { useHass } from '@hakit/core';
 import { Icon } from '@iconify/react';
 import { ROBOT_CLEANING_NARRATIVE_ENTITY, VACUUM_ENTITY } from '../../config/entities';
+import { hassApiFetch } from '../../utils/hassApiFetch';
 import '../Timeline/Timeline.css';
-
-interface ConnectionWithAuth {
-  options?: { auth?: { accessToken?: string }; accessToken?: string };
-  auth?: { accessToken?: string };
-}
 
 type HistoryItem = { entity_id?: string; state?: string; last_changed?: string; last_updated?: string };
 
@@ -134,20 +130,7 @@ export function RobotCleaningNarrativeTimeline({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const connection = useHass((state: unknown) => (state as { connection?: ConnectionWithAuth | null }).connection ?? undefined);
-
-  const getAccessToken = (): string | null => {
-    try {
-      if (!connection) return null;
-      const conn = connection as ConnectionWithAuth;
-      if (conn.options?.auth?.accessToken) return conn.options.auth.accessToken;
-      if (conn.options?.accessToken) return conn.options.accessToken;
-      if (conn.auth?.accessToken) return conn.auth.accessToken;
-      return null;
-    } catch {
-      return null;
-    }
-  };
+  const connection = useHass(state => state.connection);
 
   useEffect(() => {
     if (!enabled || !hassUrl) {
@@ -171,13 +154,9 @@ export function RobotCleaningNarrativeTimeline({
       url.searchParams.set('significant_changes_only', '0');
       url.searchParams.set('minimal_response', '0');
 
-      const accessToken = getAccessToken();
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
-
-      const response = await fetch(url.toString(), {
+      const response = await hassApiFetch(connection, url.toString(), {
         method: 'GET',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
       });
 
@@ -253,7 +232,6 @@ export function RobotCleaningNarrativeTimeline({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- getAccessToken stable via connection
   }, [enabled, hassUrl, hours, limit, showPhaseTrack, connection]);
 
   if (!enabled) {

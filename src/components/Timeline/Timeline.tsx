@@ -4,6 +4,7 @@ import { Icon } from '@iconify/react';
 import type { HassEntities, HassEntity } from '../../types';
 import { APARTMENT_DOOR_OPEN_ENTITY, APARTMENT_LOCK_ENTITY, BEDROOM_BED_OCCUPANCY_SENSORS } from '../../config/entities';
 import { HOTPLATE_ICON, OVEN_ICON } from '../../config/kitchenIcons';
+import { hassApiFetch } from '../../utils/hassApiFetch';
 import { extractRoomActiveZone, parseRoomActiveReason } from '../../utils/roomActiveReason';
 
 interface TimelineEvent {
@@ -249,11 +250,6 @@ function buildYaleAccessSessions(chronological: TimelineEvent[]): TimelineEvent[
   }));
 }
 
-interface ConnectionWithAuth {
-  options?: { auth?: { accessToken?: string }; accessToken?: string };
-  auth?: { accessToken?: string };
-}
-
 export function Timeline({ entityId, entity: _entity, entities, hassUrl, hours = 168, limit = 100, secondaryEntityId }: TimelineProps) {
   void _entity; // required by props, used for type; component uses entityId
   const [events, setEvents] = useState<TimelineEvent[]>([]);
@@ -261,21 +257,7 @@ export function Timeline({ entityId, entity: _entity, entities, hassUrl, hours =
   const [error, setError] = useState<string | null>(null);
 
   // Get connection from @hakit/core for authenticated API calls (Store has connection: Connection | null)
-  const connection = useHass((state: unknown) => (state as { connection?: ConnectionWithAuth | null }).connection ?? undefined);
-
-  // Extract access token from the authenticated connection
-  const getAccessToken = (): string | null => {
-    try {
-      if (!connection) return null;
-      const conn = connection as ConnectionWithAuth;
-      if (conn.options?.auth?.accessToken) return conn.options.auth.accessToken;
-      if (conn.options?.accessToken) return conn.options.accessToken;
-      if (conn.auth?.accessToken) return conn.auth.accessToken;
-      return null;
-    } catch {
-      return null;
-    }
-  };
+  const connection = useHass(state => state.connection);
 
   useEffect(() => {
     if (!hassUrl) {
@@ -296,15 +278,9 @@ export function Timeline({ entityId, entity: _entity, entities, hassUrl, hours =
       url.searchParams.set('significant_changes_only', '0');
       url.searchParams.set('minimal_response', '0');
 
-      const accessToken = getAccessToken();
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`;
-      }
-
-      const response = await fetch(url.toString(), {
+      const response = await hassApiFetch(connection, url.toString(), {
         method: 'GET',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
       });
 
@@ -357,9 +333,6 @@ export function Timeline({ entityId, entity: _entity, entities, hassUrl, hours =
       try {
         setLoading(true);
         setError(null);
-
-        const accessToken = getAccessToken();
-        console.log('Timeline: Fetching with auth:', accessToken ? 'Bearer token present' : 'No token (using cookies)');
 
         // Yale door contact: show access log (who / how), not physical open/close
         if (YALE_ACCESS_TIMELINE_IDS.has(entityId)) {
@@ -574,7 +547,7 @@ export function Timeline({ entityId, entity: _entity, entities, hassUrl, hours =
     };
 
     fetchHistory();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- getAccessToken and entity-type helpers are stable; adding them would trigger unnecessary refetches
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- entity-type helpers are stable; adding them would trigger unnecessary refetches
   }, [entityId, secondaryEntityId, hassUrl, hours, limit, connection]);
 
   const formatTimeAgo = (timestamp: string): string => {

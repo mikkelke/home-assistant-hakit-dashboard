@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { useHass } from '@hakit/core';
 import type { HassEntities, CallServiceFunction } from '../../types';
+import { hassApiFetch } from '../../utils/hassApiFetch';
 import { getAccessibleHistoryWindow, getHistoryUrl, replaceHistoryState } from '../../utils/navigation';
 import {
   ROBOT_ENABLED_BOOLEAN_ENTITY,
@@ -136,24 +137,12 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
   const [batteryHistoryError, setBatteryHistoryError] = useState<string | null>(null);
   const [daySpans, setDaySpans] = useState<DaySpan[]>([]);
   const [storyOpen, setStoryOpen] = useState(false);
-  const connection = useHass((s: { connection?: unknown }) => s.connection);
+  const connection = useHass(s => s.connection);
   const hassUrl = useHass(s => s.hassUrl);
   const selectedMapRef = useRef<MapEntry | null>(null);
   const roomsSheetOpenRef = useRef(false);
   const showLiveMapRef = useRef(false);
   const batteryGraphOpenRef = useRef(false);
-  const getAccessToken = useCallback((): string | null => {
-    try {
-      if (!connection) return null;
-      const c = connection as { options?: { auth?: { accessToken?: string }; accessToken?: string }; auth?: { accessToken?: string } };
-      if (c.options?.auth?.accessToken) return c.options.auth.accessToken;
-      if (c.options?.accessToken) return c.options.accessToken;
-      if (c?.auth?.accessToken) return c.auth.accessToken;
-      return null;
-    } catch {
-      return null;
-    }
-  }, [connection]);
   const haBase = (
     import.meta.env.VITE_HA_URL && import.meta.env.VITE_HA_URL.length > 0
       ? import.meta.env.VITE_HA_URL
@@ -495,11 +484,8 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     url.searchParams.set('end_time', endTime.toISOString());
     url.searchParams.set('significant_changes_only', '0');
     url.searchParams.set('minimal_response', '0');
-    const headers: HeadersInit = { 'Content-Type': 'application/json' };
-    const token = getAccessToken();
-    if (token) headers['Authorization'] = `Bearer ${token}`;
     let cancelled = false;
-    fetch(url.toString(), { method: 'GET', headers, credentials: 'include' })
+    hassApiFetch(connection, url.toString(), { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' })
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
@@ -555,7 +541,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     return () => {
       cancelled = true;
     };
-  }, [collapsed, roberOff, vacuumState, getAccessToken]);
+  }, [collapsed, roberOff, vacuumState, connection]);
 
   // Live map refresh: react to HA updates only (no fixed polling)
   useEffect(() => {
@@ -584,13 +570,10 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     url.searchParams.set('end_time', endTime.toISOString());
     url.searchParams.set('significant_changes_only', '0');
     url.searchParams.set('minimal_response', '0');
-    const headers: HeadersInit = { 'Content-Type': 'application/json' };
-    const token = getAccessToken();
-    if (token) headers['Authorization'] = `Bearer ${token}`;
     let cancelled = false;
     setBatteryHistoryLoading(true);
     setBatteryHistoryError(null);
-    fetch(url.toString(), { method: 'GET', headers, credentials: 'include' })
+    hassApiFetch(connection, url.toString(), { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' })
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
@@ -644,7 +627,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
     return () => {
       cancelled = true;
     };
-  }, [batteryGraphOpen, batteryGraphHours, getAccessToken]);
+  }, [batteryGraphOpen, batteryGraphHours, connection]);
 
   if (!vacuum) return null;
 

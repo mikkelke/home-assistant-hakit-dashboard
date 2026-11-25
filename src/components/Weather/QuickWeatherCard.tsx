@@ -17,6 +17,7 @@ import {
   isPlausibleGustMs,
   toMetersPerSecond,
 } from '../../home/terrace';
+import { hassApiFetch } from '../../utils/hassApiFetch';
 import { requestOpenRoom } from '../../utils/navigation';
 import { IceFlake, IceLayers } from '../IceBath/IceBath';
 import { LazyTimeline } from '../Timeline';
@@ -53,11 +54,6 @@ type WeatherForecastEntry = {
   is_daytime?: boolean;
   bucketHours?: number;
 };
-
-interface ConnectionWithAuth {
-  options?: { auth?: { accessToken?: string }; accessToken?: string };
-  auth?: { accessToken?: string };
-}
 
 /**
  * Data sources for QuickWeatherCard:
@@ -663,40 +659,22 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   const weatherEntity = getEntity(entities, entityId);
   const weatherDaily = useWeather(entityId as Parameters<typeof useWeather>[0], { type: 'daily' });
   const weatherHourly = useWeather(entityId as Parameters<typeof useWeather>[0], { type: 'hourly' });
-  const connection = useHass((state: unknown) => (state as { connection?: ConnectionWithAuth | null }).connection ?? undefined);
+  const connection = useHass(state => state.connection);
   const hassUrl = useHass((state: unknown) => (state as { hassUrl?: string | null }).hassUrl ?? null);
   const [extendedForecast, setExtendedForecast] = useState<WeatherForecastEntry[]>([]);
-
-  const getAccessToken = useCallback((): string | null => {
-    try {
-      if (!connection) return null;
-      const conn = connection as ConnectionWithAuth;
-      if (conn.options?.auth?.accessToken) return conn.options.auth.accessToken;
-      if (conn.options?.accessToken) return conn.options.accessToken;
-      if (conn.auth?.accessToken) return conn.auth.accessToken;
-      return null;
-    } catch {
-      return null;
-    }
-  }, [connection]);
 
   useEffect(() => {
     let cancelled = false;
 
     const fetchExtendedForecast = async () => {
-      const accessToken = getAccessToken();
-      if (!accessToken) {
+      if (!connection) {
         if (!cancelled) setExtendedForecast([]);
         return;
       }
 
       try {
         const url = new URL('/api/config', window.location.origin);
-        const response = await fetch(url.toString(), {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${accessToken}` },
-          credentials: 'include',
-        });
+        const response = await hassApiFetch(connection, url.toString(), { method: 'GET', credentials: 'include' });
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
@@ -778,7 +756,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
     return () => {
       cancelled = true;
     };
-  }, [getAccessToken]);
+  }, [connection]);
 
   // Now-tick: same pattern as TonightCard (lazy useState initializer covers the first render;
   // only the interval callback ever calls setState, never the render body itself). Every
@@ -870,16 +848,17 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
     const fetchCompareSeries = async () => {
       const endMs = Date.now();
       const startMs = endMs - COMPARE_WINDOW_HOURS * 3600_000;
-      const accessToken = getAccessToken();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
       const fetchHistory = async (targetEntityId: string): Promise<HistoryRow[]> => {
         const url = new URL(`/api/history/period/${new Date(startMs).toISOString()}`, window.location.origin);
         url.searchParams.set('filter_entity_id', targetEntityId);
         url.searchParams.set('end_time', new Date(endMs).toISOString());
         url.searchParams.set('significant_changes_only', '0');
-        const response = await fetch(url.toString(), { method: 'GET', headers, credentials: 'include' });
+        const response = await hassApiFetch(connection, url.toString(), {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data: unknown = await response.json();
         if (!Array.isArray(data) || data.length === 0) return [];
@@ -909,7 +888,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
     return () => {
       cancelled = true;
     };
-  }, [compareOpen, compareMetric, entityId, getAccessToken]);
+  }, [compareOpen, compareMetric, entityId, connection]);
 
   if (!weatherEntity) {
     return (
