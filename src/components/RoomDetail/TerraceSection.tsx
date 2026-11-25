@@ -45,7 +45,7 @@ export function TerraceSection({ entities, ref }: { entities: HassEntities; ref?
   const iceRow = iceBathRow(entities[HOUSE_UPCOMING_ENTITY]?.attributes, nowMs);
 
   const windSub = [
-    gustMs != null && windMs != null && gustMs > windMs ? `gusts ${Math.round(gustMs)}` : null,
+    gustMs != null && windMs != null && gustMs > windMs ? `gusts ${Math.round(gustMs * 3.6)}` : null,
     fromDeg != null ? compass16(fromDeg) : null,
   ]
     .filter(Boolean)
@@ -88,7 +88,7 @@ export function TerraceSection({ entities, ref }: { entities: HassEntities; ref?
               )}
             </span>
             <span className='terrace-hero-word'>{waterC == null ? 'no reading' : iceBathWord(waterC)}</span>
-            {iceRow && <span className='terrace-hero-row'>{iceRow.title}</span>}
+            {iceRow && <span className='terrace-hero-row'>{iceRow.title.replace(/^Ice bath\s+at\b/i, 'At')}</span>}
           </div>
         )}
 
@@ -113,7 +113,7 @@ export function TerraceSection({ entities, ref }: { entities: HassEntities; ref?
                     '—'
                   ) : (
                     <>
-                      {windMs.toFixed(1)} <small>m/s</small>
+                      {Math.round(windMs * 3.6)} <small>km/h</small>
                     </>
                   )}
                 </span>
@@ -123,8 +123,8 @@ export function TerraceSection({ entities, ref }: { entities: HassEntities; ref?
             {chill && band && (
               <>
                 <p className='terrace-feels'>
-                  <span className='terrace-feels-k'>Out of the water:</span> air {formatTemp(chill.airC)}°, wind {chill.windMs.toFixed(1)}{' '}
-                  m/s, feels <b>{formatTemp(chill.feelsC)}°</b>{' '}
+                  <span className='terrace-feels-k'>Out of the water:</span> air {formatTemp(chill.airC)}°, wind{' '}
+                  {Math.round(chill.windMs * 3.6)} km/h, feels <b>{formatTemp(chill.feelsC)}°</b>{' '}
                   <span className='terrace-chill' data-band={band.band}>
                     {band.label}
                   </span>
