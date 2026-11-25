@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { PRICE_FORECAST_ENTITY_ID } from '../config/energy';
 import { DRYER_CHAIN, PLAN_APPLIANCES, PLAN_TICK_MS, RUN_PROFILES_ENTITY_ID } from '../config/plan';
 import { useLocalStorageBoolean } from '../hooks/useLocalStorageBoolean';
 import { useTrackedEntities } from '../hooks/useTrackedEntities';
@@ -43,15 +44,16 @@ export function useAppliancePlans(): UseAppliancePlansResult {
   }, []);
 
   const priceEntity = config?.priceEntityId ? entities[config.priceEntityId] : undefined;
+  const forecastEntity = entities[PRICE_FORECAST_ENTITY_ID];
   const timeline = useMemo(() => {
     const attrs = priceEntity?.attributes;
     return buildHourlyPrices(
       parseRawPoints(attrs?.raw_today),
       parseRawPoints(attrs?.raw_tomorrow),
       attrs?.tomorrow_valid === true,
-      parseRawPoints(attrs?.forecast)
+      parseRawPoints(forecastEntity?.attributes?.forecast)
     );
-  }, [priceEntity]);
+  }, [priceEntity, forecastEntity]);
 
   const tomorrowValid = priceEntity?.attributes?.tomorrow_valid === true;
   const tariffs = priceEntity?.attributes?.tariffs;

@@ -1,4 +1,5 @@
 import type { HouseBuilder } from './builder';
+import { PRICE_FORECAST_ENTITY_ID } from '../../src/config/energy';
 import { HOME_CALENDAR } from '../../src/energy/period';
 import { homeDayKey, homeWallTime, homeWallTimeToMs } from '../../src/energy/homeTime';
 import { DAY, HOUR, rng } from './time';
@@ -228,10 +229,10 @@ export function addEnergy(h: HouseBuilder): void {
       raw_today: hoursOf(day),
       raw_tomorrow: hoursOf(next),
       tomorrow_valid: true,
-      forecast: [],
     },
     { ago: 40 }
   );
+  h.put(PRICE_FORECAST_ENTITY_ID, 'ok', { friendly_name: 'Electricity price forecast', forecast: [] }, { ago: 40 });
   h.put(GRID_POWER, 1960, { friendly_name: 'Electricity meter power', unit_of_measurement: 'W', device_class: 'power' }, { ago: 0 });
   const powers: Record<string, number> = {
     'sensor.oven_plug_switch_0_power': 0,

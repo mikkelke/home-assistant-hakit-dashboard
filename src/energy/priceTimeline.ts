@@ -6,7 +6,7 @@ import type { RawTodayPoint } from './assemble';
 const HOUR_MS = 3_600_000;
 
 /** One hour's all-in price in kr/kWh, keyed by the hour's start. `estimated` marks an hour priced
- * from the Carnot forecast rather than the published day-ahead price. */
+ * from the price forecast rather than the published day-ahead price. */
 export interface PricePointMs {
   ms: number;
   price: number;
@@ -17,7 +17,7 @@ export function isPlanPrice(price: unknown): price is number {
   return typeof price === 'number' && Number.isFinite(price) && price >= PLAN_PRICE_RANGE_KR.min && price <= PLAN_PRICE_RANGE_KR.max;
 }
 
-/** Merges `raw_today`, `raw_tomorrow` (only when `tomorrowValid`) and the Carnot `forecast` into one
+/** Merges `raw_today`, `raw_tomorrow` (only when `tomorrowValid`) and the price forecast into one
  * sorted list with one point per hour. Published prices win over forecast ones; forecast hours are
  * marked `estimated`. Points that are not on an hour boundary, fail to parse, or fall outside
  * `PLAN_PRICE_RANGE_KR` are dropped, leaving that hour unpriced. */

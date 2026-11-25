@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { useHass } from '@hakit/core';
+import { PRICE_FORECAST_ENTITY_ID } from '../../config/energy';
 import { useEnergyConfig } from '../../energy/useEnergyConfig';
 import { parseRawPoints } from '../../energy/useEnergyView';
 import { buildHourlyPrices } from '../../energy/priceTimeline';
@@ -15,11 +16,12 @@ interface PriceAdvisorProps {
 }
 
 /** Status bar price segment: the current all-in price, its band relative to today, and when that
- * band next changes. Tapping it opens the Energy page's Plan tab. Reads only the price entity's own
- * attributes; no network calls. */
+ * band next changes. Tapping it opens the Energy page's Plan tab. Reads only the price and price
+ * forecast entities' attributes; no network calls. */
 export function PriceAdvisor({ onOpen }: PriceAdvisorProps) {
   const { config } = useEnergyConfig();
   const priceEntity = useHass(s => (config?.priceEntityId ? s.entities[config.priceEntityId] : undefined));
+  const forecastEntity = useHass(s => s.entities[PRICE_FORECAST_ENTITY_ID]);
 
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
@@ -34,10 +36,10 @@ export function PriceAdvisor({ onOpen }: PriceAdvisorProps) {
         parseRawPoints(attrs?.raw_today),
         parseRawPoints(attrs?.raw_tomorrow),
         attrs?.tomorrow_valid === true,
-        parseRawPoints(attrs?.forecast)
+        parseRawPoints(forecastEntity?.attributes?.forecast)
       )
     );
-  }, [priceEntity]);
+  }, [priceEntity, forecastEntity]);
 
   if (!config || !priceEntity || banded.length === 0) return null;
 

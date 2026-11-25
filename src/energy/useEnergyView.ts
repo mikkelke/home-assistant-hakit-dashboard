@@ -37,8 +37,8 @@ function nextCompileMs(nowMs: number): number {
   return candidate.getTime();
 }
 
-/** Defensive parse of one of the live price entity's hourly point-array attributes (`raw_today`,
- * `raw_tomorrow`, or the Carnot `forecast` attribute — all three share this `{hour, price}` shape)
+/** Defensive parse of an hourly point-array attribute (`raw_today` and `raw_tomorrow` on the live price
+ * entity, `forecast` on the price forecast entity — all three share this `{hour, price}` shape)
  * — external data, never trusted blind. */
 export function parseRawPoints(value: unknown): RawTodayPoint[] | null {
   if (!Array.isArray(value)) return null;
@@ -62,7 +62,6 @@ export interface EnergyPriceAttrs {
   rawToday: RawTodayPoint[] | null;
   rawTomorrow: RawTodayPoint[] | null;
   tomorrowValid: boolean;
-  carnotForecast: RawTodayPoint[] | null;
   currentPrice: number | null;
 }
 
@@ -100,7 +99,7 @@ export function useEnergyView(period: Period, anchorStartMs: number, calendar: P
   const connection = useHass(s => s.connection);
   const { config, loading: configLoading, error: configError } = useEnergyConfig();
 
-  // Live price-entity attributes (raw_today/raw_tomorrow/forecast/current_price) — selected as the
+  // Live price-entity attributes (raw_today/raw_tomorrow/tomorrow_valid/current_price) — selected as the
   // entity object so the memo below only re-derives when THIS entity actually changes. Kept as one
   // memo rather than split: it's also the fetch effect's own dependency below, so raw_tomorrow
   // landing at ~13:35 (or the hourly current_price tick) naturally triggers a refetch — desirable,
@@ -112,7 +111,6 @@ export function useEnergyView(period: Period, anchorStartMs: number, calendar: P
       rawToday: parseRawPoints(attrs?.raw_today),
       rawTomorrow: parseRawPoints(attrs?.raw_tomorrow),
       tomorrowValid: attrs?.tomorrow_valid === true,
-      carnotForecast: parseRawPoints(attrs?.forecast),
       currentPrice: parseCurrentPrice(attrs?.current_price),
     };
   }, [priceEntity]);

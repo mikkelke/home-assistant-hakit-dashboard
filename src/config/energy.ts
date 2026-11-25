@@ -2,13 +2,18 @@ import { HOTPLATE_ICON, OVEN_ICON } from './kitchenIcons';
 
 // Energy page constants. Price bands are relative to each day; see energy/priceBands.ts.
 
+/** Holds the price forecast for the hours the price entity has no published price for, as a `forecast`
+ * attribute of `{hour, price}` points in the price entity's own all-in unit. */
+export const PRICE_FORECAST_ENTITY_ID = 'sensor.electricity_price_forecast';
+
 // Sanity ceiling for a single kr/kWh reading, applied wherever a price arrives from outside this
-// app — the price entity's `raw_today`/`raw_tomorrow`/`forecast` attributes and its long-term
-// statistics. Real Danish retail prices don't get near this even at worst-case ToU peak plus a spot
-// spike, so it exists purely to catch a glitched upstream value (sensor.energi_data_service briefly
-// published 109.57 — the raw spot in EUR/MWh, unconverted and un-tariffed — for one refresh on
-// 2026-09-02) before it reaches a chart, a bill or a "best time to run" suggestion. Mirrors the
-// same-value ceiling added that day in washer_monitor.py and smart_cooling.py on the AppDaemon side.
+// app — the price entity's `raw_today`/`raw_tomorrow` attributes and long-term statistics, and the
+// forecast entity's `forecast` attribute. Real Danish retail prices don't get near this even at
+// worst-case ToU peak plus a spot spike, so it exists purely to catch a glitched upstream value
+// (sensor.energi_data_service briefly published 109.57 — the raw spot in EUR/MWh, unconverted and
+// un-tariffed — for one refresh on 2026-09-02) before it reaches a chart, a bill or a "best time to
+// run" suggestion. Mirrors the same-value ceiling added that day in washer_monitor.py and
+// smart_cooling.py on the AppDaemon side.
 export const PRICE_SANITY_CEILING_KR = 15;
 
 // "Regning" card constants (Phase 5). HA's cost stat (every `costKr` in this app) is built on the
