@@ -125,9 +125,13 @@ function boxEdges(x0: number, y0: number, x1: number, y1: number): Segment[] {
   ];
 }
 
-/** The plan's walls and panes as occluders. Doorways are the gaps between them. */
-export function planOccluders(plan: Plan): Segment[] {
+/** The plan's walls and panes as occluders, and the leaf of each door named in `closedDoors` in its closed position.
+ * Every other doorway is a gap. */
+export function planOccluders(plan: Plan, closedDoors: readonly string[] = []): Segment[] {
   const edges: Segment[] = [];
+  for (const door of plan.doors) {
+    if (closedDoors.includes(door.name)) edges.push([door.hinge[0], door.hinge[1], door.closed[0], door.closed[1]]);
+  }
   for (const wall of plan.walls) edges.push(...boxEdges(wall.x0, wall.y0, wall.x1, wall.y1));
   for (const glazing of plan.windows) {
     const [x0, y0, x1, y1] = glazing.box;
@@ -151,9 +155,9 @@ export const zoneAt = (point: Point, zones: readonly Zone[]): Zone | undefined =
 /** How far a lamp's light reaches, in metres. */
 export const LAMP_REACH_M = 6;
 
-/** What each zone's lamps light, seen from the zone's label point. Depends on the plan only, never on a lamp's state. */
-export function lampFields(plan: Plan): Record<string, Point[]> {
-  const occluders = planOccluders(plan);
+/** What each zone's lamps light, seen from the zone's label point, with the doors in `closedDoors` shut. */
+export function lampFields(plan: Plan, closedDoors: readonly string[] = []): Record<string, Point[]> {
+  const occluders = planOccluders(plan, closedDoors);
   const out: Record<string, Point[]> = {};
   for (const zone of plan.zones) out[zone.zone_id] = visibilityPolygon(zone.label, LAMP_REACH_M, occluders);
   return out;

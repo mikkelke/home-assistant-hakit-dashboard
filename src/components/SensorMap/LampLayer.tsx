@@ -1,10 +1,12 @@
 import { memo, useMemo } from 'react';
 import { ROOM_LIGHTS } from '../../config/lights';
+import { MAP_DOOR_CONTACTS } from '../../config/mapDoors';
+import { closedDoorNames } from '../../sensorMap/doorState';
 import { LAMP_REACH_M, lampFields, outsidePanes, sunShafts } from '../../sensorMap/lightGeometry';
 import type { Plan } from '../../sensorMap/mapDoc';
 import { polyPath } from '../../sensorMap/planPaths';
 import { clipIdOf } from './types';
-import { useEntityStates } from './useEntityStates';
+import { statesById, useEntityStates } from './useEntityStates';
 
 const SUN_ENTITY = 'sun.sun';
 
@@ -119,17 +121,23 @@ function indoorPaths(plan: Plan): string[] {
   return [...zones, ...doors];
 }
 
-/** Rooms whose lamps are on glow, the glow passing through doorways and stopping at walls, and the sun falls through
- * the outside panes while it is up. */
+/** Rooms whose lamps are on glow, the glow passing through open doorways and stopping at walls and closed doors, and
+ * the sun falls through the outside panes while it is up. */
 export const LampLayer = memo(function LampLayer({ plan }: { plan: Plan }) {
   const lamps = useMemo(() => lampsOf(plan), [plan]);
+  const sensorIds = useMemo(() => plan.doors.flatMap(door => MAP_DOOR_CONTACTS[door.name] ?? []), [plan.doors]);
+  const sensorStates = useEntityStates(sensorIds);
+  const closedKey = useMemo(() => {
+    const byId = statesById(sensorIds, sensorStates);
+    return closedDoorNames(plan.doors, MAP_DOOR_CONTACTS, id => byId[id]).join('\n');
+  }, [plan.doors, sensorIds, sensorStates]);
   const fields = useMemo(() => {
     const yTop = plan.bounds.y1;
-    const rings = lampFields(plan);
+    const rings = lampFields(plan, closedKey ? closedKey.split('\n') : []);
     const out: Record<string, string | null> = {};
     for (const [zoneId, ring] of Object.entries(rings)) out[zoneId] = ring.length ? polyPath(ring, yTop) : null;
     return out;
-  }, [plan]);
+  }, [plan, closedKey]);
   const indoors = useMemo(() => indoorPaths(plan), [plan]);
   return (
     <g className='sm-light-layer' aria-hidden='true'>

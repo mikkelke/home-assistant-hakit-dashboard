@@ -22,6 +22,13 @@ export function doorPaths(door: Door, yTop: number): { leaf: string; arc: string
   };
 }
 
+/** A door's leaf shut: from the hinge to where its free end rests when closed. */
+export function doorClosedLeaf(door: Door, yTop: number): string {
+  const [hx, hy] = door.hinge;
+  const [cx, cy] = door.closed;
+  return `M${num(hx)} ${num(yTop - hy)}L${num(cx)} ${num(yTop - cy)}`;
+}
+
 /** The centre line of glazing along its long side, or null for a door opening, which is drawn as a frame only. */
 export function glazingLine(window: Glazing, yTop: number): { x1: number; y1: number; x2: number; y2: number } | null {
   if (window.door) return null;

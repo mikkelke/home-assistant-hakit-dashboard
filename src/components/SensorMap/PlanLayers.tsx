@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { doorPaths, glazingLine, polyPath } from '../../sensorMap/planPaths';
+import { glazingLine, polyPath } from '../../sensorMap/planPaths';
 import type { Plan } from '../../sensorMap/mapDoc';
 import { activateOnKey } from './activateOnKey';
 import { VENT_R, ventGlyph } from './glyphs';
@@ -182,18 +182,6 @@ export const PlanWalls = memo(function PlanWalls({ plan }: { plan: Plan }) {
               <rect x={x0} y={yTop - y1} width={x1 - x0} height={y1 - y0} className='sm-win-bg' />
               <rect x={x0} y={yTop - y1} width={x1 - x0} height={y1 - y0} className='sm-win-frame' />
               {line && <line x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2} className='sm-win-line' />}
-            </g>
-          );
-        })}
-      </g>
-      <g className='sm-doors'>
-        {plan.doors.map(door => {
-          const { leaf, arc } = doorPaths(door, yTop);
-          return (
-            <g key={door.name}>
-              <title>{door.name}</title>
-              <path d={leaf} className='sm-door-leaf' />
-              <path d={arc} className='sm-door-arc' />
             </g>
           );
         })}

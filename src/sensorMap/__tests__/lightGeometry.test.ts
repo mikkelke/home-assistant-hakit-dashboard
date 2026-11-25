@@ -71,6 +71,23 @@ describe('visibilityPolygon', () => {
     expect(pointInPoly([2, 4.5], ring)).toBe(false);
   });
 
+  it('stops at a closed door and passes an open one', () => {
+    const plan = {
+      ...twoRooms(),
+      doors: [
+        {
+          name: 'between',
+          hinge: [3.9, 1.5] as [number, number],
+          closed: [3.9, 2.5] as [number, number],
+          open: [2.9, 1.5] as [number, number],
+        },
+      ],
+    };
+    expect(pointInPoly([6, 2], lampFields(plan).a)).toBe(true);
+    expect(pointInPoly([6, 2], lampFields(plan, ['between']).a)).toBe(false);
+    expect(pointInPoly([3, 2], lampFields(plan, ['between']).a)).toBe(true);
+  });
+
   it('returns nothing for a source on a wall face', () => {
     expect(visibilityPolygon([3.9, 0.5], 6, planOccluders(twoRooms()))).toEqual([]);
   });

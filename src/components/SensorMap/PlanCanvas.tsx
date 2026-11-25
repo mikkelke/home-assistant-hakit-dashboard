@@ -9,6 +9,7 @@ import { CoverageDots, CoverageFills } from './CoverageLayer';
 import { DeviceMarker } from './DeviceMarker';
 import { Crosshair, FacingHandle, FingerprintMarks, GhostMarker, type Ghost } from './MarkLayers';
 import { LampLayer } from './LampLayer';
+import { PlanDoors } from './PlanDoors';
 import { PlanDefs, PlanFurniture, PlanGrid, PlanLabels, PlanVents, PlanWalls } from './PlanLayers';
 import { RadarFootprint } from './RadarFootprint';
 import { Rober2Layer } from './Rober2Layer';
@@ -166,6 +167,7 @@ export const PlanCanvas = memo(function PlanCanvas(props: PlanCanvasProps) {
         </g>
       )}
       <PlanWalls plan={plan} />
+      <PlanDoors doors={plan.doors} yTop={yTop} />
       <PlanVents
         plan={plan}
         selectedId={selection?.kind === 'vent' ? selection.id : null}

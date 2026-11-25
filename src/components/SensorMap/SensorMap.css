@@ -1929,3 +1929,25 @@ select.sm-input {
     animation: none;
   }
 }
+
+.sm-door.closed .sm-door-leaf {
+  stroke-width: 2.6;
+}
+
+.sm-door.unknown .sm-door-leaf,
+.sm-door.unknown .sm-door-arc {
+  opacity: 0.5;
+}
+
+.sm-door-nosensor {
+  fill: var(--sm-plan-bg);
+  stroke: var(--sm-door);
+  stroke-width: 1.4;
+}
+
+.sm-door-nosensor-mark {
+  fill: var(--sm-door);
+  font-size: 10px;
+  font-weight: 700;
+  text-anchor: middle;
+}
