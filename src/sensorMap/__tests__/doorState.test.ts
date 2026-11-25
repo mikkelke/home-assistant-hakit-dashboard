@@ -16,13 +16,17 @@ describe('doorState', () => {
     expect(doorState(undefined, undefined)).toBe('none');
   });
 
-  it('names only the doors reported closed', () => {
+  it('keeps a door fixed shut closed without a sensor', () => {
+    expect(doorState({ closed: true }, undefined)).toBe('closed');
+  });
+
+  it('names only the doors reported or fixed closed', () => {
     const states: Record<string, { state: string }> = { 'binary_sensor.a': { state: 'off' }, 'binary_sensor.b': { state: 'on' } };
     const names = closedDoorNames(
-      [door('A'), door('B'), door('C'), door('D')],
-      { A: 'binary_sensor.a', B: 'binary_sensor.b', D: 'binary_sensor.d' },
+      [door('A'), door('B'), door('C'), door('D'), door('E')],
+      { A: 'binary_sensor.a', B: 'binary_sensor.b', D: 'binary_sensor.d', E: { closed: true } },
       id => states[id]
     );
-    expect(names).toEqual(['A']);
+    expect(names).toEqual(['A', 'E']);
   });
 });

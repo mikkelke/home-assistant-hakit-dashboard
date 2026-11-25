@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { MAP_DOOR_CONTACTS } from '../../config/mapDoors';
-import { doorState } from '../../sensorMap/doorState';
+import { doorState, sensorOf } from '../../sensorMap/doorState';
 import type { Door } from '../../sensorMap/mapDoc';
 import { doorClosedLeaf, doorPaths } from '../../sensorMap/planPaths';
 import { useEntityStates } from './useEntityStates';
@@ -8,9 +8,10 @@ import { useEntityStates } from './useEntityStates';
 const NO_IDS: readonly string[] = [];
 
 const PlanDoor = memo(function PlanDoor({ door, yTop }: { door: Door; yTop: number }) {
-  const sensorId = MAP_DOOR_CONTACTS[door.name];
+  const link = MAP_DOOR_CONTACTS[door.name];
+  const sensorId = sensorOf(link);
   const [entity] = useEntityStates(sensorId ? [sensorId] : NO_IDS);
-  const state = doorState(sensorId, entity);
+  const state = doorState(link, entity);
   if (state === 'closed') {
     return (
       <g className='sm-door closed' aria-label={`${door.name}, closed`}>
@@ -39,7 +40,7 @@ const PlanDoor = memo(function PlanDoor({ door, yTop }: { door: Door; yTop: numb
   );
 });
 
-/** Each door as its sensor reports it: shut in the wall when closed, swung open otherwise, and marked with a question
+/** Each door as its sensor or fixed state says: shut in the wall when closed, swung open otherwise, and marked with a question
  * mark when it has no sensor, so the light layer can only guess that it is open. */
 export const PlanDoors = memo(function PlanDoors({ doors, yTop }: { doors: readonly Door[]; yTop: number }) {
   return (

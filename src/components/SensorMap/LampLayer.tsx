@@ -1,7 +1,7 @@
 import { memo, useMemo } from 'react';
 import { ROOM_LIGHTS } from '../../config/lights';
 import { MAP_DOOR_CONTACTS } from '../../config/mapDoors';
-import { closedDoorNames } from '../../sensorMap/doorState';
+import { closedDoorNames, sensorOf } from '../../sensorMap/doorState';
 import { LAMP_REACH_M, lampFields, outsidePanes, sunShafts } from '../../sensorMap/lightGeometry';
 import type { Plan } from '../../sensorMap/mapDoc';
 import { polyPath } from '../../sensorMap/planPaths';
@@ -125,7 +125,7 @@ function indoorPaths(plan: Plan): string[] {
  * the sun falls through the outside panes while it is up. */
 export const LampLayer = memo(function LampLayer({ plan }: { plan: Plan }) {
   const lamps = useMemo(() => lampsOf(plan), [plan]);
-  const sensorIds = useMemo(() => plan.doors.flatMap(door => MAP_DOOR_CONTACTS[door.name] ?? []), [plan.doors]);
+  const sensorIds = useMemo(() => plan.doors.flatMap(door => sensorOf(MAP_DOOR_CONTACTS[door.name]) ?? []), [plan.doors]);
   const sensorStates = useEntityStates(sensorIds);
   const closedKey = useMemo(() => {
     const byId = statesById(sensorIds, sensorStates);
