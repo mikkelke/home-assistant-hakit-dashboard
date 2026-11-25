@@ -4,13 +4,58 @@
   container-type: inline-size;
 }
 
+/* The heading is a button that folds the section to one line; the h3 only names it. The chevron always shows, and folded,
+   the line under the title says what is inside. */
+.terrace-heading {
+  margin: 0;
+  font: inherit;
+}
+
+.terrace-toggle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 2px;
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: 2px;
+  padding: 6px 2px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.terrace-toggle:focus-visible {
+  outline: 2px solid #b8dfff;
+  outline-offset: 2px;
+}
+
 .terrace-title {
-  margin: 0 0 6px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-3);
+}
+
+.terrace-chevron {
+  font-size: 1.25rem;
+  color: rgba(235, 235, 245, 0.4);
+}
+
+.terrace-summary {
+  grid-column: 1 / -1;
+  min-width: 0;
+  font-size: 0.9rem;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
 }
 
 .terrace-grid {
@@ -24,6 +69,13 @@
     grid-template-areas:
       'hero after'
       'chart chart';
+  }
+  /* The bath is packed away: the air and wind take the width the water had. */
+  .terrace-grid[data-water='off'] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'after'
+      'chart';
   }
   .terrace-hero {
     grid-area: hero;
@@ -272,6 +324,15 @@
 
 .terrace-chart:active {
   transform: scale(0.995);
+}
+
+/* Without the water there is no longer history to open, so the week only shows. */
+.terrace-chart--still {
+  cursor: default;
+}
+
+.terrace-chart--still:active {
+  transform: none;
 }
 
 .terrace-legend {

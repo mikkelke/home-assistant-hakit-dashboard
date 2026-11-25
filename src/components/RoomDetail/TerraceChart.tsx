@@ -17,15 +17,27 @@ const LABEL_GAP = 14;
 
 const axisLabel = (value: number) => `${value < 0 ? '−' : ''}${Math.abs(value)}°`;
 
+const NO_POINTS: TempPoint[] = [];
+
 /** The week of the ice bath's water against the air: the water, the air's mean over the 24 h before each point, and the
- * air itself faint. Drawn at its box's own pixel size so its text stays crisp; the box sets the height. */
-export function TerraceChart({ waterNow, airNow }: { waterNow: number | null; airNow: number | null }) {
-  const { roomSeries, outdoorSeries, loading, error } = useTemperatureHistory(ICE_BATH_SENSOR, OUTDOOR_TEMP_SENSOR, null, null, '8d');
+ * air itself faint. Drawn at its box's own pixel size so its text stays crisp; the box sets the height. Without the water
+ * (the bath is packed away) it is the air alone, and only the air is fetched. */
+export function TerraceChart({ waterNow, airNow, showWater }: { waterNow: number | null; airNow: number | null; showWater: boolean }) {
+  // The hook's first series is the one it is asked about first, so the air takes that place when there is no water.
+  const { roomSeries, outdoorSeries, loading, error } = useTemperatureHistory(
+    showWater ? ICE_BATH_SENSOR : OUTDOOR_TEMP_SENSOR,
+    showWater ? OUTDOOR_TEMP_SENSOR : null,
+    null,
+    null,
+    '8d'
+  );
+  const waterSeries = showWater ? roomSeries : NO_POINTS;
+  const airSeries = showWater ? outdoorSeries : roomSeries;
   // Fixed for the lifetime of this mount, like the history sheet's chart: one stable end for the axis.
   const [nowMs] = useState(() => Date.now());
   const series = useMemo(
-    () => buildTerraceSeries({ water: roomSeries, air: outdoorSeries, waterNow, airNow, nowMs }),
-    [roomSeries, outdoorSeries, waterNow, airNow, nowMs]
+    () => buildTerraceSeries({ water: waterSeries, air: airSeries, waterNow: showWater ? waterNow : null, airNow, nowMs }),
+    [waterSeries, airSeries, showWater, waterNow, airNow, nowMs]
   );
   const [boxRef, size] = useChartSize<HTMLSpanElement>({ width: 340, height: 200 });
 
@@ -66,7 +78,11 @@ export function TerraceChart({ waterNow, airNow }: { waterNow: number | null; ai
           height={size.height}
           viewBox={`0 0 ${size.width} ${size.height}`}
           role='img'
-          aria-label='The ice bath water temperature against the 24 hour mean air temperature, last 7 days'
+          aria-label={
+            showWater
+              ? 'The ice bath water temperature against the 24 hour mean air temperature, last 7 days'
+              : 'The air temperature and its 24 hour mean, last 7 days'
+          }
         >
           {axis.ticks.map(tick => (
             <g key={tick}>

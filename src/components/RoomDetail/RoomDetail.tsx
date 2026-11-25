@@ -207,8 +207,9 @@ export function RoomDetail({
           />
         )}
 
-        {/* Terrace (Rooftop): the ice bath, the roof station's air and wind - under the Sonos, which stays first. */}
-        {isRooftop && <TerraceSection entities={entities} ref={terraceRef} />}
+        {/* Terrace (Rooftop): the ice bath, the roof station's air and wind - under the Sonos, which stays first. A request
+            for it opens it, whether the device keeps it folded or not. */}
+        {isRooftop && <TerraceSection entities={entities} ref={terraceRef} requested={scrollToSection === 'terrace'} />}
 
         {/* TV Card (Bedroom and Living Room) */}
         {isBedroom && bedroomTv && (

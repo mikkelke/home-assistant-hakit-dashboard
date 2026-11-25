@@ -53,6 +53,8 @@ vi.mock('../../Coffee/CoffeeCard', () => ({ CoffeeCard: () => (cooking.coffee ? 
 vi.mock('../../Cook/CookCard', () => ({ CookCard: () => (cooking.cook ? createElement('div', { 'data-card': 'cook' }) : null) }));
 vi.mock('../../../coffee/useCoffee', () => ({ useCoffeeState: () => (cooking.coffee ? { phase: 'brewing' } : null) }));
 vi.mock('../RoomClimateHeader', () => ({ RoomClimateHeader: () => null }));
+/** The week on the Rooftop is the Terrace section's own test: here it only has to be there or not. */
+vi.mock('../TerraceChart', () => ({ TerraceChart: () => null }));
 vi.mock('../../../hooks/useTrackedEntities', () => ({ useTrackedEntities: () => ({}) }));
 
 type User = { is_admin: boolean; name: string; id: string };
@@ -130,5 +132,69 @@ describe('the room panel', () => {
     await open({ is_admin: false, name: 'Kristine', id: 'kristine-id' });
     expect(document.querySelector('.room-todo')).toBeNull();
     expect(document.querySelector('.room-detail-content [data-card="light"]')).not.toBeNull();
+  });
+});
+
+describe('the Rooftop panel', () => {
+  const ROOFTOP: Area = { area_id: 'rooftop', name: 'Rooftop' };
+  const reading = (entity_id: string, state: string) => ({
+    entity_id,
+    state,
+    attributes: {},
+    last_updated: new Date(Date.now() - 60_000).toISOString(),
+  });
+  const entities = Object.fromEntries(
+    [reading('sensor.ice_bath_temperature', '6.0'), reading('sensor.gw2000a_outdoor_temperature', '4.2')].map(entity => [
+      entity.entity_id,
+      entity,
+    ])
+  ) as HassEntities;
+
+  async function openRooftop(scrollToSection: 'terrace' | null, onScrollToSectionHandled = vi.fn()) {
+    await act(async () =>
+      root.render(
+        createElement(RoomDetail, {
+          area: ROOFTOP,
+          entities,
+          hassUrl: null,
+          callService: undefined,
+          onClose: () => {},
+          isMobile: false,
+          scrollToSection,
+          onScrollToSectionHandled,
+        })
+      )
+    );
+    return onScrollToSectionHandled;
+  }
+
+  beforeEach(() => {
+    const kept = new Map<string, string>([['terrace-collapsed', 'true']]);
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => kept.get(key) ?? null,
+        setItem: (key: string, value: string) => void kept.set(key, value),
+        removeItem: (key: string) => void kept.delete(key),
+      },
+    });
+    Element.prototype.scrollTo = vi.fn();
+  });
+
+  it('keeps the Terrace section folded as the device keeps it on an ordinary open', async () => {
+    await openRooftop(null);
+    expect(document.querySelector('.terrace-toggle')?.getAttribute('aria-expanded')).toBe('false');
+    expect(document.querySelector('.terrace-grid')).toBeNull();
+  });
+
+  it("opens the Terrace section for the weather sheet's request, scrolls to it, and leaves the device as it was", async () => {
+    const handled = await openRooftop('terrace');
+    expect(document.querySelector('.terrace-toggle')?.getAttribute('aria-expanded')).toBe('true');
+    expect(document.querySelector('.terrace-grid')).not.toBeNull();
+    expect(Element.prototype.scrollTo).toHaveBeenCalledTimes(1);
+    expect(handled).toHaveBeenCalledTimes(1);
+    expect(window.localStorage.getItem('terrace-collapsed')).toBe('true');
+    await openRooftop(null, handled);
+    expect(document.querySelector('.terrace-grid')).not.toBeNull();
   });
 });

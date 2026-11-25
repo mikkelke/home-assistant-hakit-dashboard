@@ -12,6 +12,7 @@ import {
   frostFor,
   getNumber,
   getSeaTemperatureFeel,
+  iceBathPackedAway,
   iceBathRow,
   iceBathWord,
   isPlausibleGustMs,
@@ -1228,8 +1229,11 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   // Facts row.
   const rainDaily = getNumber(getState(entities, SENSOR_IDS.rainDaily));
   const uvIndex = getNumber(getState(entities, SENSOR_IDS.uv));
-  const iceBathTemperature = getNumber(getState(entities, SENSOR_IDS.iceBath));
-  const iceLikely = iceBathRow(getEntity(entities, HOUSE_UPCOMING_ENTITY)?.attributes, nowMs) !== null;
+  // The chip stays through an outage of the bath's sensor, with no reading, and goes once the bath is packed away.
+  const iceBathEntity = getEntity(entities, SENSOR_IDS.iceBath);
+  const iceBathPresent = !iceBathPackedAway(iceBathEntity, nowMs);
+  const iceBathTemperature = iceBathPresent ? getNumber(iceBathEntity?.state) : undefined;
+  const iceLikely = iceBathPresent && iceBathRow(getEntity(entities, HOUSE_UPCOMING_ENTITY)?.attributes, nowMs) !== null;
 
   // Only while the sheet is up - otherwise the minute tick would re-walk both series for nothing.
   const compareStats = compareOpen && compareSeries ? computeCompareStats(compareSeries) : null;
@@ -1519,7 +1523,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
         </div>
       )}
 
-      {(rainDaily !== undefined || uvIndex !== undefined || seaTemperature !== undefined || iceBathTemperature !== undefined) && (
+      {(rainDaily !== undefined || uvIndex !== undefined || seaTemperature !== undefined || iceBathPresent) && (
         <div className='quick-weather-facts'>
           {rainDaily !== undefined && (
             <button type='button' className='quick-weather-fact' onClick={() => setHistoryEntityId(SENSOR_IDS.rainDaily)}>
@@ -1542,11 +1546,13 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
               {seaTemperatureFeel && <span className='quick-weather-fact-sub'>{seaTemperatureFeel.toLowerCase()}</span>}
             </button>
           )}
-          {iceBathTemperature !== undefined && (
+          {iceBathPresent && (
             <button
               type='button'
               className='quick-weather-fact quick-weather-fact--ice ice-skin'
-              style={{ '--frost': Number(frostFor(iceBathTemperature).toFixed(2)) } as CSSProperties}
+              style={
+                { '--frost': Number((iceBathTemperature === undefined ? 0 : frostFor(iceBathTemperature)).toFixed(2)) } as CSSProperties
+              }
               data-ice={iceLikely ? '' : undefined}
               onClick={() => requestOpenRoom({ areaId: TERRACE_AREA_ID, section: 'terrace' })}
             >
@@ -1554,9 +1560,11 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
               <span className='quick-weather-fact-label'>Ice bath</span>
               <span className='quick-weather-fact-value'>
                 {iceLikely && <IceFlake />}
-                {formatTemp(iceBathTemperature)}°
+                {iceBathTemperature === undefined ? '—' : `${formatTemp(iceBathTemperature)}°`}
               </span>
-              <span className='quick-weather-fact-sub'>{iceLikely ? 'ice likely' : iceBathWord(iceBathTemperature)}</span>
+              <span className='quick-weather-fact-sub'>
+                {iceLikely ? 'ice likely' : iceBathTemperature === undefined ? 'no reading' : iceBathWord(iceBathTemperature)}
+              </span>
             </button>
           )}
         </div>

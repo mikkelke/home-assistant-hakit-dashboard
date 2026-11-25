@@ -10,11 +10,13 @@ import {
   frostFor,
   getNumber,
   getSeaTemperatureFeel,
+  iceBathPackedAway,
   iceBathRow,
   iceBathWord,
   isPlausibleGustMs,
   temperatureAxis,
   terraceReadings,
+  terraceSummary,
   toMetersPerSecond,
   windChillC,
 } from '../terrace';
@@ -123,6 +125,94 @@ describe('iceBathRow', () => {
   it('finds nothing without attributes', () => {
     expect(iceBathRow(undefined, NOW)).toBeNull();
     expect(iceBathRow({}, NOW)).toBeNull();
+  });
+});
+
+describe('iceBathPackedAway', () => {
+  const ago = (ms: number) => new Date(NOW - ms).toISOString();
+  const sensor = (state: string, updatedMsAgo: number, reportedMsAgo?: number) => ({
+    state,
+    last_updated: ago(updatedMsAgo),
+    ...(reportedMsAgo === undefined ? {} : { last_reported: ago(reportedMsAgo) }),
+  });
+
+  it('is out while the sensor reports', () => {
+    expect(iceBathPackedAway(sensor('0.4', 2 * 60_000), NOW)).toBe(false);
+  });
+
+  it('is still out after 11 hours without an update', () => {
+    expect(iceBathPackedAway(sensor('0.4', 11 * HOUR), NOW)).toBe(false);
+  });
+
+  it('is packed away after 13 hours without an update', () => {
+    expect(iceBathPackedAway(sensor('0.4', 13 * HOUR), NOW)).toBe(true);
+  });
+
+  it('is still out at exactly 12 hours and packed away just after', () => {
+    expect(iceBathPackedAway(sensor('0.4', 12 * HOUR), NOW)).toBe(false);
+    expect(iceBathPackedAway(sensor('0.4', 12 * HOUR + 1), NOW)).toBe(true);
+  });
+
+  it('is packed away when the sensor is missing', () => {
+    expect(iceBathPackedAway(undefined, NOW)).toBe(true);
+  });
+
+  it('keeps the bath out through an outage, which the sensor reports as unavailable', () => {
+    expect(iceBathPackedAway(sensor('unavailable', 3 * HOUR), NOW)).toBe(false);
+    expect(iceBathPackedAway(sensor('unknown', 3 * HOUR), NOW)).toBe(false);
+  });
+
+  it('is packed away once it has been unavailable or unknown for 13 hours', () => {
+    expect(iceBathPackedAway(sensor('unavailable', 13 * HOUR), NOW)).toBe(true);
+    expect(iceBathPackedAway(sensor('unknown', 13 * HOUR), NOW)).toBe(true);
+  });
+
+  it('follows the newer of last_updated and last_reported, since a steady reading only moves the second', () => {
+    expect(iceBathPackedAway(sensor('0.0', 20 * HOUR, 5 * 60_000), NOW)).toBe(false);
+    expect(iceBathPackedAway(sensor('0.0', 20 * HOUR, 14 * HOUR), NOW)).toBe(true);
+    expect(iceBathPackedAway(sensor('0.0', 2 * HOUR, 20 * HOUR), NOW)).toBe(false);
+  });
+
+  it('ignores a timestamp it cannot read', () => {
+    expect(iceBathPackedAway({ state: '0.4', last_updated: 'yesterday', last_reported: ago(HOUR) }, NOW)).toBe(false);
+    expect(iceBathPackedAway({ state: '0.4', last_updated: 'yesterday', last_reported: ago(13 * HOUR) }, NOW)).toBe(true);
+  });
+
+  it('reads the age as unknown without timestamps: a reading keeps the bath out, none puts it away', () => {
+    expect(iceBathPackedAway({ state: '0.4' }, NOW)).toBe(false);
+    expect(iceBathPackedAway({ state: 'unavailable' }, NOW)).toBe(true);
+    expect(iceBathPackedAway({ state: 'unknown', last_updated: 'never' }, NOW)).toBe(true);
+    expect(iceBathPackedAway({}, NOW)).toBe(true);
+  });
+
+  it('is not fooled by a timestamp ahead of the clock', () => {
+    expect(iceBathPackedAway(sensor('0.4', -5 * 60_000), NOW)).toBe(false);
+  });
+});
+
+describe('terraceSummary', () => {
+  it('names the water with its word, then the air and how it feels', () => {
+    expect(terraceSummary({ waterC: 6, iceLikely: false, airC: 4.2, feelsC: 0 })).toBe('Ice bath 6.0° cold · air 4.2° · feels 0.0°');
+  });
+
+  it('says ice likely once, in place of the word for the water', () => {
+    expect(terraceSummary({ waterC: 0.3, iceLikely: true, airC: -2, feelsC: -6.04 })).toBe(
+      'Ice bath 0.3° · Ice likely · air −2.0° · feels −6.0°'
+    );
+  });
+
+  it('leaves out what has no reading', () => {
+    expect(terraceSummary({ waterC: 6, iceLikely: false, airC: null, feelsC: null })).toBe('Ice bath 6.0° cold');
+    expect(terraceSummary({ waterC: 6, iceLikely: false, airC: 12.5, feelsC: null })).toBe('Ice bath 6.0° cold · air 12.5°');
+    expect(terraceSummary({ waterC: null, iceLikely: true, airC: -2, feelsC: null })).toBe('Ice likely · air −2.0°');
+  });
+
+  it('starts with a capital when the water is left out', () => {
+    expect(terraceSummary({ waterC: null, iceLikely: false, airC: 4.2, feelsC: 1.7 })).toBe('Air 4.2° · feels 1.7°');
+  });
+
+  it('is empty when nothing has a reading', () => {
+    expect(terraceSummary({ waterC: null, iceLikely: false, airC: null, feelsC: null })).toBe('');
   });
 });
 

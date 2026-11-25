@@ -53,6 +53,28 @@ export function iceBathWord(tempC: number): string {
   return (getSeaTemperatureFeel(tempC) ?? 'cold').toLowerCase();
 }
 
+/** How long the bath's sensor may say nothing before the bath counts as packed away for the season. The sensor's radio
+ * can drop out for hours at a time, so anything much shorter would have the bath come and go. */
+export const ICE_BATH_AWAY_AFTER_MS = 12 * 3_600_000;
+
+/** What `iceBathPackedAway` reads of the bath's sensor. Home Assistant's `last_reported` moves on a repeated reading too, so
+ * it is the newer of the two where it is sent. */
+export interface BathSensor {
+  state?: string;
+  last_updated?: string;
+  last_reported?: string;
+}
+
+/** Whether the bath is packed away: its sensor is missing, or has not reported for 12 h. A sensor that is unavailable or
+ * unknown counts from when it went so, which is when it last reported, so an outage stays an outage until the 12 h are up.
+ * Without a timestamp the age is unknown: a reading keeps the bath out, no reading puts it away. */
+export function iceBathPackedAway(sensor: BathSensor | undefined, nowMs: number): boolean {
+  if (!sensor) return true;
+  const reportedAt = [sensor.last_reported, sensor.last_updated].map(value => Date.parse(value ?? '')).filter(Number.isFinite);
+  if (reportedAt.length === 0) return getNumber(sensor.state) === undefined;
+  return nowMs - Math.max(...reportedAt) > ICE_BATH_AWAY_AFTER_MS;
+}
+
 /** The row of `sensor.house_upcoming` AppDaemon publishes while ice is likely on the bath. */
 export const ICE_BATH_ROW_ID = 'ice:bath';
 
@@ -157,6 +179,20 @@ export function chillBand(feelsC: number): ChillBand {
   if (feelsC > -10) return 'cold';
   if (feelsC > -28) return 'biting';
   return 'frostbite';
+}
+
+/** The line a folded terrace shows: the water, whether ice is likely, the air and how it feels. A part without a reading
+ * is left out, and ice likely says it once instead of the word for the water. */
+export function terraceSummary(parts: { waterC: number | null; iceLikely: boolean; airC: number | null; feelsC: number | null }): string {
+  const line = [
+    parts.waterC == null ? null : `Ice bath ${formatTemp(parts.waterC)}°${parts.iceLikely ? '' : ` ${iceBathWord(parts.waterC)}`}`,
+    parts.iceLikely ? 'Ice likely' : null,
+    parts.airC == null ? null : `air ${formatTemp(parts.airC)}°`,
+    parts.feelsC == null ? null : `feels ${formatTemp(parts.feelsC)}°`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  return line.charAt(0).toUpperCase() + line.slice(1);
 }
 
 // --- The week ---
