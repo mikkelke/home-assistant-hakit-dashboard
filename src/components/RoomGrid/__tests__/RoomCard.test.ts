@@ -328,7 +328,16 @@ describe('the Rooftop card and the ice bath', () => {
     last_updated: new Date(Date.now() - msAgo).toISOString(),
   });
   const station = [entity('sensor.gw2000a_outdoor_temperature', '4.2'), entity('sensor.gw2000a_humidity', '88')];
-  const iceRow = { id: 'ice:bath', kind: 'rain', title: 'Ice bath at 0.1 C since 03:10', icon: 'mdi:snowflake', area: 'rooftop' };
+  const iceRow = {
+    id: 'ice:bath',
+    kind: 'rain',
+    title: 'Ice bath: thin ice at 0.1 C since 03:10',
+    icon: 'mdi:snowflake',
+    area: 'rooftop',
+    level: 'thin',
+  };
+  const thickRow = { ...iceRow, title: 'Ice bath: thick ice at 0.1 C since 03:10', level: 'thick' };
+  const plainRow = { id: 'ice:bath', kind: 'rain', title: 'Ice bath at 0.1 C since 03:10', icon: 'mdi:snowflake', area: 'rooftop' };
   const upcoming = (...rows: Record<string, string>[]) =>
     entity('sensor.house_upcoming', 'x', { expires: new Date(Date.now() + 600_000).toISOString(), rows });
   const readout = () => [...document.querySelectorAll('.room-clim .climate-item')].map(item => item.textContent);
@@ -351,11 +360,23 @@ describe('the Rooftop card and the ice bath', () => {
     expect(layer()?.style.getPropertyValue('--frost')).toBe('0');
   });
 
-  it('says ice likely in place of the humidity while the ice row is published, and the layer turns to a sheet', () => {
+  it('says thin ice in place of the humidity while the ice row says so, and the layer turns to a sheet', () => {
     show(ROOFTOP, world(...station, sensor('0.1', 60_000), upcoming(iceRow)));
-    expect(readout()).toEqual(['4,2° · bath 0,1°', 'ice likely']);
+    expect(readout()).toEqual(['4,2° · bath 0,1°', 'thin ice']);
     expect(document.querySelector('.room-clim .climate-ice .ice-flake')).not.toBeNull();
-    expect(layer()?.hasAttribute('data-ice')).toBe(true);
+    expect(layer()?.getAttribute('data-ice')).toBe('thin');
+  });
+
+  it('says thick ice, and the sheet is the thick one, when the row says that', () => {
+    show(ROOFTOP, world(...station, sensor('0.1', 60_000), upcoming(thickRow)));
+    expect(readout()).toEqual(['4,2° · bath 0,1°', 'thick ice']);
+    expect(layer()?.getAttribute('data-ice')).toBe('thick');
+  });
+
+  it('calls the ice thin when the row names no level', () => {
+    show(ROOFTOP, world(...station, sensor('0.1', 60_000), upcoming(plainRow)));
+    expect(readout()).toEqual(['4,2° · bath 0,1°', 'thin ice']);
+    expect(layer()?.getAttribute('data-ice')).toBe('thin');
   });
 
   it('has no bath part, no frost and no word once the bath is packed away', () => {
@@ -386,7 +407,9 @@ describe('the Rooftop card and the ice bath', () => {
     show(ROOFTOP, world(...station, sensor('0.4', 60_000)));
     expect(readout()[0]).toBe('4,2° · bath 0,4°');
     act(() => store.setState({ entities: world(...station, sensor('1.5', 1_000), upcoming(iceRow)) }));
-    expect(readout()).toEqual(['4,2° · bath 1,5°', 'ice likely']);
+    expect(readout()).toEqual(['4,2° · bath 1,5°', 'thin ice']);
+    act(() => store.setState({ entities: world(...station, sensor('0.1', 1_000), upcoming(thickRow)) }));
+    expect(readout()).toEqual(['4,2° · bath 0,1°', 'thick ice']);
     act(() => store.setState({ entities: world(...station, sensor('1.5', 14 * HOUR)) }));
     expect(readout()).toEqual(['4,2 °C', '88 %']);
     expect(layer()).toBeNull();

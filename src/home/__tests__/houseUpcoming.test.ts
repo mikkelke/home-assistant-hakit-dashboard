@@ -86,6 +86,7 @@ describe('parseHouseUpcoming', () => {
       warn: null,
       items: [],
       photo: null,
+      level: null,
     });
     expect(rain).toMatchObject({ areaId: 'living_room', adminOnly: false, users: null, chip: null });
     expect(ws90).toMatchObject({ atMs: null, adminOnly: true, users: null, areaId: 'rooftop' });
@@ -302,6 +303,42 @@ describe('the photo of a plant row', () => {
         { ...PLANT_ROW, photo: 5 },
         { ...PLANT_ROW, photo: null },
         { ...PLANT_ROW, photo: { key: 'monstera' } },
+      ])
+    ).toEqual([]);
+  });
+});
+
+/** The ice bath's row as the publisher sends it: untimed, in the rooftop, public, and it says how thick the ice is. */
+const ICE_ROW = {
+  id: 'ice:bath',
+  kind: 'rain',
+  icon: 'mdi:snowflake',
+  title: 'Ice bath: thick ice at 0.1 C since 03:10',
+  area: 'rooftop',
+  level: 'thick',
+};
+
+describe('the level of the ice bath row', () => {
+  it('is thin or thick as the publisher says, on a row that is public and has no time', () => {
+    const [thick, thin] = parse([ICE_ROW, { ...ICE_ROW, level: 'thin' }]);
+    expect(thick).toMatchObject({ level: 'thick', kind: 'rain', adminOnly: false, users: null, atMs: null, areaId: 'rooftop' });
+    expect(thin.level).toBe('thin');
+  });
+
+  it('is none for a row that names none, or a level this build does not know', () => {
+    const unnamed = Object.fromEntries(Object.entries(ICE_ROW).filter(([key]) => key !== 'level'));
+    expect(parse([unnamed])[0].level).toBeNull();
+    expect(parse([{ ...ICE_ROW, level: 'slush' }])[0].level).toBeNull();
+    expect(parse([{ ...ICE_ROW, level: '' }])[0].level).toBeNull();
+    expect(parse([{ ...ICE_ROW, level: ['thick'] }])[0].level).toBeNull();
+    expect(parse([ROWS[1]])[0].level).toBeNull();
+  });
+
+  it('drops a row whose level is neither text nor a list of text, as for any other field', () => {
+    expect(
+      parse([
+        { ...ICE_ROW, level: 2 },
+        { ...ICE_ROW, level: null },
       ])
     ).toEqual([]);
   });

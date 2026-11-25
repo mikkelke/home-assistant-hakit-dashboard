@@ -12,9 +12,11 @@ import {
   frostFor,
   getNumber,
   getSeaTemperatureFeel,
+  iceBathLevel,
   iceBathPackedAway,
   iceBathRow,
   iceBathWord,
+  iceWord,
   isPlausibleGustMs,
   toMetersPerSecond,
 } from '../../home/terrace';
@@ -1233,7 +1235,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
   const iceBathEntity = getEntity(entities, SENSOR_IDS.iceBath);
   const iceBathPresent = !iceBathPackedAway(iceBathEntity, nowMs);
   const iceBathTemperature = iceBathPresent ? getNumber(iceBathEntity?.state) : undefined;
-  const iceLikely = iceBathPresent && iceBathRow(getEntity(entities, HOUSE_UPCOMING_ENTITY)?.attributes, nowMs) !== null;
+  const iceLevel = iceBathPresent ? iceBathLevel(iceBathRow(getEntity(entities, HOUSE_UPCOMING_ENTITY)?.attributes, nowMs)) : null;
 
   // Only while the sheet is up - otherwise the minute tick would re-walk both series for nothing.
   const compareStats = compareOpen && compareSeries ? computeCompareStats(compareSeries) : null;
@@ -1553,17 +1555,17 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
               style={
                 { '--frost': Number((iceBathTemperature === undefined ? 0 : frostFor(iceBathTemperature)).toFixed(2)) } as CSSProperties
               }
-              data-ice={iceLikely ? '' : undefined}
+              data-ice={iceLevel ?? undefined}
               onClick={() => requestOpenRoom({ areaId: TERRACE_AREA_ID, section: 'terrace' })}
             >
               <IceLayers />
               <span className='quick-weather-fact-label'>Ice bath</span>
               <span className='quick-weather-fact-value'>
-                {iceLikely && <IceFlake />}
+                {iceLevel && <IceFlake />}
                 {iceBathTemperature === undefined ? '—' : `${formatTemp(iceBathTemperature)}°`}
               </span>
               <span className='quick-weather-fact-sub'>
-                {iceLikely ? 'ice likely' : iceBathTemperature === undefined ? 'no reading' : iceBathWord(iceBathTemperature)}
+                {iceLevel ? iceWord(iceLevel) : iceBathTemperature === undefined ? 'no reading' : iceBathWord(iceBathTemperature)}
               </span>
             </button>
           )}

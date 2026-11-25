@@ -139,7 +139,14 @@ describe('the To do section of a room panel', () => {
   });
 
   it('does not list ice on the ice bath, which the Terrace section and the card frost say', async () => {
-    const ice = { id: 'ice:bath', kind: 'rain', title: 'Ice bath at 0.1 C since 03:10', icon: 'mdi:snowflake', area: 'rooftop' };
+    const ice = {
+      id: 'ice:bath',
+      kind: 'rain',
+      title: 'Ice bath: thick ice at 0.1 C since 03:10',
+      icon: 'mdi:snowflake',
+      area: 'rooftop',
+      level: 'thick',
+    };
     publish(ice, { ...FIG, area: 'rooftop' });
     await openAs(MIKKEL, 'rooftop');
     expect(chips()).toEqual(['Water the fig: 1 L']);

@@ -140,7 +140,14 @@ describe('the rows that are due', () => {
   });
 
   it('leave out the ice bath row, which the frost on the Rooftop card and the weather chip says, to everyone', async () => {
-    const ice = { id: 'ice:bath', kind: 'rain', title: 'Ice bath at 0.1 C since 03:10', icon: 'mdi:snowflake', area: 'rooftop' };
+    const ice = {
+      id: 'ice:bath',
+      kind: 'rain',
+      title: 'Ice bath: thick ice at 0.1 C since 03:10',
+      icon: 'mdi:snowflake',
+      area: 'rooftop',
+      level: 'thick',
+    };
     publish(NOW + 600_000, [...rows, ice]);
     await viewAs({ is_admin: true, name: 'Admin', id: 'admin-id' });
     expect(latest().map(row => row.id)).toEqual(['maint:plant:fig', 'rain:terrace']);

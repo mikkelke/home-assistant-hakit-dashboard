@@ -4,6 +4,9 @@ import type { HouseEventViewer } from './houseEvents';
 
 export type HouseUpcomingKind = 'rain' | 'maint';
 
+/** How thick the ice on the ice bath is. */
+export type HouseUpcomingLevel = 'thin' | 'thick';
+
 export interface HouseUpcomingRow {
   id: string;
   kind: HouseUpcomingKind;
@@ -32,6 +35,8 @@ export interface HouseUpcomingRow {
   items: string[];
   /** The key of the photo of a plant (`photo`), which `plantPhoto` turns into a file. */
   photo: string | null;
+  /** How thick the ice is on the ice bath's row (`level`); null on any other row, and where the publisher names none. */
+  level: HouseUpcomingLevel | null;
 }
 
 /** Whether a tap on the row opens its sheet instead of its room: it has a Done button, a guide, info lines or a list. */
@@ -101,6 +106,7 @@ function parseRow(raw: unknown): HouseUpcomingRow | null {
     warn: sheet ? text(row.warn) : null,
     items: sheet ? itemLines(items) : [],
     photo: sheet ? text(row.photo) : null,
+    level: row.level === 'thin' || row.level === 'thick' ? row.level : null,
   };
 }
 

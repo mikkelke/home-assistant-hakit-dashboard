@@ -23,7 +23,13 @@ const { TerraceSection } = await import('../TerraceSection');
 
 const HOUR = 3_600_000;
 const KEY = 'terrace-collapsed';
-const ICE_ROW = { id: 'ice:bath', kind: 'rain', title: 'Ice bath at 0.1 C since 03:10', icon: 'mdi:snowflake', area: 'rooftop' };
+const ICE_ROW = { id: 'ice:bath', kind: 'rain', icon: 'mdi:snowflake', area: 'rooftop' };
+const ICE_ROWS = {
+  thin: { ...ICE_ROW, title: 'Ice bath: thin ice at 0.1 C since 03:10', level: 'thin' },
+  thick: { ...ICE_ROW, title: 'Ice bath: thick ice at 0.1 C since 03:10', level: 'thick' },
+  /** As the publisher sent it before it told two levels apart. */
+  plain: { ...ICE_ROW, title: 'Ice bath at 0.1 C since 03:10' },
+};
 
 const at = (msAgo: number) => new Date(Date.now() - msAgo).toISOString();
 const reading = (entity_id: string, state: string, msAgo = 60_000) => ({ entity_id, state, attributes: {}, last_updated: at(msAgo) });
@@ -32,11 +38,12 @@ interface House {
   /** The bath's state and how long ago it last updated. */
   water?: [state: string, msAgo: number] | null;
   station?: boolean;
-  ice?: boolean;
+  /** The ice bath's row the publisher has up, if any. */
+  ice?: keyof typeof ICE_ROWS;
 }
 
 /** The roof as `sensor.gw2000a_*` and the bath report it: air 4.2, wind 19.08 km/h, which feels like 0.2. */
-function house({ water = ['6.0', 60_000], station = true, ice = false }: House = {}): HassEntities {
+function house({ water = ['6.0', 60_000], station = true, ice }: House = {}): HassEntities {
   const entities = [
     ...(water ? [reading('sensor.ice_bath_temperature', water[0], water[1])] : []),
     ...(station
@@ -49,7 +56,7 @@ function house({ water = ['6.0', 60_000], station = true, ice = false }: House =
     {
       entity_id: 'sensor.house_upcoming',
       state: 'x',
-      attributes: { expires: new Date(Date.now() + 600_000).toISOString(), rows: ice ? [ICE_ROW] : [] },
+      attributes: { expires: new Date(Date.now() + 600_000).toISOString(), rows: ice ? [ICE_ROWS[ice]] : [] },
     },
   ];
   return Object.fromEntries(entities.map(entity => [entity.entity_id, entity])) as HassEntities;
@@ -110,10 +117,18 @@ describe('the terrace heading', () => {
     expect(summary()).toBeNull();
   });
 
-  it('says ice likely in the folded line when the ice row is published', () => {
-    show(house({ ice: true }));
+  it('says how thick the ice is in the folded line when the ice row is published', () => {
+    show(house({ ice: 'thin' }));
     tap();
-    expect(summary()).toBe('Ice bath 6.0° · Ice likely · air 4.2° · feels 0.2°');
+    expect(summary()).toBe('Ice bath 6.0° · Thin ice · air 4.2° · feels 0.2°');
+    show(house({ ice: 'thick' }));
+    expect(summary()).toBe('Ice bath 6.0° · Thick ice · air 4.2° · feels 0.2°');
+  });
+
+  it('calls the ice thin when the row names no level', () => {
+    show(house({ ice: 'plain' }));
+    tap();
+    expect(summary()).toBe('Ice bath 6.0° · Thin ice · air 4.2° · feels 0.2°');
   });
 
   it('leaves out of the folded line what has no reading', () => {
@@ -184,9 +199,33 @@ describe('a request for the terrace', () => {
   });
 });
 
+describe('the ice on the hero', () => {
+  const hero = () => document.querySelector('.terrace-hero');
+  const badge = () => document.querySelector('.terrace-badge')?.textContent ?? null;
+  const line = () => document.querySelector('.terrace-hero-row')?.textContent ?? null;
+
+  it('is thin or thick as the row says, in the sheet, the badge and the line under the word', () => {
+    show(house({ ice: 'thin' }));
+    expect([hero()?.getAttribute('data-ice'), badge(), line()]).toEqual(['thin', 'Thin ice', 'At 0.1 C since 03:10']);
+    show(house({ ice: 'thick' }));
+    expect([hero()?.getAttribute('data-ice'), badge(), line()]).toEqual(['thick', 'Thick ice', 'At 0.1 C since 03:10']);
+  });
+
+  it('is thin for a row from before the publisher told two levels apart', () => {
+    show(house({ ice: 'plain' }));
+    expect([hero()?.getAttribute('data-ice'), badge(), line()]).toEqual(['thin', 'Thin ice', 'At 0.1 C since 03:10']);
+  });
+
+  it('is none without the row', () => {
+    show(house());
+    expect(hero()?.hasAttribute('data-ice')).toBe(false);
+    expect([badge(), line()]).toEqual([null, null]);
+  });
+});
+
 describe('while the bath is packed away', () => {
   it('drops the hero and its row, and keeps the air and the wind', () => {
-    show(house({ water: ['6.0', 13 * HOUR], ice: true }));
+    show(house({ water: ['6.0', 13 * HOUR], ice: 'thick' }));
     expect(document.querySelector('.terrace-hero')).toBeNull();
     expect(document.querySelector('.terrace-badge')).toBeNull();
     expect(document.querySelector('.terrace-after')).not.toBeNull();
@@ -212,8 +251,8 @@ describe('while the bath is packed away', () => {
     expect(document.querySelector('.terrace-feels')?.textContent).toBe('Air 4.2°, wind 19 km/h, feels 0.2° chilly');
   });
 
-  it('folds to the air alone, and no ice likely', () => {
-    show(house({ water: ['6.0', 13 * HOUR], ice: true }));
+  it('folds to the air alone, and no ice', () => {
+    show(house({ water: ['6.0', 13 * HOUR], ice: 'thick' }));
     tap();
     expect(summary()).toBe('Air 4.2° · feels 0.2°');
   });

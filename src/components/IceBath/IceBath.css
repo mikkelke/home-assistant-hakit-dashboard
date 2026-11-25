@@ -1,7 +1,8 @@
 /* The ice bath's water as a surface. One custom property, --frost (0 warm .. 1 freezing), drives it: the tint deepens,
    frost climbs the right edge (never under the text, which sits above it), and the water line calms as it cools.
-   While ice is likely ([data-ice]) the line becomes a sheet with a glint passing over it. The weather chip and the
-   terrace hero share this and set their own scale below the --ice-* variables. Dark only, like the rest of the app. */
+   While ice is likely ([data-ice]) the line becomes a sheet with a glint passing over it, and a thicker, denser one
+   when the ice is thick ([data-ice='thick']). The weather chip and the terrace hero share this and set their own scale
+   below the --ice-* variables. Dark only, like the rest of the app. */
 
 .ice-skin {
   --frost: 0;
@@ -11,6 +12,7 @@
   --ice-crystal: rgba(224, 242, 254, 0.5);
   --ice-sheet-top: rgba(224, 242, 254, 0.75);
   --ice-sheet: rgba(186, 230, 253, 0.28);
+  --ice-sheet-thick: rgba(186, 230, 253, 0.5);
   /* Chip scale: the water line fits the chip's bottom padding. */
   --ice-water-h: 4px;
   --ice-wave-h: 4px;
@@ -97,6 +99,12 @@
   background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.55) 50%, transparent 65%);
   transform: translateX(-110%);
   animation: ice-glint 7s var(--ease-out) 1s infinite;
+}
+
+/* Thick ice: a taller, denser sheet with a heavier edge. */
+.ice-skin[data-ice='thick'] .ice-water {
+  height: calc(var(--ice-water-h) * 1.6);
+  background: linear-gradient(to bottom, var(--ice-sheet-top) 0 2.5px, var(--ice-sheet-thick) 2.5px);
 }
 
 @keyframes ice-glint {

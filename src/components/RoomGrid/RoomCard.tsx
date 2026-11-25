@@ -21,11 +21,11 @@ import { withCoffeeDemo } from '../../coffee/demoStore';
 import { useCoffeeDemo } from '../../coffee/useCoffeeState';
 import type { ApplianceCycle } from '../../energy/applianceRun';
 import { newestEventMs } from '../../home/houseEvents';
-import type { HouseUpcomingRow } from '../../home/houseUpcoming';
+import type { HouseUpcomingLevel, HouseUpcomingRow } from '../../home/houseUpcoming';
 import { HOUSEHOLD, isNightHour } from '../../home/household';
 import { useMotionSlot } from '../../home/motionBudget';
 import { AREA_EXTERIOR_CONTACTS, FROST_BELOW_C, asleepAreaIds, isAreaOpen, roomGlow, roomLightIds } from '../../home/roomAmbient';
-import { frostFor, iceBathPackedAway, iceBathRow } from '../../home/terrace';
+import { frostFor, iceBathLevel, iceBathPackedAway, iceBathRow, iceWord } from '../../home/terrace';
 import { HOME_APPLIANCES, ROBER2_RING, rober2CleaningAreaId, type RingAppliance } from '../../home/upcoming';
 import { useNowMs } from '../../hooks/useNowMs';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
@@ -83,15 +83,15 @@ function formatTemp(temp: string | number): string {
   return value == null ? String(temp) : formatDecimal(value, 1);
 }
 
-/** The ice bath as the Rooftop card shows it: its water, null while the sensor says nothing, and whether ice is likely.
- * Null while the bath is packed away, and on every other card. Read from the store like the station's air, so the grid does
- * not re-render for it. */
-function useRoofBath(isRooftop: boolean): { waterC: number | null; iceLikely: boolean } | null {
+/** The ice bath as the Rooftop card shows it: its water, null while the sensor says nothing, and how thick the ice is, null
+ * while none is likely. Null while the bath is packed away, and on every other card. Read from the store like the station's
+ * air, so the grid does not re-render for it. */
+function useRoofBath(isRooftop: boolean): { waterC: number | null; iceLevel: HouseUpcomingLevel | null } | null {
   const sensor = useHass(s => (isRooftop ? s.entities[ICE_BATH_SENSOR] : undefined));
   const upcoming = useHass(s => (isRooftop ? s.entities[HOUSE_UPCOMING_ENTITY]?.attributes : undefined));
   const nowMs = useNowMs();
   if (!isRooftop || iceBathPackedAway(sensor, nowMs)) return null;
-  return { waterC: readingNumber(sensor), iceLikely: iceBathRow(upcoming, nowMs) !== null };
+  return { waterC: readingNumber(sensor), iceLevel: iceBathLevel(iceBathRow(upcoming, nowMs)) };
 }
 
 /** A glow as one primitive, `"r g b/alpha"`, so a card's selector only re-renders it when the light changes. */
@@ -692,10 +692,10 @@ export function RoomCard({ area, entities, todo = NO_TODO, onClick, onClimateCli
             )}
           </span>
         )}
-        {roofBath?.iceLikely ? (
+        {roofBath?.iceLevel ? (
           <span className='climate-item climate-ice'>
             <IceFlake />
-            ice likely
+            {iceWord(roofBath.iceLevel)}
           </span>
         ) : (
           humidity != null && <span className='climate-item'>{humidity} %</span>
@@ -708,7 +708,7 @@ export function RoomCard({ area, entities, todo = NO_TODO, onClick, onClimateCli
         <span
           className='room-ice ice-skin'
           style={{ '--frost': Number((roofBath.waterC == null ? 0 : frostFor(roofBath.waterC)).toFixed(2)) } as CSSProperties}
-          data-ice={roofBath.iceLikely ? '' : undefined}
+          data-ice={roofBath.iceLevel ?? undefined}
           aria-hidden='true'
         >
           <IceLayers />

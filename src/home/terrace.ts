@@ -10,7 +10,7 @@ import {
   OUTDOOR_WIND_SPEED_SENSOR,
 } from '../config/entities';
 import { holdToNow, rollingMean, type TempPoint } from '../utils/temperatureHistory';
-import { parseHouseUpcoming, type HouseUpcomingRow } from './houseUpcoming';
+import { parseHouseUpcoming, type HouseUpcomingLevel, type HouseUpcomingRow } from './houseUpcoming';
 
 /** HA area id of the rooftop, where the ice bath stands. */
 export const TERRACE_AREA_ID = 'rooftop';
@@ -78,10 +78,28 @@ export function iceBathPackedAway(sensor: BathSensor | undefined, nowMs: number)
 /** The row of `sensor.house_upcoming` AppDaemon publishes while ice is likely on the bath. */
 export const ICE_BATH_ROW_ID = 'ice:bath';
 
-/** That row, or null. Whether ice is likely is AppDaemon's rule, so the dashboard has no temperature threshold of its own;
+/** That row, or null. Whether ice is likely, and how thick, is AppDaemon's rule, so the dashboard has no threshold of its own;
  * a publisher that has stopped lets its rows lapse with its lease. */
 export function iceBathRow(attributes: unknown, nowMs: number): HouseUpcomingRow | null {
   return parseHouseUpcoming(attributes, nowMs).find(row => row.id === ICE_BATH_ROW_ID) ?? null;
+}
+
+/** How thick the ice is, from the bath's row: the level it names, and thin for a row that names none, which is how the
+ * publisher's one rule read before it told two levels apart. Null without a row. */
+export function iceBathLevel(row: HouseUpcomingRow | null): HouseUpcomingLevel | null {
+  return row ? (row.level ?? 'thin') : null;
+}
+
+/** What the chip, the badge and the Rooftop card call the ice: "thin ice" or "thick ice", with a capital where it starts a phrase. */
+export function iceWord(level: HouseUpcomingLevel, capital = false): string {
+  const word = `${level} ice`;
+  return capital ? word.charAt(0).toUpperCase() + word.slice(1) : word;
+}
+
+/** The row's line without what the label and the badge above it say already: "Ice bath: thick ice at 0.1 C since 03:10" reads
+ * "At 0.1 C since 03:10". A row from before the two levels, "Ice bath at 0.1 C since 03:10", reads the same. */
+export function iceBathLine(row: HouseUpcomingRow): string {
+  return row.title.replace(/^Ice bath(?::\s+(?:thin|thick) ice)?\s+at\b/i, 'At');
 }
 
 // --- The roof station ---
@@ -181,12 +199,17 @@ export function chillBand(feelsC: number): ChillBand {
   return 'frostbite';
 }
 
-/** The line a folded terrace shows: the water, whether ice is likely, the air and how it feels. A part without a reading
- * is left out, and ice likely says it once instead of the word for the water. */
-export function terraceSummary(parts: { waterC: number | null; iceLikely: boolean; airC: number | null; feelsC: number | null }): string {
+/** The line a folded terrace shows: the water, how thick the ice is, the air and how it feels. A part without a reading
+ * is left out, and the ice says it once instead of the word for the water. */
+export function terraceSummary(parts: {
+  waterC: number | null;
+  iceLevel: HouseUpcomingLevel | null;
+  airC: number | null;
+  feelsC: number | null;
+}): string {
   const line = [
-    parts.waterC == null ? null : `Ice bath ${formatTemp(parts.waterC)}°${parts.iceLikely ? '' : ` ${iceBathWord(parts.waterC)}`}`,
-    parts.iceLikely ? 'Ice likely' : null,
+    parts.waterC == null ? null : `Ice bath ${formatTemp(parts.waterC)}°${parts.iceLevel ? '' : ` ${iceBathWord(parts.waterC)}`}`,
+    parts.iceLevel ? iceWord(parts.iceLevel, true) : null,
     parts.airC == null ? null : `air ${formatTemp(parts.airC)}°`,
     parts.feelsC == null ? null : `feels ${formatTemp(parts.feelsC)}°`,
   ]

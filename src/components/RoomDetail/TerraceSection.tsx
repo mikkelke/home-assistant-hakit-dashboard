@@ -9,9 +9,12 @@ import {
   compass16,
   formatTemp,
   frostFor,
+  iceBathLevel,
+  iceBathLine,
   iceBathPackedAway,
   iceBathRow,
   iceBathWord,
+  iceWord,
   terraceReadings,
   terraceSummary,
   windChillC,
@@ -70,6 +73,7 @@ export function TerraceSection({
   if (!hasWater && !hasStation) return null;
 
   const iceRow = hasWater ? iceBathRow(entities[HOUSE_UPCOMING_ENTITY]?.attributes, nowMs) : null;
+  const iceLevel = iceBathLevel(iceRow);
 
   const windSub = [
     gustMs != null && windMs != null && gustMs > windMs ? `gusts ${Math.round(gustMs * 3.6)}` : null,
@@ -83,7 +87,7 @@ export function TerraceSection({
   const band = bandIndex >= 0 ? CHILL_BANDS[bandIndex] : null;
   const summary = terraceSummary({
     waterC: hasWater ? waterC : null,
-    iceLikely: iceRow !== null,
+    iceLevel,
     airC,
     feelsC: chill?.feelsC ?? null,
   });
@@ -144,15 +148,15 @@ export function TerraceSection({
             <div
               className='terrace-hero ice-skin'
               style={{ '--frost': Number((waterC == null ? 0 : frostFor(waterC)).toFixed(2)) } as CSSProperties}
-              data-ice={iceRow ? '' : undefined}
+              data-ice={iceLevel ?? undefined}
             >
               <IceLayers />
               <span className='terrace-hero-label'>
                 Ice bath
-                {iceRow && (
+                {iceLevel && (
                   <span className='terrace-badge'>
                     <IceFlake />
-                    Ice likely
+                    {iceWord(iceLevel, true)}
                   </span>
                 )}
               </span>
@@ -167,7 +171,7 @@ export function TerraceSection({
                 )}
               </span>
               <span className='terrace-hero-word'>{waterC == null ? 'no reading' : iceBathWord(waterC)}</span>
-              {iceRow && <span className='terrace-hero-row'>{iceRow.title.replace(/^Ice bath\s+at\b/i, 'At')}</span>}
+              {iceRow && <span className='terrace-hero-row'>{iceBathLine(iceRow)}</span>}
             </div>
           )}
 

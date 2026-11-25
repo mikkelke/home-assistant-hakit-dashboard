@@ -10,9 +10,12 @@ import {
   frostFor,
   getNumber,
   getSeaTemperatureFeel,
+  iceBathLevel,
+  iceBathLine,
   iceBathPackedAway,
   iceBathRow,
   iceBathWord,
+  iceWord,
   isPlausibleGustMs,
   temperatureAxis,
   terraceReadings,
@@ -106,11 +109,18 @@ describe('getSeaTemperatureFeel', () => {
 
 describe('iceBathRow', () => {
   const attributes = (rows: unknown[], expires = '2026-11-25T12:15:00+00:00') => ({ expires, rows });
-  const ICE = { id: 'ice:bath', kind: 'rain', title: 'Ice bath at 0.1 C since 03:10', icon: 'mdi:snowflake', area: 'rooftop' };
+  const ICE = {
+    id: 'ice:bath',
+    kind: 'rain',
+    title: 'Ice bath: thin ice at 0.1 C since 03:10',
+    icon: 'mdi:snowflake',
+    area: 'rooftop',
+    level: 'thin',
+  };
   const RAIN = { id: 'rain:terrace', kind: 'rain', title: 'Rain forecast', area: 'living_room' };
 
   it("finds the publisher's row among the others", () => {
-    expect(iceBathRow(attributes([RAIN, ICE]), NOW)?.title).toBe('Ice bath at 0.1 C since 03:10');
+    expect(iceBathRow(attributes([RAIN, ICE]), NOW)?.title).toBe('Ice bath: thin ice at 0.1 C since 03:10');
   });
 
   it('finds nothing when only other rows are there', () => {
@@ -125,6 +135,56 @@ describe('iceBathRow', () => {
   it('finds nothing without attributes', () => {
     expect(iceBathRow(undefined, NOW)).toBeNull();
     expect(iceBathRow({}, NOW)).toBeNull();
+  });
+});
+
+describe('iceBathLevel', () => {
+  const row = (extra: Record<string, string> = {}) => {
+    const rows = [{ id: 'ice:bath', kind: 'rain', title: 'Ice bath: thick ice at 0.1 C since 03:10', ...extra }];
+    return iceBathRow({ expires: '2026-11-25T12:15:00+00:00', rows }, NOW);
+  };
+
+  it('is the level the row names', () => {
+    expect(iceBathLevel(row({ level: 'thick' }))).toBe('thick');
+    expect(iceBathLevel(row({ level: 'thin' }))).toBe('thin');
+  });
+
+  it('is thin for a row that names none, as the publisher had one rule before it told two levels apart', () => {
+    expect(iceBathLevel(row())).toBe('thin');
+    expect(iceBathLevel(row({ level: 'slush' }))).toBe('thin');
+  });
+
+  it('is none without a row', () => {
+    expect(iceBathLevel(null)).toBeNull();
+  });
+});
+
+describe('iceWord', () => {
+  it('names the ice by its level', () => {
+    expect(iceWord('thin')).toBe('thin ice');
+    expect(iceWord('thick')).toBe('thick ice');
+  });
+
+  it('starts with a capital when asked', () => {
+    expect(iceWord('thin', true)).toBe('Thin ice');
+    expect(iceWord('thick', true)).toBe('Thick ice');
+  });
+});
+
+describe('iceBathLine', () => {
+  const line = (title: string) => iceBathLine({ title } as Parameters<typeof iceBathLine>[0]);
+
+  it('drops the label and the level the badge above it says already', () => {
+    expect(line('Ice bath: thin ice at 0.1 C since 03:10')).toBe('At 0.1 C since 03:10');
+    expect(line('Ice bath: thick ice at -0.2 C since 25.11 22:40')).toBe('At -0.2 C since 25.11 22:40');
+  });
+
+  it('reads a row from before the two levels the same', () => {
+    expect(line('Ice bath at 0.1 C since 03:10')).toBe('At 0.1 C since 03:10');
+  });
+
+  it('leaves any other title alone', () => {
+    expect(line('Rain forecast')).toBe('Rain forecast');
   });
 });
 
@@ -192,27 +252,30 @@ describe('iceBathPackedAway', () => {
 
 describe('terraceSummary', () => {
   it('names the water with its word, then the air and how it feels', () => {
-    expect(terraceSummary({ waterC: 6, iceLikely: false, airC: 4.2, feelsC: 0 })).toBe('Ice bath 6.0° cold · air 4.2° · feels 0.0°');
+    expect(terraceSummary({ waterC: 6, iceLevel: null, airC: 4.2, feelsC: 0 })).toBe('Ice bath 6.0° cold · air 4.2° · feels 0.0°');
   });
 
-  it('says ice likely once, in place of the word for the water', () => {
-    expect(terraceSummary({ waterC: 0.3, iceLikely: true, airC: -2, feelsC: -6.04 })).toBe(
-      'Ice bath 0.3° · Ice likely · air −2.0° · feels −6.0°'
+  it('says how thick the ice is once, in place of the word for the water', () => {
+    expect(terraceSummary({ waterC: 0.3, iceLevel: 'thin', airC: -2, feelsC: -6.04 })).toBe(
+      'Ice bath 0.3° · Thin ice · air −2.0° · feels −6.0°'
+    );
+    expect(terraceSummary({ waterC: 0.1, iceLevel: 'thick', airC: -2, feelsC: -6.04 })).toBe(
+      'Ice bath 0.1° · Thick ice · air −2.0° · feels −6.0°'
     );
   });
 
   it('leaves out what has no reading', () => {
-    expect(terraceSummary({ waterC: 6, iceLikely: false, airC: null, feelsC: null })).toBe('Ice bath 6.0° cold');
-    expect(terraceSummary({ waterC: 6, iceLikely: false, airC: 12.5, feelsC: null })).toBe('Ice bath 6.0° cold · air 12.5°');
-    expect(terraceSummary({ waterC: null, iceLikely: true, airC: -2, feelsC: null })).toBe('Ice likely · air −2.0°');
+    expect(terraceSummary({ waterC: 6, iceLevel: null, airC: null, feelsC: null })).toBe('Ice bath 6.0° cold');
+    expect(terraceSummary({ waterC: 6, iceLevel: null, airC: 12.5, feelsC: null })).toBe('Ice bath 6.0° cold · air 12.5°');
+    expect(terraceSummary({ waterC: null, iceLevel: 'thick', airC: -2, feelsC: null })).toBe('Thick ice · air −2.0°');
   });
 
   it('starts with a capital when the water is left out', () => {
-    expect(terraceSummary({ waterC: null, iceLikely: false, airC: 4.2, feelsC: 1.7 })).toBe('Air 4.2° · feels 1.7°');
+    expect(terraceSummary({ waterC: null, iceLevel: null, airC: 4.2, feelsC: 1.7 })).toBe('Air 4.2° · feels 1.7°');
   });
 
   it('is empty when nothing has a reading', () => {
-    expect(terraceSummary({ waterC: null, iceLikely: false, airC: null, feelsC: null })).toBe('');
+    expect(terraceSummary({ waterC: null, iceLevel: null, airC: null, feelsC: null })).toBe('');
   });
 });
 

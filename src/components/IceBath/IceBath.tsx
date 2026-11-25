@@ -1,8 +1,8 @@
 import './IceBath.css';
 
 /** The water line and the frost of an ice bath surface: the chip in the weather sheet and the hero on the terrace. The
- * surface carries the `ice-skin` class, sets `--frost` (0 warm to 1 freezing) and `data-ice` while ice is likely; its
- * content is drawn above these two layers. */
+ * surface carries the `ice-skin` class, sets `--frost` (0 warm to 1 freezing) and `data-ice` (`thin` or `thick`) while
+ * ice is likely; its content is drawn above these two layers. */
 export function IceLayers() {
   return (
     <>
