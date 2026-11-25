@@ -2,6 +2,7 @@ import { HouseBuilder } from './builder';
 import { addAppliances } from './appliances';
 import { addArtwork } from './artwork';
 import { addBatteries } from './batteries';
+import { addBody, type BodyScenario } from './body';
 import { addCoffee } from './coffee';
 import { addDelivery, type DeliveryScenario } from './delivery';
 import { addDoors } from './doors';
@@ -47,6 +48,8 @@ export interface HouseOptions {
   heatingAdvice?: 'start' | 'stop';
   /** What the delivery sensor reports; the house has no deliveries on their way unless this is set. */
   delivery?: DeliveryScenario;
+  /** The scale's readings for the body page; the house has none unless this is set. */
+  body?: BodyScenario;
 }
 
 const CONFIG = {
@@ -118,6 +121,7 @@ export function createHouse({
   moment = 'evening',
   heatingAdvice,
   delivery,
+  body,
 }: HouseOptions = {}): Fixture {
   const house = new HouseBuilder(moment === 'night' ? LATE : NOW, VIEWERS[viewer]);
 
@@ -150,6 +154,7 @@ export function createHouse({
     addRequests(house);
     addMap(house);
     if (delivery) addDelivery(house, delivery);
+    if (body) addBody(house, body);
     if (moment === 'night') applyNight(house);
     const controller = house.states.get('sensor.heating_controller');
     if (heatingAdvice && controller) {

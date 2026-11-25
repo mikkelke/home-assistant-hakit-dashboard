@@ -1,13 +1,19 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode, type TouchEvent } from 'react';
+import { useEffect, useMemo, useState, type ReactNode, type TouchEvent } from 'react';
 import { Icon } from '@iconify/react';
 import { useSwipeToClose } from '../../hooks';
 import { useNowMs } from '../../hooks/useNowMs';
 import { formatDecimal } from '../../utils/format';
-import { DAY_MS, bodyModel, trend, rangeDomain, type BodyDelta, type BodyRange, type Weighing } from '../../body/weighings';
+import { DAY_MS, bodyModel, rangeDomain, trend, type BodyRange, type Weighing } from '../../body/weighings';
+import { bodyInsights, type BodyInsights } from '../../body/insights';
 import { useWeighings } from '../../body/useWeighings';
-import { BodyChart } from './BodyChart';
-import { selectedLeftPct, whenLabel } from '../../body/chartScale';
+import { useChartSize } from '../../body/useChartSize';
+import { monthYearLabel, selectedLeftPct, whenLabel } from '../../body/chartScale';
 import { useIsBodyOwner } from '../../body/useIsBodyOwner';
+import { BodyChart } from './BodyChart';
+import { PhaseCard } from './PhaseCard';
+import { SwingGauge } from './SwingGauge';
+import { WeekBars } from './WeekBars';
+import { YearChart } from './YearChart';
 import '../Appliance/Appliance.css';
 import './BodyPage.css';
 
@@ -16,28 +22,13 @@ interface BodyPageProps {
 }
 
 const RANGES: { key: BodyRange; label: string }[] = [
-  { key: '1m', label: '1M' },
   { key: '3m', label: '3M' },
   { key: '1y', label: '1Y' },
   { key: 'all', label: 'All' },
 ];
 
-const signed = (v: number, decimals = 1) => `${v > 0 ? '+' : v < 0 ? '−' : '±'}${formatDecimal(Math.abs(v), decimals)}`;
-
-function DeltaChip({ delta, unit }: { delta: BodyDelta; unit: string }) {
-  const flat = Math.abs(delta.value) < 0.05;
-  const icon = flat ? 'mdi:arrow-right' : delta.value < 0 ? 'mdi:arrow-bottom-right' : 'mdi:arrow-top-right';
-  return (
-    <span className='body-chip'>
-      <Icon icon={icon} aria-hidden='true' />
-      <span className='body-chip-value'>
-        {signed(delta.value)}
-        <span className='body-chip-unit'> {unit}</span>
-      </span>
-      <span className='body-chip-label'>{delta.label}</span>
-    </span>
-  );
-}
+const MIN_WEEKDAYS = 3;
+const MIN_YEAR_LINES = 2;
 
 function Note({ icon, children, spin }: { icon: string; children?: ReactNode; spin?: boolean }) {
   return (
@@ -48,38 +39,85 @@ function Note({ icon, children, spin }: { icon: string; children?: ReactNode; sp
   );
 }
 
-export function BodyContent({ weighings, nowMs }: { weighings: Weighing[]; nowMs: number }) {
-  const [range, setRange] = useState<BodyRange>('3m');
+interface NowCardProps {
+  latest: Weighing;
+  trendNow: number;
+  insights: BodyInsights;
+  nowMs: number;
+}
+
+function NowCard({ latest, trendNow, insights, nowMs }: NowCardProps) {
+  const { offset, swing, since, firstYear } = insights;
+  return (
+    <section className='body-card body-now' aria-label='Weight'>
+      <div className='body-hero-top'>
+        <span className='body-caption'>Weight</span>
+        <span className='body-chip is-quiet'>
+          <Icon icon='mdi:scale-bathroom' aria-hidden='true' />
+          {whenLabel(latest.ts, nowMs)}
+        </span>
+      </div>
+      <div className='body-figure'>
+        {formatDecimal(latest.kg, 1)}
+        <span className='body-figure-unit'>kg</span>
+      </div>
+      <div className='body-trendline'>
+        <span>
+          <span className='body-swatch is-weight' aria-hidden='true' />
+          Trend {formatDecimal(trendNow, 1)} kg
+        </span>
+        {latest.fatPct != null && (
+          <span>
+            <span className='body-swatch is-fat' aria-hidden='true' />
+            Fat {formatDecimal(latest.fatPct, 1)} %
+          </span>
+        )}
+      </div>
+      {offset != null && swing != null && <SwingGauge offset={offset} swing={swing} />}
+      {since && (
+        <div className='body-chips'>
+          <span className='body-chip'>
+            <Icon icon={since.direction === 'down' ? 'mdi:arrow-collapse-down' : 'mdi:arrow-collapse-up'} aria-hidden='true' />
+            {since.direction === 'down' ? 'Lowest' : 'Highest'} since {since.ts == null ? firstYear : monthYearLabel(since.ts)}
+          </span>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function extremes(weighings: readonly Weighing[]): { lowest: Weighing; highest: Weighing } {
+  let lowest = weighings[0];
+  let highest = weighings[0];
+  for (const w of weighings) {
+    if (w.kg < lowest.kg) lowest = w;
+    if (w.kg > highest.kg) highest = w;
+  }
+  return { lowest, highest };
+}
+
+interface HistoryCardProps {
+  weighings: Weighing[];
+  insights: BodyInsights;
+  trendNow: number;
+  nowMs: number;
+}
+
+function HistoryCard({ weighings, insights, trendNow, nowMs }: HistoryCardProps) {
+  const [range, setRange] = useState<BodyRange>('all');
   const [selected, setSelected] = useState<number | null>(null);
-  const [chartWidth, setChartWidth] = useState(340);
-  const chartsRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = chartsRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(([entry]) => setChartWidth(Math.max(240, Math.round(entry.contentRect.width))));
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-  const model = useMemo(() => bodyModel(weighings), [weighings]);
+  const [plotRef, { width, height }] = useChartSize<HTMLDivElement>({ width: 340, height: 200 });
   const domain = rangeDomain(range, weighings, nowMs);
   const inRange = weighings.filter(w => w.ts >= domain[0] && w.ts <= domain[1]);
-  const dense = range === '1y' || range === 'all';
-  const wide = chartWidth >= 480;
   // Longer ranges draw a slower trend, so years of readings read as a shape rather than noise.
-  const tauMs = { '1m': 7, '3m': 7, '1y': 14, all: 45 }[range] * DAY_MS;
-  const weightPoints = useMemo(() => weighings.map(w => ({ ts: w.ts, value: w.kg })), [weighings]);
-  const fatPoints = useMemo(() => weighings.flatMap(w => (w.fatPct == null ? [] : [{ ts: w.ts, value: w.fatPct }])), [weighings]);
-  const weightLine = useMemo(() => trend(weightPoints, tauMs), [weightPoints, tauMs]);
-  const fatLine = useMemo(() => trend(fatPoints, tauMs), [fatPoints, tauMs]);
-  const latest = model.latest;
-  if (!latest) return <Note icon='mdi:scale-bathroom'>No weighings yet</Note>;
-
-  const trendNow = model.weightTrend[model.weightTrend.length - 1]?.value ?? latest.kg;
-  const fatPct = latest.fatPct;
-  const fatKg = fatPct != null ? (latest.kg * fatPct) / 100 : null;
-  const leanKg = fatKg != null ? latest.kg - fatKg : null;
+  const tauMs = { '3m': 7, '1y': 14, all: 45 }[range] * DAY_MS;
+  const points = useMemo(() => weighings.map(w => ({ ts: w.ts, value: w.kg })), [weighings]);
+  const line = useMemo(() => trend(points, tauMs), [points, tauMs]);
   const sel = selected == null ? null : (inRange.find(w => w.ts === selected) ?? null);
-  const kgs = inRange.map(w => w.kg);
+  const { since, firstYear } = insights;
+  const level = since?.ts != null ? { fromTs: since.ts, value: trendNow, label: monthYearLabel(since.ts) } : undefined;
+  const summary = `Weight in kg since ${firstYear}.${level && since ? ` The dashed line is today's trend, ${since.direction === 'down' ? 'lowest' : 'highest'} since ${level.label}.` : ''}`;
+  const { lowest, highest } = inRange.length > 0 ? extremes(inRange) : { lowest: null, highest: null };
 
   const pickRange = (next: BodyRange) => {
     setRange(next);
@@ -87,164 +125,103 @@ export function BodyContent({ weighings, nowMs }: { weighings: Weighing[]; nowMs
   };
 
   return (
-    <>
-      <section className='body-card body-hero' aria-label='Weight'>
-        <div className='body-hero-top'>
-          <span className='body-caption'>Weight</span>
-          <span className='body-chip is-quiet'>
-            <Icon icon='mdi:scale-bathroom' aria-hidden='true' />
-            {whenLabel(latest.ts, nowMs)}
-          </span>
-        </div>
-        <div className='body-figure'>
-          {formatDecimal(latest.kg, 1)}
-          <span className='body-figure-unit'>kg</span>
-        </div>
-        <div className='body-trendline'>
-          <span className='body-swatch is-weight' aria-hidden='true' />
-          Trend {formatDecimal(trendNow, 1)} kg
-        </div>
-        <div className='body-chips'>
-          {model.weightDeltas.map(d => (
-            <DeltaChip key={d.key} delta={d} unit='kg' />
-          ))}
-          {model.rateKgPerWeek != null && (
-            <span className='body-chip'>
-              <Icon icon='mdi:speedometer-medium' aria-hidden='true' />
-              <span className='body-chip-value'>
-                {signed(model.rateKgPerWeek, 2)}
-                <span className='body-chip-unit'> kg</span>
-              </span>
-              <span className='body-chip-label'>per wk</span>
-            </span>
-          )}
-        </div>
-      </section>
-
-      <section className='body-card body-trend' aria-label='Weight and body fat over time'>
-        <div className='body-trend-head'>
-          <div className='body-segment' role='tablist' aria-label='Range'>
-            {RANGES.map(r => (
-              <button
-                key={r.key}
-                type='button'
-                role='tab'
-                aria-selected={range === r.key}
-                className={range === r.key ? 'is-active' : undefined}
-                onClick={() => pickRange(r.key)}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className='body-readout' aria-live='polite'>
-          {sel ? (
-            <div
-              className='body-readout-pick'
-              style={{ left: `${Math.min(80, Math.max(20, selectedLeftPct(sel.ts, domain, chartWidth)))}%` }}
+    <section className='body-card body-history' aria-label='Weight history'>
+      <div className='body-history-head'>
+        <span className='body-caption'>Since {firstYear}</span>
+        <div className='body-segment' role='tablist' aria-label='Range'>
+          {RANGES.map(r => (
+            <button
+              key={r.key}
+              type='button'
+              role='tab'
+              aria-selected={range === r.key}
+              className={range === r.key ? 'is-active' : undefined}
+              onClick={() => pickRange(r.key)}
             >
-              <span className='body-readout-date'>{whenLabel(sel.ts, nowMs)}</span>
-              <span className='body-readout-values'>
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className='body-readout' aria-live='polite'>
+        {sel ? (
+          <div className='body-readout-pick' style={{ left: `${Math.min(80, Math.max(20, selectedLeftPct(sel.ts, domain, width)))}%` }}>
+            <span className='body-readout-date'>{whenLabel(sel.ts, nowMs)}</span>
+            <span className='body-readout-values'>
+              <span>
+                <span className='body-swatch is-weight' aria-hidden='true' />
+                {formatDecimal(sel.kg, 1)} kg
+              </span>
+              {sel.fatPct != null && (
                 <span>
-                  <span className='body-swatch is-weight' aria-hidden='true' />
-                  {formatDecimal(sel.kg, 1)} kg
+                  <span className='body-swatch is-fat' aria-hidden='true' />
+                  {formatDecimal(sel.fatPct, 1)} %
                 </span>
-                {sel.fatPct != null && (
-                  <span>
-                    <span className='body-swatch is-fat' aria-hidden='true' />
-                    {formatDecimal(sel.fatPct, 1)} %
-                  </span>
-                )}
-              </span>
-            </div>
-          ) : kgs.length > 0 ? (
-            <div className='body-readout-range'>
-              <span>
-                <Icon icon='mdi:arrow-collapse-down' aria-hidden='true' />
-                {formatDecimal(Math.min(...kgs), 1)}
-              </span>
-              <span>
-                <Icon icon='mdi:arrow-collapse-up' aria-hidden='true' />
-                {formatDecimal(Math.max(...kgs), 1)}
-              </span>
-              <span>
-                <Icon icon='mdi:scale-bathroom' aria-hidden='true' />
-                {inRange.length}
-              </span>
-            </div>
-          ) : (
-            <div className='body-readout-range'>No weighings in this range</div>
-          )}
-        </div>
+              )}
+            </span>
+          </div>
+        ) : lowest && highest ? (
+          <div className='body-readout-range'>
+            <span className='body-chip' aria-label={`Lowest ${formatDecimal(lowest.kg, 1)} kg, ${monthYearLabel(lowest.ts)}`}>
+              <Icon icon='mdi:arrow-collapse-down' aria-hidden='true' />
+              {formatDecimal(lowest.kg, 1)}
+              <span className='body-chip-label'>{monthYearLabel(lowest.ts)}</span>
+            </span>
+            <span className='body-chip' aria-label={`Highest ${formatDecimal(highest.kg, 1)} kg, ${monthYearLabel(highest.ts)}`}>
+              <Icon icon='mdi:arrow-collapse-up' aria-hidden='true' />
+              {formatDecimal(highest.kg, 1)}
+              <span className='body-chip-label'>{monthYearLabel(highest.ts)}</span>
+            </span>
+          </div>
+        ) : (
+          <div className='body-readout-range'>No weighings in this range</div>
+        )}
+      </div>
 
-        <div className='body-charts' ref={chartsRef}>
-          <div className='body-panel'>
-            <span className='body-panel-label'>
-              <span className='body-swatch is-weight' aria-hidden='true' />
-              Weight, kg
-            </span>
-            <BodyChart
-              points={weightPoints}
-              trend={weightLine}
-              domain={domain}
-              width={chartWidth}
-              height={wide ? 260 : 190}
-              tone='weight'
-              dense={dense}
-              selected={selected}
-              onSelect={setSelected}
-              label='Weight in kg'
-            />
-          </div>
-          <div className='body-panel'>
-            <span className='body-panel-label'>
-              <span className='body-swatch is-fat' aria-hidden='true' />
-              Body fat, %
-            </span>
-            <BodyChart
-              points={fatPoints}
-              trend={fatLine}
-              domain={domain}
-              width={chartWidth}
-              height={wide ? 150 : 110}
-              tone='fat'
-              dense={dense}
-              selected={selected}
-              onSelect={setSelected}
-              label='Body fat in percent'
-            />
-          </div>
-        </div>
-      </section>
+      <div className='body-history-plot' ref={plotRef}>
+        <BodyChart
+          points={points}
+          trend={line}
+          domain={domain}
+          width={width}
+          height={height}
+          dense={inRange.length > 100}
+          selected={selected}
+          onSelect={setSelected}
+          label={summary}
+          reference={level}
+        />
+      </div>
+    </section>
+  );
+}
 
-      {fatPct != null && fatKg != null && leanKg != null && (
-        <section className='body-card body-comp' aria-label='Body composition'>
-          <div className='body-hero-top'>
-            <span className='body-caption'>Body fat</span>
-            {model.fatDelta30 != null && <DeltaChip delta={{ key: '30d', label: '30 d', value: model.fatDelta30 }} unit='pt' />}
-          </div>
-          <div className='body-figure is-small'>
-            {formatDecimal(fatPct, 1)}
-            <span className='body-figure-unit'>%</span>
-          </div>
-          <div className='body-bar' aria-hidden='true'>
-            <span className='body-bar-fat' style={{ flexGrow: fatKg }} />
-            <span className='body-bar-lean' style={{ flexGrow: leanKg }} />
-          </div>
-          <div className='body-legend'>
-            <span>
-              <span className='body-swatch is-fat' aria-hidden='true' />
-              Fat <b>{formatDecimal(fatKg, 1)} kg</b>
-            </span>
-            <span>
-              <span className='body-swatch is-weight' aria-hidden='true' />
-              Lean <b>{formatDecimal(leanKg, 1)} kg</b>
-            </span>
-          </div>
-        </section>
-      )}
+function RhythmsCard({ insights }: { insights: BodyInsights }) {
+  const showYear = insights.yearLines.length >= MIN_YEAR_LINES;
+  const showWeek = insights.weekdays.length >= MIN_WEEKDAYS;
+  if (!showYear && !showWeek) return null;
+  return (
+    <section className='body-card body-rhythms' aria-label='Rhythms'>
+      {showYear && <YearChart lines={insights.yearLines} seasonal={insights.seasonal} />}
+      {showWeek && <WeekBars weekdays={insights.weekdays} />}
+    </section>
+  );
+}
+
+export function BodyContent({ weighings, nowMs }: { weighings: Weighing[]; nowMs: number }) {
+  const model = useMemo(() => bodyModel(weighings), [weighings]);
+  const insights = useMemo(() => bodyInsights(weighings, model.weightTrend), [weighings, model.weightTrend]);
+  const latest = model.latest;
+  if (!latest) return <Note icon='mdi:scale-bathroom'>No weighings yet</Note>;
+  const trendNow = model.weightTrend[model.weightTrend.length - 1]?.value ?? latest.kg;
+
+  return (
+    <>
+      <NowCard latest={latest} trendNow={trendNow} insights={insights} nowMs={nowMs} />
+      <PhaseCard insights={insights} nowMs={nowMs} />
+      <HistoryCard weighings={weighings} insights={insights} trendNow={trendNow} nowMs={nowMs} />
+      <RhythmsCard insights={insights} />
     </>
   );
 }

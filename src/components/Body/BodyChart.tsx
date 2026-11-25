@@ -1,15 +1,17 @@
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { formatDecimal } from '../../utils/format';
-import { type TrendPoint } from '../../body/weighings';
+import { GAP_MS, type TrendPoint } from '../../body/weighings';
 import { PAD_B, PAD_L, PAD_R, PAD_T, xTicks, yScale } from '../../body/chartScale';
-
-import { DAY_MS } from '../../body/weighings';
-/** A trend segment across a longer gap than this is not drawn: nothing was measured in between. */
-const GAP_MS = 60 * DAY_MS;
 
 export interface ChartPoint {
   ts: number;
   value: number;
+}
+
+export interface ChartReference {
+  fromTs: number;
+  value: number;
+  label: string;
 }
 
 interface BodyChartProps {
@@ -18,21 +20,27 @@ interface BodyChartProps {
   domain: [number, number];
   width: number;
   height: number;
-  tone: 'weight' | 'fat';
   dense: boolean;
   selected: number | null;
   onSelect: (ts: number | null) => void;
   label: string;
+  /** A dashed level line at `value` from `fromTs` to the right edge, with a hollow dot where it starts. */
+  reference?: ChartReference;
 }
 
-/** One measure over time: the readings as dots and the trend as a line, with the y labels on the right. Tapping or
+/** The weight over time: the readings as dots and the trend as a line, with the y labels on the right. Tapping or
  * dragging picks the nearest reading; tapping it again lets go. */
-export function BodyChart({ points, trend, domain, width, height, tone, dense, selected, onSelect, label }: BodyChartProps) {
+export function BodyChart({ points, trend, domain, width, height, dense, selected, onSelect, label, reference }: BodyChartProps) {
   const [from, to] = domain;
   const visible = points.filter(p => p.ts >= from && p.ts <= to);
   const firstIn = trend.findIndex(p => p.ts >= from);
   const trendIn = firstIn < 0 ? [] : trend.slice(Math.max(0, firstIn - 1)).filter(p => p.ts <= to);
-  const { lo, hi, ticks } = yScale([...visible.map(p => p.value), ...trendIn.filter(p => p.ts >= from).map(p => p.value)]);
+  const level = reference && reference.fromTs >= from && reference.fromTs <= to ? reference : null;
+  const { lo, hi, ticks } = yScale([
+    ...visible.map(p => p.value),
+    ...trendIn.filter(p => p.ts >= from).map(p => p.value),
+    ...(level ? [level.value] : []),
+  ]);
 
   const plotW = width - PAD_L - PAD_R;
   const plotH = height - PAD_T - PAD_B;
@@ -63,13 +71,16 @@ export function BodyChart({ points, trend, domain, width, height, tone, dense, s
     onSelect(toggle && selected === best.ts ? null : best.ts);
   };
 
+  // The label goes on the side of the level line that has no readings.
+  const after = level ? trendIn.filter(p => p.ts >= level.fromTs) : [];
+  const readingsAbove = level != null && after.filter(p => p.value > level.value).length * 2 >= after.length;
   const sel = selected == null ? null : (visible.find(p => p.ts === selected) ?? null);
   const last = visible[visible.length - 1];
   const r = dense ? 1.7 : 2.6;
 
   return (
     <svg
-      className={`body-chart is-${tone}`}
+      className='body-chart'
       viewBox={`0 0 ${width} ${height}`}
       role='img'
       data-interactive='true'
@@ -90,6 +101,19 @@ export function BodyChart({ points, trend, domain, width, height, tone, dense, s
           {t.label}
         </text>
       ))}
+      {level && (
+        <g>
+          <line className='body-chart-level' x1={x(level.fromTs)} x2={width - PAD_R} y1={y(level.value)} y2={y(level.value)} />
+          <circle className='body-chart-level-dot' cx={x(level.fromTs)} cy={y(level.value)} r={4} />
+          <text
+            className='body-chart-level-label'
+            x={x(level.fromTs) + 9}
+            y={readingsAbove ? Math.min(y(level.value) + 15, height - PAD_B - 2) : y(level.value) - 8}
+          >
+            {level.label}
+          </text>
+        </g>
+      )}
       {sel && <line className='body-chart-guide' x1={x(sel.ts)} x2={x(sel.ts)} y1={PAD_T - 4} y2={height - PAD_B} />}
       {visible.map(p => (
         <circle key={p.ts} className='body-chart-dot' cx={x(p.ts)} cy={y(p.value)} r={r} />

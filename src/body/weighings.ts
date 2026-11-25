@@ -19,6 +19,8 @@ export interface Weighing {
 
 const HOUR_MS = 3_600_000;
 export const DAY_MS = 24 * HOUR_MS;
+/** A trend segment across a longer gap than this is not drawn: nothing was measured in between. */
+export const GAP_MS = 60 * DAY_MS;
 /** A reading further than this from its neighbours' median is someone else on the scale. */
 const STRANGER_KG = 4;
 const NEIGHBOUR_WINDOW_MS = 30 * DAY_MS;
@@ -129,14 +131,6 @@ export function trend(points: readonly { ts: number; value: number }[], tauMs = 
   return out;
 }
 
-/** The trend at the last point on or before `atMs`, or null when that point is older than `toleranceMs`. */
-export function trendAt(points: readonly TrendPoint[], atMs: number, toleranceMs: number): number | null {
-  for (let i = points.length - 1; i >= 0; i--) {
-    if (points[i].ts <= atMs) return atMs - points[i].ts <= toleranceMs ? points[i].value : null;
-  }
-  return null;
-}
-
 /** Least-squares slope of the readings in the last `windowMs`, in units per week; null with too little to go on. */
 export function weeklyRate(points: readonly { ts: number; value: number }[], windowMs = 28 * DAY_MS): number | null {
   if (points.length === 0) return null;
@@ -154,32 +148,9 @@ export function weeklyRate(points: readonly { ts: number; value: number }[], win
   return sxx > 0 ? (sxy / sxx) * 7 * DAY_MS : null;
 }
 
-export interface BodyDelta {
-  key: '7d' | '30d' | '1y';
-  label: string;
-  value: number;
-}
-
-const DELTAS: { key: BodyDelta['key']; label: string; backMs: number; toleranceMs: number }[] = [
-  { key: '7d', label: '7 d', backMs: 7 * DAY_MS, toleranceMs: 5 * DAY_MS },
-  { key: '30d', label: '30 d', backMs: 30 * DAY_MS, toleranceMs: 10 * DAY_MS },
-  { key: '1y', label: '1 yr', backMs: 365 * DAY_MS, toleranceMs: 30 * DAY_MS },
-];
-
-/** How far the trend moved over each look-back, measured from the latest reading. */
-export function trendDeltas(points: readonly TrendPoint[]): BodyDelta[] {
-  const last = points[points.length - 1];
-  if (!last) return [];
-  return DELTAS.flatMap(d => {
-    const then = trendAt(points, last.ts - d.backMs, d.toleranceMs);
-    return then == null ? [] : [{ key: d.key, label: d.label, value: last.value - then }];
-  });
-}
-
-export type BodyRange = '1m' | '3m' | '1y' | 'all';
+export type BodyRange = '3m' | '1y' | 'all';
 
 export const RANGE_MS: Record<Exclude<BodyRange, 'all'>, number> = {
-  '1m': 31 * DAY_MS,
   '3m': 92 * DAY_MS,
   '1y': 365 * DAY_MS,
 };
@@ -193,26 +164,13 @@ export function rangeDomain(range: BodyRange, weighings: readonly Weighing[], no
 export interface BodyModel {
   weighings: Weighing[];
   weightTrend: TrendPoint[];
-  fatTrend: TrendPoint[];
   latest: Weighing | null;
-  weightDeltas: BodyDelta[];
-  fatDelta30: number | null;
-  rateKgPerWeek: number | null;
 }
 
 export function bodyModel(weighings: Weighing[]): BodyModel {
-  const weightTrend = trend(weighings.map(w => ({ ts: w.ts, value: w.kg })));
-  const fatPoints = weighings.flatMap(w => (w.fatPct == null ? [] : [{ ts: w.ts, value: w.fatPct }]));
-  const fatTrend = trend(fatPoints);
-  const fatLast = fatTrend[fatTrend.length - 1];
-  const fatThen = fatLast ? trendAt(fatTrend, fatLast.ts - 30 * DAY_MS, 10 * DAY_MS) : null;
   return {
     weighings,
-    weightTrend,
-    fatTrend,
+    weightTrend: trend(weighings.map(w => ({ ts: w.ts, value: w.kg }))),
     latest: weighings[weighings.length - 1] ?? null,
-    weightDeltas: trendDeltas(weightTrend),
-    fatDelta30: fatLast && fatThen != null ? fatLast.value - fatThen : null,
-    rateKgPerWeek: weeklyRate(weighings.map(w => ({ ts: w.ts, value: w.kg }))),
   };
 }

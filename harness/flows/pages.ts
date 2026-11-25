@@ -67,6 +67,57 @@ export const pageFlows: Flow[] = [
     },
   },
   {
+    name: 'body',
+    house: { body: 'years' },
+    open: { hash: '#body' },
+    ready: '.body-now',
+    run: async shots => {
+      await shots.scrolling('.body-page-content', 'body', 4);
+    },
+  },
+  {
+    name: 'body with three weeks of readings',
+    house: { body: 'weeks' },
+    open: { hash: '#body' },
+    ready: '.body-now',
+    run: async shots => {
+      await shots.scrolling('.body-page-content', 'body-weeks');
+    },
+  },
+  {
+    name: 'body on a steady leg',
+    house: { body: 'steady' },
+    open: { hash: '#body' },
+    ready: '.body-now',
+    run: async shots => {
+      await shots.scrolling('.body-page-content', 'body-steady', 4);
+    },
+  },
+  {
+    name: 'body past leg',
+    house: { body: 'years' },
+    open: { hash: '#body' },
+    ready: '.body-phase-chart',
+    run: async shots => {
+      const chart = shots.page.locator('.body-phase-chart');
+      const box = await chart.boundingBox();
+      await chart.click({ position: { x: (box?.width ?? 300) * 0.36, y: (box?.height ?? 64) / 2 } });
+      await shots.page.locator('.body-phase').evaluate(node => node.scrollIntoView({ block: 'center', behavior: 'instant' }));
+      await shots.shot('body-past-leg');
+    },
+  },
+  {
+    name: 'body picked year',
+    house: { body: 'years' },
+    open: { hash: '#body' },
+    ready: '.body-years',
+    run: async shots => {
+      await shots.page.locator('.body-years button').nth(2).click();
+      await shots.page.locator('.body-rhythms').evaluate(node => node.scrollIntoView({ block: 'center', behavior: 'instant' }));
+      await shots.shot('body-year');
+    },
+  },
+  {
     name: 'map',
     open: { hash: '#map' },
     ready: '.sensor-map:not([data-gate])',

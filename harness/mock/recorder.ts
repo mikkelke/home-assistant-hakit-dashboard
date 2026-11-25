@@ -4,7 +4,7 @@ import { HaError, type Fixture, type StatRow, type WsMessage } from '../fixtures
 
 const FIVE_MINUTES = 300_000;
 const HOUR = 3_600_000;
-const MAX_BUCKETS = 20_000;
+const MAX_BUCKETS = 100_000;
 
 type Bucket = 'day' | 'week' | 'month';
 

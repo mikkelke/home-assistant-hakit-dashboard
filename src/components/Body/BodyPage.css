@@ -1,9 +1,10 @@
-/* The body page (#body): Mikkel's scale readings in the Lists page's shell. Two scoped series colours, indigo for
-   weight and lean mass and magenta for body fat, both checked for colour-blind separation on the card surface. */
+/* The body page (#body): Mikkel's scale readings in the Lists page's shell. One scoped accent, indigo, is the weight and
+   whatever a card is about right now; magenta only marks body fat on its swatch; context is the quiet grey. */
 
 .body-page {
   --body-weight: #6b74e8;
   --body-fat: #d9468f;
+  --body-context: color-mix(in srgb, var(--text-3) 40%, transparent);
   position: fixed;
   inset: 0;
   z-index: 90;
@@ -58,21 +59,24 @@
   .body-page-content {
     display: grid;
     grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-    grid-template-rows: auto 1fr;
     align-content: start;
     max-width: 1100px;
   }
-  .body-trend {
+  .body-now {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .body-phase {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .body-history {
     grid-column: 2;
     grid-row: 1 / span 2;
-    align-self: start;
   }
-  .body-hero,
-  .body-comp {
-    grid-column: 1;
-  }
-  .body-comp {
-    align-self: start;
+  .body-rhythms {
+    grid-column: 1 / -1;
+    grid-row: 3;
   }
 }
 
@@ -133,7 +137,9 @@
 }
 .body-trendline {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 4px 16px;
   margin-top: 8px;
   font-size: 13px;
   color: var(--text-2);
@@ -193,15 +199,158 @@
   color: var(--text-3);
 }
 
-.body-trend {
+.body-gauge {
+  position: relative;
+  margin-top: 14px;
+  padding: 22px 0 20px;
+}
+.body-gauge-track {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-chip);
+}
+.body-gauge-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--body-weight) 32%, transparent);
+}
+.body-gauge-tick {
+  position: absolute;
+  left: 50%;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--body-context);
+}
+.body-gauge-dot {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border: 2.5px solid var(--surface-card);
+  border-radius: 50%;
+  background: var(--body-weight);
+}
+.body-gauge-value {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+}
+.body-gauge-swing {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.body-phase-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.body-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--body-weight) 18%, transparent);
+  color: color-mix(in srgb, var(--body-weight) 55%, white);
+  font-size: 16px;
+}
+.body-phase-plot {
+  position: relative;
+  height: 64px;
+  margin-top: 14px;
+}
+.body-phase-chart,
+.body-week-chart,
+.body-year-chart,
+.body-history-plot .body-chart {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.body-phase-chart {
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+.body-phase-pick {
+  fill: color-mix(in srgb, var(--body-weight) 12%, transparent);
+}
+.body-phase-zero,
+.body-week-zero {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.body-phase-bar,
+.body-week-bar {
+  fill: var(--body-context);
+}
+.body-phase-bar.is-picked,
+.body-week-bar.is-named {
+  fill: var(--body-weight);
+}
+.body-phase-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.body-history {
   display: flex;
   flex-direction: column;
-  gap: 4px;
 }
-.body-trend-head {
+.body-history-head {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 38px;
 }
+.body-history-plot {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 200px;
+}
+@media (min-width: 900px) {
+  .body-phase-plot {
+    height: 96px;
+  }
+  .body-history-plot {
+    min-height: 280px;
+  }
+}
+
 .body-segment {
   display: inline-flex;
   padding: 3px;
@@ -210,6 +359,7 @@
   background: var(--surface-chip);
 }
 .body-segment button {
+  position: relative;
   min-width: 48px;
   height: 32px;
   padding: 0 12px;
@@ -227,6 +377,11 @@
     background 160ms var(--ease-out),
     color 160ms var(--ease-out);
 }
+.body-segment button::before {
+  content: '';
+  position: absolute;
+  inset: -6px -1px;
+}
 .body-segment button.is-active {
   background: rgba(255, 255, 255, 0.12);
   color: var(--text-1);
@@ -240,21 +395,12 @@
 .body-readout-range {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 6px;
   height: 100%;
   font-size: 13px;
   font-weight: 600;
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
-}
-.body-readout-range > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-.body-readout-range svg {
-  font-size: 15px;
-  color: var(--text-3);
 }
 .body-readout-pick {
   position: absolute;
@@ -284,18 +430,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.body-panel + .body-panel {
-  margin-top: 6px;
-}
-.body-panel-label {
-  display: flex;
-  align-items: center;
-  margin-bottom: 2px;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--text-3);
-}
-
 .body-chart {
   display: block;
   width: 100%;
@@ -305,10 +439,6 @@
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
   cursor: crosshair;
-  --tone: var(--body-weight);
-}
-.body-chart.is-fat {
-  --tone: var(--body-fat);
 }
 .body-chart-grid {
   stroke: var(--line);
@@ -321,19 +451,23 @@
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
+.body-chart-xlabel.is-named {
+  fill: var(--text-1);
+  font-weight: 650;
+}
 .body-chart-dot {
-  fill: var(--tone);
+  fill: var(--body-weight);
   opacity: 0.42;
 }
 .body-chart-trend {
   fill: none;
-  stroke: var(--tone);
+  stroke: var(--body-weight);
   stroke-width: 2.25;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 .body-chart-mark {
-  fill: var(--tone);
+  fill: var(--body-weight);
   stroke: var(--surface-card);
   stroke-width: 2.5;
 }
@@ -342,37 +476,159 @@
   stroke-width: 1;
   stroke-dasharray: 2 3;
 }
+.body-chart-level {
+  stroke: var(--body-context);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+.body-chart-level-dot {
+  fill: var(--surface-card);
+  stroke: var(--text-3);
+  stroke-width: 1.5;
+}
+.body-chart-level-label {
+  fill: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 500;
+  paint-order: stroke;
+  stroke: var(--surface-card);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
 
-.body-bar {
+.body-rhythms {
   display: flex;
-  gap: 2px;
-  height: 12px;
-  margin-top: 16px;
+  flex-direction: column;
+  gap: 20px;
 }
-.body-bar > span {
-  flex-basis: 0;
-  border-radius: 4px;
-  transition: flex-grow 400ms var(--ease-out);
-}
-.body-bar-fat {
-  background: var(--body-fat);
-}
-.body-bar-lean {
-  background: var(--body-weight);
-}
-.body-legend {
+.body-rhythm-head {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
+  min-height: 30px;
+}
+.body-week {
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.body-rhythms > :only-child {
+  padding: 0;
+  border: 0;
+}
+.body-year-plot,
+.body-week-plot {
+  position: relative;
+  height: 170px;
+  margin-top: 8px;
+}
+.body-week-plot {
+  height: 140px;
+}
+.body-year-line {
+  fill: none;
+  stroke: var(--body-context);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.body-year-line.is-picked {
+  stroke: var(--body-weight);
+  stroke-width: 2.25;
+}
+.body-year-dot {
+  fill: var(--body-context);
+}
+.body-year-dot.is-picked {
+  fill: var(--body-weight);
+  stroke: var(--surface-card);
+  stroke-width: 2.5;
+}
+.body-week-value {
+  fill: var(--text-1);
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.body-years {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
   margin-top: 10px;
+}
+.body-years button {
+  position: relative;
+  flex: 1 1 28px;
+  height: 30px;
+  padding: 0 2px;
+  border: 0;
+  border-radius: var(--radius-chip);
+  background: var(--surface-chip);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 160ms var(--ease-out),
+    color 160ms var(--ease-out);
+}
+.body-years button::before {
+  content: '';
+  position: absolute;
+  inset: -7px -2px;
+}
+.body-years button.is-active {
+  background: color-mix(in srgb, var(--body-weight) 24%, transparent);
+  color: var(--text-1);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--body-weight) 70%, transparent);
+}
+.body-year-peak {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
   font-size: 13px;
+  font-weight: 500;
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
 }
-.body-legend b {
-  margin-left: 4px;
+.body-year-peak b {
+  margin-left: -3px;
   font-weight: 650;
   color: var(--text-1);
+}
+.body-year-peak span + span::before {
+  content: '·';
+  margin-right: 8px;
+  color: var(--text-3);
+}
+.body-year-peak .body-swatch {
+  margin-right: 0;
+}
+@media (min-width: 900px) {
+  .body-rhythms {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 28px;
+  }
+  .body-week {
+    padding: 0 0 0 28px;
+    border-top: 0;
+    border-left: 1px solid var(--line);
+  }
+  .body-rhythms > :only-child {
+    grid-column: 1 / -1;
+    padding: 0;
+    border: 0;
+  }
+  .body-year-plot,
+  .body-week-plot {
+    height: 220px;
+  }
 }
 
 .body-page-exit {
@@ -395,7 +651,8 @@
   transition: transform 120ms var(--ease-out);
 }
 .body-page-exit:active,
-.body-segment button:active {
+.body-segment button:active,
+.body-years button:active {
   transform: scale(0.97);
 }
 .body-page button:focus-visible {
@@ -404,8 +661,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .body-bar > span,
-  .body-segment button {
+  .body-segment button,
+  .body-years button {
     transition: none;
   }
 }
