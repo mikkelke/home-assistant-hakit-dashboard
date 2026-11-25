@@ -138,6 +138,15 @@ describe('the To do section of a room panel', () => {
     expect(document.querySelector('.room-todo')).toBeNull();
   });
 
+  it('does not list ice on the ice bath, which the Terrace section and the card frost say', async () => {
+    const ice = { id: 'ice:bath', kind: 'rain', title: 'Ice bath at 0.1 C since 03:10', icon: 'mdi:snowflake', area: 'rooftop' };
+    publish(ice, { ...FIG, area: 'rooftop' });
+    await openAs(MIKKEL, 'rooftop');
+    expect(chips()).toEqual(['Water the fig: 1 L']);
+    publish(ice);
+    expect(document.querySelector('.room-todo')).toBeNull();
+  });
+
   it('shows a housemate what everyone sees and nothing of the maintenance', async () => {
     publish(FIG, rainIn(20));
     await openAs(KRISTINE);

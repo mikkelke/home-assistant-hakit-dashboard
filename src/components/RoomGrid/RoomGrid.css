@@ -295,6 +295,28 @@ body.modal-open .room-card {
   border-color: rgb(var(--frost) / 0.3);
 }
 
+/* The Rooftop's ice bath: the weather chip's tint, water line and frost (IceBath.css), in a layer of their own behind the
+   card's text. Its --frost (0 warm .. 1 freezing) stays inside the layer, so the card's own --frost, the colour of the window
+   frost above, is left alone. */
+.room-card .room-ice {
+  --ice-water-h: 6px;
+  --ice-wave-h: 5px;
+  --ice-wave-w: 48px;
+  --ice-crystal-size: 28px;
+  --ice-reach: 34%;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--ice-tint) calc(var(--frost) * 80%), transparent);
+}
+
+.room-clim .climate-ice {
+  font-weight: 600;
+  color: #d6f0ff;
+}
+
 /* Occupied: a green inner edge; it breathes when the motion budget grants it. */
 .room-edge {
   position: absolute;

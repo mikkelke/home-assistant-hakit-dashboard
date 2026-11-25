@@ -319,3 +319,82 @@ describe('the to do badge', () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('the Rooftop card and the ice bath', () => {
+  const ROOFTOP: Area = { area_id: 'rooftop', name: 'Rooftop' };
+  const HOUR = 3_600_000;
+  const sensor = (state: string, msAgo: number) => ({
+    ...entity('sensor.ice_bath_temperature', state),
+    last_updated: new Date(Date.now() - msAgo).toISOString(),
+  });
+  const station = [entity('sensor.gw2000a_outdoor_temperature', '4.2'), entity('sensor.gw2000a_humidity', '88')];
+  const iceRow = { id: 'ice:bath', kind: 'rain', title: 'Ice bath at 0.1 C since 03:10', icon: 'mdi:snowflake', area: 'rooftop' };
+  const upcoming = (...rows: Record<string, string>[]) =>
+    entity('sensor.house_upcoming', 'x', { expires: new Date(Date.now() + 600_000).toISOString(), rows });
+  const readout = () => [...document.querySelectorAll('.room-clim .climate-item')].map(item => item.textContent);
+  const layer = () => document.querySelector<HTMLElement>('.room-ice');
+
+  it('shows the air and the water of the bath, and the card takes the frost of the water', () => {
+    show(ROOFTOP, world(...station, sensor('0.4', 2 * 60_000)));
+    expect(readout()).toEqual(['4,2° · bath 0,4°', '88 %']);
+    expect(layer()?.classList.contains('ice-skin')).toBe(true);
+    expect(layer()?.style.getPropertyValue('--frost')).toBe('0.96');
+    expect(layer()?.hasAttribute('data-ice')).toBe(false);
+    expect(layer()?.getAttribute('aria-hidden')).toBe('true');
+    expect(layer()?.querySelector('.ice-water')).not.toBeNull();
+    expect(layer()?.querySelector('.ice-frost')).not.toBeNull();
+  });
+
+  it('is no more frost than the water has: none from 10 degrees up', () => {
+    show(ROOFTOP, world(...station, sensor('11.2', 60_000)));
+    expect(readout()).toEqual(['4,2° · bath 11,2°', '88 %']);
+    expect(layer()?.style.getPropertyValue('--frost')).toBe('0');
+  });
+
+  it('says ice likely in place of the humidity while the ice row is published, and the layer turns to a sheet', () => {
+    show(ROOFTOP, world(...station, sensor('0.1', 60_000), upcoming(iceRow)));
+    expect(readout()).toEqual(['4,2° · bath 0,1°', 'ice likely']);
+    expect(document.querySelector('.room-clim .climate-ice .ice-flake')).not.toBeNull();
+    expect(layer()?.hasAttribute('data-ice')).toBe(true);
+  });
+
+  it('has no bath part, no frost and no word once the bath is packed away', () => {
+    show(ROOFTOP, world(...station, sensor('0.4', 13 * HOUR), upcoming(iceRow)));
+    expect(readout()).toEqual(['4,2 °C', '88 %']);
+    expect(layer()).toBeNull();
+  });
+
+  it('has no bath part without the sensor', () => {
+    show(ROOFTOP, world(...station));
+    expect(readout()).toEqual(['4,2 °C', '88 %']);
+    expect(layer()).toBeNull();
+  });
+
+  it('keeps the bath through an outage of its sensor, without a reading', () => {
+    show(ROOFTOP, world(...station, sensor('unavailable', 3 * HOUR)));
+    expect(readout()).toEqual(['4,2° · bath —', '88 %']);
+    expect(layer()?.style.getPropertyValue('--frost')).toBe('0');
+  });
+
+  it('is only on the Rooftop card', () => {
+    show(KITCHEN, world(...station, sensor('0.4', 60_000), upcoming(iceRow)));
+    expect(layer()).toBeNull();
+    expect(readout().join(' ')).not.toContain('bath');
+  });
+
+  it('follows the store without a parent render, and drops the bath when it is packed away', () => {
+    show(ROOFTOP, world(...station, sensor('0.4', 60_000)));
+    expect(readout()[0]).toBe('4,2° · bath 0,4°');
+    act(() => store.setState({ entities: world(...station, sensor('1.5', 1_000), upcoming(iceRow)) }));
+    expect(readout()).toEqual(['4,2° · bath 1,5°', 'ice likely']);
+    act(() => store.setState({ entities: world(...station, sensor('1.5', 14 * HOUR)) }));
+    expect(readout()).toEqual(['4,2 °C', '88 %']);
+    expect(layer()).toBeNull();
+  });
+
+  it('never reads the bath or the rows through the grid map', () => {
+    const reads = new Set<string>();
+    show(ROOFTOP, world(...station, sensor('0.4', 60_000), upcoming(iceRow)), reads);
+    expect([...reads].filter(id => id.includes('ice_bath') || id.includes('house_upcoming'))).toEqual([]);
+  });
+});

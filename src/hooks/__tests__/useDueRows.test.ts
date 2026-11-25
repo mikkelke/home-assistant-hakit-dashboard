@@ -139,6 +139,15 @@ describe('the rows that are due', () => {
     expect(latest().map(row => row.id)).toEqual(['rain:terrace']);
   });
 
+  it('leave out the ice bath row, which the frost on the Rooftop card and the weather chip says, to everyone', async () => {
+    const ice = { id: 'ice:bath', kind: 'rain', title: 'Ice bath at 0.1 C since 03:10', icon: 'mdi:snowflake', area: 'rooftop' };
+    publish(NOW + 600_000, [...rows, ice]);
+    await viewAs({ is_admin: true, name: 'Admin', id: 'admin-id' });
+    expect(latest().map(row => row.id)).toEqual(['maint:plant:fig', 'rain:terrace']);
+    await viewAs({ is_admin: false, name: 'Housemate', id: 'housemate-id' });
+    expect(latest().map(row => row.id)).toEqual(['rain:terrace']);
+  });
+
   it('are none without the sensor', async () => {
     await viewAs({ is_admin: true, name: 'Admin', id: 'admin-id' });
     expect(latest()).toEqual([]);

@@ -4,6 +4,8 @@ import { Icon } from '@iconify/react';
 import type { HassEntities, RoomCardProps } from '../../types';
 import {
   HOUSE_EVENTS_ENTITY,
+  HOUSE_UPCOMING_ENTITY,
+  ICE_BATH_SENSOR,
   KITCHEN_TEMP_SENSOR,
   OUTDOOR_HUMIDITY_SENSOR,
   OUTDOOR_TEMP_SENSOR,
@@ -23,12 +25,14 @@ import type { HouseUpcomingRow } from '../../home/houseUpcoming';
 import { HOUSEHOLD, isNightHour } from '../../home/household';
 import { useMotionSlot } from '../../home/motionBudget';
 import { AREA_EXTERIOR_CONTACTS, FROST_BELOW_C, asleepAreaIds, isAreaOpen, roomGlow, roomLightIds } from '../../home/roomAmbient';
+import { frostFor, iceBathPackedAway, iceBathRow } from '../../home/terrace';
 import { HOME_APPLIANCES, ROBER2_RING, rober2CleaningAreaId, type RingAppliance } from '../../home/upcoming';
 import { useNowMs } from '../../hooks/useNowMs';
 import { useTrackedEntities } from '../../hooks/useTrackedEntities';
 import { resolveApartmentLock } from '../../utils/apartmentLock';
 import { formatDecimal } from '../../utils/format';
 import { isHeating, zoneForThermostat } from '../../utils/heating';
+import { IceFlake, IceLayers } from '../IceBath/IceBath';
 import { IndicatorWithTimeline } from './IndicatorWithTimeline';
 import { MultiEntitySelector } from './MultiEntitySelector';
 import './RoomGrid.css';
@@ -77,6 +81,17 @@ function coldOutside(entities: HassEntities): boolean {
 function formatTemp(temp: string | number): string {
   const value = toNumber(temp);
   return value == null ? String(temp) : formatDecimal(value, 1);
+}
+
+/** The ice bath as the Rooftop card shows it: its water, null while the sensor says nothing, and whether ice is likely.
+ * Null while the bath is packed away, and on every other card. Read from the store like the station's air, so the grid does
+ * not re-render for it. */
+function useRoofBath(isRooftop: boolean): { waterC: number | null; iceLikely: boolean } | null {
+  const sensor = useHass(s => (isRooftop ? s.entities[ICE_BATH_SENSOR] : undefined));
+  const upcoming = useHass(s => (isRooftop ? s.entities[HOUSE_UPCOMING_ENTITY]?.attributes : undefined));
+  const nowMs = useNowMs();
+  if (!isRooftop || iceBathPackedAway(sensor, nowMs)) return null;
+  return { waterC: readingNumber(sensor), iceLikely: iceBathRow(upcoming, nowMs) !== null };
 }
 
 /** A glow as one primitive, `"r g b/alpha"`, so a card's selector only re-renders it when the light changes. */
@@ -354,6 +369,7 @@ export function RoomCard({ area, entities, todo = NO_TODO, onClick, onClimateCli
   // The roof station reports every few minutes; only the Rooftop card follows it.
   const roofTemp = useHass(s => (isRooftop ? s.entities[OUTDOOR_TEMP_SENSOR]?.state : undefined));
   const roofHumidity = useHass(s => (isRooftop ? s.entities[OUTDOOR_HUMIDITY_SENSOR]?.state : undefined));
+  const roofBath = useRoofBath(isRooftop);
 
   // Find humidity sensor for this area.
   // Prefer the exact sensor.{area}_humidity; otherwise fall back to a guarded search that
@@ -662,9 +678,13 @@ export function RoomCard({ area, entities, todo = NO_TODO, onClick, onClimateCli
             : undefined
         }
       >
-        {(temp != null || heating || humidity == null) && (
+        {(roofBath || temp != null || heating || humidity == null) && (
           <span className='climate-item climate-temp'>
-            {temp != null ? `${formatTemp(temp)} °C` : '—'}
+            {roofBath
+              ? `${temp != null ? `${formatTemp(temp)}°` : '—'} · bath ${roofBath.waterC != null ? `${formatTemp(roofBath.waterC)}°` : '—'}`
+              : temp != null
+                ? `${formatTemp(temp)} °C`
+                : '—'}
             {heating && (
               <span className='room-heating' aria-hidden='true'>
                 <Icon icon='mdi:fire' />
@@ -672,11 +692,28 @@ export function RoomCard({ area, entities, todo = NO_TODO, onClick, onClimateCli
             )}
           </span>
         )}
-        {humidity != null && <span className='climate-item'>{humidity} %</span>}
+        {roofBath?.iceLikely ? (
+          <span className='climate-item climate-ice'>
+            <IceFlake />
+            ice likely
+          </span>
+        ) : (
+          humidity != null && <span className='climate-item'>{humidity} %</span>
+        )}
       </span>
       <span className='room-orb'>
         <Icon icon={area.icon || 'mdi:home'} />
       </span>
+      {roofBath && (
+        <span
+          className='room-ice ice-skin'
+          style={{ '--frost': Number((roofBath.waterC == null ? 0 : frostFor(roofBath.waterC)).toFixed(2)) } as CSSProperties}
+          data-ice={roofBath.iceLikely ? '' : undefined}
+          aria-hidden='true'
+        >
+          <IceLayers />
+        </span>
+      )}
       {isHallway && <DoorbellRipple />}
       {exceptions.length > 0 && (
         <span className={`room-ex ${hasRing ? 'is-row' : ''}`}>
