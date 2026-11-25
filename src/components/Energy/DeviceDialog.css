@@ -13,7 +13,7 @@
   width: min(420px, 100%);
   background: rgba(20, 21, 24, 0.98);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 1rem;
+  border-radius: var(--radius-tile);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   padding: 1.25rem 1.35rem;
 }

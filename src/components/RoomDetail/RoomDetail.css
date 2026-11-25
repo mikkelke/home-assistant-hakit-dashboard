@@ -115,7 +115,7 @@
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .room-detail-floating-close:active {
   background: rgba(40, 42, 46, 0.95);
@@ -125,14 +125,17 @@
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  padding: 0.25rem 0.5rem;
-  background: rgba(34, 197, 94, 0.2);
+  padding: 0 0.5rem;
+  background: none;
   color: #22c55e;
   font-size: 0.7rem;
   font-weight: 600;
-  border-radius: 1rem;
+  border-radius: var(--chip-radius);
   text-transform: uppercase;
   white-space: nowrap;
+  height: var(--chip-height);
+  box-shadow: inset 0 0 0 1px var(--chip-rim);
+  --chip-rim: var(--chip-rim-tone);
 }
 .presence-badge svg {
   font-size: 0.85rem;
@@ -200,11 +203,10 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-  min-height: 40px;
   padding: 0 12px;
   border: 1px solid color-mix(in srgb, var(--accent-gold) 40%, transparent);
-  border-radius: var(--radius-chip);
-  background: color-mix(in srgb, var(--accent-gold) 8%, var(--surface-card));
+  border-radius: var(--chip-radius);
+  background: color-mix(in srgb, var(--accent-gold) var(--tint-wash), var(--surface-card));
   color: var(--text-1);
   font: inherit;
   font-size: 13.5px;
@@ -212,8 +214,16 @@
   text-align: left;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
+  position: relative;
+  height: var(--chip-height);
 }
+.room-todo-chip::before {
+  content: '';
+  position: absolute;
+  inset: -7px 0;
+}
+
 .room-todo-chip:active {
   transform: scale(0.985);
 }
@@ -324,7 +334,7 @@
   border-radius: 0.5rem;
   color: #e4e4e7;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 120ms var(--ease-out);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform var(--dur-press) var(--ease-out);
 }
 .tv-lift-btn:active {
   transform: scale(0.97);

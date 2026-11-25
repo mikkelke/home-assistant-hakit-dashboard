@@ -99,14 +99,14 @@ components:
     backgroundColor: "{colors.surface-chip}"
     textColor: "{colors.text-2}"
     typography: "{typography.label}"
-    rounded: "{rounded.chip}"
+    rounded: "15px"
     height: "30px"
   pulse-chip:
     backgroundColor: "{colors.surface-card}"
     textColor: "{colors.text-1}"
     typography: "{typography.label}"
-    rounded: "{rounded.chip}"
-    height: "38px"
+    rounded: "15px"
+    height: "30px"
   icon-button:
     backgroundColor: "{colors.surface-chip}"
     textColor: "{colors.text-2}"
@@ -233,7 +233,9 @@ Flat. Cards and tiles are separated from the ground by tone and a 1 px hairline,
 
 ## Shapes
 
-Soft and consistent by role: **24 px** device cards and sheets, **20 px** page cards, **16 px** tiles and the dock, **12 px** chips and inputs (`--radius-chip`), **999 px** pills, **50%** icon buttons, glyph discs and badges. Glyph discs are tinted circles (the accent at 16% over the card) holding an icon. Press feedback is `transform: scale(0.97)` over 120 ms on `--ease-out` (cubic-bezier(0.23, 1, 0.32, 1)).
+Soft and consistent by role: **24 px** device cards and sheets (`--radius-card`), **20 px** page cards (`--radius-page`), **16 px** tiles and the dock (`--radius-tile`), **15 px** chips (`--chip-radius`), **12 px** inputs and small panels (`--radius-chip`), **999 px** pills, **50%** icon buttons, glyph discs and badges. Glyph discs are tinted circles holding an icon. Press feedback is `transform: scale(0.97)` over `--dur-press` (120 ms) on `--ease-out` (cubic-bezier(0.23, 1, 0.32, 1)); sheets and stages enter over `--dur-sheet` (220 ms). Type sizes that recur have tokens: `--fs-caption` 11.5 px, `--fs-label` 13 px, `--fs-body` 15 px.
+
+**The Tint Ladder.** An accent sits over the surface at one of three shares, by role: `--tint-wash` 8% (a card or row that wants attention), `--tint-chip` 12% (a tappable chip's fill), `--tint-glyph` 16% (a glyph disc or icon well). Write `color-mix(in srgb, <accent> var(--tint-chip), transparent)`. Rims, pressed states, charts and frost keep their own shares.
 
 ## Components
 
@@ -244,7 +246,7 @@ A 175:132 tile (#141518, 16 px, 12 px padding): name at 14 px/700, temperature a
 Collapsed by default, remembered per card. Header row: 2.1 rem glyph disc in the card's accent, title (1.05 rem/600), optional quick dots (play/pause, light dots), a state word (0.9 rem/600, tinted: green playing, amber needs attention), a chevron. Opened, it shows the live control (a slider, a stepper, a four-button blind row) and a details row. Sibling cards share this anatomy.
 
 ### Chip
-Icon plus a short value on the chip fill. Shipped chip heights run from 22 to 44 px and 30 px is the most common for text chips (coffee, ticker, climate); radii are 12 px or a full pill. Within one card, use one height and one radius. Pulse chips on Home are 38 px, on the card colour with a hairline.
+Icon plus a short value, 30 px high with a 15 px radius (`--chip-height`, `--chip-radius`). **The Rim-Or-Fill Rule:** a chip that only reads has a 1 px rim (`--chip-rim`, or `--chip-rim-tone` in its text colour) and no fill; a chip you can tap has a fill, so what is tappable shows without a hover. A tappable chip keeps a 44 px hit area through a `::before` that reaches 7 px above and below. Exceptions: the coffee stage and the cook stage keep their larger chips (read from across the kitchen), the transit departure chips keep their own look, and round count badges are badges, not chips.
 
 ### Page shell
 Header on the card colour with a hairline underneath: glyph disc, title, 44 px icon buttons. Body on the ground. Exit button bottom-left. Lists is the cleanest page: tokens for every colour except the backdrop and one shadow.
@@ -274,7 +276,7 @@ SVG on the card, price-band colours for energy, copper for cup weight and sky fo
 ### Do:
 - **Do** give every state an icon and a colour, and make the unavailable state look different from off.
 - **Do** keep words behind a tap: a chip carries an icon and a short value; the sentence belongs in a sheet or details row.
-- **Do** read colours from the `:root` tokens (`--text-1/2/3`, `--surface-card`, `--surface-chip`, `--line`, `--accent-sky/gold/rose`, `--radius-chip`) and migrate literals as you touch them.
+- **Do** read colours from the `:root` tokens (`--text-1/2/3`, `--surface-card`, `--surface-chip`, `--line`, `--accent-sky/gold/rose`, `--radius-*`, `--chip-*`, `--dur-*`, `--fs-*`, `--tint-*`) and migrate literals as you touch them.
 - **Do** make sibling rows and sibling cards identical in shape; differences show as content.
 - **Do** use one chip anatomy per card: one height, one radius, one label size.
 - **Do** guard every hover style with `(hover: hover) and (pointer: fine)`; all 39 existing ones are.
@@ -297,7 +299,6 @@ Counts are over `src/**/*.css`, excluding the `:root` definitions.
 - **Two neutral palettes**: device charcoal (`#1c1c1e` 31, `#2c2c2e` 50, `#3a3a3c` 22, `rgba(235,235,245,x)` 162) next to the zinc tokens.
 - **Font**: `Inter` is declared on `:root` and `body` and the system stack (`-apple-system`, `SF Pro Text`) on 21 card and page selectors, but the universal `* { font-family: Roboto, Helvetica, Arial, sans-serif }` rule sets every element directly and beats inheritance, so none of those declarations reach any text. Only the 33 `font-family: inherit` declarations (buttons and inputs) take their container's stack. Measured: `.sonos-title`, `.list-name` and `.lists-page-title` compute to the Roboto stack while their parent cards compute to the system stack.
 - **Type scale**: 828 `font-size` declarations, 94 distinct values, 123 below 12 px.
-- **Chip anatomy**: 46 chip, pill and badge classes with a height or radius, 15 distinct heights from 12 to 44 px, and radii of 12, 13, 15, 17 px and full pills side by side.
 - **Uppercase eyebrows** (20 `text-transform: uppercase`, letter-spacing 0.03 to 0.08em: THE USUAL, STAGE, TIME LEFT, TO DO, HEALTH, SETTINGS, day headings). A defect the build carries; not a pattern for new surfaces.
 - **System serif display** (`ui-serif, 'New York', Georgia`) on the fire takeover headline. Same: not canonized.
 - **z-index ladder**: 24 values across 66 declarations. Pages 90, timeline 95, room sheet 100, dock 1000, menu 2100/2101, battery overview 2300, weather popup 3000, twelve overlay rules at 9998 to 10001, fire 12000. No scale; equal values decide by DOM order.

@@ -26,7 +26,7 @@
 
 .energy-page-state-error p {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--fs-label);
   flex: 1;
   min-width: 0;
 }
@@ -40,7 +40,7 @@
   border-radius: 0.5rem;
   color: #38bdf8;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-label);
   cursor: pointer;
 }
 

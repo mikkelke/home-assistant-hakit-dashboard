@@ -25,14 +25,14 @@
   width: 160px;
   max-width: 40vw;
   aspect-ratio: 1;
-  border-radius: 20px;
+  border-radius: var(--radius-page);
   object-fit: cover;
   background: var(--surface-chip);
 }
 
 .maint-detail {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--fs-body);
   line-height: 1.35;
   color: rgba(255, 255, 255, 0.92);
 }
@@ -58,7 +58,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 13px;
+  font-size: var(--fs-label);
   line-height: 1.35;
   color: rgba(235, 235, 245, 0.6);
 }
@@ -91,7 +91,7 @@
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .maint-how:active {
   transform: scale(0.97);
@@ -114,7 +114,7 @@
   border-radius: 12px;
   background: rgba(251, 191, 36, 0.12);
   color: #fbbf24;
-  font-size: 13px;
+  font-size: var(--fs-label);
   line-height: 1.35;
 }
 .maint-warn svg {
@@ -160,8 +160,8 @@
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   transition:
-    transform 120ms var(--ease-out),
-    opacity 120ms;
+    transform var(--dur-press) var(--ease-out),
+    opacity var(--dur-press);
 }
 .maint-btn:active:not(:disabled) {
   transform: scale(0.98);
@@ -204,7 +204,7 @@
   align-items: center;
   gap: 8px;
   color: #34d399;
-  font-size: 15px;
+  font-size: var(--fs-body);
   font-weight: 600;
 }
 .maint-done-text svg {
@@ -219,6 +219,6 @@
   align-items: center;
   gap: 8px;
   margin: 0;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: #fb7185;
 }

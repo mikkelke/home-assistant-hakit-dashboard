@@ -6,7 +6,7 @@
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
   background: #1c1c1e; /* iOS systemGray6 dark */
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 24px;
+  border-radius: var(--radius-card);
   overflow: hidden;
   margin-bottom: 1rem;
   color: rgba(255, 255, 255, 0.92);
@@ -150,7 +150,7 @@
   border: none;
   color: #ffffff;
   cursor: pointer;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .heat-stepper-btn:active {
   transform: scale(0.97);
@@ -179,11 +179,11 @@
   border: none;
   padding: 0.2rem;
   font-family: inherit;
-  font-size: 0.8125rem;
+  font-size: var(--fs-label);
   color: #ff9f0a;
   text-decoration: underline;
   cursor: pointer;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .heat-footer-action:active {
   transform: scale(0.97);

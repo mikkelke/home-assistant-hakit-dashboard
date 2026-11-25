@@ -6,7 +6,7 @@
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
   background: #1c1c1e; /* iOS systemGray6 dark */
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 24px;
+  border-radius: var(--radius-card);
   padding: 1.25rem;
   overflow: hidden;
   margin-bottom: 1rem;
@@ -115,7 +115,7 @@
 /* Verdict sentence */
 .tonight-verdict {
   margin-top: 0.85rem;
-  font-size: 0.9375rem;
+  font-size: var(--fs-body);
   line-height: 1.4;
   color: rgba(235, 235, 245, 0.6);
 }
@@ -234,7 +234,7 @@
   display: flex;
   justify-content: space-between;
   padding: 0.16rem 0.1rem;
-  font-size: 0.8125rem;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.6);
 }
 .tonight-sched-time {
@@ -333,21 +333,24 @@
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
+  padding: 0 0.5rem;
+  border-radius: var(--chip-radius);
   font-size: 0.6875rem;
   font-weight: 600;
+  height: var(--chip-height);
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--chip-rim);
 }
 .tonight-strip-tag svg {
   font-size: 0.75rem;
 }
 .tonight-strip-tag--ac {
-  background: rgba(100, 210, 255, 0.18);
   color: #64d2ff;
+  --chip-rim: var(--chip-rim-tone);
 }
 .tonight-strip-tag--windows {
-  background: rgba(48, 209, 88, 0.18);
   color: #30d158;
+  --chip-rim: var(--chip-rim-tone);
 }
 
 /* Buttons - the whole control surface, at most one shown at a time */
@@ -361,7 +364,7 @@
   gap: 0.15rem;
   padding: 0.85rem 1rem;
   border: none;
-  border-radius: 16px;
+  border-radius: var(--radius-tile);
   font-family: inherit;
   font-size: 1rem;
   font-weight: 600;
@@ -401,7 +404,7 @@
   border: none;
   padding: 0.2rem;
   font-family: inherit;
-  font-size: 0.8125rem;
+  font-size: var(--fs-label);
   color: #64d2ff;
   text-decoration: underline;
   cursor: pointer;
@@ -412,7 +415,7 @@
   margin-top: 1.1rem;
   padding-top: 0.75rem;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 0.8125rem;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.6);
 }
 
@@ -502,7 +505,7 @@
   border: none;
   color: #ffffff;
   cursor: pointer;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .tonight-stepper-btn::before {
   content: '';
@@ -519,7 +522,7 @@
 .tonight-stepper-value {
   min-width: 2.75rem;
   text-align: center;
-  font-size: 0.9375rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -559,7 +562,7 @@
   color: rgba(235, 235, 245, 0.6);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out), background 0.15s ease, color 0.15s ease;
+  transition: transform var(--dur-press) var(--ease-out), background 0.15s ease, color 0.15s ease;
 }
 .tonight-icon-action:active {
   transform: scale(0.88);

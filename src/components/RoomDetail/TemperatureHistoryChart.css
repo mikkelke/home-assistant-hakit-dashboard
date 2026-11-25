@@ -67,7 +67,7 @@
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s ease, color 0.15s ease, transform 120ms var(--ease-out);
+  transition: background 0.15s ease, color 0.15s ease, transform var(--dur-press) var(--ease-out);
 }
 
 .temp-history-range-btn:active {

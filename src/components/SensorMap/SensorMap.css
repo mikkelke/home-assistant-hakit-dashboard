@@ -49,7 +49,7 @@
   flex-direction: column;
   background: var(--sm-bg);
   color: var(--sm-fg);
-  font-size: 15px;
+  font-size: var(--fs-body);
   line-height: 1.4;
   color-scheme: dark;
   touch-action: none;
@@ -366,23 +366,29 @@
 
 .sm-chip {
   display: inline-flex;
-  min-height: 36px;
+  min-height: var(--chip-height);
   flex-shrink: 0;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 4px 12px;
   border: 1px solid var(--sm-border);
-  border-radius: 999px;
+  border-radius: var(--chip-radius);
   background: var(--sm-panel);
   color: var(--sm-fg);
   font: inherit;
   font-size: 0.88rem;
   white-space: nowrap;
   cursor: pointer;
+  position: relative;
+}
+button.sm-chip::before {
+  content: '';
+  position: absolute;
+  inset: -7px 0;
 }
 
+
 .sm-chip.small {
-  min-height: 32px;
   padding: 4px 10px;
   font-size: 0.82rem;
 }
@@ -398,8 +404,9 @@
   cursor: default;
 }
 
-.sm-chip.static {
+span.sm-chip.static {
   cursor: default;
+  background: none;
 }
 
 .sm-chip.warn {
@@ -1285,7 +1292,7 @@
   min-width: 0;
   padding: 6px 12px;
   border: 1px solid var(--sm-border);
-  border-radius: 16px;
+  border-radius: var(--radius-tile);
   background: var(--sm-panel);
   font-size: 0.85rem;
   line-height: 1.25;
@@ -1338,7 +1345,7 @@
   max-height: 45%;
   flex-direction: column;
   border-top: 1px solid var(--sm-border);
-  border-radius: 16px 16px 0 0;
+  border-radius: var(--radius-tile) var(--radius-tile) 0 0;
   background: var(--sm-panel);
   box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.35);
   padding-bottom: env(safe-area-inset-bottom);
@@ -1665,7 +1672,6 @@ select.sm-input {
 
 .sm-lay-head .sm-chip {
   min-width: 56px;
-  min-height: 44px;
   justify-content: center;
 }
 

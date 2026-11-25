@@ -36,5 +36,5 @@
   align-items: center;
   justify-content: center;
   color: #a1a1aa;
-  font-size: 13px;
+  font-size: var(--fs-label);
 }

@@ -26,7 +26,7 @@
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 120ms var(--ease-out);
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform var(--dur-press) var(--ease-out);
 }
 
 .energy-tabs-btn:active {

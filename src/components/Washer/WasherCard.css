@@ -10,7 +10,7 @@
   min-width: 34px;
 }
 .washer-soak-chip svg {
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 
 /* Prediction confirm row: the washer is the only card that shows a classifier guess with an
@@ -22,14 +22,14 @@
   margin-top: 12px;
 }
 .washer-predict-icon {
-  font-size: 15px;
+  font-size: var(--fs-body);
   color: rgba(235, 235, 245, 0.6);
   flex-shrink: 0;
 }
 .washer-predict-text {
   flex: 1;
   min-width: 0;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.6);
 }
 .washer-predict-confirm {
@@ -46,7 +46,7 @@
   color: #22c55e;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .washer-predict-confirm::before {
   content: '';

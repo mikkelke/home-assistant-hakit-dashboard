@@ -31,7 +31,7 @@
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--body-weight) 18%, transparent);
+  background: color-mix(in srgb, var(--body-weight) var(--tint-glyph), transparent);
   color: color-mix(in srgb, var(--body-weight) 55%, white);
   font-size: 20px;
 }
@@ -100,7 +100,7 @@
 .body-card {
   background: var(--surface-card);
   border: 1px solid var(--line);
-  border-radius: 20px;
+  border-radius: var(--radius-page);
   padding: 16px;
 }
 
@@ -112,7 +112,7 @@
   min-height: 30px;
 }
 .body-caption {
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 600;
   color: var(--text-2);
 }
@@ -141,7 +141,7 @@
   align-items: center;
   gap: 4px 16px;
   margin-top: 8px;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
 }
@@ -174,16 +174,17 @@
   gap: 5px;
   height: 30px;
   padding: 0 10px;
-  border-radius: var(--radius-chip);
-  background: var(--surface-chip);
+  border-radius: var(--chip-radius);
+  background: none;
   color: var(--text-1);
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  box-shadow: inset 0 0 0 1px var(--chip-rim);
 }
 .body-chip svg {
-  font-size: 15px;
+  font-size: var(--fs-body);
   color: var(--text-2);
 }
 .body-chip.is-quiet {
@@ -241,7 +242,7 @@
   position: absolute;
   top: 0;
   transform: translateX(-50%);
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 650;
   color: var(--text-1);
   font-variant-numeric: tabular-nums;
@@ -251,7 +252,7 @@
   left: 50%;
   bottom: 0;
   transform: translateX(-50%);
-  font-size: 11.5px;
+  font-size: var(--fs-caption);
   font-weight: 500;
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
@@ -262,7 +263,7 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-  font-size: 15px;
+  font-size: var(--fs-body);
   font-weight: 600;
   color: var(--text-1);
 }
@@ -274,7 +275,7 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--body-weight) 18%, transparent);
+  background: color-mix(in srgb, var(--body-weight) var(--tint-glyph), transparent);
   color: color-mix(in srgb, var(--body-weight) 55%, white);
   font-size: 16px;
 }
@@ -320,7 +321,7 @@
   display: flex;
   justify-content: space-between;
   margin-top: 4px;
-  font-size: 11.5px;
+  font-size: var(--fs-caption);
   font-weight: 500;
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
@@ -368,7 +369,7 @@
   background: transparent;
   color: var(--text-2);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 600;
   cursor: pointer;
   touch-action: manipulation;
@@ -397,7 +398,7 @@
   align-items: center;
   gap: 6px;
   height: 100%;
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 600;
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
@@ -418,7 +419,7 @@
   pointer-events: none;
 }
 .body-readout-date {
-  font-size: 11.5px;
+  font-size: var(--fs-caption);
   font-weight: 500;
   color: var(--text-2);
 }
@@ -599,7 +600,7 @@
   align-items: center;
   gap: 8px;
   margin: 10px 0 0;
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 500;
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
@@ -656,7 +657,7 @@
   font-size: 1.5rem;
   cursor: pointer;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .body-page-exit:active,
 .body-segment button:active,

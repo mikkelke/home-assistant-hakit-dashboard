@@ -283,7 +283,7 @@
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .fire-hush-rearm:active {
   background: rgba(255, 255, 255, 0.28);
@@ -349,7 +349,7 @@ html.fire-hushed .room-detail.mobile {
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 
 .fire-sheet-text-btn:active {
@@ -410,7 +410,7 @@ html.fire-hushed .room-detail.mobile {
   padding: 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s ease, transform 120ms var(--ease-out);
+  transition: background 0.15s ease, transform var(--dur-press) var(--ease-out);
 }
 .smoke-switch:active {
   transform: scale(0.97);
@@ -456,7 +456,7 @@ html.fire-hushed .room-detail.mobile {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   text-transform: capitalize;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .smoke-segment button:active {
   transform: scale(0.97);

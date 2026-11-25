@@ -4,7 +4,7 @@
 }
 
 .plan-hero-num small {
-  font-size: 15px;
+  font-size: var(--fs-body);
   font-weight: 500;
   color: #a1a1aa;
   letter-spacing: 0;
@@ -154,12 +154,12 @@ button.ev-tile {
 }
 
 .ev-tile-top b {
-  font-size: 15px;
+  font-size: var(--fs-body);
   color: #e4e4e7;
 }
 
 .ev-tile-name {
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 600;
   color: #e4e4e7;
   overflow: hidden;
@@ -190,7 +190,7 @@ button.ev-tile {
 }
 
 .ev-ck2 {
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 600;
   fill: #a1a1aa;
 }

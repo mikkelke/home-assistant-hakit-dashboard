@@ -51,7 +51,7 @@
   display: flex;
   align-items: baseline;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--cof-t2);
 }
 .cc-usual-ask {
@@ -89,7 +89,7 @@
   width: auto;
   height: 48px;
   border-radius: 15px;
-  font-size: 15px;
+  font-size: var(--fs-body);
   gap: 6px;
 }
 .cc-hold .hold-ring-slot {
@@ -164,11 +164,6 @@
 .cc-water.is-low .cc-beans-tx b {
   color: #fcd34d;
 }
-.cc-water .coffee-water-fill {
-  height: 36px;
-  padding: 0 13px;
-  border-radius: 18px;
-}
 .cc-water .coffee-water-fill svg {
   font-size: 16px;
 }
@@ -221,7 +216,7 @@
 .cc-beans-chip {
   border: 0;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-label);
   cursor: pointer;
 }
 .cc-beans-chip .coffee-glyph {
@@ -247,7 +242,7 @@
   flex: 1;
   min-width: 0;
   padding-bottom: 4px;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--cof-t2);
   white-space: nowrap;
   overflow: hidden;
@@ -256,11 +251,11 @@
 .cc-live-top .coffee-story {
   height: 30px;
   padding: 0 10px;
-  font-size: 13px;
+  font-size: var(--fs-label);
   gap: 5px;
 }
 .cc-live-top .coffee-story svg {
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 .cc-ctrls {
   display: flex;
@@ -278,7 +273,7 @@
   height: 48px;
   padding: 0 10px;
   border-radius: 14px;
-  font-size: 15px;
+  font-size: var(--fs-body);
   font-weight: 600;
   gap: 4px;
 }
@@ -366,17 +361,16 @@
   font-size: 18px;
 }
 .cc-usual-h b {
-  font-size: 15px;
+  font-size: var(--fs-body);
   color: var(--cof-t1);
 }
 .coffee-chip.is-small {
-  height: 26px;
   font-size: 12px;
 }
 .cc-tweak {
   border: 0;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-label);
   cursor: pointer;
 }
 .cc-others {
@@ -476,7 +470,7 @@ a.coffee-rrow {
   margin-top: 8px;
   border-radius: 7px;
   overflow: hidden;
-  font-size: 11.5px;
+  font-size: var(--fs-caption);
   font-weight: 600;
 }
 .cst-taste span,

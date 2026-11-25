@@ -118,12 +118,15 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(224, 242, 254, 0.14);
+  padding: 0 8px;
+  border-radius: var(--chip-radius);
+  background: none;
   color: var(--ice-ink);
   font-size: 0.7rem;
   font-weight: 600;
+  height: var(--chip-height);
+  box-shadow: inset 0 0 0 1px var(--chip-rim);
+  --chip-rim: var(--chip-rim-tone);
 }
 
 .terrace-badge .ice-flake {
@@ -319,7 +322,7 @@
   color: inherit;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 
 .terrace-chart:active {

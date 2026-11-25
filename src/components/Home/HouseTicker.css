@@ -34,19 +34,19 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 30px;
+  height: var(--chip-height);
   padding: 0 10px 0 8px;
   border: 0;
-  border-radius: 15px;
+  border-radius: var(--chip-radius);
   background: rgba(255, 255, 255, 0.05);
   color: #a1a1aa;
   font: inherit;
-  font-size: 11.5px;
+  font-size: var(--fs-caption);
   white-space: nowrap;
   flex-shrink: 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 
 .ticker-chip::before {
@@ -185,7 +185,7 @@
 .ticker-chip.is-cook-now,
 .ticker-chip.is-cook-alarm {
   --cook-ticker-accent: var(--heat);
-  background: color-mix(in srgb, var(--cook-ticker-accent) 14%, transparent);
+  background: color-mix(in srgb, var(--cook-ticker-accent) var(--tint-chip), transparent);
   color: var(--cook-ticker-accent);
   font-variant-numeric: tabular-nums;
 }
@@ -213,7 +213,7 @@
 .ticker-chip.is-delivery,
 .ticker-chip.is-delivery-now {
   --delivery-accent: var(--accent-sky);
-  background: color-mix(in srgb, var(--delivery-accent) 14%, transparent);
+  background: color-mix(in srgb, var(--delivery-accent) var(--tint-chip), transparent);
   color: var(--delivery-accent);
 }
 .ticker-chip.is-delivery-now {

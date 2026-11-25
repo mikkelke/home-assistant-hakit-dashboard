@@ -25,13 +25,13 @@
   padding: 1.25rem;
   background: #1c1c1e; /* iOS systemGray6 dark, like .tv-card */
   border: 1px solid rgba(59, 130, 246, 0.35);
-  border-radius: 24px;
+  border-radius: var(--radius-card);
   color: rgba(255, 255, 255, 0.92);
   text-align: left;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .rq-tile:active {
   transform: scale(0.98);
@@ -240,7 +240,7 @@
   color: #a1a1aa;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 120ms var(--ease-out);
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform var(--dur-press) var(--ease-out);
 }
 .rq-filter:active {
   transform: scale(0.97);
@@ -275,7 +275,7 @@
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .rq-cell:active {
   transform: scale(0.96);
@@ -432,7 +432,7 @@
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .rq-retry:active {
   transform: scale(0.97);
@@ -499,11 +499,13 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.35rem 0.7rem;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
+  padding: 0 0.7rem;
+  background: none;
+  border-radius: var(--chip-radius);
   font-size: 0.78rem;
   color: #e4e4e7;
+  height: var(--chip-height);
+  box-shadow: inset 0 0 0 1px var(--chip-rim);
 }
 .rq-chip svg {
   font-size: 0.9rem;
@@ -553,7 +555,7 @@
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 120ms var(--ease-out);
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform var(--dur-press) var(--ease-out);
 }
 .rq-season:active:not(:disabled) {
   transform: scale(0.95);
@@ -599,7 +601,7 @@
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.2s, color 0.2s, opacity 0.2s, transform 120ms var(--ease-out);
+  transition: background 0.2s, color 0.2s, opacity 0.2s, transform var(--dur-press) var(--ease-out);
 }
 .rq-cta:active:not(:disabled) {
   transform: scale(0.97);
@@ -698,7 +700,7 @@
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: color 0.2s, opacity 0.2s, transform 120ms var(--ease-out);
+  transition: color 0.2s, opacity 0.2s, transform var(--dur-press) var(--ease-out);
 }
 .rq-stop:active:not(:disabled) {
   transform: scale(0.97);

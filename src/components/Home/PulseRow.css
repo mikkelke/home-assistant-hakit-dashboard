@@ -9,9 +9,9 @@
   position: relative;
   flex: 1 1 auto;
   min-width: 0;
-  height: 38px;
+  height: var(--chip-height);
   padding: 0 8px;
-  border-radius: 12px;
+  border-radius: var(--chip-radius);
   background: #15161a;
   border: 1px solid rgba(255, 255, 255, 0.07);
   display: flex;
@@ -20,23 +20,23 @@
   gap: 6px;
   color: #e4e4e7;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 600;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition:
-    transform 120ms var(--ease-out),
-    background 120ms ease,
-    border-color 120ms ease;
+    transform var(--dur-press) var(--ease-out),
+    background var(--dur-press) ease,
+    border-color var(--dur-press) ease;
 }
 
-/* Pads the 38 px chip to a 44 px target. */
+/* Pads the chip to a 44 px target. */
 .pulse-chip::before {
   content: '';
   position: absolute;
-  inset: -3px 0;
+  inset: -7px 0;
 }
 
 .pulse-chip:active {

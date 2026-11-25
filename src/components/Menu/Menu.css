@@ -67,7 +67,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 0.375rem;
-  transition: background 0.2s ease, transform 120ms var(--ease-out);
+  transition: background 0.2s ease, transform var(--dur-press) var(--ease-out);
 }
 
 .menu-close-btn:active {
@@ -280,7 +280,7 @@
   max-height: min(88vh, 920px);
   background: rgba(20, 21, 24, 0.98);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 1rem;
+  border-radius: var(--radius-tile);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   overflow: hidden;
   display: flex;

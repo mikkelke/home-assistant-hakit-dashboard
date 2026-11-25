@@ -54,7 +54,7 @@
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  transition: background 120ms var(--ease-out);
+  transition: background var(--dur-press) var(--ease-out);
 }
 .guest-codes button:active:not(:disabled) { background: var(--line); }
 .guest-codes button:disabled { opacity: 0.5; cursor: default; }
@@ -108,7 +108,7 @@
 .gc-row-name, .gc-success h3, .gc-editor-name { font-size: 1rem; font-weight: 600; overflow-wrap: anywhere; }
 .gc-row-name { min-width: 0; flex: 1; }
 .gc-row-top > svg { color: var(--text-2); }
-.gc-row-meta { display: block; margin-top: 0.2rem; color: var(--text-2); font-size: 0.8125rem; overflow-wrap: anywhere; }
+.gc-row-meta { display: block; margin-top: 0.2rem; color: var(--text-2); font-size: var(--fs-label); overflow-wrap: anywhere; }
 .gc-chevron { color: var(--text-3); }
 .gc-muted { color: var(--text-2); font-size: 0.875rem; }
 .gc-status {

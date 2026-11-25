@@ -75,7 +75,7 @@ body.wake-alarm-open {
   justify-content: space-between;
   min-height: 48px;
   color: var(--wake-secondary);
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 
 .wake-alarm-top svg {
@@ -105,7 +105,7 @@ body.wake-alarm-open {
 .wake-alarm-description {
   margin: 0;
   color: var(--wake-secondary);
-  font-size: 15px;
+  font-size: var(--fs-body);
   line-height: 1.5;
 }
 
@@ -187,7 +187,7 @@ body.wake-alarm-open {
 }
 
 .wake-alarm-primary small {
-  font-size: 13px;
+  font-size: var(--fs-label);
   line-height: 1.4;
   color: #34422b;
 }
@@ -198,14 +198,14 @@ body.wake-alarm-open {
   border-radius: 12px;
   color: var(--wake-sage);
   background: transparent;
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 
 .wake-alarm-return,
 .wake-alarm-footnote {
   margin: 0 0 18px;
   text-align: center;
-  font-size: 13px;
+  font-size: var(--fs-label);
   line-height: 1.5;
   color: var(--wake-secondary);
 }
@@ -215,7 +215,7 @@ body.wake-alarm-open {
   min-height: 74px;
   gap: 10px;
   border: 1px solid var(--wake-line);
-  border-radius: 16px;
+  border-radius: var(--radius-tile);
   color: var(--wake-text);
   background: #2a3025;
   font-size: 20px;
@@ -252,7 +252,7 @@ body.wake-alarm-open {
   justify-content: center;
   align-items: center;
   gap: 9px;
-  border-radius: 16px;
+  border-radius: var(--radius-tile);
   border: 1px solid var(--wake-line);
   color: var(--wake-secondary);
   background: #252d21;
@@ -326,7 +326,7 @@ body.wake-alarm-open {
 
 .wake-alarm-behavior strong {
   display: block;
-  font-size: 15px;
+  font-size: var(--fs-body);
   color: var(--wake-text);
   font-weight: 500;
   margin-bottom: 3px;

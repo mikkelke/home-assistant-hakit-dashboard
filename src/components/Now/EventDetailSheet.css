@@ -100,7 +100,7 @@
 .evd-caption,
 .evd-empty {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--text-1);
 }
 
@@ -155,7 +155,7 @@
 
 .evd-sub {
   margin: 6px 0 0;
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;

@@ -36,7 +36,7 @@
   width: 2.1rem;
   height: 2.1rem;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--dl-tone) 16%, transparent);
+  background: color-mix(in srgb, var(--dl-tone) var(--tint-glyph), transparent);
   color: var(--dl-tone);
 }
 
@@ -62,7 +62,7 @@
 }
 
 .dl-name small {
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--text-2);
 }
 
@@ -82,7 +82,7 @@
 }
 
 .dl-hero span {
-  font-size: 15px;
+  font-size: var(--fs-body);
   font-weight: 600;
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
@@ -156,7 +156,7 @@
 }
 
 .dl-step b {
-  font-size: 11.5px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   color: var(--text-3);
 }
@@ -176,7 +176,7 @@
   gap: 10px;
   min-height: 48px;
   border-top: 1px solid var(--line);
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 
 .dl-row > svg {
@@ -202,7 +202,7 @@
 }
 
 .dl-row small {
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--text-2);
 }
 
@@ -212,7 +212,7 @@
   gap: 4px;
   flex-shrink: 0;
   font-style: normal;
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 600;
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
@@ -233,7 +233,7 @@
   align-items: center;
   gap: 6px;
   margin-top: 0.9rem;
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 600;
   color: var(--text-3);
 }
@@ -253,7 +253,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 1.5rem 0;
-  font-size: 15px;
+  font-size: var(--fs-body);
   color: var(--text-2);
 }
 

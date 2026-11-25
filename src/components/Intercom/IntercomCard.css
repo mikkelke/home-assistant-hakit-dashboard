@@ -6,7 +6,7 @@
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
   background: #1c1c1e; /* iOS systemGray6 dark */
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 24px;
+  border-radius: var(--radius-card);
   padding: 1.25rem;
   margin-bottom: 1rem;
   color: rgba(255, 255, 255, 0.92);
@@ -96,7 +96,7 @@
   color: #f59e0b;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out), background 0.15s ease, color 0.15s ease;
+  transition: transform var(--dur-press) var(--ease-out), background 0.15s ease, color 0.15s ease;
 }
 .access-quick-btn:active {
   transform: scale(0.88);
@@ -182,7 +182,7 @@
   font-weight: 700;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .access-ring-btn:active {
   transform: scale(0.97);
@@ -260,18 +260,22 @@
   flex-shrink: 0;
   font-size: 0.7rem;
   font-weight: 700;
-  padding: 0.2rem 0.55rem;
-  border-radius: 999px;
-  background: #2c2c2e; /* iOS systemGray5 dark */
+  padding: 0 0.55rem;
+  border-radius: var(--chip-radius);
+  background: none;
   color: rgba(235, 235, 245, 0.6);
+  height: var(--chip-height);
+  display: inline-flex;
+  align-items: center;
+  box-shadow: inset 0 0 0 1px var(--chip-rim);
 }
 .access-pill.warn {
-  background: rgba(245, 158, 11, 0.18);
   color: #f59e0b;
+  --chip-rim: var(--chip-rim-tone);
 }
 .access-pill.bad {
-  background: rgba(255, 69, 58, 0.15);
   color: #ff453a;
+  --chip-rim: var(--chip-rim-tone);
 }
 
 /* Actions are icons */
@@ -289,7 +293,7 @@
   color: #f59e0b;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .access-ibtn:active {
   transform: scale(0.97);
@@ -379,7 +383,7 @@
   flex-shrink: 0;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .access-doorbell-btn svg {
   font-size: 1.05rem;
@@ -412,7 +416,7 @@
   max-height: 85vh;
   background: #1c1c1e;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
+  border-radius: var(--radius-card);
   z-index: 9999;
   display: flex;
   flex-direction: column;
@@ -499,7 +503,7 @@
   cursor: pointer;
   min-width: 0;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .doorbell-tile:active {
   transform: scale(0.985);
@@ -595,18 +599,22 @@
   margin-left: auto;
   font-size: 0.62rem;
   font-weight: 700;
-  padding: 0.14rem 0.45rem;
-  border-radius: 999px;
-  background: #2c2c2e;
+  padding: 0 0.45rem;
+  border-radius: var(--chip-radius);
+  background: none;
   color: rgba(235, 235, 245, 0.6);
+  height: var(--chip-height);
+  display: inline-flex;
+  align-items: center;
+  box-shadow: inset 0 0 0 1px var(--chip-rim);
 }
 .doorbell-tag.opened {
-  background: rgba(52, 199, 89, 0.18);
   color: #34c759;
+  --chip-rim: var(--chip-rim-tone);
 }
 .doorbell-tag.missed {
-  background: rgba(251, 191, 36, 0.15);
   color: #fbbf24;
+  --chip-rim: var(--chip-rim-tone);
 }
 
 /* The sheet header reuses the tag next to the door word; there it should not fly right */
@@ -625,7 +633,7 @@
   max-height: 90vh;
   background: #1c1c1e;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
+  border-radius: var(--radius-card);
   z-index: 10001;
   display: flex;
   flex-direction: column;

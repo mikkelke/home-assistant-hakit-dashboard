@@ -44,6 +44,22 @@ html, body {
   --light-lamp: #ffc96b;
   --light-sun: #fff0c2;
   --radius-chip: 12px;
+  --radius-tile: 16px;
+  --radius-page: 20px;
+  --radius-card: 24px;
+  --chip-height: 30px;
+  --chip-radius: 15px;
+  --chip-rim: rgba(255, 255, 255, 0.14);
+  --chip-rim-tone: color-mix(in srgb, currentColor 40%, transparent);
+  --dur-press: 120ms;
+  --dur-sheet: 220ms;
+  --fs-caption: 11.5px;
+  --fs-label: 13px;
+  --fs-body: 15px;
+  /* Accent share over the surface, by role: color-mix(in srgb, <accent> var(--tint-chip), transparent). */
+  --tint-wash: 8%;
+  --tint-chip: 12%;
+  --tint-glyph: 16%;
   /* Relative price bands: each day's hours ranked into quarters. One palette on every chart. */
   --band-cheap: #34d399;
   --band-normal: #94a3b8;
@@ -129,7 +145,7 @@ body::-webkit-scrollbar,
   color: #e4e4e7 !important;
   font-size: 1.1rem !important;
   cursor: pointer !important;
-  transition: background 0.2s, transform 120ms var(--ease-out);
+  transition: background 0.2s, transform var(--dur-press) var(--ease-out);
   flex-shrink: 0 !important;
 }
 

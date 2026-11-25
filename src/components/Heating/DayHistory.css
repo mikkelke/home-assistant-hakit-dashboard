@@ -24,7 +24,7 @@
   -webkit-tap-highlight-color: transparent;
   transition:
     background 0.15s ease,
-    transform 120ms var(--ease-out);
+    transform var(--dur-press) var(--ease-out);
 }
 .heat-daynav-btn:active:not(:disabled) {
   background: var(--surface-chip);
@@ -37,7 +37,7 @@
 }
 .heat-daynav-label {
   text-align: center;
-  font-size: 15px;
+  font-size: var(--fs-body);
   font-weight: 600;
   color: var(--text-1);
 }

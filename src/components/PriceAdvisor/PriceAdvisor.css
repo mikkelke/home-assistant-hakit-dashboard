@@ -27,7 +27,7 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 
 .price-advisor-segment:active {

@@ -6,7 +6,7 @@
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
   background: #1c1c1e; /* iOS systemGray6 dark */
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 24px;
+  border-radius: var(--radius-card);
   padding: 1.25rem;
   overflow: hidden;
   color: rgba(255, 255, 255, 0.92);
@@ -195,7 +195,7 @@
   align-items: center;
   gap: 0.75rem;
   background: #2c2c2e;
-  border-radius: 16px;
+  border-radius: var(--radius-tile);
   padding: 0.6rem 0.7rem;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -236,14 +236,18 @@
   font-size: 0.66rem;
   font-weight: 700;
   text-transform: uppercase;
-  padding: 0.25rem 0.55rem;
-  border-radius: 999px;
-  background: #3a3a3c;
+  padding: 0 0.55rem;
+  border-radius: var(--chip-radius);
+  background: none;
   color: rgba(235, 235, 245, 0.6);
+  height: var(--chip-height);
+  display: inline-flex;
+  align-items: center;
+  box-shadow: inset 0 0 0 1px var(--chip-rim);
 }
 .quick-weather-wind-pill.is-alert {
-  background: rgba(245, 158, 11, 0.18);
   color: #f59e0b;
+  --chip-rim: var(--chip-rim-tone);
 }
 
 /* Week rows */
@@ -343,7 +347,7 @@
   text-align: left;
   cursor: pointer;
   min-width: 0;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 
 .quick-weather-fact:active {
@@ -371,7 +375,7 @@
   background: color-mix(in oklab, #2c2c2e, var(--ice-tint) calc(var(--frost) * 100%));
   transition:
     background-color 600ms var(--ease-out),
-    transform 120ms var(--ease-out);
+    transform var(--dur-press) var(--ease-out);
 }
 
 .quick-weather-fact--ice .quick-weather-fact-value {
@@ -412,7 +416,7 @@
   flex-direction: column;
   background: #1c1c1e;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 1rem;
+  border-radius: var(--radius-tile);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
   overflow: hidden;
 }
@@ -445,7 +449,7 @@
   color: #a1a1aa;
   cursor: pointer;
   font: inherit;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .quick-weather-card__day-popup-close:active {
   transform: scale(0.97);
@@ -656,9 +660,9 @@
   align-items: center;
   gap: 0.3rem;
   flex-shrink: 0;
-  padding: 0.25rem 0.6rem;
+  padding: 0 0.6rem;
   border: none;
-  border-radius: 14px;
+  border-radius: var(--chip-radius);
   background: #2c2c2e;
   color: rgba(235, 235, 245, 0.6);
   font-family: inherit;
@@ -667,8 +671,16 @@
   white-space: nowrap;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
+  position: relative;
+  height: var(--chip-height);
 }
+.quick-weather-hero-chip::before {
+  content: '';
+  position: absolute;
+  inset: -7px 0;
+}
+
 .quick-weather-hero-chip:active {
   transform: scale(0.97);
 }
@@ -729,7 +741,7 @@
   color: rgba(235, 235, 245, 0.6);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .quick-weather-compare-tab:active {
   transform: scale(0.97);

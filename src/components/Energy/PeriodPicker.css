@@ -28,7 +28,7 @@
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 120ms var(--ease-out);
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform var(--dur-press) var(--ease-out);
 }
 
 .period-picker-seg-btn:active {
@@ -68,7 +68,7 @@
   color: #e4e4e7;
   font-size: 1.2rem;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 120ms var(--ease-out);
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform var(--dur-press) var(--ease-out);
 }
 
 .period-picker-nav-btn:active:not(:disabled) {

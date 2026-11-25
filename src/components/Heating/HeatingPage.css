@@ -103,26 +103,27 @@
   align-items: center;
   gap: 5px;
   flex-shrink: 0;
-  height: 32px;
+  height: var(--chip-height);
   padding: 0 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
+  border-radius: var(--chip-radius);
+  background: none;
   color: #d4d4d8;
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  box-shadow: inset 0 0 0 1px var(--chip-rim);
 }
 .heat-pill svg {
   font-size: 16px;
 }
 .heat-pill.is-live {
-  background: rgba(52, 211, 153, 0.14);
   color: #34d399;
+  --chip-rim: var(--chip-rim-tone);
 }
 .heat-pill.is-alert {
-  background: rgba(251, 113, 133, 0.14);
   color: #fb7185;
+  --chip-rim: var(--chip-rim-tone);
 }
 .heating-page-content {
   flex: 1;
@@ -164,7 +165,7 @@
 .heat-card {
   background: var(--surface-card);
   border: 1px solid var(--line);
-  border-radius: 20px;
+  border-radius: var(--radius-page);
 }
 
 /* ---- Season advisor ---- */
@@ -269,7 +270,7 @@
 }
 .heat-scale-value {
   text-align: right;
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: #d4d4d8;
@@ -352,7 +353,7 @@
 .heat-zone-glyph.is-small {
   width: 28px;
   height: 28px;
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 .heat-zone-glyph.is-small::after {
   display: none;
@@ -372,11 +373,11 @@
   box-shadow: 0 0 12px color-mix(in srgb, var(--heat) 50%, transparent);
 }
 .heat-zone-letter {
-  font-size: 15px;
+  font-size: var(--fs-body);
   font-weight: 700;
 }
 .heat-zone-glyph.is-tiny .heat-zone-letter {
-  font-size: 11.5px;
+  font-size: var(--fs-caption);
 }
 .heat-zone-mid {
   display: flex;
@@ -385,7 +386,7 @@
   min-width: 0;
 }
 .heat-zone-name {
-  font-size: 15px;
+  font-size: var(--fs-body);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -399,15 +400,16 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  height: 22px;
+  height: var(--chip-height);
   padding: 0 8px;
-  border-radius: var(--radius-chip);
-  background: var(--surface-chip);
+  border-radius: var(--chip-radius);
+  background: none;
   color: var(--text-2);
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  box-shadow: inset 0 0 0 1px var(--chip-rim);
 }
 .heat-badge svg {
   font-size: 14px;
@@ -417,12 +419,12 @@
   opacity: 0.6;
 }
 .heat-badge.is-floor {
-  background: color-mix(in srgb, var(--heat) 14%, transparent);
   color: var(--heat);
+  --chip-rim: var(--chip-rim-tone);
 }
 .heat-badge.is-mode {
-  background: color-mix(in srgb, var(--mode, var(--text-2)) 12%, transparent);
   color: var(--mode, var(--text-2));
+  --chip-rim: var(--chip-rim-tone);
 }
 .heat-badge.is-off {
   color: var(--text-3);
@@ -477,7 +479,7 @@
   font-size: 1.5rem;
   cursor: pointer;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .heating-page-exit:active {
   transform: scale(0.97);
@@ -522,8 +524,8 @@
   gap: 6px;
 }
 .climate-chip.chip-sun {
-  background: rgba(253, 224, 71, 0.13);
   color: #fde047;
+  --chip-rim: var(--chip-rim-tone);
 }
 .heat-reasons {
   list-style: none;
@@ -583,7 +585,7 @@
   background: color-mix(in srgb, var(--mode, #5a5a62) 55%, #1c1c1e);
   border-right: 1px solid #1c1c1e;
   color: #fff;
-  font-size: 11.5px;
+  font-size: var(--fs-caption);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }

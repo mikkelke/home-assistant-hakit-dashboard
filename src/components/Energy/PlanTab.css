@@ -5,7 +5,7 @@
   gap: 10px;
   font-variant-numeric: tabular-nums;
   color: #e4e4e7;
-  font-size: 13px;
+  font-size: var(--fs-label);
   line-height: 1.4;
 }
 
@@ -53,11 +53,11 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 26px;
+  height: var(--chip-height);
   padding: 0 9px;
   border: 1px solid transparent;
-  border-radius: 13px;
-  background: rgba(255, 255, 255, 0.06);
+  border-radius: var(--chip-radius);
+  background: var(--chip-fill, rgba(255, 255, 255, 0.06));
   color: #e4e4e7;
   font: inherit;
   font-size: 12px;
@@ -66,12 +66,16 @@
 }
 
 .plan-chip svg {
-  font-size: 13px;
+  font-size: var(--fs-label);
   flex-shrink: 0;
 }
+span.plan-chip {
+  background: none;
+  border-color: var(--chip-rim);
+}
+
 
 .plan-chip--tiny {
-  height: 22px;
   padding: 0 7px;
   font-size: 11px;
 }
@@ -82,14 +86,16 @@
 
 .plan-chip--sky,
 .plan-chip--on {
-  background: rgba(56, 189, 248, 0.14);
-  border-color: rgba(56, 189, 248, 0.3);
+  border-color: var(--chip-rim);
   color: #38bdf8;
+  --chip-fill: rgba(56, 189, 248, 0.14);
+  --chip-rim: rgba(56, 189, 248, 0.3);
 }
 
 .plan-chip--band {
-  background: color-mix(in srgb, var(--band-color) 14%, transparent);
   color: var(--band-color);
+  --chip-fill: color-mix(in srgb, var(--band-color) var(--tint-chip), transparent);
+  --chip-rim: var(--chip-rim-tone);
 }
 
 .plan-chip--strip {
@@ -100,17 +106,13 @@
 /* Visible chip stays small; the hit area reaches 44 px. */
 .plan-chip--button {
   cursor: pointer;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 
 .plan-chip--button::before {
   content: '';
   position: absolute;
   inset: -9px -2px;
-}
-
-.plan-chip--tiny.plan-chip--button::before {
-  inset: -11px -2px;
 }
 
 .plan-chip--button:active {
@@ -193,7 +195,7 @@
   align-items: center;
   gap: 6px;
   padding: 4px 4px 0;
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 700;
 }
 
@@ -229,7 +231,7 @@
 
 button.plan-approw {
   cursor: pointer;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 
 button.plan-approw:active,
@@ -240,7 +242,7 @@ button.plan-approw:active,
 /* A Run later card opens on a tap anywhere; its own chip buttons sit above. */
 .plan-approw:has(> .plan-approw-hit) {
   position: relative;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 
 .plan-approw-hit {
@@ -316,7 +318,7 @@ button.plan-approw:active,
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: #a1a1aa;
 }
 
@@ -496,7 +498,7 @@ button.plan-approw:active,
   gap: 2px;
   padding: 10px 12px;
   border: 1.5px solid transparent;
-  border-radius: 16px;
+  border-radius: var(--radius-tile);
   background: rgba(255, 255, 255, 0.05);
 }
 

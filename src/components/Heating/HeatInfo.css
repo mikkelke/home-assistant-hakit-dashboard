@@ -19,7 +19,7 @@
   transition:
     background 0.15s ease,
     color 0.15s ease,
-    transform 120ms var(--ease-out);
+    transform var(--dur-press) var(--ease-out);
 }
 .heat-info-btn:active {
   transform: scale(0.97);
@@ -37,7 +37,7 @@
   list-style: none;
   margin: 10px 0;
   padding: 2px 12px;
-  border-radius: 16px;
+  border-radius: var(--radius-tile);
   background: var(--surface-chip);
 }
 .heat-legend-row {
@@ -63,7 +63,7 @@
   font-size: 18px;
 }
 .heat-legend-figure {
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;

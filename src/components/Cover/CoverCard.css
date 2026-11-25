@@ -6,7 +6,7 @@
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
   background: #1c1c1e; /* iOS systemGray6 dark */
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 24px;
+  border-radius: var(--radius-card);
   overflow: hidden;
   margin-bottom: 1rem;
   color: rgba(255, 255, 255, 0.92);
@@ -107,12 +107,12 @@
   align-items: center;
   gap: 0.3rem;
   padding: 0.75rem 0.5rem;
-  border-radius: 16px;
+  border-radius: var(--radius-tile);
   background: #2c2c2e; /* iOS systemGray5 dark */
   border: none;
   color: rgba(235, 235, 245, 0.6);
   cursor: pointer;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .cover-btn:active {
   transform: scale(0.97);
@@ -160,7 +160,7 @@
   background: #2c2c2e;
   color: rgba(235, 235, 245, 0.6);
   -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out), background 0.2s ease, color 0.2s ease;
+  transition: transform var(--dur-press) var(--ease-out), background 0.2s ease, color 0.2s ease;
 }
 .cover-quick-btn::before {
   content: '';

@@ -56,7 +56,7 @@
   width: 100%;
   min-width: 0;
   padding: 12px;
-  border-radius: 16px;
+  border-radius: var(--radius-tile);
   border: 1px solid rgba(255, 255, 255, 0.07);
   background: #141518;
   overflow: hidden;
@@ -69,7 +69,7 @@
   font: inherit;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 
 .room-card:active {
