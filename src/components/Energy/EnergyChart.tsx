@@ -110,6 +110,7 @@ export function EnergyChart({
     <svg
       className='energy-chart-svg'
       data-interactive='true'
+      data-tap
       viewBox={`0 0 ${W} ${H}`}
       role='img'
       aria-label={`${unit === 'kr' ? 'Kroner' : amountUnit} per ${period === 'day' ? 'hour' : period === 'year' ? 'month' : 'day'}${bars.some(bar => bar.level !== 'unknown') ? ', tinted by price band' : ''}. Tap a bar for details.`}

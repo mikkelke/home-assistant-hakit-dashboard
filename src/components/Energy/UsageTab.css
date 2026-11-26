@@ -20,7 +20,7 @@
   padding: 0.6rem 0.85rem;
   background: rgba(239, 68, 68, 0.08);
   border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   color: #e4e4e7;
 }
 
@@ -37,7 +37,7 @@
   padding: 0 0.85rem;
   background: rgba(56, 189, 248, 0.15);
   border: 1px solid rgba(56, 189, 248, 0.35);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   color: #38bdf8;
   font: inherit;
   font-size: var(--fs-label);

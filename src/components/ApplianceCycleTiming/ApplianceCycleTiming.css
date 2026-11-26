@@ -6,7 +6,7 @@
   flex-wrap: nowrap;
   align-items: baseline;
   gap: 0.35rem;
-  font-size: 0.88rem;
+  font-size: var(--fs-body);
   line-height: 1.35;
   color: #d4d4d8;
   font-variant-numeric: tabular-nums;
@@ -23,7 +23,7 @@
 
 .appliance-cycle-timing__emph {
   font-weight: 700;
-  font-size: 1rem;
+  font-size: var(--fs-body);
   color: #f4f4f5;
 }
 
@@ -39,7 +39,7 @@
 
 .appliance-cycle-timing__muted {
   color: #71717a;
-  font-size: 0.82rem;
+  font-size: var(--fs-label);
 }
 
 .appliance-cycle-timing__sep {

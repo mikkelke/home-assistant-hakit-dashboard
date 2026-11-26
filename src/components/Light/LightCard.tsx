@@ -497,7 +497,13 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
           {/* Quick dots (user 2026-07-31, same idea as the Access card's doors): every light
               is one tap from the collapsed row, each wearing its own current color. The dots
               also ARE the "n of m on" count, so the word is gone - lit dots say it better. */}
-          <span className='light-quick' onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} role='presentation'>
+          <span
+            className='light-quick'
+            onClick={e => e.stopPropagation()}
+            onKeyDown={e => e.stopPropagation()}
+            role='presentation'
+            data-tap='off'
+          >
             {availableLights.map(lightId => {
               const optimisticState = optimisticStates[lightId];
               const isOn =
@@ -749,7 +755,7 @@ function ColorPickerModal({
   ];
 
   return (
-    <div className='color-picker-overlay' onClick={requestClose}>
+    <div data-backdrop className='color-picker-overlay' onClick={requestClose}>
       <div
         className='color-picker-modal'
         role='dialog'

@@ -1,7 +1,7 @@
 .weather-card {
   background: rgba(18, 19, 22, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-chip);
   padding: 0.85rem;
 }
 
@@ -24,13 +24,13 @@
 }
 
 .weather-title {
-  font-size: 1rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   color: #e4e4e7;
 }
 
 .weather-sub {
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   color: #71717a;
 }
 
@@ -56,7 +56,7 @@
 .weather-item {
   background: rgba(24, 25, 28, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   padding: 0.6rem;
   display: flex;
   flex-direction: column;
@@ -65,7 +65,7 @@
 
 .weather-item-clickable {
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, transform var(--dur-press) var(--ease-out);
+  transition: background-color var(--dur-press) ease, border-color var(--dur-press) ease, transform var(--dur-press) var(--ease-out);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -87,11 +87,11 @@
   }
   
   .weather-item .value {
-    font-size: 1.1rem;
+    font-size: var(--fs-title);
   }
   
   .weather-item .label {
-    font-size: 0.75rem;
+    font-size: var(--fs-caption);
   }
   
   .weather-item .label-row svg {
@@ -112,18 +112,18 @@
 }
 
 .weather-item .label {
-  font-size: 0.7rem;
+  font-size: var(--fs-caption);
   color: #71717a;
 }
 
 .weather-item .value {
-  font-size: 0.95rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   color: #e4e4e7;
 }
 
 .weather-item .value.subtle {
-  font-size: 0.8rem;
+  font-size: var(--fs-label);
   color: #a1a1aa;
 }
 
@@ -140,7 +140,7 @@
   width: 100%;
   transform: scaleX(0);
   transform-origin: left;
-  transition: transform 0.2s;
+  transition: transform var(--dur-sheet);
 }
 
 .metric-fill.temp {
@@ -250,7 +250,7 @@
 }
 
 .compass-direction {
-  font-size: 1.1rem;
+  font-size: var(--fs-title);
   font-weight: 600;
   color: #e4e4e7;
   min-width: 1.5rem;
@@ -308,7 +308,7 @@
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  transition: transform 0.3s ease;
+  transition: transform var(--dur-sheet) ease;
 }
 
 .compass-arrow-inline svg {
@@ -330,7 +330,7 @@
   width: 100%;
   transform: scaleX(0);
   transform-origin: left;
-  transition: transform 0.2s;
+  transition: transform var(--dur-sheet);
 }
 
 .bar-fill.uv {

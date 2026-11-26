@@ -99,7 +99,7 @@ function ItemRow({ item, editing, onToggle, onEdit, onSave, onDelete, onCancel }
         <ItemEditor summary={item.summary} onSave={onSave} onDelete={onDelete} onCancel={onCancel} />
       ) : (
         <>
-          <div className={`list-item ${done ? 'is-done' : ''}`} onClick={tapText}>
+          <div className={`list-item ${done ? 'is-done' : ''}`} data-tap onClick={tapText}>
             <button
               type='button'
               role='checkbox'

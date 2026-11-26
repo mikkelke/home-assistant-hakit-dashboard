@@ -92,7 +92,7 @@ export function HoldButton({
   if (kind === 'stop') {
     return (
       <span className={`hold-round ${state} ${className}`}>
-        <button type='button' className='hold-round-btn' disabled={disabled} aria-label={label} {...press}>
+        <button type='button' className='hold-round-btn' disabled={disabled} aria-label={label} data-tap='off' {...press}>
           <svg className='hold-ring' viewBox='0 0 92 92' aria-hidden='true'>
             <circle cx='46' cy='46' r='43' className='hold-ring-track' />
             <circle cx='46' cy='46' r='43' className='hold-ring-fill' />
@@ -147,6 +147,7 @@ export function HoldButton({
       disabled={disabled}
       aria-disabled={pending || undefined}
       aria-label={failed ? failed.label : pending ? pendingLabel : label}
+      data-tap='off'
       {...press}
     >
       <span className='hold-prog' aria-hidden='true' />

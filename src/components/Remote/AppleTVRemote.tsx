@@ -131,7 +131,7 @@ export function AppleTVRemote({
   }, []);
 
   return (
-    <div className='apple-remote-overlay' onClick={requestClose}>
+    <div data-backdrop className='apple-remote-overlay' onClick={requestClose}>
       <div
         className='apple-remote-container'
         role='dialog'

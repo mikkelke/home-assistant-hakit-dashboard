@@ -12,20 +12,20 @@
   border-radius: 50%;
   background: transparent;
   color: var(--text-2);
-  font-size: 22px;
+  font-size: var(--fs-heading);
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   transition:
-    background 0.15s ease,
-    color 0.15s ease,
+    background var(--dur-press) ease,
+    color var(--dur-press) ease,
     transform var(--dur-press) var(--ease-out);
 }
 .heat-info-btn:active {
   transform: scale(0.97);
 }
 .heat-info-btn[aria-expanded='true'] {
-  background: color-mix(in srgb, var(--accent-sky) 16%, transparent);
+  background: color-mix(in srgb, var(--accent-sky) var(--tint-glyph), transparent);
   color: var(--accent-sky);
 }
 .heat-info-btn:focus-visible {
@@ -47,7 +47,7 @@
   align-items: center;
   min-height: 40px;
   padding: 6px 0;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   line-height: 1.35;
   color: var(--text-2);
 }
@@ -60,7 +60,7 @@
   justify-content: center;
   gap: 4px;
   color: var(--text-1);
-  font-size: 18px;
+  font-size: var(--fs-title);
 }
 .heat-legend-figure {
   font-size: var(--fs-label);

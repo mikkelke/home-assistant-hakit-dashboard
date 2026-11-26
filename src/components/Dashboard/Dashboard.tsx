@@ -1240,7 +1240,7 @@ export function Dashboard() {
 
         {selectedRoom && (
           <>
-            {isMobile && <div className='overlay' onClick={handleCloseRoom} />}
+            {isMobile && <div data-backdrop className='overlay' onClick={handleCloseRoom} />}
             {/* No fallback surface: the panel's own slide-up is the opening animation, and a
                 stand-in rectangle underneath it would read as a double flash. Warmed on idle, so
                 in practice the chunk is already there when this mounts. */}

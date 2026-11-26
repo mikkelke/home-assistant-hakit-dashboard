@@ -34,7 +34,7 @@ export default function RoomMapModal({
   const room = formatRoberRoomName(map.room) || map.room || 'Unknown room';
   return createPortal(
     <>
-      <div className='vacuum-map-overlay' onClick={requestClose} />
+      <div data-backdrop className='vacuum-map-overlay' onClick={requestClose} />
       <div
         className={maps.length > 1 ? 'vacuum-map-modal has-steps' : 'vacuum-map-modal'}
         role='dialog'

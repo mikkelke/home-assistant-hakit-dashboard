@@ -31,10 +31,10 @@
   padding: 0.75rem;
   background: rgba(24, 25, 28, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-chip);
   color: #e4e4e7;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, color 0.2s, transform var(--dur-press) var(--ease-out), box-shadow 0.2s, opacity 0.2s;
+  transition: background var(--dur-sheet), border-color var(--dur-sheet), color var(--dur-sheet), transform var(--dur-press) var(--ease-out), box-shadow var(--dur-sheet), opacity var(--dur-sheet);
   width: 48px;
   height: 48px;
   min-width: 48px;
@@ -70,7 +70,7 @@
   right: -4px;
   background: #22c55e;
   color: #0d0f13;
-  font-size: 0.65rem;
+  font-size: var(--fs-caption);
   font-weight: 700;
   padding: 0.15rem 0.35rem;
   border-radius: 0.3rem;
@@ -198,7 +198,7 @@
 .qa-title {
   flex: 1;
   min-width: 0;
-  font-size: 1.05rem;
+  font-size: var(--fs-title);
   font-weight: 600;
   color: rgba(255, 255, 255, 0.92);
 }
@@ -225,7 +225,7 @@
   background: var(--surface-chip);
   color: var(--text-2);
   cursor: pointer;
-  transition: background 0.2s, color 0.2s, opacity 0.2s, transform var(--dur-press) var(--ease-out);
+  transition: background var(--dur-sheet), color var(--dur-sheet), opacity var(--dur-sheet), transform var(--dur-press) var(--ease-out);
 }
 
 .qa-add-speaker-icon-btn::before,
@@ -304,11 +304,11 @@
   height: 44px;
   background: rgba(24, 25, 28, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-chip);
   color: #a1a1aa;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.2s, border-color 0.2s, color 0.2s, transform var(--dur-press) var(--ease-out);
+  transition: background var(--dur-sheet), border-color var(--dur-sheet), color var(--dur-sheet), transform var(--dur-press) var(--ease-out);
 }
 
 .qa-media-tab:active {
@@ -375,7 +375,7 @@
   gap: 0.45rem;
   min-width: 0;
   color: #e4e4e7;
-  font-size: 0.82rem;
+  font-size: var(--fs-label);
   font-weight: 600;
 }
 
@@ -396,7 +396,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.7rem;
+  font-size: var(--fs-caption);
   font-weight: 600;
   padding: 0 0.55rem;
   border-radius: var(--chip-radius);
@@ -415,7 +415,7 @@
 .qa-media-group-badge {
   background: none;
   color: #60a5fa;
-  font-size: 0.7rem;
+  font-size: var(--fs-caption);
   font-weight: 600;
   padding: 0 0.4rem;
   border-radius: var(--chip-radius);
@@ -442,11 +442,11 @@
   padding: 0.6rem 0.75rem;
   background: transparent;
   border: none;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   color: #a1a1aa;
-  font-size: 0.85rem;
+  font-size: var(--fs-label);
   cursor: pointer;
-  transition: background 0.2s, color 0.2s, opacity 0.2s;
+  transition: background var(--dur-sheet), color var(--dur-sheet), opacity var(--dur-sheet);
   text-align: left;
   margin: 0;
 }
@@ -494,11 +494,11 @@
   padding: 0.5rem 0.75rem;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 0.4rem;
+  border-radius: var(--radius-sm);
   color: #e4e4e7;
-  font-size: 0.85rem;
+  font-size: var(--fs-label);
   cursor: pointer;
-  transition: background 0.2s, transform var(--dur-press) var(--ease-out);
+  transition: background var(--dur-sheet), transform var(--dur-press) var(--ease-out);
   margin-bottom: 0.75rem;
 }
 
@@ -934,7 +934,7 @@
   color: #f59e0b;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform var(--dur-press) var(--ease-out), background 0.15s ease, color 0.15s ease;
+  transition: transform var(--dur-press) var(--ease-out), background var(--dur-press) ease, color var(--dur-press) ease;
 }
 .qa-door:active {
   transform: scale(0.88);
@@ -969,7 +969,7 @@
   background: #3a3a3c;
   border: 2px solid #0f1117;
   color: rgba(235, 235, 245, 0.9);
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -1007,7 +1007,7 @@
   left: 0;
   width: min(280px, calc(100vw - 32px));
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-chip);
   background: #2c2c2e;
   color: #ff9f0a;
   font-size: var(--fs-label);

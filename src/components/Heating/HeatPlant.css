@@ -12,7 +12,7 @@
   text-align: left;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s ease;
+  transition: background var(--dur-press) ease;
 }
 .heat-plant-strip:active {
   background: color-mix(in srgb, var(--surface-card) 94%, var(--text-1));
@@ -36,14 +36,14 @@
 }
 .heat-plant-sep {
   flex-shrink: 0;
-  font-size: 14px;
+  font-size: var(--fs-label);
   color: var(--text-3);
   opacity: 0.6;
 }
 .heat-plant-flow {
   flex-shrink: 0;
   margin-left: auto;
-  font-size: 18px;
+  font-size: var(--fs-title);
   color: var(--text-3);
 }
 .heat-plant-flow.is-flowing {
@@ -52,7 +52,7 @@
 .heat-plant-more {
   flex-shrink: 0;
   margin-left: -2px;
-  font-size: 20px;
+  font-size: var(--fs-heading);
   color: var(--text-3);
 }
 
@@ -76,7 +76,7 @@
   flex-direction: column;
   gap: 2px;
   padding: 9px 10px;
-  border-radius: 14px;
+  border-radius: var(--radius-tile);
   background: color-mix(in srgb, var(--surface-card) 70%, transparent);
 }
 .heat-plant-node-name {
@@ -88,7 +88,7 @@
   color: var(--text-3);
 }
 .heat-plant-node b {
-  font-size: 20px;
+  font-size: var(--fs-heading);
   font-weight: 700;
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
@@ -101,7 +101,7 @@
 }
 .heat-plant-link {
   justify-self: center;
-  font-size: 18px;
+  font-size: var(--fs-title);
   color: var(--text-3);
 }
 .heat-plant-deltas {
@@ -120,7 +120,7 @@
   border-radius: var(--chip-radius);
   background: none;
   color: var(--text-2);
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -168,7 +168,7 @@
   text-align: left;
 }
 .heat-plant-loops tbody th {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 700;
   color: var(--text-3);
 }

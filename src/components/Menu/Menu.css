@@ -7,7 +7,7 @@
   bottom: 0;
   background: rgba(0, 0, 0, 0.6);
   z-index: 2100;
-  animation: fadeIn 0.2s ease;
+  animation: fadeIn var(--dur-sheet) ease;
 }
 
 @keyframes fadeIn {
@@ -31,7 +31,7 @@
   border-right: 1px solid rgba(255, 255, 255, 0.06);
   z-index: 2101;
   transform: translateX(-100%);
-  transition: transform 0.3s ease;
+  transition: transform var(--dur-sheet) ease;
   display: flex;
   flex-direction: column;
   box-shadow: 10px 0 30px rgba(0, 0, 0, 0.45);
@@ -66,8 +66,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.375rem;
-  transition: background 0.2s ease, transform var(--dur-press) var(--ease-out);
+  border-radius: var(--radius-sm);
+  transition: background var(--dur-sheet) ease, transform var(--dur-press) var(--ease-out);
 }
 
 .menu-close-btn:active {
@@ -100,7 +100,7 @@
 
 .menu-version {
   display: block;
-  font-size: 0.68rem;
+  font-size: var(--fs-caption);
   line-height: 1;
   letter-spacing: 0.04em;
   color: rgba(161, 161, 170, 0.55);
@@ -118,10 +118,10 @@
   border: 1px solid rgba(255, 255, 255, 0.06);
   color: #e4e4e7;
   cursor: pointer;
-  border-radius: 0.5rem;
-  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  border-radius: var(--radius-sm);
+  transition: background var(--dur-sheet) ease, color var(--dur-sheet) ease, border-color var(--dur-sheet) ease;
   text-align: left;
-  font-size: 1rem;
+  font-size: var(--fs-body);
   font-family: inherit;
   text-decoration: none;
 }
@@ -196,7 +196,7 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
   color: #a1a1aa;
-  font-size: 0.72rem;
+  font-size: var(--fs-caption);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -221,7 +221,7 @@
   padding: 0.55rem 0.7rem;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.65rem;
+  border-radius: var(--radius-chip);
 }
 
 .menu-battery-row.low {
@@ -236,7 +236,7 @@
 }
 
 .menu-battery-name {
-  font-size: 0.82rem;
+  font-size: var(--fs-label);
   color: #e4e4e7;
   min-width: 0;
   white-space: nowrap;
@@ -257,7 +257,7 @@
 }
 
 .menu-battery-value {
-  font-size: 0.78rem;
+  font-size: var(--fs-label);
   font-weight: 600;
   text-align: right;
   min-width: 2.6rem;
@@ -308,7 +308,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.8rem;
+  border-radius: var(--radius-chip);
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.06);
   color: #a1a1aa;
@@ -322,14 +322,14 @@
 
 .battery-overview-header h2 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: var(--fs-heading);
   font-weight: 600;
   color: #f4f4f5;
 }
 
 .battery-overview-header p {
   margin: 0.2rem 0 0;
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   color: #a1a1aa;
 }
 
@@ -351,7 +351,7 @@
 }
 
 .battery-overview-count {
-  font-size: 0.82rem;
+  font-size: var(--fs-label);
   color: #a1a1aa;
 }
 

@@ -66,7 +66,7 @@
 .sonos-title {
   flex: 1;
   min-width: 0;
-  font-size: 1.05rem;
+  font-size: var(--fs-title);
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -81,7 +81,7 @@
 }
 
 .sonos-state {
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -112,7 +112,7 @@
 .sonos-art {
   width: 56px;
   height: 56px;
-  border-radius: 12px;
+  border-radius: var(--radius-chip);
   flex-shrink: 0;
   overflow: hidden;
   background: #2c2c2e;
@@ -141,7 +141,7 @@
 }
 
 .sonos-track-title {
-  font-size: 0.95rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -149,7 +149,7 @@
 }
 
 .sonos-track-sub {
-  font-size: 0.8rem;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.6);
   white-space: nowrap;
   overflow: hidden;
@@ -161,7 +161,7 @@
   align-items: center;
   gap: 0.25rem;
   margin-top: 0.15rem;
-  font-size: 0.68rem;
+  font-size: var(--fs-caption);
   color: rgba(235, 235, 245, 0.3);
   white-space: nowrap;
   overflow: hidden;
@@ -325,7 +325,7 @@
   display: flex;
   justify-content: space-between;
   margin-top: 0.25rem;
-  font-size: 0.66rem;
+  font-size: var(--fs-caption);
   color: rgba(235, 235, 245, 0.3);
   font-variant-numeric: tabular-nums;
 }
@@ -367,7 +367,7 @@
   flex-shrink: 0;
   min-width: 2.6rem;
   text-align: right;
-  font-size: 0.85rem;
+  font-size: var(--fs-label);
   font-variant-numeric: tabular-nums;
   color: rgba(235, 235, 245, 0.6);
 }
@@ -423,7 +423,7 @@
 .sonos-mark-logo {
   width: 26px;
   height: 26px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   object-fit: cover;
 }
 .sonos-mark--spotify {
@@ -440,7 +440,7 @@
   min-width: 15px;
   height: 15px;
   padding: 0 3px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: #22c55e;
   color: #06230f;
   font-size: 0.6rem;
@@ -560,7 +560,7 @@
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
 }
 
 .sonos-sp-name {
@@ -572,7 +572,7 @@
   border: none;
   padding: 0;
   font-family: inherit;
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   color: rgba(255, 255, 255, 0.92);
   text-align: left;
@@ -591,7 +591,7 @@
 
 .sonos-sp-crown {
   flex-shrink: 0;
-  font-size: 0.8rem;
+  font-size: var(--fs-label);
   color: #22c55e;
 }
 
@@ -602,7 +602,7 @@
 
 .sonos-sp-sub {
   margin-left: auto;
-  font-size: 0.8rem;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.3);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -663,7 +663,7 @@
 
 .sonos-groupvol-label {
   flex: 1;
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   color: rgba(235, 235, 245, 0.6);
 }
@@ -742,7 +742,7 @@
   justify-content: center;
   width: 48px;
   height: 48px;
-  border-radius: 12px;
+  border-radius: var(--radius-chip);
   border: none;
   background: #2c2c2e;
   color: rgba(235, 235, 245, 0.6);
@@ -793,7 +793,7 @@
   border: none;
   background: #2c2c2e;
   font-family: inherit;
-  font-size: 0.72rem;
+  font-size: var(--fs-caption);
   font-weight: 600;
   color: rgba(235, 235, 245, 0.6);
   cursor: pointer;
@@ -843,7 +843,7 @@
   background: none;
   border: none;
   font-family: inherit;
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   color: rgba(255, 255, 255, 0.92);
   text-align: left;
   cursor: pointer;
@@ -853,7 +853,7 @@
 .sonos-row-cover {
   width: 34px;
   height: 34px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
   object-fit: cover;
   background: #2c2c2e;
@@ -912,7 +912,7 @@
 }
 
 .sonos-row-sub {
-  font-size: 0.7rem;
+  font-size: var(--fs-caption);
   color: rgba(235, 235, 245, 0.3);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -946,13 +946,13 @@
 }
 .sonos-row-done {
   flex-shrink: 0;
-  font-size: 1.1rem;
+  font-size: var(--fs-title);
   color: rgba(235, 235, 245, 0.3);
 }
 
 .sonos-row-time {
   flex-shrink: 0;
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   font-variant-numeric: tabular-nums;
   color: rgba(235, 235, 245, 0.3);
 }
@@ -980,7 +980,7 @@
   border-radius: 999px;
   background: rgba(34, 197, 94, 0.14);
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: var(--fs-label);
   font-weight: 600;
   color: #22c55e;
   cursor: pointer;
@@ -1014,7 +1014,7 @@
 .sonos-note {
   padding: 1rem 0;
   text-align: center;
-  font-size: 0.875rem;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.6);
 }
 .sonos-note svg {
@@ -1060,12 +1060,12 @@
 }
 
 .sonos-keep-name {
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   color: rgba(255, 255, 255, 0.92);
 }
 
 .sonos-keep-sub {
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   color: rgba(235, 235, 245, 0.3);
 }
 
@@ -1077,7 +1077,7 @@
   border-radius: 13px;
   background: #3a3a3c;
   flex-shrink: 0;
-  transition: background 0.15s ease;
+  transition: background var(--dur-press) ease;
 }
 .sonos-keep-knob.on {
   background: #22c55e;
@@ -1091,7 +1091,7 @@
   height: 20px;
   border-radius: 50%;
   background: #ffffff;
-  transition: left 0.15s ease;
+  transition: left var(--dur-press) ease;
 }
 .sonos-keep-knob.on::after {
   left: 19px;
@@ -1120,7 +1120,7 @@
   background: #2c2c2e;
   color: rgba(235, 235, 245, 0.6);
   -webkit-tap-highlight-color: transparent;
-  transition: transform var(--dur-press) var(--ease-out), background 0.2s ease, color 0.2s ease;
+  transition: transform var(--dur-press) var(--ease-out), background var(--dur-sheet) ease, color var(--dur-sheet) ease;
 }
 .sonos-quick-btn::before {
   content: '';

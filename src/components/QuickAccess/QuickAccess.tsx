@@ -531,7 +531,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
 
   return (
     <>
-      {doorsOpen && <div className='qa-doors-scrim' onClick={requestCloseQuickAccess} />}
+      {doorsOpen && <div data-backdrop className='qa-doors-scrim' onClick={requestCloseQuickAccess} />}
       <div className={`quick-access${openModal ? ' is-covered' : ''}`}>
         {doorsOpen && (
           <div className='qa-doors' role='group' aria-label='Doors'>
@@ -621,6 +621,7 @@ export function QuickAccess({ hassUrl, callService, onOpenNow }: QuickAccessProp
 
       {openModal && (
         <div
+          data-backdrop
           className='qa-overlay'
           onClick={e => {
             e.stopPropagation();

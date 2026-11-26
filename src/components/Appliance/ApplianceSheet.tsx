@@ -79,7 +79,7 @@ export function ApplianceSheet({
   };
 
   return createPortal(
-    <div ref={overlayRef} className={`appliance-modal-overlay ${accentClassName}`} onClick={requestClose}>
+    <div data-backdrop ref={overlayRef} className={`appliance-modal-overlay ${accentClassName}`} onClick={requestClose}>
       <div
         ref={sheetRef}
         className='appliance-sheet'

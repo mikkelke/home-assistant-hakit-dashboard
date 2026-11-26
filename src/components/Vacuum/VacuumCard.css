@@ -47,7 +47,7 @@
 
 .rober-title {
   flex: 1;
-  font-size: 1.05rem;
+  font-size: var(--fs-title);
   font-weight: 600;
 }
 
@@ -59,7 +59,7 @@
 }
 
 .rober-state {
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -102,7 +102,7 @@
 
 .rober-hero-sub {
   margin-top: 0.3rem;
-  font-size: 0.82rem;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.3);
 }
 
@@ -145,7 +145,7 @@
   position: relative;
   height: 0.85rem;
   margin-top: 0.35rem;
-  font-size: 0.66rem;
+  font-size: var(--fs-caption);
   color: rgba(235, 235, 245, 0.3);
 }
 
@@ -174,7 +174,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-label);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
@@ -188,7 +188,7 @@
   height: 24px;
   border-radius: 12px;
   background: #3a3a3c; /* iOS systemGray4 dark */
-  transition: background 0.2s;
+  transition: background var(--dur-sheet);
 }
 .rober-knob.on {
   background: rgba(52, 211, 153, 0.55);
@@ -202,7 +202,7 @@
   height: 18px;
   border-radius: 50%;
   background: #fff;
-  transition: left 0.2s;
+  transition: left var(--dur-sheet);
 }
 .rober-knob.on::after {
   left: 19px;
@@ -286,7 +286,7 @@
 .rober-room-tile {
   display: flex;
   flex-direction: column;
-  border-radius: 14px;
+  border-radius: var(--radius-tile);
   background: #2c2c2e;
   border: none;
   padding: 0.5rem;
@@ -306,13 +306,13 @@
   width: 100%;
   height: 72px;
   object-fit: cover;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: #1c1c1e;
 }
 
 .rober-room-name {
   margin-top: 0.35rem;
-  font-size: 0.68rem;
+  font-size: var(--fs-caption);
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -328,7 +328,7 @@
   width: 100%;
   padding: 1rem 0;
   text-align: center;
-  font-size: 0.875rem;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.6);
 }
 .rober-rooms-note.error {
@@ -353,7 +353,7 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   min-height: 2.1rem;
 }
 
@@ -377,12 +377,12 @@
 
 .rober-request-title {
   flex: 1;
-  font-size: 1.05rem;
+  font-size: var(--fs-title);
   font-weight: 600;
 }
 
 .rober-request-state {
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -477,13 +477,13 @@
 }
 
 .vacuum-map-modal-title .room {
-  font-size: 1rem;
+  font-size: var(--fs-body);
   color: #e4e4e7;
   font-weight: 500;
 }
 
 .vacuum-map-modal-title .date {
-  font-size: 0.85rem;
+  font-size: var(--fs-label);
   color: #9ca3af;
 }
 
@@ -495,7 +495,7 @@
   height: 2rem;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   color: #e4e4e7;
   cursor: pointer;
 }
@@ -525,7 +525,7 @@
   max-width: 100%;
   max-height: calc(90vh - 120px);
   object-fit: contain;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
 }
 
 /* Battery graph modal */
@@ -545,14 +545,14 @@
 
 .vacuum-battery-graph-range-btn {
   padding: 0.25rem 0.55rem;
-  font-size: 0.72rem;
+  font-size: var(--fs-caption);
   font-family: inherit;
   color: #71717a;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 0.3rem;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s, transform var(--dur-press) var(--ease-out);
+  transition: background var(--dur-press), color var(--dur-press), border-color var(--dur-press), transform var(--dur-press) var(--ease-out);
   white-space: nowrap;
 }
 
@@ -585,7 +585,7 @@
 .vacuum-battery-graph-error,
 .vacuum-battery-graph-empty {
   color: #9ca3af;
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   text-align: center;
 }
 
@@ -595,7 +595,7 @@
   align-items: center;
   gap: 0.75rem;
   color: #9ca3af;
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   text-align: center;
 }
 
@@ -630,7 +630,7 @@
 
 .vacuum-battery-graph-label {
   fill: #9ca3af;
-  font-size: 11px;
+  font-size: var(--fs-caption);
 }
 
 .vacuum-battery-graph-axis {

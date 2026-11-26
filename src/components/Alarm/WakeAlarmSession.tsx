@@ -182,6 +182,7 @@ export function WakeAlarmSession({ entities, callService }: Props) {
 
   return createPortal(
     <div
+      data-backdrop
       className='wake-alarm-overlay'
       onClick={event => {
         if (event.target === event.currentTarget) close();

@@ -7,9 +7,10 @@
   --sky-cloud: #2c3a66;
   --sky-cloud-opacity: 0.7;
   position: relative;
+  container-type: inline-size;
   flex-shrink: 0;
   height: 152px;
-  border-radius: 22px;
+  border-radius: var(--radius-card);
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.06);
   color: #fff;
@@ -158,22 +159,23 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 32px;
+  font-size: clamp(32px, 9.04cqi, 43px);
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   line-height: 1;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
 .sky-temp-icon {
-  width: 26px;
-  height: 26px;
+  width: 0.8125em;
+  height: 0.8125em;
   flex-shrink: 0;
 }
 
 .sky-temp-value small {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 0.41em;
+  font-weight: 300;
   margin-left: 2px;
   color: rgba(255, 255, 255, 0.75);
 }
@@ -293,7 +295,7 @@ span.sky-av-slot {
 .sky-av--strip .sky-av-face {
   width: 30px;
   height: 30px;
-  font-size: 12px;
+  font-size: var(--fs-caption);
 }
 
 .sky-av.is-away .sky-av-face {
@@ -412,7 +414,7 @@ span.sky-av-slot {
   gap: 6px;
   margin-right: auto;
   padding-left: 8px;
-  font-size: 17px;
+  font-size: var(--fs-title);
   font-weight: 700;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -433,7 +435,7 @@ span.sky-av-slot {
   height: 44px;
   flex-shrink: 0;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-chip);
   background: rgba(255, 255, 255, 0.09);
   color: #e4e4e7;
   display: flex;
@@ -474,8 +476,8 @@ span.sky-av-slot {
   pointer-events: none;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   transition:
-    opacity 200ms var(--ease-out),
-    transform 200ms var(--ease-out);
+    opacity var(--dur-sheet) var(--ease-out),
+    transform var(--dur-sheet) var(--ease-out);
 }
 
 .sky-strip--sticky.is-shown {

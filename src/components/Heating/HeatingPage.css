@@ -95,7 +95,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 1.25rem;
+  font-size: var(--fs-heading);
   font-weight: 600;
 }
 .heat-pill {
@@ -160,7 +160,7 @@
   padding: 24px 8px;
   text-align: center;
   color: rgba(235, 235, 245, 0.6);
-  font-size: 14px;
+  font-size: var(--fs-label);
 }
 .heat-card {
   background: var(--surface-card);
@@ -210,12 +210,12 @@
 .heat-advisor-title {
   flex: 1;
   min-width: 0;
-  font-size: 16px;
+  font-size: var(--fs-body);
   font-weight: 600;
 }
 .heat-advisor-text {
   margin: 4px 0 0;
-  font-size: 14px;
+  font-size: var(--fs-label);
   line-height: 1.4;
   color: #b3b3bd;
 }
@@ -303,7 +303,7 @@
   text-align: left;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s ease;
+  transition: background var(--dur-press) ease;
 }
 .heat-zone-row + .heat-zone-row {
   border-top: 1px solid var(--line);
@@ -405,7 +405,7 @@
   border-radius: var(--chip-radius);
   background: none;
   color: var(--text-2);
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -440,14 +440,14 @@
   font-variant-numeric: tabular-nums;
 }
 .heat-zone-air {
-  font-size: 22px;
+  font-size: var(--fs-heading);
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.1;
   color: var(--tone, var(--text-1));
 }
 .heat-zone-gap {
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   font-weight: 600;
   color: var(--text-3);
 }
@@ -497,11 +497,11 @@
   align-items: center;
   gap: 2px;
   padding: 8px 2px;
-  border-radius: 14px;
+  border-radius: var(--radius-tile);
   background: #2c2c2e;
 }
 .heat-tile-value {
-  font-size: 17px;
+  font-size: var(--fs-title);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -534,7 +534,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 14px;
+  font-size: var(--fs-label);
   line-height: 1.4;
   color: #b3b3bd;
 }
@@ -546,7 +546,7 @@
 }
 .heat-base-label {
   display: inline-flex;
-  font-size: 16px;
+  font-size: var(--fs-body);
 }
 
 .heat-day {
@@ -571,7 +571,7 @@
 .heat-day-bar {
   position: relative;
   height: 26px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: #26262b;
 }
 .heat-day-block {
@@ -590,7 +590,7 @@
   font-variant-numeric: tabular-nums;
 }
 .heat-day-block:first-child {
-  border-radius: 6px 0 0 6px;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
 }
 .heat-day-now {
   position: absolute;
@@ -608,7 +608,7 @@
   margin-top: 4px;
   border-radius: 4px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--text-1) 7%, transparent);
+  background: color-mix(in srgb, var(--text-1) var(--tint-wash), transparent);
 }
 .heat-day-call {
   position: absolute;
@@ -626,7 +626,7 @@
   position: absolute;
   top: 0;
   transform: translateX(-50%);
-  font-size: 10.5px;
+  font-size: var(--fs-caption);
   color: rgba(235, 235, 245, 0.45);
   font-variant-numeric: tabular-nums;
 }

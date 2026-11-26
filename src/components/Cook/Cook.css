@@ -264,7 +264,7 @@ span.cook-chip {
 }
 .cook-needle-value {
   fill: var(--text-1);
-  font-size: 14px;
+  font-size: var(--fs-label);
   font-weight: 600;
 }
 .cook-needle-heading {
@@ -292,7 +292,7 @@ span.cook-chip {
 }
 .cook-bath-lane > strong {
   color: var(--text-1);
-  font-size: 21px;
+  font-size: var(--fs-heading);
   white-space: nowrap;
 }
 .cook-bath-lane .cook-progress {
@@ -315,11 +315,11 @@ span.cook-chip {
   min-height: 44px;
   padding: 10px 14px;
   border: 0;
-  border-radius: 14px;
+  border-radius: var(--radius-tile);
   color: var(--text-1);
   background: var(--cook-chip);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--fs-label);
   font-weight: 600;
   cursor: pointer;
 }
@@ -331,11 +331,11 @@ span.cook-chip {
   color: #2b1d00;
 }
 .cook-button.is-sky {
-  background: color-mix(in srgb, var(--accent-sky) 16%, transparent);
+  background: color-mix(in srgb, var(--accent-sky) var(--tint-glyph), transparent);
   color: #bae6fd;
 }
 .cook-button.is-alarm {
-  background: color-mix(in srgb, var(--cook-alarm) 15%, transparent);
+  background: color-mix(in srgb, var(--cook-alarm) var(--tint-glyph), transparent);
   color: #ffaba5;
 }
 .cook-open-stage {
@@ -396,7 +396,7 @@ span.cook-chip {
 .cook-stepper {
   display: flex;
   align-items: center;
-  border-radius: 12px;
+  border-radius: var(--radius-chip);
   background: var(--surface-chip);
 }
 .cook-stepper button {
@@ -405,17 +405,17 @@ span.cook-chip {
   width: 44px;
   height: 44px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-chip);
   background: transparent;
   color: var(--text-1);
-  font-size: 20px;
+  font-size: var(--fs-heading);
   cursor: pointer;
 }
 .cook-stepper output {
   min-width: 60px;
   padding: 0 5px;
   text-align: center;
-  font-size: 18px;
+  font-size: var(--fs-title);
   font-weight: 600;
 }
 .cook-error,
@@ -476,7 +476,7 @@ span.cook-chip {
   height: 46px;
   padding: 0 12px 0 8px;
   border: 0;
-  border-radius: 14px;
+  border-radius: var(--radius-tile);
   background: var(--surface-chip);
   color: var(--text-1);
   font: inherit;

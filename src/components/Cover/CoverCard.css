@@ -44,7 +44,7 @@
 
 .cover-title {
   flex: 1;
-  font-size: 1.05rem;
+  font-size: var(--fs-title);
   font-weight: 600;
 }
 
@@ -56,7 +56,7 @@
 }
 
 .cover-word {
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
@@ -123,7 +123,7 @@
   font-size: 1.25rem;
 }
 .cover-btn span {
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   font-weight: 600;
 }
 .cover-btn.active {
@@ -162,7 +162,7 @@
   background: #2c2c2e;
   color: rgba(235, 235, 245, 0.6);
   -webkit-tap-highlight-color: transparent;
-  transition: transform var(--dur-press) var(--ease-out), background 0.2s ease, color 0.2s ease;
+  transition: transform var(--dur-press) var(--ease-out), background var(--dur-sheet) ease, color var(--dur-sheet) ease;
 }
 .cover-quick-btn::before {
   content: '';
@@ -192,11 +192,11 @@
 }
 
 .cover-owner-word {
-  font-size: 0.85rem;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.6);
 }
 
 .cover-owner-claims {
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   color: rgba(235, 235, 245, 0.3);
 }

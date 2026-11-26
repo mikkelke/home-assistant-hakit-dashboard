@@ -38,9 +38,9 @@
   border: 1px solid transparent;
   background: var(--chip-fill, rgba(255, 255, 255, 0.05));
   color: #e2e8f0;
-  font-size: 0.78rem;
+  font-size: var(--fs-label);
   line-height: 1.1;
-  transition: transform var(--dur-press) var(--ease-out), border-color 0.2s ease, background 0.2s ease;
+  transition: transform var(--dur-press) var(--ease-out), border-color var(--dur-sheet) ease, background var(--dur-sheet) ease;
   min-height: var(--chip-height);
 }
 div.home-pulse-chip {

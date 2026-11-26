@@ -1467,7 +1467,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
 
       {selectedDayDatetime != null && (
         <div className='quick-weather-card__day-popup' role='dialog' aria-modal aria-labelledby='day-popup-title'>
-          <div className='quick-weather-card__day-popup-backdrop' onClick={requestCloseDayPopup} aria-hidden />
+          <div data-backdrop className='quick-weather-card__day-popup-backdrop' onClick={requestCloseDayPopup} aria-hidden />
           <div className='quick-weather-card__day-popup-panel'>
             <div className='quick-weather-card__day-popup-header'>
               <h3 id='day-popup-title' className='quick-weather-card__day-popup-title'>
@@ -1579,6 +1579,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
         typeof document !== 'undefined' &&
         createPortal(
           <div
+            data-backdrop
             className='person-info-overlay'
             role='presentation'
             onClick={() => requestCloseHistory()}
@@ -1630,6 +1631,7 @@ export function QuickWeatherCard({ entityId, entities }: QuickWeatherCardProps) 
         typeof document !== 'undefined' &&
         createPortal(
           <div
+            data-backdrop
             className='person-info-overlay'
             role='presentation'
             onClick={() => requestCloseCompare()}

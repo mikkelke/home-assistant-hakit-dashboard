@@ -163,7 +163,13 @@ export function PersonStatus({ entity, entities, hassUrl, size = 'sky' }: Person
   };
 
   const modalContent = showInfo ? (
-    <div className='person-info-overlay' role='presentation' onClick={handleOverlayClick} onMouseDown={e => e.stopPropagation()}>
+    <div
+      data-backdrop
+      className='person-info-overlay'
+      role='presentation'
+      onClick={handleOverlayClick}
+      onMouseDown={e => e.stopPropagation()}
+    >
       <div
         className='person-info-modal person-timeline-modal'
         role='dialog'

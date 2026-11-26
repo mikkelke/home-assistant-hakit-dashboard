@@ -252,6 +252,7 @@ export function TerraceSection({
         typeof document !== 'undefined' &&
         createPortal(
           <div
+            data-backdrop
             className='person-info-overlay'
             role='presentation'
             onClick={() => requestCloseHistory()}

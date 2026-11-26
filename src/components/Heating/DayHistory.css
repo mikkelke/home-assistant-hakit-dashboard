@@ -23,7 +23,7 @@
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   transition:
-    background 0.15s ease,
+    background var(--dur-press) ease,
     transform var(--dur-press) var(--ease-out);
 }
 .heat-daynav-btn:active:not(:disabled) {

@@ -39,7 +39,7 @@
   flex: 1;
   min-width: 0;
   margin: 0;
-  font-size: 1.25rem;
+  font-size: var(--fs-heading);
   font-weight: 600;
 }
 
@@ -89,7 +89,7 @@
   padding: 48px 16px;
   text-align: center;
   color: var(--text-2);
-  font-size: 14px;
+  font-size: var(--fs-label);
   grid-column: 1 / -1;
 }
 .body-note svg {
@@ -377,8 +377,8 @@
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   transition:
-    background 160ms var(--ease-out),
-    color 160ms var(--ease-out);
+    background var(--dur-press) var(--ease-out),
+    color var(--dur-press) var(--ease-out);
 }
 .body-segment button::before {
   content: '';
@@ -428,7 +428,7 @@
 .body-readout-values {
   display: flex;
   gap: 10px;
-  font-size: 14px;
+  font-size: var(--fs-label);
   font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
@@ -557,7 +557,7 @@
 }
 .body-week-value {
   fill: var(--text-1);
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
@@ -577,15 +577,15 @@
   background: var(--surface-chip);
   color: var(--text-2);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   transition:
-    background 160ms var(--ease-out),
-    color 160ms var(--ease-out);
+    background var(--dur-press) var(--ease-out),
+    color var(--dur-press) var(--ease-out);
 }
 .body-years button::before {
   content: '';

@@ -24,7 +24,7 @@
   color: var(--text-1);
 }
 .heat-demand-kwh span {
-  font-size: 17px;
+  font-size: var(--fs-title);
   font-weight: 600;
   color: var(--text-2);
 }
@@ -43,7 +43,7 @@
   border-radius: var(--chip-radius);
   background: none;
   color: var(--text-2);
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -96,7 +96,7 @@
   left: 0;
   top: 0;
   bottom: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: linear-gradient(90deg, color-mix(in srgb, var(--heat) 70%, var(--surface-card)), var(--heat));
 }
 .heat-demand-tick {
@@ -128,7 +128,7 @@
   position: absolute;
   top: 20px;
   transform: translateX(-50%);
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--text-2);
@@ -192,7 +192,7 @@
   opacity: 0.85;
 }
 .heat-demand-hours {
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -208,7 +208,7 @@
   color: var(--text-3);
 }
 .heat-demand-kr {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -222,7 +222,7 @@
   grid-column: 2;
   position: relative;
   height: 12px;
-  font-size: 10.5px;
+  font-size: var(--fs-caption);
   color: var(--text-3);
 }
 .heat-demand-axis span {
@@ -294,15 +294,15 @@
   padding: 0 16px;
   border: 0;
   border-radius: 22px;
-  background: color-mix(in srgb, var(--accent-sky) 18%, transparent);
+  background: color-mix(in srgb, var(--accent-sky) var(--tint-glyph), transparent);
   color: var(--accent-sky);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--fs-label);
   font-weight: 600;
   cursor: pointer;
 }
 .heat-demand-status {
   margin: 4px 0 0;
   color: var(--text-3);
-  font-size: 14px;
+  font-size: var(--fs-label);
 }

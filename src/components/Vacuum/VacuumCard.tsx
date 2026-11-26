@@ -943,7 +943,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
       {/* Rooms sheet - every saved map, freshest first */}
       {roomsSheetOpen && (
         <>
-          <div className='vacuum-map-overlay' onClick={handleCloseRoomsSheet} />
+          <div data-backdrop className='vacuum-map-overlay' onClick={handleCloseRoomsSheet} />
           <div
             className='vacuum-map-modal rober-rooms-modal'
             role='dialog'
@@ -990,7 +990,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
       {storyOpen &&
         createPortal(
           <>
-            <div className='vacuum-map-overlay' onClick={requestCloseStory} />
+            <div data-backdrop className='vacuum-map-overlay' onClick={requestCloseStory} />
             <div
               className='vacuum-map-modal rober-story-modal'
               role='dialog'
@@ -1020,7 +1020,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
       {/* Map Modal */}
       {selectedMap && (
         <>
-          <div className='vacuum-map-overlay' onClick={handleCloseMap} />
+          <div data-backdrop className='vacuum-map-overlay' onClick={handleCloseMap} />
           <div className='vacuum-map-modal' onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
             <div className='vacuum-map-modal-header'>
               <div className='vacuum-map-modal-title'>
@@ -1046,7 +1046,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
       {/* Live Map Modal */}
       {showLiveMap && liveMapImage && (
         <>
-          <div className='vacuum-map-overlay' onClick={handleCloseLiveMap} />
+          <div data-backdrop className='vacuum-map-overlay' onClick={handleCloseLiveMap} />
           <div
             className='vacuum-map-modal vacuum-live-map-modal'
             onTouchStart={handleLiveMapTouchStart}
@@ -1101,7 +1101,7 @@ export function VacuumCard({ entities, callService }: VacuumCardProps) {
       {/* Battery level history graph modal */}
       {batteryGraphOpen && (
         <>
-          <div className='vacuum-map-overlay' onClick={handleCloseBatteryGraph} />
+          <div data-backdrop className='vacuum-map-overlay' onClick={handleCloseBatteryGraph} />
           <div
             className='vacuum-map-modal vacuum-battery-graph-modal'
             onTouchStart={handleBatteryGraphTouchStart}

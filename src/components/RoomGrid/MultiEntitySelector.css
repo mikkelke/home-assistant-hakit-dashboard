@@ -19,9 +19,9 @@
   padding: 0.75rem;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  transition: background var(--dur-sheet) ease, border-color var(--dur-sheet) ease, transform var(--dur-sheet) ease;
   text-align: left;
   width: 100%;
 }
@@ -53,7 +53,7 @@
 }
 
 .entity-selection-name {
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   font-weight: 500;
   color: #e4e4e7;
   white-space: nowrap;
@@ -62,7 +62,7 @@
 }
 
 .entity-selection-state {
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   font-weight: 400;
   opacity: 0.8;
 }
@@ -71,7 +71,7 @@
   font-size: 1.25rem;
   color: #71717a;
   flex-shrink: 0;
-  transition: transform 0.2s ease;
+  transition: transform var(--dur-sheet) ease;
 }
 
 @media (hover: hover) and (pointer: fine) {

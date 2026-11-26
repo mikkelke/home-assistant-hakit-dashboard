@@ -160,7 +160,7 @@ export function HomePulse({ areas, entities: demoEntities, onRoomSelect }: HomeP
 
       {stuckMapViewerOpen && stuckMapUrl && (
         <>
-          <div className='vacuum-map-overlay' onClick={requestCloseStuckMapViewer} />
+          <div data-backdrop className='vacuum-map-overlay' onClick={requestCloseStuckMapViewer} />
           <div className='vacuum-map-modal' role='dialog' aria-modal='true' aria-label='Rober2 map'>
             <div className='vacuum-map-modal-header'>
               <div className='vacuum-map-modal-title'>

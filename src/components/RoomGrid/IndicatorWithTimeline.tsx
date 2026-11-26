@@ -131,7 +131,13 @@ export function IndicatorWithTimeline({
   const timelineHeading = modalTitle?.trim() || entityName;
 
   const modalContent = opened ? (
-    <div className='person-info-overlay' role='presentation' onClick={handleOverlayClick} onMouseDown={e => e.stopPropagation()}>
+    <div
+      data-backdrop
+      className='person-info-overlay'
+      role='presentation'
+      onClick={handleOverlayClick}
+      onMouseDown={e => e.stopPropagation()}
+    >
       <div
         className='person-info-modal person-timeline-modal'
         role='dialog'
@@ -162,7 +168,7 @@ export function IndicatorWithTimeline({
   return (
     <>
       {exists && (
-        <div className={className} title={title} onClick={handleClick} style={{ cursor: 'pointer' }}>
+        <div className={className} title={title} data-tap onClick={handleClick} style={{ cursor: 'pointer' }}>
           <Icon icon={icon} />
           {label && <span className='indicator-label'>{label}</span>}
         </div>

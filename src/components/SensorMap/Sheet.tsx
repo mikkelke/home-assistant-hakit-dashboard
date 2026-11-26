@@ -35,7 +35,11 @@ export function Sheet({ title, subtitle, collapsed = false, onToggle, onClose, c
       style={settled ? undefined : { pointerEvents: 'none' }}
     >
       <header className='sm-sheet-head'>
-        <div className={`sm-sheet-handle${onToggle ? ' toggles' : ''}`} onClick={onToggle ? toggleUnlessSelecting(onToggle) : undefined}>
+        <div
+          className={`sm-sheet-handle${onToggle ? ' toggles' : ''}`}
+          data-tap={onToggle ? '' : undefined}
+          onClick={onToggle ? toggleUnlessSelecting(onToggle) : undefined}
+        >
           <span className='sm-sheet-title'>{title}</span>
           {subtitle && <span className='sm-sheet-sub'>{subtitle}</span>}
         </div>

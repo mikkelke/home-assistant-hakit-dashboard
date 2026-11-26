@@ -39,7 +39,7 @@ export function DoorbellViewer({
   const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestClose);
   return createPortal(
     <>
-      <div className='doorbell-overlay doorbell-overlay--photo' onClick={requestClose} />
+      <div data-backdrop className='doorbell-overlay doorbell-overlay--photo' onClick={requestClose} />
       <div className='doorbell-photo' onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
         <div className='doorbell-sheet-header'>
           <span className='doorbell-sheet-glyph'>
@@ -125,7 +125,7 @@ export function DoorbellGallery({ images, onClose }: { images: DoorbellImage[]; 
 
   return createPortal(
     <>
-      <div className='doorbell-overlay' onClick={requestClose} />
+      <div data-backdrop className='doorbell-overlay' onClick={requestClose} />
       <div className='doorbell-sheet' onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
         <div className='doorbell-sheet-header'>
           <span className='doorbell-sheet-glyph'>

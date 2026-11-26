@@ -21,7 +21,7 @@
 .plan-card {
   background: rgba(24, 25, 28, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 14px;
+  border-radius: var(--radius-tile);
   padding: 12px;
 }
 
@@ -60,7 +60,7 @@
   background: var(--chip-fill, rgba(255, 255, 255, 0.06));
   color: #e4e4e7;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -77,7 +77,7 @@ span.plan-chip {
 
 .plan-chip--tiny {
   padding: 0 7px;
-  font-size: 11px;
+  font-size: var(--fs-caption);
 }
 
 .plan-chip--ghost {
@@ -140,7 +140,7 @@ span.plan-chip {
 .plan-note {
   margin: -4px 4px 0;
   color: #a1a1aa;
-  font-size: 12px;
+  font-size: var(--fs-caption);
 }
 
 .plan-dim {
@@ -165,7 +165,7 @@ span.plan-chip {
 }
 
 .plan-hero-label {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -223,7 +223,7 @@ span.plan-chip {
   padding: 9px 12px;
   background: rgba(24, 25, 28, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 14px;
+  border-radius: var(--radius-tile);
   color: inherit;
   font: inherit;
   text-align: left;
@@ -270,11 +270,11 @@ button.plan-approw:active,
   justify-content: center;
   width: 42px;
   height: 42px;
-  border-radius: 13px;
+  border-radius: var(--radius-chip);
   flex-shrink: 0;
   background: rgba(255, 255, 255, 0.06);
   color: #a1a1aa;
-  font-size: 22px;
+  font-size: var(--fs-heading);
 }
 
 .plan-atile--run {
@@ -309,7 +309,7 @@ button.plan-approw:active,
 }
 
 .plan-aname {
-  font-size: 14px;
+  font-size: var(--fs-label);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -327,7 +327,7 @@ button.plan-approw:active,
 }
 
 .plan-aprice small {
-  font-size: 11px;
+  font-size: var(--fs-caption);
 }
 
 .plan-aprice b {
@@ -337,21 +337,21 @@ button.plan-approw:active,
 .plan-save {
   flex-shrink: 0;
   padding: 7px 9px;
-  border-radius: 10px;
+  border-radius: var(--radius-chip);
   background: var(--band-cheap);
   color: #0d0f13;
-  font-size: 14px;
+  font-size: var(--fs-label);
   font-weight: 800;
   white-space: nowrap;
 }
 
 .plan-chev {
-  font-size: 18px;
+  font-size: var(--fs-title);
 }
 
 /* Chart marks */
 .plan-label {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 500;
   fill: #8b8b94;
 }
@@ -376,7 +376,7 @@ button.plan-approw:active,
 }
 
 .plan-label--cap {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -508,7 +508,7 @@ button.plan-approw:active,
 }
 
 .plan-k {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   color: #a1a1aa;
 }
@@ -522,7 +522,7 @@ button.plan-approw:active,
 }
 
 .plan-cmp-v small {
-  font-size: 14px;
+  font-size: var(--fs-label);
   font-weight: 600;
 }
 
@@ -530,14 +530,14 @@ button.plan-approw:active,
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: #a1a1aa;
 }
 
 .plan-toggle {
   display: inline-flex;
   padding: 2px;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -547,11 +547,11 @@ button.plan-approw:active,
   height: 32px;
   padding: 0 10px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: none;
   color: #a1a1aa;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   cursor: pointer;
 }

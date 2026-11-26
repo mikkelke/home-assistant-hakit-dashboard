@@ -29,7 +29,7 @@
   max-height: 100dvh;
   z-index: 100;
   border-left: none;
-  animation: slideUp 0.3s ease;
+  animation: slideUp var(--dur-sheet) ease;
   overflow: hidden;
   /* Improve touch handling for swipe gestures in HA app */
   touch-action: pan-y pinch-zoom;
@@ -71,7 +71,7 @@
 }
 .room-detail-header h2 {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: var(--fs-heading);
   font-weight: 600;
 }
 .room-detail-title {
@@ -128,7 +128,7 @@
   padding: 0 0.5rem;
   background: none;
   color: #22c55e;
-  font-size: 0.7rem;
+  font-size: var(--fs-caption);
   font-weight: 600;
   border-radius: var(--chip-radius);
   text-transform: uppercase;
@@ -179,7 +179,7 @@
   gap: 6px;
 }
 .room-todo-label {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -209,7 +209,7 @@
   background: color-mix(in srgb, var(--accent-gold) var(--tint-wash), var(--surface-card));
   color: var(--text-1);
   font: inherit;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   font-weight: 600;
   text-align: left;
   cursor: pointer;
@@ -247,7 +247,7 @@
   padding: 0.85rem;
   background: rgba(24, 25, 28, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-chip);
 }
 .tv-lift-header {
   display: flex;
@@ -277,11 +277,11 @@
   padding: 0.4rem 0.65rem;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.4rem;
+  border-radius: var(--radius-sm);
   color: #e4e4e7;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
-  font-size: 0.8rem;
+  transition: background var(--dur-press) ease, border-color var(--dur-press) ease;
+  font-size: var(--fs-label);
 }
 @media (hover: hover) and (pointer: fine) {
   .tv-lift-quick-btn:hover {
@@ -301,10 +301,10 @@
   justify-content: center;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   color: #a1a1aa;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background var(--dur-press) ease, border-color var(--dur-press) ease;
 }
 @media (hover: hover) and (pointer: fine) {
   .tv-lift-toggle:hover {
@@ -331,10 +331,10 @@
   padding: 0.75rem 0.5rem;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   color: #e4e4e7;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform var(--dur-press) var(--ease-out);
+  transition: background var(--dur-press) ease, border-color var(--dur-press) ease, color var(--dur-press) ease, transform var(--dur-press) var(--ease-out);
 }
 .tv-lift-btn:active {
   transform: scale(0.97);
@@ -350,11 +350,11 @@
   color: #a1a1aa;
 }
 .tv-lift-btn .primary {
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   font-weight: 600;
 }
 .tv-lift-btn .secondary {
-  font-size: 0.7rem;
+  font-size: var(--fs-caption);
   color: #a1a1aa;
 }
 /* Standalone Stat Card */
@@ -366,7 +366,7 @@
   padding: 1rem;
   background: rgba(24, 25, 28, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-chip);
   margin-bottom: 1rem;
 }
 .room-stat-card svg {
@@ -379,7 +379,7 @@
   color: #e4e4e7;
 }
 .stat-label {
-  font-size: 0.7rem;
+  font-size: var(--fs-caption);
   color: #71717a;
   text-transform: uppercase;
 }
@@ -392,7 +392,7 @@
   bottom: 0;
   background: rgba(0, 0, 0, 0.6);
   z-index: 99;
-  animation: fadeIn 0.2s ease;
+  animation: fadeIn var(--dur-sheet) ease;
 }
 @keyframes fadeIn {
   from {
@@ -406,7 +406,7 @@
 .energy-card {
   background: rgba(24, 25, 28, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-chip);
   padding: 0.9rem 1rem;
 }
 .energy-row {
@@ -429,12 +429,12 @@
   gap: 0.15rem;
 }
 .energy-label {
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   color: #a1a1aa;
   text-transform: uppercase;
 }
 .energy-value {
-  font-size: 1.1rem;
+  font-size: var(--fs-title);
   font-weight: 700;
   color: #e4e4e7;
 }
@@ -447,10 +447,10 @@
   padding: 0.75rem 1rem;
   background: rgba(24, 25, 28, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-chip);
   color: #a1a1aa;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  transition: background var(--dur-sheet), border-color var(--dur-sheet), color var(--dur-sheet);
   margin-bottom: 1rem;
 }
 @media (hover: hover) and (pointer: fine) {
@@ -467,7 +467,7 @@
 .overnight-guest-toggle svg {
   font-size: 1.5rem;
   color: #71717a;
-  transition: color 0.2s;
+  transition: color var(--dur-sheet);
 }
 .overnight-guest-toggle.on svg {
   color: #a855f7;
@@ -475,7 +475,7 @@
 .overnight-guest-toggle .toggle-label {
   flex: 1;
   text-align: left;
-  font-size: 0.85rem;
+  font-size: var(--fs-label);
 }
 /* Toggle Switch */
 .toggle-switch {
@@ -484,7 +484,7 @@
   border-radius: 11px;
   background: rgba(100, 100, 120, 0.5);
   position: relative;
-  transition: background 0.2s;
+  transition: background var(--dur-sheet);
 }
 .toggle-switch::after {
   content: '';
@@ -495,7 +495,7 @@
   height: 18px;
   border-radius: 50%;
   background: #71717a;
-  transition: left 0.2s, background 0.2s;
+  transition: left var(--dur-sheet), background var(--dur-sheet);
 }
 .toggle-switch.on {
   background: rgba(59, 130, 246, 0.45);

@@ -58,7 +58,7 @@ export function Sheet({ label, className, variant, onRequestClose, swipe, childr
   }, []);
 
   return createPortal(
-    <div ref={overlayRef} className={`rq-overlay rq-overlay--${variant}`} onClick={onRequestClose}>
+    <div data-backdrop ref={overlayRef} className={`rq-overlay rq-overlay--${variant}`} onClick={onRequestClose}>
       <div
         ref={sheetRef}
         className={`rq-sheet rq-sheet--${variant}${className ? ` ${className}` : ''}`}

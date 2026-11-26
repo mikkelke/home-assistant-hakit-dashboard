@@ -91,7 +91,7 @@ export function DeviceDialog({ device, period, anchorStartMs, rangeEndMs, onClos
   })();
 
   return createPortal(
-    <div className='device-dialog-overlay' role='presentation' onClick={requestClose}>
+    <div data-backdrop className='device-dialog-overlay' role='presentation' onClick={requestClose}>
       <div
         className='device-dialog'
         role='dialog'

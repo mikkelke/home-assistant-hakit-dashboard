@@ -186,7 +186,13 @@ export function CoverCard({ areaName, entities, callService }: CoverCardProps) {
             expanding — Default (the everyday open; past it only fixed glass shows) and Close.
             Same quick-dot grammar as LightCard's bulbs; the tinted one is where the blind is. */}
         {collapsed && (
-          <span className='cover-quick' onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} role='presentation'>
+          <span
+            className='cover-quick'
+            onClick={e => e.stopPropagation()}
+            onKeyDown={e => e.stopPropagation()}
+            role='presentation'
+            data-tap='off'
+          >
             <button
               type='button'
               className={`cover-quick-btn ${isAtDay ? 'is-current' : ''}`}

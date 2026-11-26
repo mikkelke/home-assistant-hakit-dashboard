@@ -40,7 +40,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 1.25rem;
+  font-size: var(--fs-heading);
   font-weight: 600;
 }
 .lists-icon-btn {
@@ -97,7 +97,7 @@
   padding: 48px 16px;
   text-align: center;
   color: var(--text-2);
-  font-size: 14px;
+  font-size: var(--fs-label);
 }
 .lists-page-note svg {
   font-size: 36px;
@@ -167,7 +167,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 16px;
+  font-size: var(--fs-body);
   font-weight: 600;
 }
 .list-count {
@@ -186,7 +186,7 @@
   font-variant-numeric: tabular-nums;
 }
 .list-count.is-open {
-  background: color-mix(in srgb, var(--accent-sky) 16%, transparent);
+  background: color-mix(in srgb, var(--accent-sky) var(--tint-glyph), transparent);
   color: var(--accent-sky);
 }
 
@@ -200,7 +200,7 @@
   background: var(--surface-chip);
   border: 1px solid var(--line);
   border-radius: var(--radius-chip);
-  transition: border-color 0.2s;
+  transition: border-color var(--dur-sheet);
 }
 .list-add:focus-within {
   border-color: color-mix(in srgb, var(--accent-sky) 60%, transparent);
@@ -215,7 +215,7 @@
   appearance: none;
   color: var(--text-1);
   font: inherit;
-  font-size: 1rem; /* 16px keeps iOS from zooming the page on focus */
+  font-size: var(--fs-body); /* 16px keeps iOS from zooming the page on focus */
 }
 .list-add input::placeholder {
   color: var(--text-3);
@@ -231,7 +231,7 @@
   border-radius: 50%;
   background: none;
   color: var(--accent-sky);
-  font-size: 22px;
+  font-size: var(--fs-heading);
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -347,8 +347,8 @@
   appearance: none;
   color: var(--text-1);
   font: inherit;
-  font-size: 1rem; /* 16px keeps iOS from zooming the page on focus */
-  transition: border-color 0.2s;
+  font-size: var(--fs-body); /* 16px keeps iOS from zooming the page on focus */
+  transition: border-color var(--dur-sheet);
 }
 .list-edit input:focus {
   border-color: color-mix(in srgb, var(--accent-sky) 60%, transparent);
@@ -365,7 +365,7 @@
   border-radius: 50%;
   background: none;
   color: var(--text-3);
-  font-size: 20px;
+  font-size: var(--fs-heading);
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -401,7 +401,7 @@
   background: none;
   color: var(--text-2);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--fs-label);
   font-weight: 600;
   text-align: left;
   cursor: pointer;
@@ -526,7 +526,7 @@
   background: var(--surface-chip);
   color: var(--text-2);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--fs-label);
   font-weight: 600;
   cursor: pointer;
   touch-action: manipulation;
@@ -545,7 +545,7 @@
 }
 
 .lists-vis-chip.is-on {
-  background: color-mix(in srgb, var(--accent-sky) 18%, transparent);
+  background: color-mix(in srgb, var(--accent-sky) var(--tint-glyph), transparent);
   color: var(--accent-sky);
 }
 .lists-vis-chip:active {
@@ -559,7 +559,7 @@
   margin: 0;
   padding: 16px 0 4px;
   color: var(--text-2);
-  font-size: 14px;
+  font-size: var(--fs-label);
 }
 .lists-vis-note svg {
   flex-shrink: 0;

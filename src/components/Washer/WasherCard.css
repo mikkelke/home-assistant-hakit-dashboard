@@ -60,7 +60,7 @@
   font-size: 0.9rem;
 }
 .washer-predict-confirm.flash {
-  animation: washer-predict-pulse 0.6s ease;
+  animation: washer-predict-pulse var(--dur-slow) ease;
 }
 @keyframes washer-predict-pulse {
   0% {

@@ -43,12 +43,12 @@
 
 .quick-weather-title {
   flex: 1;
-  font-size: 1.05rem;
+  font-size: var(--fs-title);
   font-weight: 600;
 }
 
 .quick-weather-state {
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   flex-shrink: 0;
   color: rgba(255, 255, 255, 0.92);
@@ -70,8 +70,8 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.6rem 0.75rem;
-  border-radius: 14px;
-  font-size: 0.875rem;
+  border-radius: var(--radius-tile);
+  font-size: var(--fs-label);
   line-height: 1.35;
 }
 .quick-weather-alert svg {
@@ -106,7 +106,7 @@
 }
 
 .quick-weather-hero-deg {
-  font-size: 1rem;
+  font-size: var(--fs-body);
   font-weight: 300;
   vertical-align: top;
   margin-left: 0.1rem;
@@ -114,7 +114,7 @@
 
 .quick-weather-hero-sub {
   margin-top: 0.3rem;
-  font-size: 0.82rem;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.3);
 }
 
@@ -181,7 +181,7 @@
 .quick-weather-ribbon-tick {
   position: absolute;
   transform: translateX(-50%);
-  font-size: 0.6875rem;
+  font-size: var(--fs-caption);
   color: rgba(235, 235, 245, 0.3);
   white-space: nowrap;
 }
@@ -222,20 +222,20 @@
 }
 
 .quick-weather-wind-speed {
-  font-size: 1.15rem;
+  font-size: var(--fs-title);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
 .quick-weather-wind-sub {
   margin-top: 0.15rem;
-  font-size: 0.78rem;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.4);
 }
 
 .quick-weather-wind-pill {
   flex-shrink: 0;
-  font-size: 0.66rem;
+  font-size: var(--fs-caption);
   font-weight: 700;
   text-transform: uppercase;
   padding: 0 0.55rem;
@@ -273,7 +273,7 @@
 
 .quick-weather-week-day {
   flex: 0 0 2.3rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.6);
 }
 
@@ -284,7 +284,7 @@
 
 .quick-weather-week-gust {
   flex: 0 0 3rem;
-  font-size: 0.7rem;
+  font-size: var(--fs-caption);
   color: rgba(235, 235, 245, 0.3);
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -296,7 +296,7 @@
 
 .quick-weather-week-low {
   flex: 0 0 2.6rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.4);
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -321,7 +321,7 @@
 
 .quick-weather-week-high {
   flex: 0 0 2.6rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-label);
   font-weight: 600;
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -342,7 +342,7 @@
   gap: 0.15rem;
   background: #2c2c2e;
   border: none;
-  border-radius: 14px;
+  border-radius: var(--radius-tile);
   padding: 0.6rem 0.7rem;
   font-family: inherit;
   color: inherit;
@@ -357,17 +357,17 @@
 }
 
 .quick-weather-fact-label {
-  font-size: 0.7rem;
+  font-size: var(--fs-caption);
   color: rgba(235, 235, 245, 0.4);
 }
 
 .quick-weather-fact-value {
-  font-size: 0.95rem;
+  font-size: var(--fs-body);
   font-weight: 600;
 }
 
 .quick-weather-fact-sub {
-  font-size: 0.72rem;
+  font-size: var(--fs-caption);
   color: rgba(235, 235, 245, 0.4);
 }
 
@@ -376,7 +376,7 @@
 .quick-weather-fact--ice {
   background: color-mix(in oklab, #2c2c2e, var(--ice-tint) calc(var(--frost) * 100%));
   transition:
-    background-color 600ms var(--ease-out),
+    background-color var(--dur-slow) var(--ease-out),
     transform var(--dur-press) var(--ease-out);
 }
 
@@ -434,7 +434,7 @@
 }
 .quick-weather-card__day-popup-title {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: var(--fs-title);
   font-weight: 600;
   color: #e4e4e7;
 }
@@ -447,7 +447,7 @@
   padding: 0;
   background: rgba(255, 255, 255, 0.08);
   border: none;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   color: #a1a1aa;
   cursor: pointer;
   font: inherit;
@@ -483,12 +483,12 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.6rem 0.75rem;
-  border-radius: 0.6rem;
+  border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 .quick-weather-card__hour-time {
-  font-size: 0.8rem;
+  font-size: var(--fs-label);
   font-weight: 500;
   color: #a1a1aa;
 }
@@ -502,7 +502,7 @@
   color: #e4e4e7;
 }
 .quick-weather-card__hour-temp {
-  font-size: 0.95rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   color: #e4e4e7;
 }
@@ -510,7 +510,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   color: #60a5fa;
 }
 .quick-weather-card__hour-pop svg {
@@ -519,10 +519,10 @@
 .quick-weather-card__forecast-empty {
   margin: 0;
   padding: 0.75rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-label);
   color: #a1a1aa;
   background: rgba(24, 25, 28, 0.6);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-chip);
   border: 1px dashed rgba(255, 255, 255, 0.08);
 }
 
@@ -564,7 +564,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem 0.9rem;
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   font-variant-numeric: tabular-nums;
 }
 
@@ -605,7 +605,7 @@
   align-items: center;
   gap: 0.3rem;
   margin-left: auto;
-  font-size: 0.8rem;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.55);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -629,7 +629,7 @@
 .quick-weather-ribbon-tick-temp {
   display: block;
   margin-top: 0.1rem;
-  font-size: 0.7rem;
+  font-size: var(--fs-caption);
   font-weight: 600;
   color: rgba(235, 235, 245, 0.55);
 }
@@ -668,7 +668,7 @@
   background: #2c2c2e;
   color: rgba(235, 235, 245, 0.6);
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   cursor: pointer;
@@ -704,7 +704,7 @@
 /* Source marker on the wind number itself */
 .quick-weather-wind-source {
   margin-left: 0.35rem;
-  font-size: 0.68rem;
+  font-size: var(--fs-caption);
   font-weight: 500;
   letter-spacing: 0.02em;
   color: rgba(235, 235, 245, 0.35);
@@ -729,17 +729,17 @@
   align-self: flex-start;
   gap: 0.25rem;
   padding: 0.2rem;
-  border-radius: 12px;
+  border-radius: var(--radius-chip);
   background: #2c2c2e;
 }
 
 .quick-weather-compare-tab {
   border: none;
   background: transparent;
-  border-radius: 10px;
+  border-radius: var(--radius-chip);
   padding: 0.3rem 0.7rem;
   font-family: inherit;
-  font-size: 0.8rem;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.6);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -794,7 +794,7 @@
   display: flex;
   align-items: center;
   gap: 0.9rem;
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   color: rgba(235, 235, 245, 0.6);
 }
 
@@ -826,7 +826,7 @@
 .quick-weather-compare-summary,
 .quick-weather-compare-note {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: var(--fs-label);
   line-height: 1.45;
   color: rgba(235, 235, 245, 0.6);
 }

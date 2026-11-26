@@ -165,7 +165,7 @@
 }
 
 .timeline-state {
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   color: #e4e4e7;
   /* Ensure no icons leak in */
@@ -173,7 +173,7 @@
 }
 
 .timeline-time {
-  font-size: 0.8rem;
+  font-size: var(--fs-label);
   color: #a1a1aa;
   white-space: nowrap;
   /* Ensure no icons leak in */
@@ -202,7 +202,7 @@
 }
 
 .timeline-absolute-time {
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   color: #71717a;
 }
 
@@ -252,7 +252,7 @@
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   color: #a78bfa;
   background: rgba(167, 139, 250, 0.1);
   padding: 0.125rem 0.5rem;
@@ -298,15 +298,15 @@
   }
 
   .timeline-state {
-    font-size: 0.85rem;
+    font-size: var(--fs-label);
   }
 
   .timeline-time {
-    font-size: 0.75rem;
+    font-size: var(--fs-caption);
   }
 
   .timeline-absolute-time {
-    font-size: 0.7rem;
+    font-size: var(--fs-caption);
   }
 }
 

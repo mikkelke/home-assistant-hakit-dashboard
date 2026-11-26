@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import type { Period } from '../../energy';
 import { labelFor } from '../../energy/period';
+import { hapticTick } from '../../utils/haptics';
 import './PeriodPicker.css';
 
 interface PeriodPickerProps {
@@ -59,6 +60,7 @@ export function PeriodPicker({
     clearLongPress();
     longPressTimeoutRef.current = window.setTimeout(() => {
       longPressTimeoutRef.current = null;
+      hapticTick();
       onForceReload();
     }, LONG_PRESS_MS);
   }, [onForceReload, clearLongPress]);

@@ -35,7 +35,7 @@
   padding: 0 12px;
   border: 0;
   border-radius: var(--chip-radius);
-  background: color-mix(in srgb, var(--tone) 18%, transparent);
+  background: color-mix(in srgb, var(--tone) var(--tint-glyph), transparent);
   color: var(--tone);
   font: inherit;
   cursor: pointer;
@@ -55,7 +55,7 @@
   flex-shrink: 0;
 }
 .room-climate-chip-temp {
-  font-size: 17px;
+  font-size: var(--fs-title);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
@@ -105,7 +105,7 @@
 }
 .climate-full-story {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--fs-body);
   line-height: 1.4;
   color: rgba(255, 255, 255, 0.92);
 }
@@ -123,7 +123,7 @@
   gap: 0.35rem;
   padding: 0 0.7rem;
   border-radius: var(--chip-radius);
-  font-size: 0.78rem;
+  font-size: var(--fs-label);
   font-weight: 600;
   letter-spacing: 0.01em;
   background: none;
@@ -172,22 +172,22 @@
   align-items: center;
   gap: 2px;
   padding: 0.6rem 0.25rem;
-  border-radius: 14px;
+  border-radius: var(--radius-tile);
   background: #2c2c2e;
 }
 .climate-stat-value {
-  font-size: 1rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 .climate-stat-unit {
-  font-size: 0.7rem;
+  font-size: var(--fs-caption);
   font-weight: 400;
   color: rgba(235, 235, 245, 0.5);
   margin-left: 1px;
 }
 .climate-stat-label {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: rgba(235, 235, 245, 0.5);
   text-transform: none;
   letter-spacing: 0;
@@ -195,7 +195,7 @@
 }
 .climate-detail-note {
   margin: 0.6rem 0 0;
-  font-size: 14px;
+  font-size: var(--fs-label);
   line-height: 1.4;
   color: #b3b3bd;
 }
@@ -211,7 +211,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 14px;
+  font-size: var(--fs-label);
 }
 .climate-zone-toggle {
   flex-shrink: 0;
@@ -220,7 +220,7 @@
   border: none;
   background: transparent;
   font-family: inherit;
-  font-size: 0.8rem;
+  font-size: var(--fs-label);
   font-weight: 600;
   color: #ff9f0a;
   cursor: pointer;
@@ -259,7 +259,7 @@
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition: background 0.15s ease, transform var(--dur-press) var(--ease-out);
+  transition: background var(--dur-press) ease, transform var(--dur-press) var(--ease-out);
 }
 .climate-step:active {
   background: #48484a;

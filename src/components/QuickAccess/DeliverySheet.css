@@ -53,7 +53,7 @@
 }
 
 .dl-name b {
-  font-size: 1.05rem;
+  font-size: var(--fs-title);
   font-weight: 600;
   line-height: 1.25;
   overflow: hidden;

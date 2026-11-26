@@ -21,7 +21,7 @@
   display: flex;
   gap: 4px;
   padding: 3px;
-  border-radius: 12px;
+  border-radius: var(--radius-chip);
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.07);
 }
@@ -29,11 +29,11 @@
   flex: 1;
   height: 38px;
   border: 0;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: none;
   color: var(--cof-t2);
   font: inherit;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -81,7 +81,7 @@
 }
 .cc-go .coffee-link {
   height: 48px;
-  border-radius: 15px;
+  border-radius: var(--radius-tile);
   padding: 0 12px;
 }
 .cc-hold.hold-btn {
@@ -135,7 +135,7 @@
 }
 .cc-beans-tx b {
   display: block;
-  font-size: 14.5px;
+  font-size: var(--fs-body);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -143,7 +143,7 @@
 }
 .cc-beans-tx small {
   display: block;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   color: var(--cof-t3);
 }
 .cc-fill {
@@ -171,7 +171,7 @@
   margin-top: 8px;
   border: 0;
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   cursor: pointer;
 }
 
@@ -190,7 +190,7 @@
   margin-top: 10px;
 }
 .cc-rate-q {
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   font-weight: 600;
 }
 .cc-trial {
@@ -264,7 +264,7 @@
 }
 .cc-ctrls .coffee-btn {
   height: 48px;
-  font-size: 16px;
+  font-size: var(--fs-body);
 }
 .cc-wide.hold-btn {
   flex: 1;
@@ -327,7 +327,7 @@
 }
 .cc-hday {
   margin: 12px 0 0;
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -345,7 +345,7 @@
   flex-direction: column;
   gap: 6px;
   padding: 12px 12px 10px;
-  border-radius: 18px;
+  border-radius: var(--radius-page);
   background: #232326;
   border: 1px solid rgba(212, 149, 106, 0.3);
 }
@@ -353,7 +353,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   color: var(--cof-t3);
 }
 .cc-usual-h > svg {
@@ -365,7 +365,7 @@
   color: var(--cof-t1);
 }
 .coffee-chip.is-small {
-  font-size: 12px;
+  font-size: var(--fs-caption);
 }
 .cc-tweak {
   border: 0;
@@ -388,7 +388,7 @@ a.coffee-rrow {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   color: var(--cof-t2);
 }
 .cc-foot-it {
@@ -410,7 +410,7 @@ a.coffee-rrow {
   border-radius: 50%;
   background: var(--cof-chip);
   color: var(--cof-t2);
-  font-size: 18px;
+  font-size: var(--fs-title);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
@@ -443,7 +443,7 @@ a.coffee-rrow {
 .cst-beans-bar {
   flex: 1;
   min-width: 0;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   color: var(--cof-t2);
 }
 .cst-beans-bar span {
@@ -455,7 +455,7 @@ a.coffee-rrow {
 }
 .cst-beans-acts .coffee-btn {
   height: 40px;
-  font-size: 14px;
+  font-size: var(--fs-label);
 }
 .cst-spread {
   margin-top: 6px;
@@ -468,7 +468,7 @@ a.coffee-rrow {
   display: flex;
   height: 22px;
   margin-top: 8px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   font-size: var(--fs-caption);
   font-weight: 600;
@@ -495,7 +495,7 @@ a.coffee-rrow {
   margin-top: 10px;
 }
 .cst-who-label {
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   color: var(--cof-t2);
 }
 .cst-who-bar {
@@ -516,7 +516,7 @@ a.coffee-rrow {
   align-items: center;
   gap: 6px;
   margin-top: 8px;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   color: var(--cof-t2);
 }
 .cst-suggest svg {

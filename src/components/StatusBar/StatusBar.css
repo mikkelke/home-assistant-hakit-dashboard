@@ -21,7 +21,7 @@
 .person-info-modal {
   background: #0f1117;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-chip);
   padding: 1rem;
   min-width: 240px;
   max-width: 320px;
@@ -81,7 +81,7 @@
 }
 
 .person-info-modal .modal-title {
-  font-size: 1rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   color: #e4e4e7;
 }
@@ -90,7 +90,7 @@
   position: relative;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.35rem;
+  border-radius: var(--radius-sm);
   color: #a1a1aa;
   width: 28px;
   height: 28px;
@@ -99,7 +99,7 @@
   justify-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.2s, transform var(--dur-press) var(--ease-out);
+  transition: background var(--dur-sheet), transform var(--dur-press) var(--ease-out);
 }
 
 .person-info-modal .modal-close::before {
@@ -125,12 +125,12 @@
 }
 
 .person-info-modal .modal-label {
-  font-size: 0.8rem;
+  font-size: var(--fs-label);
   color: #a1a1aa;
 }
 
 .person-info-modal .modal-value {
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   color: #e4e4e7;
   text-align: right;
 }
@@ -138,7 +138,7 @@
 .person-info-modal .modal-row.subtle .modal-label,
 .person-info-modal .modal-row.subtle .modal-value {
   color: #71717a;
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
 }
 
 /* StatusItem */
@@ -149,7 +149,7 @@
   padding: 0.5rem 0.75rem;
   background: rgba(24, 25, 28, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   min-width: fit-content;
 }
 
@@ -172,12 +172,12 @@
 }
 
 .status-label {
-  font-size: 0.7rem;
+  font-size: var(--fs-caption);
   color: #a1a1aa;
 }
 
 .status-count {
-  font-size: 0.85rem;
+  font-size: var(--fs-label);
   font-weight: 600;
   color: #e4e4e7;
 }

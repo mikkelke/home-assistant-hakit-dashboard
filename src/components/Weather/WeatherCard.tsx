@@ -228,7 +228,13 @@ function WeatherItemWithTimeline({
   const entityName = typeof entity?.attributes?.friendly_name === 'string' ? entity.attributes.friendly_name : label;
 
   const modalContent = showTimeline ? (
-    <div className='person-info-overlay' role='presentation' onClick={handleOverlayClick} onMouseDown={e => e.stopPropagation()}>
+    <div
+      data-backdrop
+      className='person-info-overlay'
+      role='presentation'
+      onClick={handleOverlayClick}
+      onMouseDown={e => e.stopPropagation()}
+    >
       <div
         className='person-info-modal person-timeline-modal'
         role='dialog'

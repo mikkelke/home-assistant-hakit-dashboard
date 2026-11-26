@@ -57,7 +57,7 @@
 
 .access-title {
   flex: 1;
-  font-size: 1.05rem;
+  font-size: var(--fs-title);
   font-weight: 600;
 }
 
@@ -69,7 +69,7 @@
 }
 
 .access-state {
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -96,7 +96,7 @@
   color: #f59e0b;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform var(--dur-press) var(--ease-out), background 0.15s ease, color 0.15s ease;
+  transition: transform var(--dur-press) var(--ease-out), background var(--dur-press) ease, color var(--dur-press) ease;
 }
 .access-quick-btn:active {
   transform: scale(0.88);
@@ -132,7 +132,7 @@
   background: #3a3a3c;
   border: 2px solid #1c1c1e;
   color: rgba(235, 235, 245, 0.9);
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -157,11 +157,11 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.6rem 0.6rem 0.6rem 0.75rem;
-  border-radius: 14px;
+  border-radius: var(--radius-tile);
   background: rgba(245, 158, 11, 0.14);
   border: 1px solid rgba(245, 158, 11, 0.35);
   color: #f59e0b;
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   font-weight: 600;
 }
 .access-ring svg {
@@ -174,11 +174,11 @@
   flex-shrink: 0;
   padding: 0.45rem 0.85rem;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-chip);
   background: #f59e0b;
   color: #241403;
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: var(--fs-label);
   font-weight: 700;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -208,11 +208,11 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.6rem 0.75rem;
-  border-radius: 14px;
+  border-radius: var(--radius-tile);
   background: rgba(255, 69, 58, 0.12);
   border: 1px solid rgba(255, 69, 58, 0.3);
   color: #ff6961;
-  font-size: 0.875rem;
+  font-size: var(--fs-label);
   line-height: 1.35;
 }
 .access-alert svg {
@@ -239,7 +239,7 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   min-height: 34px;
 }
 
@@ -258,7 +258,7 @@
 /* Words are states */
 .access-pill {
   flex-shrink: 0;
-  font-size: 0.7rem;
+  font-size: var(--fs-caption);
   font-weight: 700;
   padding: 0 0.55rem;
   border-radius: var(--chip-radius);
@@ -337,7 +337,7 @@
   height: 24px;
   border-radius: 12px;
   background: #3a3a3c; /* iOS systemGray4 dark */
-  transition: background 0.2s;
+  transition: background var(--dur-sheet);
 }
 .access-knob.on {
   background: rgba(245, 158, 11, 0.55);
@@ -351,7 +351,7 @@
   height: 18px;
   border-radius: 50%;
   background: #fff;
-  transition: left 0.2s;
+  transition: left var(--dur-sheet);
 }
 .access-knob.on::after {
   left: 19px;
@@ -362,7 +362,7 @@
 /* Row state word: when the doorbell last rang (right-aligned next to the history disc) */
 .access-doorbell-last {
   margin-left: auto;
-  font-size: 0.8rem;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.6);
   white-space: nowrap;
 }
@@ -462,11 +462,11 @@
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  font-size: 1rem;
+  font-size: var(--fs-body);
   font-weight: 600;
 }
 .doorbell-sheet-title .sub {
-  font-size: 0.78rem;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.6);
 }
 
@@ -513,7 +513,7 @@
   width: 100%;
   aspect-ratio: 4 / 3;
   object-fit: cover;
-  border-radius: 12px;
+  border-radius: var(--radius-chip);
   background: #2c2c2e; /* holds the tile shape while the snapshot loads */
 }
 .doorbell-tile:active img {
@@ -533,7 +533,7 @@
   width: 100%;
   aspect-ratio: 4 / 3;
   object-fit: cover;
-  border-radius: 12px;
+  border-radius: var(--radius-chip);
   background: #2c2c2e;
   pointer-events: none;
 }
@@ -545,7 +545,7 @@
   justify-content: center;
   width: 100%;
   aspect-ratio: 4 / 3;
-  border-radius: 12px;
+  border-radius: var(--radius-chip);
   background: #2c2c2e;
   color: rgba(255, 255, 255, 0.45);
 }
@@ -577,7 +577,7 @@
   align-items: center;
   gap: 0.35rem;
   min-width: 0;
-  font-size: 0.72rem;
+  font-size: var(--fs-caption);
 }
 .doorbell-tile-when {
   font-weight: 600;
@@ -697,7 +697,7 @@
   max-width: 100%;
 }
 .doorbell-clip figcaption {
-  font-size: 0.78rem;
+  font-size: var(--fs-label);
   color: var(--text-2);
 }
 .doorbell-photo-content img,
@@ -705,7 +705,7 @@
   max-width: 100%;
   max-height: calc(90vh - 110px);
   object-fit: contain;
-  border-radius: 12px;
+  border-radius: var(--radius-chip);
 }
 
 @media (max-width: 768px) {

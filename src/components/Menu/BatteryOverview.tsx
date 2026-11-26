@@ -24,7 +24,7 @@ function getBatteryColor(value: number): string {
 export function BatteryOverview({ entities, onRequestClose }: { entities: HassEntities; onRequestClose: () => void }) {
   const batteryItems = useMemo(() => deriveBatteryItems(entities), [entities]);
   return (
-    <div className='battery-overview-overlay' role='presentation' onClick={onRequestClose}>
+    <div data-backdrop className='battery-overview-overlay' role='presentation' onClick={onRequestClose}>
       <div
         className='battery-overview-modal'
         role='dialog'

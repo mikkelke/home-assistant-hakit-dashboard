@@ -61,6 +61,7 @@ export function UsageClock({ bars, prices, rangeStartMs, rangeEndMs, nowMs, unit
       viewBox={`0 0 ${S} ${S}`}
       className='ev-clock'
       data-interactive='true'
+      data-tap
       role='img'
       aria-label='24 hour clock: wedge length is use per hour, colour is price band. Tap an hour for details.'
       onClick={handleClick}

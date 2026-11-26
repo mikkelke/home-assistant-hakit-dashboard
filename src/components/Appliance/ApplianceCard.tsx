@@ -74,7 +74,13 @@ export function ApplianceCard({
         </span>
         <span className='appliance-title'>{title}</span>
         {quickButton && (
-          <span className='appliance-quick' onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} role='presentation'>
+          <span
+            className='appliance-quick'
+            onClick={e => e.stopPropagation()}
+            onKeyDown={e => e.stopPropagation()}
+            role='presentation'
+            data-tap='off'
+          >
             {quickButton}
           </span>
         )}

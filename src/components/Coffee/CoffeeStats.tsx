@@ -191,6 +191,7 @@ export function BrewStrip({
               <rect
                 key={brew.id}
                 className='cst-strip-tick'
+                data-tap
                 x={x(brew.atMs) - 2}
                 y={height - 14 - h}
                 width={4}

@@ -1096,7 +1096,13 @@ export function SonosPlayer({
               Same quick-dot grammar as the blind and light cards; play wears the Sonos
               green while something is playing. */}
           {collapsed && (
-            <span className='sonos-quick' onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} role='presentation'>
+            <span
+              className='sonos-quick'
+              onClick={e => e.stopPropagation()}
+              onKeyDown={e => e.stopPropagation()}
+              role='presentation'
+              data-tap='off'
+            >
               <button
                 type='button'
                 className={`sonos-quick-btn ${isPlaying ? 'is-current' : ''}`}
@@ -1123,6 +1129,7 @@ export function SonosPlayer({
       {/* Speakers pop-up - swipe/tap on overlay closes, stopPropagation prevents RoomDetail closing */}
       {showGroupModal && (
         <div
+          data-backdrop
           className='sonos-modal-overlay'
           onClick={requestCloseGroupModal}
           onTouchStart={handleModalTouchStart}
@@ -1240,6 +1247,7 @@ export function SonosPlayer({
       {/* Source sheet - one pop-up, five faces: the grid, the Spotify playlists, a playlist's tracks, the podcasts, a podcast's episodes */}
       {(showSourcePicker || showPodcastModal) && (
         <div
+          data-backdrop
           className='sonos-modal-overlay'
           onClick={requestCloseSourceSheet}
           onMouseDown={e => e.stopPropagation()}

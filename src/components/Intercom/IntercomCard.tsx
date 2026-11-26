@@ -250,7 +250,13 @@ export function IntercomCard({ entities, callService, showHeader = false, onUiTa
   );
 
   const quickDoors = (
-    <span className='access-quick' onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} role='presentation'>
+    <span
+      className='access-quick'
+      onClick={e => e.stopPropagation()}
+      onKeyDown={e => e.stopPropagation()}
+      role='presentation'
+      data-tap='off'
+    >
       {frontLock && quickDoor(frontLockId, frontLock, 'F', 'Open the front building door')}
       {backLock && quickDoor(backLockId, backLock, 'B', 'Open the back building door')}
       {aptLock.present && (frontLock || backLock) && <span className='access-quick-div' aria-hidden='true' />}

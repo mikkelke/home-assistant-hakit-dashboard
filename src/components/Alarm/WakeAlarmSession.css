@@ -89,7 +89,7 @@ body.wake-alarm-open {
   width: 48px;
   height: 48px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-chip);
   background: transparent;
   color: var(--wake-secondary);
 }
@@ -142,7 +142,7 @@ body.wake-alarm-open {
   justify-content: center;
   gap: 9px;
   margin: 4px 0 6px;
-  font-size: 16px;
+  font-size: var(--fs-body);
   line-height: 1.5;
 }
 
@@ -170,7 +170,7 @@ body.wake-alarm-open {
   padding: 14px 10px;
   flex-direction: column;
   gap: 6px;
-  border-radius: 18px;
+  border-radius: var(--radius-page);
   background: var(--wake-sage);
   color: var(--wake-ink);
 }
@@ -195,7 +195,7 @@ body.wake-alarm-open {
 .wake-alarm-options {
   min-height: 50px;
   gap: 9px;
-  border-radius: 12px;
+  border-radius: var(--radius-chip);
   color: var(--wake-sage);
   background: transparent;
   font-size: var(--fs-body);
@@ -218,7 +218,7 @@ body.wake-alarm-open {
   border-radius: var(--radius-tile);
   color: var(--wake-text);
   background: #2a3025;
-  font-size: 20px;
+  font-size: var(--fs-heading);
   font-weight: 500;
 }
 
@@ -264,12 +264,12 @@ body.wake-alarm-open {
 
 .wake-alarm-room strong {
   color: var(--wake-text);
-  font-size: 17px;
+  font-size: var(--fs-title);
   font-weight: 500;
 }
 
 .wake-alarm-room small {
-  font-size: 12px;
+  font-size: var(--fs-caption);
 }
 
 .wake-alarm-room button[aria-pressed='true'] {
@@ -279,7 +279,7 @@ body.wake-alarm-open {
 }
 
 .wake-alarm-field {
-  font-size: 14px;
+  font-size: var(--fs-label);
   color: var(--wake-secondary);
   margin: 0 0 10px;
 }
@@ -288,7 +288,7 @@ body.wake-alarm-open {
   display: flex;
   gap: 6px;
   padding: 5px;
-  border-radius: 13px;
+  border-radius: var(--radius-chip);
   background: #151b12;
 }
 
@@ -296,14 +296,14 @@ body.wake-alarm-open {
   flex: 1;
   min-height: 49px;
   border: 0;
-  border-radius: 9px;
-  font-size: 20px;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-heading);
   color: var(--wake-secondary);
   background: transparent;
 }
 
 .wake-alarm-length small {
-  font-size: 12px;
+  font-size: var(--fs-caption);
 }
 
 .wake-alarm-length button[aria-pressed='true'] {
@@ -316,7 +316,7 @@ body.wake-alarm-open {
   padding-top: 10px;
   border-top: 1px solid var(--wake-line);
   color: var(--wake-secondary);
-  font-size: 14px;
+  font-size: var(--fs-label);
   line-height: 1.5;
 }
 
@@ -339,7 +339,7 @@ body.wake-alarm-open {
 .wake-alarm-quiet {
   margin: 30px 0;
   color: var(--wake-secondary);
-  font-size: 14px;
+  font-size: var(--fs-label);
   line-height: 1.5;
 }
 
@@ -347,7 +347,7 @@ body.wake-alarm-open {
   min-height: 21px;
   margin: 10px 0 0;
   text-align: center;
-  font-size: 14px;
+  font-size: var(--fs-label);
   line-height: 1.5;
   color: var(--wake-secondary);
 }

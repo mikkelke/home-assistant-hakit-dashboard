@@ -22,7 +22,7 @@
   padding: 0.4rem 0.5rem;
   background: rgba(24, 25, 28, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   color: inherit;
   font: inherit;
   text-align: left;
@@ -46,7 +46,7 @@
    ApplianceCycleTiming.css's own .appliance-cycle-timing__emph). */
 .price-advisor-price {
   white-space: nowrap;
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   font-weight: 700;
   color: #f4f4f5;
 }
@@ -54,13 +54,13 @@
 /* Divider between the price and the band word — a literal glyph (not just flex `gap`), so it
    still reads as "1,02 kr · Normal" rather than two figures run together. */
 .price-advisor-sep {
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   color: #71717a;
 }
 
 .price-advisor-band {
   white-space: nowrap;
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   font-weight: 600;
   color: #e4e4e7;
   text-transform: capitalize;
@@ -70,7 +70,7 @@
    and the menu button; the "until HH:00" half is the first thing to go. */
 .price-advisor-until {
   white-space: nowrap;
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   color: #a1a1aa;
 }
 

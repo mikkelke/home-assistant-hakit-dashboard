@@ -44,6 +44,7 @@ html, body {
   --heat: #ff9f0a;
   --light-lamp: #ffc96b;
   --light-sun: #fff0c2;
+  --radius-sm: 8px;
   --radius-chip: 12px;
   --radius-tile: 16px;
   --radius-page: 20px;
@@ -55,9 +56,12 @@ html, body {
   --dur-press: 120ms;
   --dur-sheet: 220ms;
   --dur-sheet-exit: 130ms;
+  --dur-slow: 800ms;
   --fs-caption: 11.5px;
   --fs-label: 13px;
   --fs-body: 15px;
+  --fs-title: 17px;
+  --fs-heading: 20px;
   /* Accent share over the surface, by role: color-mix(in srgb, <accent> var(--tint-chip), transparent). */
   --tint-wash: 8%;
   --tint-chip: 12%;
@@ -147,7 +151,7 @@ body::-webkit-scrollbar,
   color: #e4e4e7 !important;
   font-size: 1.1rem !important;
   cursor: pointer !important;
-  transition: background 0.2s, transform var(--dur-press) var(--ease-out);
+  transition: background var(--dur-sheet), transform var(--dur-press) var(--ease-out);
   flex-shrink: 0 !important;
 }
 
@@ -208,7 +212,7 @@ body::-webkit-scrollbar,
 
 *::-webkit-scrollbar-thumb {
   background-color: #20345c;
-  border-radius: 20px;
+  border-radius: var(--radius-page);
   border: 3px solid #10192b;
 }
 
@@ -218,7 +222,7 @@ body {
   scroll-behavior: smooth;
   background-color: #0a101b;
   color: #e4eaf5;
-  font-size: 1rem;
+  font-size: var(--fs-body);
   overflow-x: hidden;
   overflow-y: inherit;
 }

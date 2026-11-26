@@ -6,8 +6,8 @@ let uninstall: () => void;
 let vibrate: ReturnType<typeof vi.fn>;
 
 function tap(el: Element) {
-  el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
-  el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+  el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 100, clientY: 100 }));
+  el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: 100, clientY: 100 }));
   el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 }
 
@@ -34,10 +34,47 @@ describe('installTapHaptics', () => {
     expect(vibrate).toHaveBeenCalledTimes(1);
   });
 
-  it('ticks for role controls and pointer-cursor elements', () => {
-    mount('<div role="switch" id="s"></div><div role="tab" id="t"></div><div id="p" style="cursor: pointer"></div>');
-    for (const id of ['s', 't', 'p']) tap(document.getElementById(id)!);
+  it('ticks for role controls and data-tap elements, not for a pointer cursor alone', () => {
+    mount(
+      '<div role="switch" id="s"></div><div role="tab" id="t"></div><svg data-tap id="c"></svg><div id="p" style="cursor: pointer"></div>'
+    );
+    for (const id of ['s', 't', 'c', 'p']) tap(document.getElementById(id)!);
     expect(vibrate).toHaveBeenCalledTimes(3);
+  });
+
+  it('ticks a backdrop close but not a tap inside its dialog', () => {
+    mount('<div data-backdrop id="scrim"><div role="dialog"><p id="body">Text</p><button id="x">Close</button></div></div>');
+    tap(document.getElementById('body')!);
+    expect(vibrate).not.toHaveBeenCalled();
+    tap(document.getElementById('scrim')!);
+    tap(document.getElementById('x')!);
+    expect(vibrate).toHaveBeenCalledTimes(2);
+  });
+
+  it('ticks a tap on a list item text, and stays quiet in a data-tap="off" gap', () => {
+    mount(
+      '<li><div class="list-item" data-tap><button role="checkbox"></button><span id="text">Milk</span></div></li><div role="button"><span data-tap="off" id="gap"><button id="q"></button></span></div>'
+    );
+    tap(document.getElementById('text')!);
+    expect(vibrate).toHaveBeenCalledTimes(1);
+    tap(document.getElementById('gap')!);
+    expect(vibrate).toHaveBeenCalledTimes(1);
+    tap(document.getElementById('q')!);
+    expect(vibrate).toHaveBeenCalledTimes(2);
+  });
+
+  it('stays quiet when the press travels into a swipe or a scroll', () => {
+    mount('<div role="button" id="row"></div>');
+    const row = document.getElementById('row')!;
+    row.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 100, clientY: 100 }));
+    row.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: 160, clientY: 104 }));
+    row.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    row.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 100, clientY: 100 }));
+    row.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true }));
+    row.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(vibrate).not.toHaveBeenCalled();
+    tap(row);
+    expect(vibrate).toHaveBeenCalledTimes(1);
   });
 
   it('stays quiet on empty card space and on disabled controls', () => {
@@ -51,9 +88,9 @@ describe('installTapHaptics', () => {
   it('gives a slider drag no second tick from its release click', () => {
     mount('<div role="button" id="strip"></div>');
     const strip = document.getElementById('strip')!;
-    strip.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    strip.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 100, clientY: 100 }));
     hapticTick();
-    strip.dispatchEvent(new PointerEvent('pointermove', { bubbles: true }));
+    strip.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: 104, clientY: 100 }));
     strip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(vibrate).toHaveBeenCalledTimes(1);
   });

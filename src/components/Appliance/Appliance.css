@@ -71,7 +71,7 @@
 .appliance-title {
   flex: 1;
   min-width: 0;
-  font-size: 1.05rem;
+  font-size: var(--fs-title);
   font-weight: 600;
 }
 
@@ -83,7 +83,7 @@
 }
 
 .appliance-word {
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -129,7 +129,7 @@
   background: #2c2c2e;
   color: rgba(235, 235, 245, 0.6);
   -webkit-tap-highlight-color: transparent;
-  transition: transform var(--dur-press) var(--ease-out), background 0.2s ease, color 0.2s ease;
+  transition: transform var(--dur-press) var(--ease-out), background var(--dur-sheet) ease, color var(--dur-sheet) ease;
 }
 .appliance-quick-btn::before {
   content: '';
@@ -163,7 +163,7 @@
   height: 100%;
   background: var(--appliance-accent);
   clip-path: inset(0 calc(100% - var(--progress, 0) * 1%) 0 0 round 2px);
-  transition: clip-path 0.3s ease;
+  transition: clip-path var(--dur-sheet) ease;
 }
 
 /* Expanded content */
@@ -202,7 +202,7 @@
   background-size: calc(var(--progress, 0) * 1%) 100%;
   background-repeat: no-repeat;
   clip-path: inset(0 calc(100% - var(--progress, 0) * 1%) 0 0 round 6px);
-  transition: clip-path 0.3s ease, background-size 0.3s ease;
+  transition: clip-path var(--dur-sheet) ease, background-size var(--dur-sheet) ease;
 }
 
 .appliance-cycle-now {
@@ -212,7 +212,7 @@
   width: 2px;
   background: rgba(255, 255, 255, 0.55);
   transform: translateX(-50%);
-  transition: left 0.3s ease;
+  transition: left var(--dur-sheet) ease;
 }
 
 .appliance-cycle-meta {
@@ -220,7 +220,7 @@
   align-items: baseline;
   gap: 0.6rem;
   margin-top: 0.5rem;
-  font-size: 12px;
+  font-size: var(--fs-caption);
 }
 
 .appliance-cycle-meta-start {
@@ -302,7 +302,7 @@ span.appliance-chip {
   align-items: center;
   gap: 8px;
   color: rgba(235, 235, 245, 0.6);
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
 }
 .appliance-paused-row svg {
   font-size: 1.1rem;
@@ -342,7 +342,7 @@ span.appliance-chip {
   color: rgba(255, 255, 255, 0.92);
 }
 .appliance-hero-line2 {
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.45);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -407,7 +407,7 @@ span.appliance-chip {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.6);
 }
 .appliance-footer-item {
@@ -505,7 +505,7 @@ span.appliance-chip {
   border: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   font-family: inherit;
-  font-size: 0.95rem;
+  font-size: var(--fs-body);
   color: rgba(255, 255, 255, 0.92);
   text-align: left;
   cursor: pointer;
@@ -524,7 +524,7 @@ span.appliance-chip {
 .appliance-history-note {
   padding: 1rem 0;
   text-align: center;
-  font-size: 0.875rem;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.6);
 }
 .appliance-history-note.error {
@@ -592,10 +592,10 @@ span.appliance-chip {
   background: #2c2c2e;
   color: inherit;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 4px 8px;
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   cursor: pointer;
 }
 .appliance-history-confirm-btn {

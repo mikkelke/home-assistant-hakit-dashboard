@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
+import { hapticTick } from '../../utils/haptics';
 import './FireSafety.css';
 
 export interface HoldToActProps {
@@ -39,7 +40,6 @@ export function HoldToAct({ label, hint, onAct, holdMs = 800, tone = 'light', di
       if (disabled || firedRef.current) return;
       if (event.pointerType === 'mouse' && event.button !== 0) return;
       event.currentTarget.setPointerCapture?.(event.pointerId);
-      navigator.vibrate?.(10);
       firedRef.current = false;
       setHolding(true);
       clearTimer();
@@ -47,7 +47,7 @@ export function HoldToAct({ label, hint, onAct, holdMs = 800, tone = 'light', di
         timerRef.current = null;
         if (firedRef.current) return;
         firedRef.current = true;
-        navigator.vibrate?.([30, 40, 60]);
+        hapticTick();
         setHolding(false);
         setDone(true);
         onAct();
@@ -63,6 +63,7 @@ export function HoldToAct({ label, hint, onAct, holdMs = 800, tone = 'light', di
   return (
     <button
       type='button'
+      data-tap='off'
       className={`hold-to-act tone-${tone} ${holding ? 'is-holding' : ''} ${done ? 'is-done' : ''} ${className}`}
       style={{ '--hold-ms': `${holdMs}ms` } as React.CSSProperties}
       disabled={disabled}

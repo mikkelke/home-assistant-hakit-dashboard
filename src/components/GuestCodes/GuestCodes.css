@@ -20,7 +20,7 @@
 .gc-head h2 {
   flex: 1;
   min-width: 0;
-  font-size: 1.15rem;
+  font-size: var(--fs-title);
   font-weight: 600;
   overflow-wrap: anywhere;
 }
@@ -48,7 +48,7 @@
   border-radius: var(--radius-chip);
   padding: 0.5rem 0.75rem;
   font: inherit;
-  font-size: 0.875rem;
+  font-size: var(--fs-label);
   background: var(--surface-chip);
   color: var(--text-1);
   cursor: pointer;
@@ -72,7 +72,7 @@
 .gc-toolbar > [aria-label='Refresh users'] { padding: 0; }
 .gc-my-code { margin-bottom: 1rem; padding: 0.75rem; border: 1px solid var(--line); border-radius: var(--radius-chip); }
 .gc-my-code-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-.gc-my-code h3 { font-size: 1rem; font-weight: 600; }
+.gc-my-code h3 { font-size: var(--fs-body); font-weight: 600; }
 .gc-my-code-content { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
 .gc-my-code .gc-pin { font-size: 1.75rem; }
 .gc-my-code .gc-actions { margin: 0; }
@@ -100,23 +100,23 @@
   border-radius: 50%;
   background: var(--surface-chip);
   color: var(--accent-sky);
-  font-size: 1rem;
+  font-size: var(--fs-body);
   font-weight: 600;
 }
 .gc-row-copy { flex: 1; min-width: 0; }
 .gc-row-top { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
-.gc-row-name, .gc-success h3, .gc-editor-name { font-size: 1rem; font-weight: 600; overflow-wrap: anywhere; }
+.gc-row-name, .gc-success h3, .gc-editor-name { font-size: var(--fs-body); font-weight: 600; overflow-wrap: anywhere; }
 .gc-row-name { min-width: 0; flex: 1; }
 .gc-row-top > svg { color: var(--text-2); }
 .gc-row-meta { display: block; margin-top: 0.2rem; color: var(--text-2); font-size: var(--fs-label); overflow-wrap: anywhere; }
 .gc-chevron { color: var(--text-3); }
-.gc-muted { color: var(--text-2); font-size: 0.875rem; }
+.gc-muted { color: var(--text-2); font-size: var(--fs-label); }
 .gc-status {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   color: var(--text-2);
   text-transform: capitalize;
   white-space: nowrap;
@@ -129,7 +129,7 @@
 .gc-expired summary { min-height: 44px; padding: 0.6rem 0; cursor: pointer; color: var(--text-2); }
 .gc-empty { padding: 3rem 0.5rem; text-align: center; }
 .gc-empty > svg { font-size: 2.5rem; color: var(--text-3); margin-bottom: 0.75rem; }
-.gc-empty > p:first-of-type { font-size: 1rem; font-weight: 600; }
+.gc-empty > p:first-of-type { font-size: var(--fs-body); font-weight: 600; }
 .gc-empty .gc-muted { margin-top: 0.35rem; }
 .gc-field { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; margin-bottom: 1rem; }
 .gc-field input {
@@ -140,7 +140,7 @@
   border-radius: var(--radius-chip);
   padding: 0.65rem;
   font: inherit;
-  font-size: 1rem;
+  font-size: var(--fs-body);
   background: var(--surface-chip);
   color: var(--text-1);
   caret-color: var(--accent-sky);
@@ -151,7 +151,7 @@
 .gc-code-input input { flex: 1; width: 0; font-variant-numeric: tabular-nums; letter-spacing: 0.12em; }
 .gc-code-input button { flex-shrink: 0; }
 .gc-period { border: 0; margin: 1.5rem 0; min-width: 0; }
-.gc-period legend { font-size: 0.875rem; color: var(--text-2); margin-bottom: 0.5rem; }
+.gc-period legend { font-size: var(--fs-label); color: var(--text-2); margin-bottom: 0.5rem; }
 .gc-options { display: flex; gap: 0.25rem; margin-bottom: 1rem; padding: 0.25rem; border-radius: var(--radius-chip); background: var(--surface-chip); }
 .guest-codes .gc-options button { flex: 1; border: 0; background: none; }
 .guest-codes .gc-options button[aria-pressed='true'] { background: var(--line); color: var(--accent-sky); font-weight: 600; }
@@ -168,7 +168,7 @@
 .gc-code-panel { text-align: center; padding: 0.5rem 0 1.75rem; }
 .gc-code-panel > button { margin-top: 0.75rem; }
 .gc-facts { margin-bottom: 1.75rem; }
-.gc-facts > div { display: flex; justify-content: space-between; gap: 1.5rem; padding: 0.75rem 0; border-bottom: 1px solid var(--line); font-size: 0.875rem; }
+.gc-facts > div { display: flex; justify-content: space-between; gap: 1.5rem; padding: 0.75rem 0; border-bottom: 1px solid var(--line); font-size: var(--fs-label); }
 .gc-facts dt { color: var(--text-2); flex-shrink: 0; }
 .gc-facts dd { text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .gc-action-list { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-chip); }

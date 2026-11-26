@@ -27,14 +27,14 @@
 
 .device-dialog-header h2 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: var(--fs-title);
   font-weight: 600;
   color: #f4f4f5;
 }
 
 .device-dialog-period {
   margin: 0.2rem 0 1rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-label);
   color: #a1a1aa;
 }
 
@@ -52,16 +52,16 @@
   padding: 0.6rem 0.75rem;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.6rem;
+  border-radius: var(--radius-sm);
 }
 
 .device-dialog-label {
-  font-size: 0.8rem;
+  font-size: var(--fs-label);
   color: #a1a1aa;
 }
 
 .device-dialog-value {
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   color: #e4e4e7;
   text-align: right;

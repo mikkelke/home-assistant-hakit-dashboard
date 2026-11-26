@@ -74,7 +74,7 @@
 
 .tv-title {
   flex-shrink: 0;
-  font-size: 1.05rem;
+  font-size: var(--fs-title);
   font-weight: 600;
 }
 
@@ -87,7 +87,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -154,7 +154,7 @@
   flex-shrink: 0;
   width: 3.5rem;
   height: 3.5rem;
-  border-radius: 12px;
+  border-radius: var(--radius-chip);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -191,7 +191,7 @@
 
 .tv-hero-sub {
   margin-top: 0.25rem;
-  font-size: 0.82rem;
+  font-size: var(--fs-label);
   color: rgba(235, 235, 245, 0.5);
   white-space: nowrap;
   overflow: hidden;
@@ -209,7 +209,7 @@
 .tv-seeker-time {
   flex-shrink: 0;
   min-width: 2.4rem;
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   color: rgba(235, 235, 245, 0.4);
   font-variant-numeric: tabular-nums;
 }
@@ -330,7 +330,7 @@
   border-radius: var(--radius-tile);
   color: rgba(255, 255, 255, 0.92);
   font-family: inherit;
-  font-size: 0.875rem;
+  font-size: var(--fs-label);
   cursor: pointer;
 }
 .tv-source-toggle.open {
@@ -380,7 +380,7 @@
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   color: rgba(235, 235, 245, 0.7);
   font-family: inherit;
-  font-size: 0.875rem;
+  font-size: var(--fs-label);
   text-align: left;
   cursor: pointer;
 }
@@ -431,7 +431,7 @@
   font-size: 1.25rem;
 }
 .tv-lift-btn span {
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   font-weight: 600;
 }
 .tv-lift-btn.active {

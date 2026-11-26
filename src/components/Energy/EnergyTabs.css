@@ -5,7 +5,7 @@
   margin: 0 auto;
   background: rgba(24, 25, 28, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-chip);
   padding: 4px;
 }
 
@@ -20,13 +20,13 @@
   gap: 2px;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   color: #a1a1aa;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s, transform var(--dur-press) var(--ease-out);
+  transition: background var(--dur-press), border-color var(--dur-press), color var(--dur-press), transform var(--dur-press) var(--ease-out);
 }
 
 .energy-tabs-btn:active {

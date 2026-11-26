@@ -136,7 +136,7 @@ export function Menu({
 
   return (
     <>
-      {isOpen && <div className='menu-overlay' onClick={onClose} />}
+      {isOpen && <div data-backdrop className='menu-overlay' onClick={onClose} />}
       <aside className={`menu ${isOpen ? 'open' : ''}`}>
         <div className='menu-header'>
           <h2>Menu</h2>

@@ -93,7 +93,7 @@
   height: 9px;
   border-radius: 50%;
   background: #3a3a3c;
-  transition: background 0.2s ease;
+  transition: background var(--dur-sheet) ease;
 }
 .nudge-pips i.is-zero {
   width: 5px;

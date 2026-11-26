@@ -275,7 +275,13 @@ export function MultiEntitySelector({
   };
 
   const selectionModal = showSelection ? (
-    <div className='person-info-overlay' role='presentation' onClick={handleSelectionOverlayClick} onMouseDown={e => e.stopPropagation()}>
+    <div
+      data-backdrop
+      className='person-info-overlay'
+      role='presentation'
+      onClick={handleSelectionOverlayClick}
+      onMouseDown={e => e.stopPropagation()}
+    >
       <div
         className='person-info-modal entity-selection-modal'
         role='dialog'
@@ -337,6 +343,7 @@ export function MultiEntitySelector({
 
           return (
             <div
+              data-backdrop
               className='person-info-overlay'
               role='presentation'
               onClick={handleTimelineOverlayClick}
@@ -372,7 +379,7 @@ export function MultiEntitySelector({
 
   return (
     <>
-      <div className={className} title={title} onClick={handleClick} style={{ cursor: 'pointer' }}>
+      <div className={className} title={title} data-tap onClick={handleClick} style={{ cursor: 'pointer' }}>
         <Icon icon={icon} />
         {label && <span className='indicator-label'>{label}</span>}
       </div>
