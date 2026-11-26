@@ -284,7 +284,8 @@ export function StatsSheet({
   const taste = brews?.taste ?? null;
   const rated = taste ? tasteTotal(taste) : 0;
   const suggestion = advisorShown(advice) && advice.status === 'suggested' && advice.to ? advice : null;
-  const share = beans?.remainingG != null ? Math.min(1, beans.remainingG / Math.max(BEANS_TOP_UP_G, beans.remainingG)) : 0;
+  const bags = beans?.bags.length ? beans.bags : beans ? [beans] : [];
+  const multipleBags = bags.length > 1;
   const count = brews?.brews60d ?? brews?.brews.length ?? 0;
   return (
     <CoffeeSheet
@@ -309,28 +310,35 @@ export function StatsSheet({
         </div>
         {beans && (
           <div className='coffee-tile'>
-            <h4>
-              <Glyph name='jar' />
-              {beans.beanName ?? 'Beans'}
-              {beans.addedAtMs != null && <span className='coffee-tile-r'>added {formatDayMonth(beans.addedAtMs)}</span>}
-            </h4>
-            <div className='cst-beans'>
-              <div className='coffee-big'>
-                {beans.remainingG == null ? '—' : `≈${Math.round(beans.remainingG)}`}
-                <small>g left</small>
-              </div>
-              <div className='cst-beans-bar'>
-                <div className='coffee-bar'>
-                  <i style={{ width: `${Math.round(share * 100)}%` }} />
+            {bags.map(bag => {
+              const share = bag.remainingG == null ? 0 : bag.remainingG / Math.max(BEANS_TOP_UP_G, bag.remainingG);
+              return (
+                <div className='cst-bag' key={bag.beanId ?? 'beans'}>
+                  <h4>
+                    <Glyph name='jar' />
+                    {bag.beanName ?? 'Beans'}
+                    {bag.addedAtMs != null && <span className='coffee-tile-r'>added {formatDayMonth(bag.addedAtMs)}</span>}
+                  </h4>
+                  <div className='cst-beans'>
+                    <div className='coffee-big'>
+                      {bag.remainingG == null ? '—' : `≈${Math.round(bag.remainingG)}`}
+                      <small>g left</small>
+                    </div>
+                    <div className='cst-beans-bar'>
+                      <div className='coffee-bar'>
+                        <i style={{ width: `${Math.round(share * 100)}%` }} />
+                      </div>
+                      {bag.brewsLeft != null && (
+                        <span>
+                          ≈ {bag.brewsLeft} brew{bag.brewsLeft === 1 ? '' : 's'}
+                          {!multipleBags && beans.doseG != null ? ` at ${beans.doseG} g` : ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                {beans.brewsLeft != null && (
-                  <span>
-                    ≈ {beans.brewsLeft} brew{beans.brewsLeft === 1 ? '' : 's'}
-                    {beans.doseG != null ? ` at ${beans.doseG} g` : ''}
-                  </span>
-                )}
-              </div>
-            </div>
+              );
+            })}
             <div className='coffee-row cst-beans-acts'>
               <button type='button' className='coffee-btn is-ghost is-grow' onClick={onBeans}>
                 <Icon icon='mdi:plus' aria-hidden='true' />
@@ -352,7 +360,7 @@ export function StatsSheet({
         {taste && rated > 0 && (
           <div className='coffee-tile'>
             <h4>
-              Taste on these beans
+              {multipleBags && beans?.beanName ? `Taste · ${beans.beanName}` : 'Taste on these beans'}
               <span className='coffee-tile-r'>
                 {rated} rated{beans?.addedAtMs != null ? ` since ${formatDayMonth(beans.addedAtMs)}` : ''}
               </span>
