@@ -3,6 +3,7 @@ import { Icon } from '@iconify/react';
 import type { HassEntities, CallServiceFunction } from '../../types';
 import { attrNum, attrStringArray, attrStr } from '../../types';
 import { useLocalStorageBoolean, useModalBackButton, useSwipeToClose, useTouchScrollSlopGuard } from '../../hooks';
+import { stepTicker } from '../../utils/haptics';
 import './LightCard.css';
 import { ROOM_LIGHTS, ROOM_LIGHT_MANUAL_OVERRIDE, ROOM_LIGHT_MANUAL_OVERRIDE_TIMEOUT_HOURS } from '../../config/lights';
 
@@ -79,6 +80,7 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
   const [sliderValues, setSliderValues] = useState<Record<string, number>>({});
   // "Finger is on this light's strip" - suppresses the entity->slider sync while dragging.
   const [dragging, setDragging] = useState<Record<string, boolean>>({});
+  const [brightnessTicks] = useState(() => stepTicker());
   // Bumped to re-run the slider sync once a recent-commit window has passed (see the sync effect below).
   const [syncTick, setSyncTick] = useState(0);
   const [colorPickerLightId, setColorPickerLightId] = useState<string | null>(null);
@@ -591,14 +593,18 @@ export function LightCard({ areaName, entities, callService }: LightCardProps) {
                         max='100'
                         value={value}
                         aria-label={`${getLightName(lightId)} brightness`}
+                        onPointerDown={() => brightnessTicks.begin(value / 100)}
+                        onPointerUp={brightnessTicks.end}
                         onChange={e => {
                           const val = parseInt(e.target.value);
+                          brightnessTicks.move(val / 100);
                           setSliderValues(prev => ({ ...prev, [lightId]: val }));
                           setDragging(prev => ({ ...prev, [lightId]: true }));
                         }}
                         onInput={e => {
                           // iOS Safari needs onInput for real-time updates while dragging
                           const val = parseInt((e.target as HTMLInputElement).value);
+                          brightnessTicks.move(val / 100);
                           setSliderValues(prev => ({ ...prev, [lightId]: val }));
                           setDragging(prev => ({ ...prev, [lightId]: true }));
                         }}

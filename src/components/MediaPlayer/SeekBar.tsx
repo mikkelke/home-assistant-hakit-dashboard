@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import { stepTicker } from '../../utils/haptics';
+
 export interface SeekBarProps {
   /** Where the viewer sees the player, in seconds. */
   position: number;
@@ -20,6 +23,7 @@ function formatTime(seconds: number): string {
 
 export function SeekBar({ position, duration, onDrag, onRelease }: SeekBarProps) {
   const percent = Math.max(0, Math.min(100, (position / duration) * 100));
+  const [ticks] = useState(() => stepTicker());
   return (
     <div className='sonos-seek'>
       <div className='sonos-strip sonos-strip--thin'>
@@ -31,7 +35,12 @@ export function SeekBar({ position, duration, onDrag, onRelease }: SeekBarProps)
           max={duration}
           step={1}
           value={position}
-          onChange={e => onDrag(Number(e.target.value))}
+          onPointerDown={() => ticks.begin(position / duration)}
+          onChange={e => {
+            ticks.move(Number(e.target.value) / duration);
+            onDrag(Number(e.target.value));
+          }}
+          onPointerUp={ticks.end}
           onMouseUp={onRelease}
           onTouchEnd={onRelease}
           aria-label='Seek position'

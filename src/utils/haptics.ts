@@ -38,6 +38,30 @@ export function hapticTick() {
   navigator.vibrate?.(5);
 }
 
+/**
+ * Ticks when a drag carries a slider across one of `steps` equal parts of its range. Only values reported
+ * between `begin` and `end` count, so a value the house pushes or a keyboard step never ticks.
+ */
+export function stepTicker(steps = 10) {
+  let step: number | null = null;
+  const stepOf = (fraction: number) => Math.floor(Math.max(0, Math.min(1, fraction)) * steps);
+  return {
+    begin(fraction: number) {
+      step = stepOf(fraction);
+    },
+    move(fraction: number) {
+      if (step === null) return;
+      const next = stepOf(fraction);
+      if (next === step) return;
+      step = next;
+      hapticTick();
+    },
+    end() {
+      step = null;
+    },
+  };
+}
+
 function doesSomething(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
   const control = target.closest(CONTROL);

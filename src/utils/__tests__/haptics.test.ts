@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { hapticTick, installTapHaptics } from '../haptics';
+import { hapticTick, installTapHaptics, stepTicker } from '../haptics';
 
 let uninstall: () => void;
 let vibrate: ReturnType<typeof vi.fn>;
@@ -104,5 +104,43 @@ describe('installTapHaptics', () => {
     expect(vibrate).toHaveBeenCalledTimes(1);
     tap(hold);
     expect(vibrate).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('stepTicker', () => {
+  it('ticks once per tenth crossed during a drag', () => {
+    const ticks = stepTicker();
+    ticks.begin(0.05);
+    for (const f of [0.08, 0.12, 0.18, 0.25, 0.29, 0.31, 0.33]) ticks.move(f);
+    expect(vibrate).toHaveBeenCalledTimes(3);
+  });
+
+  it('stays quiet for a small drag inside one step', () => {
+    const ticks = stepTicker();
+    ticks.begin(0.41);
+    ticks.move(0.43);
+    ticks.move(0.49);
+    expect(vibrate).not.toHaveBeenCalled();
+  });
+
+  it('adds no tick for the release click of a slider drag', () => {
+    mount('<input type="range" id="r" />');
+    const range = document.getElementById('r')!;
+    const ticks = stepTicker();
+    range.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 100, clientY: 100 }));
+    ticks.begin(0.2);
+    ticks.move(0.35);
+    ticks.end();
+    range.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(vibrate).toHaveBeenCalledTimes(1);
+  });
+
+  it('never ticks for a value that changes outside a drag', () => {
+    const ticks = stepTicker();
+    ticks.move(0.9);
+    ticks.begin(0.1);
+    ticks.end();
+    ticks.move(0.5);
+    expect(vibrate).not.toHaveBeenCalled();
   });
 });

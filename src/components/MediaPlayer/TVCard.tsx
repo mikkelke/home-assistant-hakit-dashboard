@@ -4,6 +4,7 @@ import type { HassEntities, CallServiceFunction } from '../../types';
 import { attrNum, attrStr } from '../../types';
 import { AppleTVRemote } from '../Remote';
 import { useLocalStorageBoolean, useTouchScrollSlopGuard } from '../../hooks';
+import { stepTicker } from '../../utils/haptics';
 import './TVCard.css';
 
 // TV card — same collapsed-by-default iOS shell as HeatCard/TonightCard/CoverCard. The bedroom
@@ -79,6 +80,7 @@ export function TVCard({
 }: TVCardProps) {
   const [showSourcePicker, setShowSourcePicker] = useState(false);
   const [volumeUi, setVolumeUi] = useState(0);
+  const [seekTicks] = useState(() => stepTicker());
   const [showAppleRemote, setShowAppleRemote] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [seekerPreview, setSeekerPreview] = useState<{ entityId: string; position: number } | null>(null);
@@ -546,8 +548,11 @@ export function TVCard({
                 max={mediaDuration}
                 step={1}
                 value={seekerPreviewPosition ?? currentPosition}
+                onPointerDown={() => seekTicks.begin((seekerPreviewPosition ?? currentPosition) / mediaDuration)}
+                onPointerUp={seekTicks.end}
                 onChange={e => {
                   if (!seekTarget?.entityId) return;
+                  seekTicks.move(Number(e.target.value) / mediaDuration);
                   setSeekerPreview({ entityId: seekTarget.entityId, position: Number(e.target.value) });
                 }}
                 onMouseUp={() => handleSeek(seekerPreviewPosition ?? currentPosition)}

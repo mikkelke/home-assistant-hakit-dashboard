@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { hapticTick } from '../../utils/haptics';
+import { stepTicker } from '../../utils/haptics';
 
 const TOUCH_SLOP_PX = 8;
 const MOUSE_SLOP_PX = 4;
@@ -31,6 +31,7 @@ interface VolumeStripProps {
 export function VolumeStrip({ value, onCommit, label, mini = false, muted = false }: VolumeStripProps) {
   const [drag, setDrag] = useState<number | null>(null);
   const gesture = useRef<Gesture | null>(null);
+  const [ticks] = useState(() => stepTicker());
   const shown = drag ?? Math.max(0, Math.min(100, Math.round(value)));
 
   const finish = (e: ReactPointerEvent<HTMLDivElement>, commit: boolean) => {
@@ -38,6 +39,7 @@ export function VolumeStrip({ value, onCommit, label, mini = false, muted = fals
     if (!g || g.id !== e.pointerId) return;
     gesture.current = null;
     if (!g.engaged) return;
+    ticks.end();
     setDrag(null);
     const next = Math.round(g.raw);
     if (commit && next !== g.start) onCommit(next);
@@ -81,12 +83,13 @@ export function VolumeStrip({ value, onCommit, label, mini = false, muted = fals
             g.engaged = true;
             g.lastX = e.clientX;
             e.currentTarget.setPointerCapture(e.pointerId);
-            hapticTick();
+            ticks.begin(g.start / 100);
             setDrag(g.start);
             return;
           }
           g.raw = Math.max(0, Math.min(100, g.raw + ((e.clientX - g.lastX) / g.width) * 100));
           g.lastX = e.clientX;
+          ticks.move(g.raw / 100);
           setDrag(Math.round(g.raw));
         }}
         onPointerUp={e => finish(e, true)}
