@@ -192,7 +192,7 @@ describe('slotDevices kr', () => {
 describe('deviceIcon', () => {
   const device = (statId: string, powerEntityId?: string): DevicePref => ({ statId, name: statId, powerEntityId });
   const devices: DevicePref[] = [
-    device('sensor.oven_plug_switch_0_energy', 'sensor.oven_plug_switch_0_power'),
+    device('sensor.oven_relay_energy', 'sensor.oven_relay_power'),
     device('sensor.hotplate_power_monitor_total_active_energy', 'sensor.hotplate_power_monitor_total_active_power'),
     device('sensor.microwave_plug_energy', 'sensor.microwave_plug_power'),
     device('sensor.fridge_plug_energy', 'sensor.fridge_plug_power'),
@@ -209,7 +209,7 @@ describe('deviceIcon', () => {
   const icon = (statId: string) => deviceIcon(devices, statId);
 
   it('gives the clear cases their own icon', () => {
-    expect(icon('sensor.oven_plug_switch_0_energy')).toBe('hugeicons:oven');
+    expect(icon('sensor.oven_relay_energy')).toBe('hugeicons:oven');
     expect(icon('sensor.hotplate_power_monitor_total_active_energy')).toBe('rooftop:cooktop');
     expect(icon('sensor.microwave_plug_energy')).toBe('mdi:microwave');
     expect(icon('sensor.fridge_plug_energy')).toBe('mdi:fridge');

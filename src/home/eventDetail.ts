@@ -38,7 +38,7 @@ export const NIGHT_ENTITIES = {
 /** The cooking power HouseScenarios reads, with the watts above which each counts as on. */
 export const COOKING_POWER = {
   hob: { entity: 'sensor.hotplate_power_monitor_total_active_power', label: 'Hob', onW: 300 },
-  oven: { entity: 'sensor.oven_plug_switch_0_power', label: 'Oven', onW: 200 },
+  oven: { entity: 'sensor.oven_relay_power', label: 'Oven', onW: 200 },
 } as const;
 
 export type CookingSource = keyof typeof COOKING_POWER;

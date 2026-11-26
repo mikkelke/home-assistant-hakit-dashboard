@@ -46,9 +46,9 @@ const evening = (hour: number, from: number, to: number, kwh: number) => (hour >
 const DEVICES: readonly Device[] = [
   { id: 'sensor.kitchen_circuit_energy', name: 'Kitchen circuit', area: 'kitchen', use: () => 0 },
   {
-    id: 'sensor.oven_plug_switch_0_energy',
+    id: 'sensor.oven_relay_energy',
     name: 'Oven',
-    power: 'sensor.oven_plug_switch_0_power',
+    power: 'sensor.oven_relay_power',
     parent: 'sensor.kitchen_circuit_energy',
     area: 'kitchen',
     use: (_ms, hour, weekday, noise) =>
@@ -235,7 +235,7 @@ export function addEnergy(h: HouseBuilder): void {
   h.put(PRICE_FORECAST_ENTITY_ID, 'ok', { friendly_name: 'Electricity price forecast', forecast: [] }, { ago: 40 });
   h.put(GRID_POWER, 1960, { friendly_name: 'Electricity meter power', unit_of_measurement: 'W', device_class: 'power' }, { ago: 0 });
   const powers: Record<string, number> = {
-    'sensor.oven_plug_switch_0_power': 0,
+    'sensor.oven_relay_power': 0,
     'sensor.hotplate_power_monitor_total_active_power': 0,
     'sensor.microwave_plug_power': 0,
     'sensor.kitchen_plug_power': 78,

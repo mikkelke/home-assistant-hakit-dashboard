@@ -53,7 +53,7 @@ const formatName = (text: string) => text.replace(/\b(\p{L})(\p{L}*)/gu, (_, a, 
 const COOKING_W = 200;
 const COOKING_DEVICES = [
   { entityId: 'sensor.hotplate_power_monitor_total_active_power', icon: HOTPLATE_ICON, name: 'Hotplate' },
-  { entityId: 'sensor.oven_plug_switch_0_power', icon: OVEN_ICON, name: 'Oven' },
+  { entityId: 'sensor.oven_relay_power', icon: OVEN_ICON, name: 'Oven' },
   { entityId: 'sensor.microwave_plug_power', icon: 'mdi:microwave', name: 'Microwave' },
 ] as const;
 

@@ -37,7 +37,7 @@ export const FLOW_MAX_ROOMS = 8;
 /** Icons for the energy devices whose kind is clear, by statistic id; the washer, dishwasher and dryer
  * take theirs from `PLAN_APPLIANCES`. Every other device keeps its room's icon. */
 export const ENERGY_DEVICE_ICONS: Readonly<Record<string, string>> = {
-  'sensor.oven_plug_switch_0_energy': OVEN_ICON,
+  'sensor.oven_relay_energy': OVEN_ICON,
   'sensor.hotplate_power_monitor_total_active_energy': HOTPLATE_ICON,
   'sensor.microwave_plug_energy': 'mdi:microwave',
   'sensor.fridge_plug_energy': 'mdi:fridge',

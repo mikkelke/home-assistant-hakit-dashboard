@@ -261,20 +261,20 @@ describe('room card exception icons', () => {
   });
 
   it('keeps an open cooking history up when the power drops', () => {
-    show(KITCHEN, world(entity('sensor.oven_plug_switch_0_power', '1500', { friendly_name: 'Oven' })));
+    show(KITCHEN, world(entity('sensor.oven_relay_power', '1500', { friendly_name: 'Oven' })));
     const oven = document.querySelector<HTMLElement>('.room-ex .indicator.power');
     expect(oven?.closest('.is-hidden') ?? null).toBeNull();
     act(() => oven!.click());
     expect(modalOpen()).toBe(true);
 
-    show(KITCHEN, world(entity('sensor.oven_plug_switch_0_power', '3', { friendly_name: 'Oven' })));
+    show(KITCHEN, world(entity('sensor.oven_relay_power', '3', { friendly_name: 'Oven' })));
     expect(modalOpen()).toBe(true);
   });
 
   it('never reads cooking power through the grid map', () => {
     const reads = new Set<string>();
-    show(KITCHEN, world(entity('sensor.oven_plug_switch_0_power', '1500', { friendly_name: 'Oven' })), reads);
-    show(KITCHEN, world(entity('sensor.oven_plug_switch_0_power', '3', { friendly_name: 'Oven' })), reads);
+    show(KITCHEN, world(entity('sensor.oven_relay_power', '1500', { friendly_name: 'Oven' })), reads);
+    show(KITCHEN, world(entity('sensor.oven_relay_power', '3', { friendly_name: 'Oven' })), reads);
     expect([...reads].filter(id => id.includes('power'))).toEqual([]);
   });
 });
