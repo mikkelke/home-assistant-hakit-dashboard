@@ -102,6 +102,7 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-page);
   padding: 16px;
+  container-type: inline-size;
 }
 
 .body-hero-top {
@@ -119,19 +120,20 @@
 
 .body-figure {
   margin-top: 6px;
-  font-size: 56px;
+  font-size: clamp(56px, 16.47cqi, 76px);
   font-weight: 650;
   line-height: 1;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .body-figure.is-small {
-  font-size: 40px;
+  font-size: clamp(40px, 11.76cqi, 54px);
 }
 .body-figure-unit {
   margin-left: 6px;
   font-size: 0.36em;
-  font-weight: 600;
+  font-weight: 300;
   letter-spacing: 0;
   color: var(--text-2);
 }

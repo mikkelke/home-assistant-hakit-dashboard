@@ -715,3 +715,15 @@
 .rq-stop.is-error {
   color: #f87171;
 }
+
+.rq-overlay.is-leaving {
+  animation: fade-out 230ms var(--ease-in) forwards;
+}
+.rq-overlay.is-leaving .rq-sheet {
+  animation: rq-sheet-out 230ms var(--ease-in) forwards;
+}
+@keyframes rq-sheet-out {
+  to {
+    transform: translateY(100%);
+  }
+}

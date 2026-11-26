@@ -1630,3 +1630,16 @@ button.coffee-hrow {
   border-radius: 4px;
   background: var(--cof);
 }
+
+.coffee-sheet.is-leaving {
+  animation: fade-out var(--dur-sheet-exit) var(--ease-in) forwards;
+}
+.coffee-sheet.is-leaving .appliance-sheet {
+  animation: coffee-sheet-out var(--dur-sheet-exit) var(--ease-in) forwards;
+}
+@keyframes coffee-sheet-out {
+  to {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}

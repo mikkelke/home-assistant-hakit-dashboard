@@ -94,13 +94,15 @@
 /* Hero */
 .quick-weather-hero {
   margin-top: 0.9rem;
+  container-type: inline-size;
 }
 
 .quick-weather-hero-value {
-  font-size: clamp(2.3rem, 9vw, 2.6rem);
+  font-size: clamp(36.8px, 10.82cqi, 50px);
   font-weight: 200;
   line-height: 0.92;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
 }
 
 .quick-weather-hero-deg {

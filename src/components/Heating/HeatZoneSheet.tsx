@@ -3,7 +3,6 @@ import { Icon } from '@iconify/react';
 import type { CallServiceFunction, HassEntities } from '../../types';
 import { usePendingWrite } from '../../hooks/usePendingWrite';
 import { useNowMs } from '../../hooks/useNowMs';
-import { hapticTick } from '../../utils/haptics';
 import { localDay, type CallSpan } from '../../utils/heatCalls';
 import { KW_FIT } from '../../utils/heatEnergy';
 import {
@@ -208,7 +207,6 @@ export function HeatZoneSheet({ zone, entities, callService, calls = [], onClose
     if (shownBase == null) return;
     const next = Math.round((shownBase + delta) * 2) / 2;
     if ((lower != null && next < lower) || (upper != null && next > upper)) return;
-    hapticTick();
     request(next);
   };
 

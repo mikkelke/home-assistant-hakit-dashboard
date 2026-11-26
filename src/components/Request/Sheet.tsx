@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode, type TouchEventHandler } from 'react';
 import { createPortal } from 'react-dom';
+import { useExitGhost } from '../../hooks/useExitGhost';
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
@@ -37,6 +38,8 @@ interface SheetProps {
  */
 export function Sheet({ label, className, variant, onRequestClose, swipe, children }: SheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useExitGhost(overlayRef);
 
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
@@ -55,7 +58,7 @@ export function Sheet({ label, className, variant, onRequestClose, swipe, childr
   }, []);
 
   return createPortal(
-    <div className={`rq-overlay rq-overlay--${variant}`} onClick={onRequestClose}>
+    <div ref={overlayRef} className={`rq-overlay rq-overlay--${variant}`} onClick={onRequestClose}>
       <div
         ref={sheetRef}
         className={`rq-sheet rq-sheet--${variant}${className ? ` ${className}` : ''}`}

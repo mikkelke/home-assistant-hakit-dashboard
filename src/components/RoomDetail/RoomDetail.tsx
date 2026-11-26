@@ -18,6 +18,7 @@ import { CoffeeCard } from '../Coffee/CoffeeCard';
 import { isEventful } from '../../coffee/model';
 import { useCoffeeState } from '../../coffee/useCoffee';
 import { RoomClimateHeader } from './RoomClimateHeader';
+import { useExitGhost } from '../../hooks/useExitGhost';
 import { RoomTodo } from './RoomTodo';
 import { TerraceSection } from './TerraceSection';
 import { ROBOT_CLEAN_PREFIX, VACUUM_ENTITY, roomThermostat } from '../../config/entities';
@@ -72,6 +73,8 @@ export function RoomDetail({
   // One-shot scroll to a part of the room, asked for by whatever opened it (the weather sheet's Ice bath chip). Nothing
   // scrolls on an ordinary open, so the Sonos stays first.
   const contentRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  useExitGhost(panelRef);
   const terraceRef = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
     if (scrollToSection !== 'terrace') return;
@@ -147,6 +150,7 @@ export function RoomDetail({
 
   return (
     <div
+      ref={panelRef}
       className={`room-detail ${isMobile ? 'mobile' : 'desktop'}`}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}

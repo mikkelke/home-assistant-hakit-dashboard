@@ -55,6 +55,7 @@ import {
 } from '../../coffee/view';
 import { formatHomeClock } from '../../energy/homeTime';
 import { MotionScopeContext, useMotionSlot } from '../../home/motionBudget';
+import { useExitGhost } from '../../hooks/useExitGhost';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { useSky } from '../Home/useSky';
 import { AdviceCard } from './advice';
@@ -710,6 +711,8 @@ export default function CoffeeStage({ onClose }: CoffeeStageProps) {
   const nowMs = useClock(busy ? 1000 : 15_000);
   const sky = useSky();
   const phone = useIsMobile();
+  const stageRef = useRef<HTMLElement>(null);
+  useExitGhost(stageRef);
 
   const connected = useRef(false);
   const connectWanted = state != null && wantsConnect(state);
@@ -727,7 +730,7 @@ export default function CoffeeStage({ onClose }: CoffeeStageProps) {
 
   return (
     <MotionScopeContext.Provider value='stage'>
-      <section className={`coffee-stage ${phone ? 'is-phone' : ''}`} aria-label='Coffee'>
+      <section ref={stageRef} className={`coffee-stage ${phone ? 'is-phone' : ''}`} aria-label='Coffee'>
         <header className={`cs-head sky--${sky.phase}`}>
           <button type='button' className='cs-back' onClick={onClose}>
             <Icon icon='mdi:chevron-left' aria-hidden='true' />

@@ -210,7 +210,7 @@ A near-black ground, two families of charcoal surfaces, zinc text and a handful 
 - **Caption** (500 to 600, 11.5 px): sky chips, timeline chips, badges. Nothing meant to be read should go below this, though 123 declarations do.
 
 ### Named Rules
-**The Number-Is-The-Headline Rule.** On a tile or card the value (a temperature, a time left, a kWh) is the largest, boldest thing; its label is a chip or a caption.
+**The Number-Is-The-Headline Rule.** On a tile or card the value (a temperature, a time left, a kWh) is the largest, boldest thing; its label is a chip or a caption. A card hero sits in a size container (`container-type: inline-size` on its wrapper) and scales with it: `clamp(<phone size>, <phone size / 340 px> cqi, <about 1.35x>)`, so phones keep today's size and wider cards grow; it never wraps, tracks at -0.03em, and its unit is a light (300) fraction in `em`.
 
 ## Layout
 
@@ -233,7 +233,7 @@ Flat. Cards and tiles are separated from the ground by tone and a 1 px hairline,
 
 ## Shapes
 
-Soft and consistent by role: **24 px** device cards and sheets (`--radius-card`), **20 px** page cards (`--radius-page`), **16 px** tiles and the dock (`--radius-tile`), **15 px** chips (`--chip-radius`), **12 px** inputs and small panels (`--radius-chip`), **999 px** pills, **50%** icon buttons, glyph discs and badges. Glyph discs are tinted circles holding an icon. Press feedback is `transform: scale(0.97)` over `--dur-press` (120 ms) on `--ease-out` (cubic-bezier(0.23, 1, 0.32, 1)); sheets and stages enter over `--dur-sheet` (220 ms). Type sizes that recur have tokens: `--fs-caption` 11.5 px, `--fs-label` 13 px, `--fs-body` 15 px.
+Soft and consistent by role: **24 px** device cards and sheets (`--radius-card`), **20 px** page cards (`--radius-page`), **16 px** tiles and the dock (`--radius-tile`), **15 px** chips (`--chip-radius`), **12 px** inputs and small panels (`--radius-chip`), **999 px** pills, **50%** icon buttons, glyph discs and badges. Glyph discs are tinted circles holding an icon. Press feedback is `transform: scale(0.97)` over `--dur-press` (120 ms) on `--ease-out` (cubic-bezier(0.23, 1, 0.32, 1)); sheets and stages enter over `--dur-sheet` (220 ms) and leave in about 0.6x that on `--ease-in` (cubic-bezier(0.4, 0, 1, 1)), `--dur-sheet-exit` 130 ms; the room panel leaves in 180 ms. A leaving surface is an inert copy kept by `useExitGhost` until its `-out` animation ends. Every tap on a control (a button, a control role, a pointer cursor) gives one haptic tick from the root listener in `utils/haptics.ts`; call `hapticTick()` yourself only for ticks a tap does not cover (a slider step, a completed hold). Type sizes that recur have tokens: `--fs-caption` 11.5 px, `--fs-label` 13 px, `--fs-body` 15 px.
 
 **The Tint Ladder.** An accent sits over the surface at one of three shares, by role: `--tint-wash` 8% (a card or row that wants attention), `--tint-chip` 12% (a tappable chip's fill), `--tint-glyph` 16% (a glyph disc or icon well). Write `color-mix(in srgb, <accent> var(--tint-chip), transparent)`. Rims, pressed states, charts and frost keep their own shares.
 

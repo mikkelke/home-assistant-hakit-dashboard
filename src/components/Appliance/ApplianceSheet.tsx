@@ -1,7 +1,7 @@
 import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
-import { useModalBackButton, useSwipeToClose } from '../../hooks';
+import { useExitGhost, useModalBackButton, useSwipeToClose } from '../../hooks';
 
 export interface ApplianceSheetProps {
   /** Modifier class carrying this appliance's `--appliance-accent*` custom properties (see
@@ -42,6 +42,8 @@ export function ApplianceSheet({
   const { requestClose } = useModalBackButton({ isOpen: true, onRequestClose: onClose, historyKey });
   const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeToClose(requestClose);
   const sheetRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useExitGhost(overlayRef);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const requestCloseRef = useRef(requestClose);
   useEffect(() => {
@@ -77,7 +79,7 @@ export function ApplianceSheet({
   };
 
   return createPortal(
-    <div className={`appliance-modal-overlay ${accentClassName}`} onClick={requestClose}>
+    <div ref={overlayRef} className={`appliance-modal-overlay ${accentClassName}`} onClick={requestClose}>
       <div
         ref={sheetRef}
         className='appliance-sheet'

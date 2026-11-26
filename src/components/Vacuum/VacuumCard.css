@@ -82,17 +82,19 @@
 /* Hero */
 .rober-hero {
   margin-top: 0.9rem;
+  container-type: inline-size;
 }
 
 .rober-hero-value {
-  font-size: clamp(3.5rem, 14vw, 3.9rem);
+  font-size: clamp(56px, 16.47cqi, 76px);
   font-weight: 200;
   line-height: 0.92;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
 }
 
 .rober-hero-unit {
-  font-size: 1.4rem;
+  font-size: 0.4em;
   font-weight: 300;
   vertical-align: top;
   margin-left: 0.1rem;

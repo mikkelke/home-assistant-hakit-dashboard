@@ -39,6 +39,7 @@
 .cook-hero {
   min-width: 0;
   --cue-color: var(--text-1);
+  container-type: inline-size;
 }
 .cook-hero.is-heat {
   --cue-color: var(--heat);
@@ -57,11 +58,12 @@
 }
 .cook-cue {
   color: var(--cue-color);
-  font-size: 38px;
+  font-size: clamp(38px, 11.18cqi, 51px);
   font-weight: 700;
   line-height: 1.13;
-  letter-spacing: -.02em;
+  letter-spacing: -0.03em;
   margin: 3px 0 6px;
+  white-space: nowrap;
 }
 .cook-hero p {
   font-size: var(--fs-label);

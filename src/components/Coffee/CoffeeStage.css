@@ -871,3 +871,7 @@
 .is-phone .cs-side.is-paused > .cs-tile {
   grid-column: 1 / -1;
 }
+
+.coffee-stage.is-leaving {
+  animation: fade-out var(--dur-sheet-exit) var(--ease-in) forwards;
+}

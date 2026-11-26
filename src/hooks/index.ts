@@ -6,3 +6,4 @@ export { useLocalStorageBoolean } from './useLocalStorageBoolean';
 export { useLongPress } from './useLongPress';
 export { useViewer } from './useViewer';
 export type { Viewer } from './useViewer';
+export { useExitGhost } from './useExitGhost';

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { HassConnect } from '@hakit/core';
 import { Dashboard } from './components/Dashboard';
+import { installTapHaptics } from './utils/haptics';
 
 function hasInheritedHassConnection() {
   try {
@@ -35,6 +36,8 @@ function App() {
       el.style.overscrollBehavior = 'none';
     });
   }, []);
+
+  useEffect(() => installTapHaptics(), []);
 
   // Token only in dev to avoid embedding secrets in production builds. For production, use same-origin or HA auth.
   const hassToken = import.meta.env.DEV ? import.meta.env.VITE_HA_TOKEN : undefined;

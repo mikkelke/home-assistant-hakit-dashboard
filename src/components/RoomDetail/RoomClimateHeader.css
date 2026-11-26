@@ -311,3 +311,16 @@
     transition: none;
   }
 }
+
+.climate-sheet.is-leaving {
+  animation: fade-out var(--dur-sheet-exit) var(--ease-in) forwards;
+}
+.climate-sheet.is-leaving .appliance-sheet {
+  animation: climate-sheet-out var(--dur-sheet-exit) var(--ease-in) forwards;
+}
+@keyframes climate-sheet-out {
+  to {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}

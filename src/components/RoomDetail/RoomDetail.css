@@ -504,3 +504,12 @@
   left: 20px;
   background: #3b82f6;
 }
+
+.room-detail.mobile.is-leaving {
+  animation: room-detail-out 180ms var(--ease-in) forwards;
+}
+@keyframes room-detail-out {
+  to {
+    transform: translateY(100%);
+  }
+}

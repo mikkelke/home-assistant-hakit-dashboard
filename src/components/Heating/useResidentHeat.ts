@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import type { CallServiceFunction, HassEntities } from '../../types';
 import { usePendingWrite } from '../../hooks/usePendingWrite';
-import { hapticTick } from '../../utils/haptics';
 import {
   NUDGE_STEP_C,
   heatNum,
@@ -57,7 +56,6 @@ export function useResidentHeat(
   const shownTarget = target == null ? null : target + (nudge - actualNudge);
   const control = nudgeControl({ ...attrs, nudge }, shownTarget);
   const step = (direction: 1 | -1) => {
-    hapticTick();
     request(Math.round((nudge + direction * NUDGE_STEP_C) * 2) / 2);
   };
   return {

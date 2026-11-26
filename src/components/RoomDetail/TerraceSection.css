@@ -90,6 +90,7 @@
 
 /* The ice bath: the weather chip's frost and water line at the scale of a tile (see IceBath.css). */
 .terrace-hero {
+  container-type: inline-size;
   --ice-water-h: 18px;
   --ice-wave-h: 8px;
   --ice-wave-w: 64px;
@@ -136,18 +137,19 @@
 }
 
 .terrace-hero-value {
-  font-size: 3.4rem;
+  font-size: clamp(54.4px, 16cqi, 73px);
   font-weight: 650;
   line-height: 1.05;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
   color: color-mix(in oklab, #fff, var(--ice-ink) calc(var(--frost) * 100%));
 }
 
 .terrace-hero-value small {
   margin-left: 1px;
-  font-size: 1.6rem;
-  font-weight: 500;
+  font-size: 0.47em;
+  font-weight: 300;
   vertical-align: 0.95em;
 }
 

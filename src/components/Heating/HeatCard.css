@@ -87,17 +87,19 @@
 
 .heat-hero {
   margin-top: -0.25rem;
+  container-type: inline-size;
 }
 
 .heat-hero-value {
-  font-size: clamp(2.3rem, 9vw, 2.6rem);
+  font-size: clamp(36.8px, 10.82cqi, 50px);
   font-weight: 200;
   line-height: 0.92;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
 }
 
 .heat-hero-deg {
-  font-size: 1rem;
+  font-size: 0.435em;
   font-weight: 300;
   vertical-align: top;
   margin-left: 0.1rem;

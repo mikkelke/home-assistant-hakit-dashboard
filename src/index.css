@@ -28,6 +28,7 @@ html, body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --text-1: #e4e4e7;
   --text-2: #a1a1aa;
   --text-3: #8b8b94;
@@ -53,6 +54,7 @@ html, body {
   --chip-rim-tone: color-mix(in srgb, currentColor 40%, transparent);
   --dur-press: 120ms;
   --dur-sheet: 220ms;
+  --dur-sheet-exit: 130ms;
   --fs-caption: 11.5px;
   --fs-label: 13px;
   --fs-body: 15px;
@@ -219,4 +221,10 @@ body {
   font-size: 1rem;
   overflow-x: hidden;
   overflow-y: inherit;
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
 }
