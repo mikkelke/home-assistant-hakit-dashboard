@@ -244,6 +244,10 @@ export const SMART_COOLING_SHOWER_PAUSE = 'input_boolean.smart_cooling_shower_pa
 /** Bedroom comfort middle layer (AppDaemon BedroomComfort): dew point, effective ceiling, vent advice. */
 export const BEDROOM_COMFORT_SENSOR = 'sensor.bedroom_comfort';
 
+/** Bedroom humidifier (AppDaemon BedroomHumidifier): off | humidifying | drying | manual | no_water | unknown, with a
+ * plain-English `reason`. The app runs it; the dashboard only reads it. */
+export const BEDROOM_HUMIDIFIER_SENSOR = 'sensor.bedroom_humidifier';
+
 /** AC deploy advisor (AppDaemon DeployAdvisor): projected sleeping-zone night peaks without cooling. */
 export const BEDROOM_NIGHT_PROJECTION_SENSOR = 'sensor.bedroom_night_projection';
 

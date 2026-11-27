@@ -4,6 +4,7 @@ import type { HassEntities, CallServiceFunction } from '../../types';
 import { attrStr } from '../../types';
 import {
   AC_THERMOSTAT_ENTITY,
+  BEDROOM_HUMIDIFIER_SENSOR,
   OUTDOOR_TEMP_SENSOR,
   SLEEP_PLAN_SENSOR,
   SMART_COOLING_ENABLE,
@@ -23,7 +24,7 @@ import {
   zoneHasNudge,
   zoneSensorId,
 } from '../../utils/heating';
-import { composeClimateStory, comfortTone } from '../../utils/roomClimateStory';
+import { composeClimateStory, comfortTone, humidifierChip } from '../../utils/roomClimateStory';
 import { deriveFireSafety, isCooking } from '../../utils/fireSafety';
 import { worstAirBand } from '../../utils/airQuality';
 import { ApplianceSheet } from '../Appliance';
@@ -202,6 +203,12 @@ export function RoomClimateHeader({ roomName, entities, areaId, callService, aut
     };
   }, [entities, isBedroom]);
 
+  const humidifierEntity = isBedroom ? entities[BEDROOM_HUMIDIFIER_SENSOR] : undefined;
+  const humidifierState = humidifierEntity?.state;
+  const humidifier = useMemo(() => (humidifierState == null ? null : { state: humidifierState }), [humidifierState]);
+  // The app's own words for what it does, under the chips; only while its chip shows.
+  const humidifierReason = humidifierChip(humidifier) ? attrStr(humidifierEntity?.attributes?.reason) : '';
+
   const air = useMemo(
     () => (fire && fire.present ? { band: worstAirBand(fire.iaqBand, fire.eco2Band), cooking: isCooking(fire) } : null),
     [fire]
@@ -216,8 +223,9 @@ export function RoomClimateHeader({ roomName, entities, areaId, callService, aut
         heating: { present: !!thermostat, zoneOn, action: hvacAction },
         ac,
         air,
+        humidifier,
       }),
-    [feel, outdoorTempC, thermostat, zoneOn, hvacAction, ac, air]
+    [feel, outdoorTempC, thermostat, zoneOn, hvacAction, ac, air, humidifier]
   );
 
   // Temperature: the fused feel wins; an absent/unavailable feel falls back to the thermostat's
@@ -307,6 +315,7 @@ export function RoomClimateHeader({ roomName, entities, areaId, callService, aut
                 ))}
               </div>
             )}
+            {humidifierReason && <p className='climate-detail-note'>{humidifierReason}</p>}
             <div className='climate-grid'>
               <Stat label='Humidity' value={rh} unit='%' />
               <Stat label='Dew point' value={feel.available ? feel.dewPointC : null} unit='°C' digits={1} />

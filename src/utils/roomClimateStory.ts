@@ -38,6 +38,11 @@ export interface AcInput {
   verdictText: string;
 }
 
+export interface HumidifierInput {
+  /** sensor.bedroom_humidifier state: off | humidifying | drying | manual | no_water | unknown */
+  state: string;
+}
+
 export interface ClimateStoryInput {
   feel: RoomFeelModel;
   outdoorTempC: number | null;
@@ -46,6 +51,20 @@ export interface ClimateStoryInput {
   ac: AcInput | null;
   /** Kitchen only: the smoke alarm's fused air band and whether someone is cooking. */
   air: { band: AirBand; cooking: boolean } | null;
+  /** Bedroom only; null everywhere else. */
+  humidifier?: HumidifierInput | null;
+}
+
+const HUMIDIFIER_CHIPS: Record<string, ClimateChip> = {
+  humidifying: { id: 'humidifier', icon: 'mdi:air-humidifier', label: 'Humidifying', tone: 'cool' },
+  drying: { id: 'humidifier', icon: 'mdi:fan', label: 'Drying the wick', tone: 'neutral' },
+  manual: { id: 'humidifier', icon: 'mdi:hand-back-right', label: 'Humidifier by hand', tone: 'neutral' },
+  no_water: { id: 'humidifier', icon: 'mdi:water-off', label: 'Humidifier tank empty', tone: 'alert' },
+};
+
+/** The humidifier's chip while it does something or cannot; none while it is off or unknown. */
+export function humidifierChip(humidifier: HumidifierInput | null | undefined): ClimateChip | null {
+  return (humidifier && HUMIDIFIER_CHIPS[humidifier.state]) ?? null;
 }
 
 export interface ClimateStory {
@@ -85,7 +104,7 @@ function upperFirst(text: string): string {
 }
 
 export function composeClimateStory(input: ClimateStoryInput): ClimateStory {
-  const { feel, outdoorTempC, heating, ac, air } = input;
+  const { feel, outdoorTempC, heating, ac, air, humidifier } = input;
   const outside = outsideText(outdoorTempC);
   const opening = openingLabel(feel);
   const word = feel.comfortWord;
@@ -178,6 +197,8 @@ export function composeClimateStory(input: ClimateStoryInput): ClimateStory {
     else if (ac.deployed && ac.armed) chips.push({ id: 'ac', icon: 'mdi:snowflake', label: 'Cool night armed', tone: 'cool' });
     else if (ac.deployed) chips.push({ id: 'ac', icon: 'mdi:snowflake', label: 'A/C ready', tone: 'neutral' });
   }
+  const humid = humidifierChip(humidifier);
+  if (humid) chips.push(humid);
   if (feel.windowOpen) {
     const isDoor = /door/i.test(opening);
     chips.push({ id: 'open', icon: isDoor ? 'mdi:door-open' : 'mdi:window-open-variant', label: `${opening} open`, tone: 'neutral' });
