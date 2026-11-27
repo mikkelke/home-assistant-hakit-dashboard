@@ -14,6 +14,7 @@ const STAGE = [
   'carve',
   'low_water',
   'lost',
+  'no_target',
   'both',
 ] as const;
 const PHONE_STAGE: readonly string[] = ['ready', 'pull', 'resting', 'both'];

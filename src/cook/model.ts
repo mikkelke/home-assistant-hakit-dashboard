@@ -7,7 +7,7 @@ export const PROBE_PHASES = ['off', 'tracking', 'near', 'pull', 'resting', 'carv
 export type ProbePhase = (typeof PROBE_PHASES)[number];
 export const NEXT_KINDS = ['bath_ready', 'bag_in', 'bath_done', 'chill_done', 'pull', 'carve', 'low_water', 'lost'] as const;
 export type CookMomentKind = (typeof NEXT_KINDS)[number];
-export type PresetKey = 'beef' | 'lamb' | 'pork' | 'chicken' | 'duck' | 'fish' | 'custom';
+export type PresetKey = 'beef' | 'lamb' | 'pork' | 'chicken' | 'duck' | 'fish' | 'chicken_thigh' | 'custom';
 
 export interface CookPreset {
   key: PresetKey;
@@ -23,6 +23,7 @@ export const COOK_PRESETS: readonly CookPreset[] = [
   { key: 'chicken', serve: 66, pull: 64, rest: 10 },
   { key: 'duck', serve: 54, pull: 51, rest: 10 },
   { key: 'fish', serve: 50, pull: 48, rest: 5 },
+  { key: 'chicken_thigh', serve: 80, pull: 78, rest: 5 },
 ];
 
 export interface CookBath {

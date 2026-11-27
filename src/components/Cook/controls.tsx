@@ -13,6 +13,7 @@ const PRESET_ICONS: Record<PresetKey, string> = {
   chicken: 'mdi:food-drumstick',
   duck: 'mdi:duck',
   fish: 'mdi:fish',
+  chicken_thigh: 'mdi:food-turkey',
   custom: 'mdi:plus-minus',
 };
 
@@ -87,8 +88,8 @@ export function ProbeControls({ state }: { state: CookState }) {
   if (probe.phase === 'off') return null;
   const selecting = probe.phase === 'tracking' || probe.phase === 'near';
   const presets = state.presets.length ? state.presets : COOK_PRESETS;
-  const selected = probe.preset ?? 'beef';
-  const selectedServe = probe.serve ?? presets.find(preset => preset.key === selected)?.serve ?? 54;
+  const selected = probe.preset;
+  const selectedServe = probe.serve ?? presets.find(preset => preset.key === selected)?.serve ?? null;
   return (
     <div className='cook-probe-controls'>
       {selecting && (
@@ -96,14 +97,16 @@ export function ProbeControls({ state }: { state: CookState }) {
           <button
             type='button'
             className='cook-chip cook-preset-toggle is-selected'
-            aria-label={`Change serve temperature preset, ${selected} ${selectedServe} degrees`}
+            aria-label={
+              selected ? `Change serve temperature preset, ${selected} ${selectedServe} degrees` : 'No target set, choose a preset'
+            }
             aria-expanded={expanded}
             aria-controls={presetsId}
             disabled={pending}
             onClick={() => setExpanded(value => !value)}
           >
-            <Icon icon={PRESET_ICONS[selected]} aria-hidden='true' />
-            {selectedServe}°
+            {selected ? <Icon icon={PRESET_ICONS[selected]} aria-hidden='true' /> : null}
+            {selected && selectedServe != null ? `${selectedServe}°` : 'No target'}
             <Icon icon={expanded ? 'mdi:chevron-up' : 'mdi:chevron-down'} aria-hidden='true' />
           </button>
           {expanded && (

@@ -14,7 +14,7 @@ export function cookDemo(scenario: CookDemoScenario, nowMs = Date.now()): CookDe
       : 'off';
   const probePhase: ProbePhase = probePhases.includes(scenario)
     ? (scenario as ProbePhase)
-    : scenario === 'both' || scenario === 'lost'
+    : scenario === 'both' || scenario === 'lost' || scenario === 'no_target'
       ? 'tracking'
       : 'off';
   const bathActive = bathPhase !== 'off';
@@ -25,6 +25,7 @@ export function cookDemo(scenario: CookDemoScenario, nowMs = Date.now()): CookDe
   const resting = probePhase === 'resting' || probePhase === 'carve';
   const lowWater = scenario === 'low_water';
   const lost = scenario === 'lost';
+  const noTarget = scenario === 'no_target';
   const core = probePhase === 'pull' ? 50.2 : resting ? 53.8 : probePhase === 'near' ? 48.1 : 42.6;
   const eta = probePhase === 'near' ? 3 : 10;
   let nextKind = '';
@@ -63,6 +64,11 @@ export function cookDemo(scenario: CookDemoScenario, nowMs = Date.now()): CookDe
     nextAt = '';
     nextLabel = 'Low water';
   }
+  if (noTarget) {
+    nextKind = 'no_target';
+    nextAt = '';
+    nextLabel = 'No target set';
+  }
   if (lost) {
     nextKind = 'lost';
     nextAt = '';
@@ -87,15 +93,15 @@ export function cookDemo(scenario: CookDemoScenario, nowMs = Date.now()): CookDe
     bath_last_minutes: '150',
     bath_rate: '1.1',
     probe_phase: probePhase,
-    probe_preset: 'beef',
-    probe_serve: '54',
-    probe_pull: '50',
+    probe_preset: noTarget ? '' : 'beef',
+    probe_serve: noTarget ? '' : '54',
+    probe_pull: noTarget ? '' : '50',
     probe_core: String(core),
     probe_ambient: resting ? '23.8' : '172.4',
     probe_needle: `${Math.round((core + 1.5) * 10)},${Math.round(core * 10)},${Math.round((core + 0.6) * 10)},${Math.round((core + 3) * 10)}`,
     probe_core_index: '1',
     probe_in_meat: probeActive ? '1' : '0',
-    probe_eta: lost ? '' : iso(eta),
+    probe_eta: lost || noTarget ? '' : iso(eta),
     probe_slope: '0.74',
     probe_pulled_at: resting ? iso(-7) : '',
     probe_pulled_core: resting ? '50.2' : '',

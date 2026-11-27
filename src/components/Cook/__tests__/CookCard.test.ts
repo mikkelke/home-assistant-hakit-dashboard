@@ -214,7 +214,7 @@ describe('the Kitchen cooking card', () => {
     expect(document.querySelector('.cook-preset-toggle')?.textContent).toBe('54°');
     expect(document.querySelector('.cook-preset-toggle')?.getAttribute('aria-expanded')).toBe('false');
     await tap(document.querySelector('.cook-preset-toggle'));
-    expect(document.querySelector('.cook-presets')?.querySelectorAll('button')).toHaveLength(7);
+    expect(document.querySelector('.cook-presets')?.querySelectorAll('button')).toHaveLength(8);
     const pork = document.querySelector('button[aria-label="pork, serve 63 degrees, pull at 60"]') as HTMLElement;
     await tap(pork);
     expect(send).toHaveBeenLastCalledWith('probe_preset', { key: 'pork' });
@@ -224,6 +224,11 @@ describe('the Kitchen cooking card', () => {
     await tap(button('Use 54°'));
     expect(send).toHaveBeenLastCalledWith('probe_preset', { key: 'custom', serve: 54 });
     expect(document.querySelector('.cook-presets')).toBeNull();
+  });
+  it('says no target instead of a default preset when the app has none', () => {
+    show(state('off', 'tracking', { probe_preset: '', probe_serve: '', probe_pull: '', probe_in_meat: '1' }));
+    expect(document.querySelector('.cook-preset-toggle')?.textContent).toBe('No target');
+    expect(document.querySelector('.cook-preset-toggle')?.getAttribute('aria-label')).toBe('No target set, choose a preset');
   });
   it('shows the selected custom serve temperature in the collapsed preset chip', () => {
     show(state('off', 'tracking', { probe_preset: 'custom', probe_serve: '61.5' }));

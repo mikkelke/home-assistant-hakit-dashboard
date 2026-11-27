@@ -92,7 +92,7 @@ describe('the cooking stage', () => {
     expect(document.querySelector('.cook-presets')).toBeNull();
     act(() => toggle.click());
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
-    expect(document.querySelectorAll('.cook-presets button')).toHaveLength(7);
+    expect(document.querySelectorAll('.cook-presets button')).toHaveLength(8);
     act(() => toggle.click());
     expect(document.querySelector('.cook-presets')).toBeNull();
   });

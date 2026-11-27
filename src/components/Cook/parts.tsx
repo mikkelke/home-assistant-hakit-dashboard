@@ -152,6 +152,8 @@ function CookingSteps({ state, nowMs }: { state: CookState; nowMs: number }) {
           urgent: (index === 1 && state.probe.phase === 'pull') || (index === 3 && state.probe.phase === 'carve'),
         }))),
   ];
+  if (state.probe.phase !== 'off' && state.probe.inMeat && state.probe.pull == null)
+    steps.unshift({ label: 'No target', icon: 'mdi:target', status: 'alarm', urgent: true });
   if (state.nextKind === 'lost' || isProbeLost(state, nowMs))
     steps.unshift({ label: 'Probe lost', icon: 'mdi:bluetooth-off', status: 'alarm', urgent: true });
   if (state.bath.lowWater || state.nextKind === 'low_water')

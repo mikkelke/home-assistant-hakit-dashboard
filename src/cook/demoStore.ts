@@ -17,6 +17,7 @@ export const COOK_DEMO_SCENARIOS = [
   'carve',
   'low_water',
   'lost',
+  'no_target',
   'both',
 ] as const;
 export type CookDemoScenario = (typeof COOK_DEMO_SCENARIOS)[number];
